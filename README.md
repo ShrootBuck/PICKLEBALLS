@@ -64,8 +64,16 @@ appears in the app.
 
 The image is sent to `openai/gpt-5.6-sol` by default through OpenRouter. The
 request pins OpenAI's Flex tier, disables provider fallbacks, requires structured
-output support, and requests high reasoning. The route does not save the
-uploaded image or log the request body.
+output support, and requests high reasoning. After confirmation, the receipt is
+upserted and the original image is stored as Postgres `BYTEA` in a separate
+one-to-one row. Squad members can read it only through the authenticated image
+route; normal receipt queries never load the blob. The app keeps a rolling
+30-day calendar window. Each app load or receipt save deletes older commitments,
+check-ins, receipts, images, invites, verification rows, sessions, and rate-limit
+rows. Receipt images disappear through `ON DELETE CASCADE`. Change
+`rollingWindowDays` in `lib/rolling-retention.ts` when the group wants a different
+value. Users, password accounts, memberships, and the circle remain so a reset
+does not lock out the whole group.
 
 ## Checks
 

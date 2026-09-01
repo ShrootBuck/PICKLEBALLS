@@ -8,7 +8,7 @@ import { screenTimeExtractionSchema } from "@/lib/screen-time";
 export const runtime = "nodejs";
 
 const acceptedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-const maxFileSize = 8 * 1024 * 1024;
+const maxFileSize = 4 * 1024 * 1024;
 const defaultOpenRouterModel = "openai/gpt-5.6-sol";
 
 export async function POST(request: Request) {
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
   if (image.size > maxFileSize) {
     return NextResponse.json(
-      { error: "The screenshot must be smaller than 8 MB." },
+      { error: "The screenshot must be smaller than 4 MB." },
       { status: 413 },
     );
   }

@@ -44,7 +44,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
-import type { ScreenTimeExtraction } from "@/lib/screen-time";
+import type {
+  ScreenTimeExtraction,
+  StoredScreenTimeReceipt,
+} from "@/lib/screen-time";
 
 type View = "today" | "squad" | "receipts";
 type Signal = "Clear" | "Working" | "At risk";
@@ -209,6 +212,7 @@ function minutesLabel(value: number | null) {
 
 export default function PickleBallsApp({
   currentUser,
+  initialReceipt,
 }: {
   currentUser: {
     name: string;
@@ -216,6 +220,7 @@ export default function PickleBallsApp({
     initials: string;
     isAdmin: boolean;
   };
+  initialReceipt: StoredScreenTimeReceipt | null;
 }) {
   const [view, setView] = useState<View>("today");
   const [commitments, setCommitments] = useState(starterCommitments);
@@ -224,7 +229,9 @@ export default function PickleBallsApp({
   const [commitmentModalOpen, setCommitmentModalOpen] = useState(false);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const [signalMenuOpen, setSignalMenuOpen] = useState(false);
-  const [receipt, setReceipt] = useState<ScreenTimeExtraction | null>(null);
+  const [receipt, setReceipt] = useState<StoredScreenTimeReceipt | null>(
+    initialReceipt,
+  );
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1090,13 +1097,14 @@ function ReceiptModal({
   onConfirm,
 }: {
   onClose: () => void;
-  onConfirm: (receipt: ScreenTimeExtraction) => void;
+  onConfirm: (receipt: StoredScreenTimeReceipt) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [result, setResult] = useState<ScreenTimeExtraction | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(
@@ -1157,6 +1165,38 @@ function ReceiptModal({
     });
   }
 
+  async function confirmReceipt() {
+    if (!result) return;
+    setSaving(true);
+    setError(null);
+    const body = new FormData();
+    body.append("extraction", JSON.stringify(result));
+    if (file) body.append("image", file);
+
+    try {
+      const response = await fetch("/api/screen-time/receipts", {
+        method: "POST",
+        body,
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        receipt?: StoredScreenTimeReceipt;
+      };
+      if (!response.ok || !payload.receipt) {
+        throw new Error(payload.error ?? "Could not save this receipt.");
+      }
+      onConfirm(payload.receipt);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not save this receipt.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="modal-backdrop receipt-backdrop">
       <div
@@ -1206,7 +1246,7 @@ function ReceiptModal({
                   <ImagePlus size={27} />
                 </span>
                 <b>Drop the screenshot here</b>
-                <small>PNG, JPEG, or WebP · max 8 MB</small>
+                <small>PNG, JPEG, or WebP · max 4 MB</small>
               </>
             )}
             <input
@@ -1250,10 +1290,20 @@ function ReceiptModal({
             <button
               type="button"
               className="primary-button"
-              onClick={() => onConfirm(result)}
+              disabled={saving}
+              onClick={confirmReceipt}
             >
-              Confirm receipt
-              <Check size={16} />
+              {saving ? (
+                <>
+                  <span className="spinner" />
+                  Saving receipt…
+                </>
+              ) : (
+                <>
+                  Confirm receipt
+                  <Check size={16} />
+                </>
+              )}
             </button>
           ) : (
             <button

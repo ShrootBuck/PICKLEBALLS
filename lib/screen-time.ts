@@ -57,3 +57,12 @@ export const screenTimeExtractionSchema = z.object({
 });
 
 export type ScreenTimeExtraction = z.infer<typeof screenTimeExtractionSchema>;
+
+export const storedScreenTimeReceiptSchema = screenTimeExtractionSchema.extend({
+  id: z.string(),
+  imageUrl: z.string().nullable(),
+});
+
+export type StoredScreenTimeReceipt = z.infer<
+  typeof storedScreenTimeReceiptSchema
+>;

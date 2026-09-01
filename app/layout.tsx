@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   title: "Pickle Balls — earn your time back",
   description:
     "Daily promises, honest receipts, and four friends who call the bluff.",
+  icons: {
+    icon: "https://fav.farm/🎓",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
