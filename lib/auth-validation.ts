@@ -16,11 +16,19 @@ export const signUpSchema = z.object({
     .string()
     .min(12, "Use at least 12 characters. Yes, twelve.")
     .max(128, "Keep the password under 128 characters."),
-  inviteCode: z
+  inviteToken: z
     .string()
     .trim()
-    .min(1, "Get the squad code from whoever invited you.")
-    .max(80, "That invite code is not valid."),
+    .min(32, "That invite link is broken.")
+    .max(200, "That invite link is not valid."),
+});
+
+export const createInviteSchema = z.object({
+  label: z
+    .string()
+    .trim()
+    .min(2, "Say who this link is for.")
+    .max(80, "Keep the label under 80 characters."),
 });
 
 export type SignInInput = z.infer<typeof signInSchema>;

@@ -210,7 +210,12 @@ function minutesLabel(value: number | null) {
 export default function PickleBallsApp({
   currentUser,
 }: {
-  currentUser: { name: string; email: string; initials: string };
+  currentUser: {
+    name: string;
+    email: string;
+    initials: string;
+    isAdmin: boolean;
+  };
 }) {
   const [view, setView] = useState<View>("today");
   const [commitments, setCommitments] = useState(starterCommitments);
@@ -374,6 +379,14 @@ export default function PickleBallsApp({
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
+                {currentUser.isAdmin && (
+                  <DropdownMenuItem
+                    onClick={() => window.location.assign("/admin")}
+                  >
+                    <ShieldCheck />
+                    Invite admin
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem variant="destructive" onClick={signOut}>
                   <LogOut />
                   Sign out

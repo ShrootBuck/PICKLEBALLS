@@ -31,8 +31,13 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 12,
     maxPasswordLength: 128,
-    revokeSessionsOnPasswordReset: true,
   },
+  disabledPaths: [
+    "/request-password-reset",
+    "/reset-password",
+    "/send-verification-email",
+    "/verify-email",
+  ],
   user: {
     additionalFields: {
       initials: {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -37,12 +38,12 @@ const copy = {
     description:
       "We know ur gonna do some bullshit today. At least make it visible.",
     submit: "Sign in",
-    alternate: "No account?",
-    alternateAction: "Use a squad invite",
-    alternateHref: "/sign-up",
+    alternate: "No account? Get a one-time invite from Zayd.",
+    alternateAction: null,
+    alternateHref: null,
   },
   "sign-up": {
-    eyebrow: "INVITE ONLY",
+    eyebrow: "ONE-TIME INVITE",
     title: "Join the accountability group.",
     description:
       "Your friends will see the promises, the receipts, and the excuses. Good.",
@@ -51,12 +52,35 @@ const copy = {
     alternateAction: "Sign in",
     alternateHref: "/sign-in",
   },
-} satisfies Record<AuthMode, Record<string, string>>;
+} satisfies Record<
+  AuthMode,
+  {
+    eyebrow: string;
+    title: string;
+    description: string;
+    submit: string;
+    alternate: string;
+    alternateAction: string | null;
+    alternateHref: string | null;
+  }
+>;
 
-export function AuthForm({ mode }: { mode: AuthMode }) {
+export function AuthForm({
+  mode,
+  inviteToken,
+  invitedEmail,
+  inviteLabel,
+  initialError,
+}: {
+  mode: AuthMode;
+  inviteToken?: string;
+  invitedEmail?: string | null;
+  inviteLabel?: string | null;
+  initialError?: string;
+}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const content = copy[mode];
 
@@ -131,23 +155,36 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
       <form onSubmit={submit} noValidate>
         <CardContent>
+          {mode === "sign-up" && inviteLabel && (
+            <Badge variant="secondary" className="mb-5">
+              Invite for {inviteLabel}
+            </Badge>
+          )}
+
           <FieldGroup>
             {mode === "sign-up" && (
-              <Field data-invalid={Boolean(fieldErrors.name)}>
-                <FieldLabel htmlFor="name">Name</FieldLabel>
-                <Input
-                  id="name"
-                  name="name"
-                  autoComplete="name"
-                  placeholder="What your friends call you"
-                  aria-invalid={Boolean(fieldErrors.name)}
-                  disabled={pending}
-                  required
+              <>
+                <input
+                  type="hidden"
+                  name="inviteToken"
+                  value={inviteToken ?? ""}
                 />
-                <FieldError
-                  errors={fieldErrors.name?.map((message) => ({ message }))}
-                />
-              </Field>
+                <Field data-invalid={Boolean(fieldErrors.name)}>
+                  <FieldLabel htmlFor="name">Name</FieldLabel>
+                  <Input
+                    id="name"
+                    name="name"
+                    autoComplete="name"
+                    placeholder="What your friends call you"
+                    aria-invalid={Boolean(fieldErrors.name)}
+                    disabled={pending}
+                    required
+                  />
+                  <FieldError
+                    errors={fieldErrors.name?.map((message) => ({ message }))}
+                  />
+                </Field>
+              </>
             )}
 
             <Field data-invalid={Boolean(fieldErrors.email)}>
@@ -158,10 +195,17 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
                 type="email"
                 autoComplete="email"
                 placeholder="you@example.com"
+                defaultValue={invitedEmail ?? undefined}
+                readOnly={Boolean(invitedEmail)}
                 aria-invalid={Boolean(fieldErrors.email)}
                 disabled={pending}
                 required
               />
+              {invitedEmail && (
+                <FieldDescription>
+                  This bootstrap invite is locked to your admin email.
+                </FieldDescription>
+              )}
               <FieldError
                 errors={fieldErrors.email?.map((message) => ({ message }))}
               />
@@ -190,20 +234,10 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
               />
             </Field>
 
-            {mode === "sign-up" && (
-              <Field data-invalid={Boolean(fieldErrors.inviteCode)}>
-                <FieldLabel htmlFor="inviteCode">Squad code</FieldLabel>
-                <Input
-                  id="inviteCode"
-                  name="inviteCode"
-                  autoComplete="off"
-                  placeholder="Get it from a friend"
-                  aria-invalid={Boolean(fieldErrors.inviteCode)}
-                  disabled={pending}
-                  required
-                />
+            {mode === "sign-up" && fieldErrors.inviteToken && (
+              <Field data-invalid>
                 <FieldError
-                  errors={fieldErrors.inviteCode?.map((message) => ({
+                  errors={fieldErrors.inviteToken.map((message) => ({
                     message,
                   }))}
                 />
@@ -236,12 +270,14 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           </Button>
           <p className="auth-alternate">
             {content.alternate}{" "}
-            <Link
-              href={content.alternateHref}
-              className={buttonVariants({ variant: "link", size: "sm" })}
-            >
-              {content.alternateAction}
-            </Link>
+            {content.alternateHref && content.alternateAction && (
+              <Link
+                href={content.alternateHref}
+                className={buttonVariants({ variant: "link", size: "sm" })}
+              >
+                {content.alternateAction}
+              </Link>
+            )}
           </p>
         </CardFooter>
       </form>

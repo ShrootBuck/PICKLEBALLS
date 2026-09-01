@@ -32,19 +32,28 @@ bun run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-The seed creates the `Pickle Balls` circle and the local invite code
-`PICKLE-BALLS-04`. Change that code before a public deployment.
+The seed creates the `Pickle Balls` circle and placeholder member profiles. It
+does not create password accounts.
 
 ## Authentication
 
 Better Auth owns users, password accounts, database sessions, and auth rate
-limits. Sign-up goes through `/api/join`, which validates the circle invite
-before it calls Better Auth. Calling Better Auth's public email sign-up route
-directly is blocked.
+limits. Calling Better Auth's public email sign-up route directly is blocked.
+Registration only works at a one-time `/join/[token]` URL.
+
+Bootstrap `zayd@zaydkrunz.com` once from the terminal:
+
+```bash
+bun run auth:bootstrap-admin
+```
+
+Open the printed link and create the admin password. After that, use `/admin`
+to make seven-day, single-use links for the other members. Only a SHA-256 hash
+of each token is stored, so copy a new link when the panel shows it.
 
 The home page and Screen Time analysis route require a valid session. Passwords
-must have at least 12 characters. Email verification and password reset are not
-enabled yet because those flows need a real email provider.
+must have at least 12 characters. There is deliberately no email delivery,
+verification, or automated password reset in this four-person version.
 
 ## Screen Time extraction
 
@@ -53,8 +62,10 @@ AI SDK structured output extracts only the visible Screen Time values. The perso
 who uploaded the image must review and confirm those values before the receipt
 appears in the app.
 
-The image is sent to the OpenRouter model configured by `OPENROUTER_MODEL`. The
-route does not save the uploaded image or log the request body.
+The image is sent to `openai/gpt-5.6-sol` by default through OpenRouter. The
+request pins OpenAI's Flex tier, disables provider fallbacks, requires structured
+output support, and requests high reasoning. The route does not save the
+uploaded image or log the request body.
 
 ## Checks
 

@@ -2,6 +2,7 @@ import { APIError } from "better-auth/api";
 import { NextResponse } from "next/server";
 import { auth, internalSignupHeader } from "@/lib/auth";
 import { signUpSchema } from "@/lib/auth-validation";
+import { hashInviteToken, inviteClaimLifetimeMs } from "@/lib/invites";
 import { getPrisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -27,22 +28,62 @@ export async function POST(request: Request) {
     );
   }
 
-  const { inviteCode, name, email, password } = parsed.data;
+  const { inviteToken, name, email, password } = parsed.data;
   const prisma = getPrisma();
-  const circle = await prisma.circle.findUnique({
-    where: { inviteCode },
-    select: { id: true },
+  const now = new Date();
+  const tokenHash = hashInviteToken(inviteToken);
+  const invite = await prisma.invite.findFirst({
+    where: {
+      tokenHash,
+      expiresAt: { gt: now },
+      revokedAt: null,
+      usedAt: null,
+      OR: [{ claimExpiresAt: null }, { claimExpiresAt: { lt: now } }],
+    },
+    select: {
+      id: true,
+      circleId: true,
+      email: true,
+      role: true,
+    },
   });
 
-  if (!circle) {
+  if (!invite) {
     return NextResponse.json(
-      { error: "That squad code is fake as hell." },
+      { error: "That invite is dead, expired, or already used." },
       { status: 403 },
+    );
+  }
+
+  if (invite.email && invite.email.toLowerCase() !== email) {
+    return NextResponse.json(
+      { error: `This invite is locked to ${invite.email}.` },
+      { status: 403 },
+    );
+  }
+
+  const claimExpiresAt = new Date(now.getTime() + inviteClaimLifetimeMs);
+  const claim = await prisma.invite.updateMany({
+    where: {
+      id: invite.id,
+      expiresAt: { gt: now },
+      revokedAt: null,
+      usedAt: null,
+      OR: [{ claimExpiresAt: null }, { claimExpiresAt: { lt: now } }],
+    },
+    data: { claimExpiresAt },
+  });
+
+  if (claim.count !== 1) {
+    return NextResponse.json(
+      { error: "Someone is already using that invite. Try again shortly." },
+      { status: 409 },
     );
   }
 
   const authHeaders = new Headers(request.headers);
   authHeaders.set(internalSignupHeader, secret);
+  let createdUserId: string | undefined;
 
   try {
     const result = await auth.api.signUpEmail({
@@ -50,32 +91,42 @@ export async function POST(request: Request) {
       headers: authHeaders,
       returnHeaders: true,
     });
+    createdUserId = result.response.user.id;
 
-    try {
-      const memberCount = await prisma.membership.count({
-        where: { circleId: circle.id },
+    await prisma.$transaction(async (transaction) => {
+      const redemption = await transaction.invite.updateMany({
+        where: {
+          id: invite.id,
+          claimExpiresAt,
+          revokedAt: null,
+          usedAt: null,
+        },
+        data: {
+          claimExpiresAt: null,
+          usedAt: new Date(),
+          usedById: result.response.user.id,
+        },
       });
 
-      await prisma.membership.upsert({
+      if (redemption.count !== 1) {
+        throw new Error("Invite claim was lost before redemption.");
+      }
+
+      await transaction.membership.upsert({
         where: {
           userId_circleId: {
             userId: result.response.user.id,
-            circleId: circle.id,
+            circleId: invite.circleId,
           },
         },
-        update: {},
+        update: { role: invite.role },
         create: {
           userId: result.response.user.id,
-          circleId: circle.id,
-          role: memberCount === 0 ? "OWNER" : "MEMBER",
+          circleId: invite.circleId,
+          role: invite.role,
         },
       });
-    } catch (membershipError) {
-      await prisma.user
-        .delete({ where: { id: result.response.user.id } })
-        .catch(() => undefined);
-      throw membershipError;
-    }
+    });
 
     const responseHeaders = new Headers(result.headers);
     responseHeaders.set("content-type", "application/json");
@@ -85,6 +136,23 @@ export async function POST(request: Request) {
       headers: responseHeaders,
     });
   } catch (error) {
+    if (createdUserId) {
+      await prisma.user
+        .delete({ where: { id: createdUserId } })
+        .catch(() => undefined);
+    }
+
+    await prisma.invite
+      .updateMany({
+        where: {
+          id: invite.id,
+          claimExpiresAt,
+          usedAt: null,
+        },
+        data: { claimExpiresAt: null },
+      })
+      .catch(() => undefined);
+
     if (error instanceof APIError) {
       return NextResponse.json(
         { error: error.message || "Could not create the account." },

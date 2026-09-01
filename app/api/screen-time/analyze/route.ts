@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 
 const acceptedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxFileSize = 8 * 1024 * 1024;
+const defaultOpenRouterModel = "openai/gpt-5.6-sol";
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -61,7 +62,16 @@ export async function POST(request: Request) {
 
     const { output } = await generateText({
       model: openrouter(
-        process.env.OPENROUTER_MODEL ?? "google/gemini-3.7-flash",
+        process.env.OPENROUTER_MODEL ?? defaultOpenRouterModel,
+        {
+          reasoning: { effort: "high", exclude: true },
+          provider: {
+            only: ["openai/flex"],
+            allow_fallbacks: false,
+            require_parameters: true,
+          },
+          extraBody: { service_tier: "flex" },
+        },
       ),
       output: Output.object({ schema: screenTimeExtractionSchema }),
       system:

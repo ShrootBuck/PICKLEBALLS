@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { isAdminEmail } from "@/lib/invites";
 import PickleBallsApp from "./pickle-balls-app";
 
 function initials(name: string) {
@@ -23,6 +24,7 @@ export default async function Home() {
         name: session.user.name,
         email: session.user.email,
         initials: session.user.initials ?? initials(session.user.name) ?? "PB",
+        isAdmin: isAdminEmail(session.user.email),
       }}
     />
   );

@@ -1679,6 +1679,54 @@ button {
   color: var(--muted-foreground);
   font-size: 12px;
 }
+.admin-shell {
+  min-height: 100vh;
+  padding: 56px clamp(20px, 5vw, 72px);
+  background:
+    radial-gradient(circle at 12% 5%, rgba(205, 255, 50, 0.13), transparent 30%),
+    var(--background);
+}
+.admin-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  width: min(1180px, 100%);
+  margin: 0 auto 32px;
+}
+.admin-header h1 {
+  margin: 8px 0 6px;
+  font-size: clamp(38px, 6vw, 72px);
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+}
+.admin-header p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 15px;
+}
+.admin-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+.admin-kicker svg {
+  width: 16px;
+  height: 16px;
+}
+.admin-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.8fr) minmax(480px, 1.4fr);
+  gap: 20px;
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  align-items: start;
+}
 
 @media (max-width: 980px) {
   .auth-shell {
@@ -1699,6 +1747,13 @@ button {
   }
   .auth-form-side {
     padding: 48px 24px;
+  }
+  .admin-header {
+    align-items: start;
+    flex-direction: column;
+  }
+  .admin-grid {
+    grid-template-columns: 1fr;
   }
   .sidebar {
     transform: translateX(-100%);
