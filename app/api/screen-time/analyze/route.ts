@@ -1,6 +1,8 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText, Output } from "ai";
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { screenTimeExtractionSchema } from "@/lib/screen-time";
 
 export const runtime = "nodejs";
@@ -9,6 +11,11 @@ const acceptedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxFileSize = 8 * 1024 * 1024;
 
 export async function POST(request: Request) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    return NextResponse.json({ error: "Sign in first." }, { status: 401 });
+  }
+
   const apiKey = process.env.OPENROUTER_API_KEY;
 
   if (!apiKey) {

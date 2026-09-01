@@ -1,0 +1,16 @@
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { AuthForm } from "@/components/auth/auth-form";
+import { AuthScreen } from "@/components/auth/auth-screen";
+import { auth } from "@/lib/auth";
+
+export default async function SignUpPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (session) redirect("/");
+
+  return (
+    <AuthScreen>
+      <AuthForm mode="sign-up" />
+    </AuthScreen>
+  );
+}

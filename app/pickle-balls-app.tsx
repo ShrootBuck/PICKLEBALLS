@@ -15,6 +15,7 @@ import {
   ImagePlus,
   LayoutGrid,
   LockKeyhole,
+  LogOut,
   Menu,
   MessageCircle,
   MoreHorizontal,
@@ -31,6 +32,18 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { AvatarFallback, Avatar as UiAvatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { authClient } from "@/lib/auth-client";
 import type { ScreenTimeExtraction } from "@/lib/screen-time";
 
 type View = "today" | "squad" | "receipts";
@@ -161,7 +174,7 @@ const reliabilityBarData = [
   80, 100, 69, 100, 91, 35, 100, 74, 88, 100, 66, 100, 100, 46,
 ].map((height, index) => ({ id: `day-${index + 1}`, height }));
 
-function Avatar({
+function MemberAvatar({
   member,
   small = false,
 }: {
@@ -194,7 +207,11 @@ function minutesLabel(value: number | null) {
     : `${minutes}m`;
 }
 
-export default function PickleBallsApp() {
+export default function PickleBallsApp({
+  currentUser,
+}: {
+  currentUser: { name: string; email: string; initials: string };
+}) {
   const [view, setView] = useState<View>("today");
   const [commitments, setCommitments] = useState(starterCommitments);
   const [signal, setSignal] = useState<Signal>("Working");
@@ -215,21 +232,27 @@ export default function PickleBallsApp() {
   const completion = Math.round((done / commitments.length) * 100);
   const currentMembers = useMemo(
     () =>
-      members.map((member) =>
-        member.name === "Zayd"
-          ? {
-              ...member,
-              signal,
-              progress: `${done}/${commitments.length}`,
-              detail:
-                signal === "Clear"
-                  ? "All promises shipped"
-                  : `${commitments.length - done} promises left`,
-            }
-          : member,
-      ),
-    [commitments.length, done, signal],
+      [
+        {
+          name: currentUser.name,
+          initials: currentUser.initials,
+          color: "lime",
+          signal,
+          progress: `${done}/${commitments.length}`,
+          detail:
+            signal === "Clear"
+              ? "All promises shipped"
+              : `${commitments.length - done} promises left`,
+        },
+        ...members.filter((member) => member.name !== currentUser.name),
+      ].slice(0, 4),
+    [commitments.length, currentUser, done, signal],
   );
+
+  async function signOut() {
+    await authClient.signOut();
+    window.location.assign("/sign-in");
+  }
 
   function navigate(nextView: View) {
     setView(nextView);
@@ -258,7 +281,7 @@ export default function PickleBallsApp() {
       { id: Date.now(), title, definition, due, done: false },
     ]);
     setCommitmentModalOpen(false);
-    setToast("Promise added. Now it counts.");
+    setToast("Promise added. No pretending you forgot.");
   }
 
   return (
@@ -315,18 +338,49 @@ export default function PickleBallsApp() {
             <Target size={19} />
           </span>
           <p>
-            <b>The actual goal</b>Finish the work. Stop scrolling. Go play
-            pickleball.
+            <b>The actual goal</b>Finish the work. Stop feeding the rectangle.
+            Go play pickleball.
           </p>
         </div>
 
         <div className="profile-row">
-          <Avatar member={currentMembers[0]} />
+          <UiAvatar>
+            <AvatarFallback>{currentUser.initials}</AvatarFallback>
+          </UiAvatar>
           <span>
-            <b>Zayd</b>
+            <b>{currentUser.name}</b>
             <small>Pickle Balls</small>
           </span>
-          <MoreHorizontal size={18} />
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Open account menu"
+                />
+              }
+            >
+              <MoreHorizontal />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>
+                  <span className="account-menu-name">{currentUser.name}</span>
+                  <span className="account-menu-email">
+                    {currentUser.email}
+                  </span>
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem variant="destructive" onClick={signOut}>
+                  <LogOut />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
 
@@ -356,7 +410,7 @@ export default function PickleBallsApp() {
           <div className="topbar-right">
             <div className="avatar-stack">
               {currentMembers.slice(0, 3).map((member) => (
-                <Avatar key={member.name} member={member} small />
+                <MemberAvatar key={member.name} member={member} small />
               ))}
               <span className="avatar avatar-small avatar-extra">+1</span>
             </div>
@@ -438,7 +492,7 @@ export default function PickleBallsApp() {
           onConfirm={(result) => {
             setReceipt(result);
             setReceiptModalOpen(false);
-            setToast("Screen Time receipt confirmed.");
+            setToast("Receipt confirmed. The rectangle has been exposed.");
           }}
         />
       )}
@@ -487,8 +541,8 @@ function TodayView({
           </h1>
         </div>
         <p>
-          You do not need another planner. Make a few specific promises, post
-          honest evidence, and let the group call the bluff.
+          We know ur gonna do some bullshit today. Make three promises, post the
+          evidence, and give the group permission to call it out.
         </p>
       </section>
 
@@ -528,7 +582,7 @@ function TodayView({
               <span className="panel-kicker">
                 YOUR PUBLIC PROMISES · OPEN UNTIL 4 PM
               </span>
-              <h2>What must be true by tonight?</h2>
+              <h2>What the fuck are you actually finishing?</h2>
             </div>
             <div
               className="completion-ring"
@@ -571,7 +625,9 @@ function TodayView({
               disabled={commitments.length >= 3}
             >
               <Plus size={16} />
-              {commitments.length >= 3 ? "Three is enough" : "Add promise"}
+              {commitments.length >= 3
+                ? "Three is enough. Do them."
+                : "Add promise"}
             </button>
             <span>
               <b>
@@ -634,7 +690,7 @@ function TodayView({
                   <i />
                 </span>
               </div>
-              <h2>Post the unflattering screenshot.</h2>
+              <h2>Post the screenshot you wish looked better.</h2>
               <p>
                 The AI extracts totals and top apps. You review every value
                 before anyone else sees it.
@@ -656,7 +712,7 @@ function TodayView({
           <header className="panel-heading compact">
             <div>
               <span className="panel-kicker">SQUAD PULSE</span>
-              <h2>Who needs a push?</h2>
+              <h2>Who is currently full of shit?</h2>
             </div>
             <button type="button" onClick={onSquad} aria-label="Open squad">
               <ArrowRight size={17} />
@@ -665,7 +721,7 @@ function TodayView({
           <div className="member-list">
             {members.map((member) => (
               <div className="member-row" key={member.name}>
-                <Avatar member={member} />
+                <MemberAvatar member={member} />
                 <span>
                   <b>{member.name}</b>
                   <small>{member.detail}</small>
@@ -692,7 +748,7 @@ function TodayView({
           </header>
           <div className="activity-list">
             <div>
-              <Avatar member={members[1]} small />
+              <MemberAvatar member={members[1]} small />
               <p>
                 <b>David cleared the day</b>
                 <span>
@@ -703,7 +759,7 @@ function TodayView({
               <time>18m</time>
             </div>
             <div>
-              <Avatar member={members[3]} small />
+              <MemberAvatar member={members[3]} small />
               <p>
                 <b>Khalid raised a blocker</b>
                 <span>
@@ -714,7 +770,7 @@ function TodayView({
               <time>41m</time>
             </div>
             <div>
-              <Avatar member={members[2]} small />
+              <MemberAvatar member={members[2]} small />
               <p>
                 <b>Eddie changed one promise</b>
                 <span>
@@ -739,7 +795,7 @@ function TodayView({
           <b>03</b>Ask for help before the deadline
         </span>
         <span>
-          <b>04</b>Proof beats a good excuse
+          <b>04</b>Proof beats whatever story you cooked up
         </span>
       </section>
     </>
@@ -761,15 +817,16 @@ function SquadView({ members }: { members: Member[] }) {
           </h1>
         </div>
         <p>
-          No public humiliation. No productivity cosplay. The group sees what
-          you promised, what happened, and whether you asked for help early.
+          No fake hustle. No productivity cosplay. The group sees what you
+          promised, what happened, and whether you asked for help before the
+          whole thing went to shit.
         </p>
       </section>
       <section className="member-grid">
         {members.map((member, index) => (
           <article className="member-card" key={member.name}>
             <header>
-              <Avatar member={member} />
+              <MemberAvatar member={member} />
               <em
                 className={`signal-label signal-label-${member.signal.toLowerCase().replace(" ", "-")}`}
               >
@@ -855,8 +912,8 @@ function ReceiptsView({
           </h1>
         </div>
         <p>
-          Screen Time is supporting evidence, not the score. The score is
-          whether you finished the important work you said you would finish.
+          Screen Time is evidence, not the score. The score is whether you did
+          the damn thing you said you would do.
         </p>
       </section>
       <section className="receipts-layout">
