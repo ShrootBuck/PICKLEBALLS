@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MembershipRole {
+  OWNER
+  MEMBER
+}
+
+enum CommitmentStatus {
+  OPEN
+  SHIPPED
+  MISSED
+  RENEGOTIATED
+}
+
+enum DailySignal {
+  WORKING
+  CLEAR
+  AT_RISK
+}
+
+enum ReceiptReviewStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  initials    String
+  avatarColor String   @default("lime")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships Membership[]
+  commitments Commitment[]
+  checkIns    CheckIn[]
+  receipts    ScreenTimeReceipt[]
+}
+
+model Circle {
+  id         String   @id @default(cuid())
+  name       String
+  inviteCode String   @unique @default(cuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  memberships Membership[]
+  commitments Commitment[]
+  checkIns    CheckIn[]
+  receipts    ScreenTimeReceipt[]
+}
+
+model Membership {
+  userId    String
+  circleId  String
+  role      MembershipRole @default(MEMBER)
+  createdAt DateTime       @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, circleId])
+  @@index([circleId])
+}
+
+model Commitment {
+  id                 String           @id @default(cuid())
+  userId             String
+  circleId           String
+  day                DateTime         @db.Date
+  title              String
+  definitionOfDone   String?
+  dueAt              DateTime
+  status             CommitmentStatus @default(OPEN)
+  evidenceUrl        String?
+  evidenceNote       String?
+  completedAt        DateTime?
+  renegotiatedFromId String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@index([circleId, day])
+  @@index([userId, day])
+}
+
+model CheckIn {
+  id        String      @id @default(cuid())
+  userId    String
+  circleId  String
+  day       DateTime    @db.Date
+  signal    DailySignal @default(WORKING)
+  blocker   String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, circleId, day])
+  @@index([circleId, day])
+}
+
+model ScreenTimeReceipt {
+  id                     String              @id @default(cuid())
+  userId                 String
+  circleId               String
+  reportDate             DateTime            @db.Date
+  capturedAt             DateTime            @default(now())
+  imageUrl               String?
+  view                   String
+  dailyAverageMinutes    Int?
+  totalScreenTimeMinutes Int?
+  socialMinutes          Int?
+  pickups                Int?
+  topApps                Json
+  aiSummary              String
+  confidence             Float
+  warnings               Json
+  reviewStatus           ReceiptReviewStatus @default(PENDING)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, circleId, reportDate])
+  @@index([circleId, reportDate])
+}

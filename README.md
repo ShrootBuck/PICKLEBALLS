@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pickle Balls
 
-## Getting Started
+Pickle Balls is a small-group accountability app. You make up to three concrete promises, report blockers before the deadline, and post a daily Screen Time receipt. The goal is not to schedule pickleball. The goal is to stop losing the time to scrolling.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 and React 19
+- Prisma ORM 7 with PostgreSQL
+- AI SDK 7 with OpenRouter
+- Biome and TypeScript
+
+## Local setup
+
+Install dependencies and create the local environment file:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
+cp .env.example .env
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Add a PostgreSQL URL and an OpenRouter API key to `.env`, then prepare the database:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+bun run db:generate
+bun run db:migrate
+bun run db:seed
+bun run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open [http://localhost:3000](http://localhost:3000).
 
-## Learn More
+The interface uses demo state until a database URL is configured. The Prisma schema already models users, circles, memberships, daily commitments, check-ins, and reviewed Screen Time receipts.
 
-To learn more about Next.js, take a look at the following resources:
+## Screen Time extraction
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`POST /api/screen-time/analyze` accepts one PNG, JPEG, or WebP file up to 8 MB. AI SDK structured output extracts only the visible Screen Time values. The person who uploaded the image must review and confirm those values before the receipt appears in the app.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The image is sent to the OpenRouter model configured by `OPENROUTER_MODEL`. The route does not save the uploaded image or log the request body.
 
-## Deploy on Vercel
+## Checks
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+bun run lint
+bun run typecheck
+bun run build
+bun run db:validate
+```
