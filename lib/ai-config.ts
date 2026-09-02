@@ -1,5 +1,5 @@
-export const aiModelId = "openai/gpt-5.6-sol";
-export const aiProviderRoute = "openai/flex";
+export const aiModelId = "meta/muse-spark-1.3-contributor";
+export const aiProviderRoute = "meta";
 export const aiHourlyLimit = 20;
 export const aiTimeoutMs = 60_000;
 export const aiMaxRetries = 1;
@@ -10,11 +10,9 @@ export function openRouterModelSettings(effort: AIEffort, userId: string) {
   return {
     reasoning: { effort, exclude: true },
     provider: {
-      only: [aiProviderRoute],
       allow_fallbacks: false,
       require_parameters: true,
     },
-    extraBody: { service_tier: "flex" },
     user: userId,
     usage: { include: true },
   } as const;

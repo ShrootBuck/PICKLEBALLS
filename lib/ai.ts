@@ -153,7 +153,7 @@ export function extractScreenTime(
     userId,
     circleId,
     feature: "SCREEN_TIME_EXTRACTION",
-    effort: "medium",
+    effort: "high",
     maxOutputTokens: 900,
     system: `You read Apple Screen Time screenshots. ${injectionGuard} Convert hours and minutes to total minutes. Use null for cropped or absent metrics. Never shame the person.`,
     messages: [

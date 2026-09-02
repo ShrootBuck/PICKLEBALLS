@@ -10,7 +10,7 @@ Screen Time receipts are a separate flow — just an image, the LLM reads it, an
 - Next.js 16 and React 19
 - Prisma ORM 7 with PostgreSQL
 - Better Auth 1.7.2 with invite-gated Discord OAuth
-- AI SDK 7 with `openai/gpt-5.6-sol` through OpenRouter OpenAI Flex
+- AI SDK 7 with `meta/muse-spark-1.3-contributor` through OpenRouter
 - shadcn/ui Base Nova with Base UI primitives
 - Biome, TypeScript, Bun tests, Sharp image sanitization
 
@@ -53,8 +53,8 @@ The app uses AI SDK 7 `generateText` with bounded `Output.object` schemas for:
 - Screen Time screenshot extraction (image-only, LLM does the reading)
 - advisory task-proof comparison
 
-Every request pins `openai/flex`, disables fallbacks, requires supported
-parameters, sets `service_tier: flex`, times out after 60 seconds, and retries
+Every request uses `meta/muse-spark-1.3-contributor` at high reasoning effort,
+disables fallbacks, requires supported parameters, times out after 60 seconds, and retries
 once. AI never resolves proof. A friend does. Metadata-only run logs are stored;
 prompts and images are not logged.
 

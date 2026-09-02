@@ -9,14 +9,13 @@ import {
 } from "@/lib/ai-config";
 
 describe("AI routing", () => {
-  test("pins GPT-5.6 Sol to OpenAI Flex without fallback", () => {
+  test("pins Muse Spark 1.3 Contributor without fallback", () => {
     const settings = openRouterModelSettings("high", "friend-1");
-    expect(aiModelId).toBe("openai/gpt-5.6-sol");
-    expect(aiProviderRoute).toBe("openai/flex");
-    expect(settings.provider.only).toEqual(["openai/flex"]);
+    expect(aiModelId).toBe("meta/muse-spark-1.3-contributor");
+    expect(aiProviderRoute).toBe("meta");
     expect(settings.provider.allow_fallbacks).toBe(false);
     expect(settings.provider.require_parameters).toBe(true);
-    expect(settings.extraBody.service_tier).toBe("flex");
+    expect(settings.reasoning).toEqual({ effort: "high", exclude: true });
     expect(aiMaxRetries).toBe(1);
     expect(aiTimeoutMs).toBe(60_000);
   });
