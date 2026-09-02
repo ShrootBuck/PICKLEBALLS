@@ -56,9 +56,13 @@ export default async function globalSetup(_config: FullConfig) {
         initials: person.name.slice(0, 2).toUpperCase(),
         discordId: `browser-${person.key}-discord-id`,
         discordUsername: person.username,
-        memberships: {
-          create: { circleId: circle.id, role: person.role },
-        },
+        ...(person.role === "OWNER"
+          ? {}
+          : {
+              memberships: {
+                create: { circleId: circle.id, role: person.role },
+              },
+            }),
         accounts: {
           create: {
             id: randomUUID(),

@@ -7,6 +7,7 @@ import {
   getOAuthState,
 } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
+import { ensureBootstrapMembership } from "@/lib/bootstrap";
 import {
   findReservedInvite,
   redeemReservedInvite,
@@ -142,24 +143,7 @@ export const auth = betterAuth({
         after: async (user) => {
           const discordId =
             typeof user.discordId === "string" ? user.discordId : null;
-          if (
-            discordId &&
-            discordId === process.env.BOOTSTRAP_DISCORD_USER_ID
-          ) {
-            const circle = await getPrisma().circle.upsert({
-              where: { slug: "pickle-balls" },
-              update: { name: "Pickle Balls" },
-              create: { slug: "pickle-balls", name: "Pickle Balls" },
-            });
-            await getPrisma().membership.upsert({
-              where: {
-                userId_circleId: { userId: user.id, circleId: circle.id },
-              },
-              update: { role: "OWNER" },
-              create: { userId: user.id, circleId: circle.id, role: "OWNER" },
-            });
-            return;
-          }
+          if (await ensureBootstrapMembership(user.id, discordId)) return;
 
           const claim = oauthClaim(await getOAuthState());
           if (claim) {

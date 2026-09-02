@@ -21,6 +21,20 @@ test("Discord-only entry and dead invite are clear", async ({ browser }) => {
   await context.close();
 });
 
+test("bootstrap owner repairs an existing Discord account", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    storageState: authState("owner"),
+  });
+  const page = await context.newPage();
+  await page.goto("/admin");
+  await expect(
+    page.getByRole("heading", { name: "Tiny squad administration." }),
+  ).toBeVisible();
+  await context.close();
+});
+
 test("owner creates a task and posts proof", async ({ browser }) => {
   const context = await browser.newContext({
     storageState: authState("owner"),

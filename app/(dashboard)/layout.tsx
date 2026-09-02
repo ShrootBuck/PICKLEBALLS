@@ -6,7 +6,6 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { requirePageMembership } from "@/lib/request";
-import { pruneExpiredAppData } from "@/lib/rolling-retention";
 
 export default async function DashboardLayout({
   children,
@@ -14,7 +13,6 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { membership } = await requirePageMembership();
-  await pruneExpiredAppData();
   return (
     <SidebarProvider>
       <AppSidebar

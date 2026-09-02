@@ -66,10 +66,10 @@ Proof and Screen Time images are decoded, auto-rotated, stripped of metadata,
 bounded to 2048 pixels, and re-encoded as WebP before Postgres storage. Image
 routes require circle membership and send private caching plus `nosniff`.
 
-Operational data is pruned after 30 Phoenix calendar days on protected app
-access and by `/api/cron/cleanup`. Vercel calls that route daily with
-`Authorization: Bearer $CRON_SECRET`. Users, the circle, memberships, and active
-Better Auth identity remain.
+Operational data is pruned after 30 Phoenix calendar days by
+`/api/cron/cleanup`. Vercel calls that route daily with the configured
+`CRON_SECRET` bearer token. Run `bun run db:prune` for a manual cleanup. Users,
+the circle, memberships, and active Better Auth identity remain.
 
 ## Checks
 
