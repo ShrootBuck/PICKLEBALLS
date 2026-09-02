@@ -96,9 +96,7 @@ export function AppSidebar({
                     >
                       <Icon />
                       <span>{label}</span>
-                      {isLinkPending && (
-                        <Spinner className="ml-auto size-3" />
-                      )}
+                      {isLinkPending && <Spinner className="ml-auto size-3" />}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -158,8 +156,9 @@ export function AppSidebar({
         </SidebarMenu>
         <Button
           variant="ghost"
-          size="sm"
+          size="default"
           disabled={signOutPending}
+          className="w-full justify-start touch-manipulation"
           onClick={async () => {
             setSignOutPending(true);
             try {

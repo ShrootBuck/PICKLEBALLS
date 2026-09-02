@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Clock3, FileImage, Save } from "lucide-react";
+import { Bot, Clock3, FileImage, Save, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useRef, useState } from "react";
@@ -21,6 +21,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Field,
   FieldDescription,
@@ -29,6 +30,13 @@ import {
   FieldTitle,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@/components/ui/input-group";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -97,6 +105,7 @@ export function ScreenTimeDashboard({
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [metrics, setMetrics] = useState({
     average: "",
     total: "",
@@ -201,21 +210,30 @@ export function ScreenTimeDashboard({
   return (
     <>
       <section className="flex flex-col gap-1">
-        <Badge variant="secondary">Separate receipt flow</Badge>
-        <h1 className="text-3xl font-semibold tracking-tight">
+        <Badge variant="secondary" className="w-fit">
+          Separate receipt flow
+        </Badge>
+        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
           Screen Time, no crossover episode.
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-sm text-muted-foreground md:text-base">
           This is not task proof. It is its own daily or weekly honesty receipt.
         </p>
       </section>
 
-      <Tabs defaultValue="submit">
-        <TabsList>
-          <TabsTrigger value="submit">Post receipt</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-        </TabsList>
-        <TabsContent value="submit">
+      <Tabs defaultValue="submit" className="w-full">
+        <ScrollArea className="w-full">
+          <TabsList className="w-full justify-start">
+            <TabsTrigger value="submit" className="flex-1 sm:flex-none">
+              Post receipt
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex-1 sm:flex-none">
+              History
+            </TabsTrigger>
+          </TabsList>
+          <ScrollBar orientation="horizontal" className="invisible" />
+        </ScrollArea>
+        <TabsContent value="submit" className="mt-4">
           <Card>
             <CardHeader>
               <Clock3 />
@@ -237,23 +255,69 @@ export function ScreenTimeDashboard({
                       aria-labelledby="cadence-label"
                       variant="outline"
                       spacing={2}
+                      className="w-full sm:w-fit"
                     >
-                      <ToggleGroupItem value="DAILY">Daily</ToggleGroupItem>
-                      <ToggleGroupItem value="WEEKLY">Weekly</ToggleGroupItem>
+                      <ToggleGroupItem
+                        value="DAILY"
+                        className="flex-1 sm:flex-none"
+                      >
+                        Daily
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        value="WEEKLY"
+                        className="flex-1 sm:flex-none"
+                      >
+                        Weekly
+                      </ToggleGroupItem>
                     </ToggleGroup>
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="screen-time-image">
+                    <FieldLabel>
                       Screenshot (optional with manual entry)
                     </FieldLabel>
-                    <Input
-                      ref={fileRef}
-                      id="screen-time-image"
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,image/heic"
-                    />
+                    <div className="flex flex-col gap-2 rounded-xl border border-dashed bg-muted/20 p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                          <Upload className="size-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">
+                            {selectedFileName ?? "Tap to choose screenshot"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            PNG, JPEG, WebP, or HEIC. Max 6 MB. Sanitized and
+                            kept 30 days.
+                          </p>
+                        </div>
+                        {selectedFileName && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => {
+                              if (fileRef.current) fileRef.current.value = "";
+                              setSelectedFileName(null);
+                            }}
+                            aria-label="Clear file"
+                          >
+                            <X />
+                          </Button>
+                        )}
+                      </div>
+                      <Input
+                        ref={fileRef}
+                        id="screen-time-image"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/heic"
+                        className="h-11 cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
+                        onChange={(e) =>
+                          setSelectedFileName(e.target.files?.[0]?.name ?? null)
+                        }
+                      />
+                    </div>
                     <FieldDescription>
-                      Images are sanitized and kept for 30 days.
+                      Images are sanitized and kept for 30 days. Manual entry is
+                      allowed.
                     </FieldDescription>
                   </Field>
                   <Button
@@ -261,6 +325,8 @@ export function ScreenTimeDashboard({
                     variant="outline"
                     onClick={analyze}
                     disabled={analyzing}
+                    size="lg"
+                    className="w-full sm:w-auto"
                   >
                     {analyzing ? (
                       <Spinner data-icon="inline-start" />
@@ -270,60 +336,150 @@ export function ScreenTimeDashboard({
                     {analyzing ? "Reading screenshot…" : "Read with AI"}
                   </Button>
                   <div className="grid gap-4 sm:grid-cols-2">
+                    <DatePicker
+                      label="Period start"
+                      value={periodStart}
+                      onChange={(v) => {
+                        setPeriodStart(v);
+                        setDirty(true);
+                      }}
+                      required
+                    />
+                    <DatePicker
+                      label="Period end"
+                      value={periodEnd}
+                      onChange={(v) => {
+                        setPeriodEnd(v);
+                        setDirty(true);
+                      }}
+                      required
+                    />
                     <Field>
-                      <FieldLabel htmlFor="period-start">
-                        Period start
+                      <FieldLabel htmlFor="metric-average">
+                        Daily average (minutes)
                       </FieldLabel>
-                      <Input
-                        id="period-start"
-                        type="date"
-                        value={periodStart}
-                        onChange={(event) => {
-                          setPeriodStart(event.target.value);
-                          setDirty(true);
-                        }}
-                        required
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="period-end">Period end</FieldLabel>
-                      <Input
-                        id="period-end"
-                        type="date"
-                        value={periodEnd}
-                        onChange={(event) => {
-                          setPeriodEnd(event.target.value);
-                          setDirty(true);
-                        }}
-                        required
-                      />
-                    </Field>
-                    {[
-                      ["average", "Daily average (minutes)"],
-                      ["total", "Total minutes"],
-                      ["social", "Social minutes"],
-                      ["pickups", "Pickups"],
-                      ["comparison", "Change percent"],
-                    ].map(([key, label]) => (
-                      <Field key={key}>
-                        <FieldLabel htmlFor={`metric-${key}`}>
-                          {label}
-                        </FieldLabel>
-                        <Input
-                          id={`metric-${key}`}
+                      <InputGroup>
+                        <InputGroupInput
+                          id="metric-average"
                           type="number"
-                          min={key === "comparison" ? -100 : 0}
-                          value={metrics[key as keyof typeof metrics]}
+                          inputMode="numeric"
+                          min={0}
+                          placeholder="120"
+                          value={metrics.average}
                           onChange={(event) => {
                             setMetrics((current) => ({
                               ...current,
-                              [key]: event.target.value,
+                              average: event.target.value,
                             }));
                             setDirty(true);
                           }}
                         />
-                      </Field>
-                    ))}
+                        <InputGroupAddon align="inline-end">
+                          <InputGroupText>min</InputGroupText>
+                        </InputGroupAddon>
+                      </InputGroup>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="metric-total">
+                        Total minutes
+                      </FieldLabel>
+                      <InputGroup>
+                        <InputGroupInput
+                          id="metric-total"
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          placeholder="840"
+                          value={metrics.total}
+                          onChange={(event) => {
+                            setMetrics((current) => ({
+                              ...current,
+                              total: event.target.value,
+                            }));
+                            setDirty(true);
+                          }}
+                        />
+                        <InputGroupAddon align="inline-end">
+                          <InputGroupText>min</InputGroupText>
+                        </InputGroupAddon>
+                      </InputGroup>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="metric-social">
+                        Social minutes
+                      </FieldLabel>
+                      <InputGroup>
+                        <InputGroupInput
+                          id="metric-social"
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          placeholder="45"
+                          value={metrics.social}
+                          onChange={(event) => {
+                            setMetrics((current) => ({
+                              ...current,
+                              social: event.target.value,
+                            }));
+                            setDirty(true);
+                          }}
+                        />
+                        <InputGroupAddon align="inline-end">
+                          <InputGroupText>min</InputGroupText>
+                        </InputGroupAddon>
+                      </InputGroup>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="metric-pickups">Pickups</FieldLabel>
+                      <InputGroup>
+                        <InputGroupInput
+                          id="metric-pickups"
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          placeholder="32"
+                          value={metrics.pickups}
+                          onChange={(event) => {
+                            setMetrics((current) => ({
+                              ...current,
+                              pickups: event.target.value,
+                            }));
+                            setDirty(true);
+                          }}
+                        />
+                        <InputGroupAddon align="inline-end">
+                          <InputGroupText>times</InputGroupText>
+                        </InputGroupAddon>
+                      </InputGroup>
+                    </Field>
+                    <Field className="sm:col-span-2">
+                      <FieldLabel htmlFor="metric-comparison">
+                        Change percent
+                      </FieldLabel>
+                      <InputGroup>
+                        <InputGroupInput
+                          id="metric-comparison"
+                          type="number"
+                          inputMode="numeric"
+                          min={-100}
+                          placeholder="-12 or 8"
+                          value={metrics.comparison}
+                          onChange={(event) => {
+                            setMetrics((current) => ({
+                              ...current,
+                              comparison: event.target.value,
+                            }));
+                            setDirty(true);
+                          }}
+                        />
+                        <InputGroupAddon align="inline-end">
+                          <InputGroupText>%</InputGroupText>
+                        </InputGroupAddon>
+                      </InputGroup>
+                      <FieldDescription>
+                        Use negative for decrease, positive for increase.
+                      </FieldDescription>
+                    </Field>
                   </div>
                 </FieldGroup>
                 {extraction && (
@@ -347,7 +503,12 @@ export function ScreenTimeDashboard({
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
-                <Button type="submit" disabled={saving}>
+                <Button
+                  type="submit"
+                  disabled={saving}
+                  size="lg"
+                  className="w-full sm:w-auto"
+                >
                   {saving ? (
                     <Spinner data-icon="inline-start" />
                   ) : (
@@ -359,15 +520,18 @@ export function ScreenTimeDashboard({
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="history">
+        <TabsContent value="history" className="mt-4">
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle>Daily average trend</CardTitle>
                 <CardDescription>Confirmed values only.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <ChartContainer config={chartConfig}>
+              <CardContent className="overflow-hidden">
+                <ChartContainer
+                  config={chartConfig}
+                  className="min-h-[220px] w-full"
+                >
                   <BarChart data={chartData} accessibilityLayer>
                     <CartesianGrid vertical={false} />
                     <XAxis dataKey="label" tickLine={false} axisLine={false} />
@@ -379,6 +543,11 @@ export function ScreenTimeDashboard({
                     />
                   </BarChart>
                 </ChartContainer>
+                {chartData.length === 0 && (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    No data yet. Post a receipt to see the trend.
+                  </p>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -388,59 +557,76 @@ export function ScreenTimeDashboard({
                   Daily and weekly stay explicit.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Who</TableHead>
-                      <TableHead>Period</TableHead>
-                      <TableHead>Average</TableHead>
-                      <TableHead>Cadence</TableHead>
-                      <TableHead className="text-right">Receipt</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {receipts.map((receipt) => (
-                      <TableRow key={receipt.id}>
-                        <TableCell>{receipt.ownerName}</TableCell>
-                        <TableCell>{receipt.periodStart}</TableCell>
-                        <TableCell>
-                          {receipt.dailyAverageMinutes ?? "—"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            <Badge variant="secondary">
-                              {receipt.cadence.toLowerCase()}
-                            </Badge>
-                            {receipt.hasUserCorrections && (
-                              <Badge variant="outline">corrected</Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {receipt.hasImage ? (
-                            <Button
-                              render={
-                                <Link
-                                  href={`/api/screen-time/receipts/${receipt.id}/image`}
-                                  target="_blank"
-                                />
-                              }
-                              nativeButton={false}
-                              size="sm"
-                              variant="outline"
-                            >
-                              <FileImage data-icon="inline-start" />
-                              View
-                            </Button>
-                          ) : (
-                            <Badge variant="outline">manual</Badge>
-                          )}
-                        </TableCell>
+              <CardContent className="p-0 sm:p-6">
+                <ScrollArea className="w-full whitespace-nowrap">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Who</TableHead>
+                        <TableHead>Period</TableHead>
+                        <TableHead>Average</TableHead>
+                        <TableHead>Cadence</TableHead>
+                        <TableHead className="text-right">Receipt</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {receipts.map((receipt) => (
+                        <TableRow key={receipt.id}>
+                          <TableCell className="font-medium">
+                            {receipt.ownerName}
+                          </TableCell>
+                          <TableCell className="tabular-nums">
+                            {receipt.periodStart}
+                          </TableCell>
+                          <TableCell className="tabular-nums">
+                            {receipt.dailyAverageMinutes ?? "—"}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              <Badge variant="secondary">
+                                {receipt.cadence.toLowerCase()}
+                              </Badge>
+                              {receipt.hasUserCorrections && (
+                                <Badge variant="outline">corrected</Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {receipt.hasImage ? (
+                              <Button
+                                render={
+                                  <Link
+                                    href={`/api/screen-time/receipts/${receipt.id}/image`}
+                                    target="_blank"
+                                  />
+                                }
+                                nativeButton={false}
+                                size="sm"
+                                variant="outline"
+                              >
+                                <FileImage data-icon="inline-start" />
+                                View
+                              </Button>
+                            ) : (
+                              <Badge variant="outline">manual</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {receipts.length === 0 && (
+                        <TableRow>
+                          <TableCell
+                            colSpan={5}
+                            className="py-8 text-center text-sm text-muted-foreground"
+                          >
+                            No receipts yet. Be the first.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
               </CardContent>
             </Card>
           </div>

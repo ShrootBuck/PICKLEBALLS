@@ -88,9 +88,48 @@
 
   html {
     background: var(--background);
+    /* iOS PWA: prevent bounce, respect notch */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
   }
 
   body {
-    @apply min-h-svh bg-background text-foreground;
+    @apply min-h-dvh bg-background text-foreground antialiased;
+    /* safe-area insets for iOS notch + home indicator */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    /* prevent horizontal overscroll bounce on iOS */
+    overscroll-behavior-y: contain;
+    /* smooth scrolling for mobile */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Ensure interactive targets meet 44px minimum where possible on coarse pointers */
+  @media (pointer: coarse) {
+    button,
+    a,
+    [role="button"] {
+      min-height: 44px;
+    }
+    /* Inputs/textarea need comfortable thumb targets on mobile too */
+    input:not([type="hidden"]),
+    textarea,
+    select,
+    [data-slot="input-group"] {
+      min-height: 44px;
+    }
+    [data-slot="input-group"] {
+      height: auto;
+    }
+  }
+
+  /* Pull-to-refresh helper: allow native refresh only at top */
+  html,
+  body {
+    overscroll-behavior-inline: contain;
   }
 }

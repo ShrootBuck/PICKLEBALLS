@@ -65,74 +65,85 @@ export function ReviewProof({
   }
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" />}>
+      <DialogTrigger
+        render={<Button size="sm" className="touch-manipulation" />}
+      >
         <Gavel data-icon="inline-start" /> Review
       </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Call the proof</DialogTitle>
-          <DialogDescription>
-            {taskTitle}. First valid review wins, so look before clicking.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submit} className="flex flex-col gap-4">
-          <FieldGroup>
-            <Field orientation="responsive">
-              <FieldTitle id={`decision-${proofId}`}>Verdict</FieldTitle>
-              <ToggleGroup
-                value={[decision]}
-                onValueChange={(value) =>
-                  value[0] && setDecision(value[0] as typeof decision)
-                }
-                aria-labelledby={`decision-${proofId}`}
-                variant="outline"
-                spacing={2}
+      <DialogContent className="max-h-[90dvh] overflow-hidden p-0 sm:max-w-lg">
+        <div className="flex max-h-[90dvh] flex-col">
+          <DialogHeader className="shrink-0 p-6 pb-0">
+            <DialogTitle>Call the proof</DialogTitle>
+            <DialogDescription>
+              {taskTitle}. First valid review wins, so look before clicking.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={submit}
+            className="flex flex-1 flex-col gap-4 overflow-auto p-6"
+          >
+            <FieldGroup>
+              <Field orientation="responsive">
+                <FieldTitle id={`decision-${proofId}`}>Verdict</FieldTitle>
+                <ToggleGroup
+                  value={[decision]}
+                  onValueChange={(value) =>
+                    value[0] && setDecision(value[0] as typeof decision)
+                  }
+                  aria-labelledby={`decision-${proofId}`}
+                  variant="outline"
+                  spacing={2}
+                  className="w-full"
+                >
+                  <ToggleGroupItem value="APPROVED" className="flex-1">
+                    <Check /> Approve
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="CHALLENGED" className="flex-1">
+                    <MessageSquareWarning /> Challenge
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </Field>
+              <Field data-invalid={Boolean(error)}>
+                <FieldLabel htmlFor={`review-note-${proofId}`}>
+                  Reviewer note
+                </FieldLabel>
+                <Textarea
+                  id={`review-note-${proofId}`}
+                  name="note"
+                  maxLength={500}
+                  required={decision === "CHALLENGED"}
+                  placeholder={
+                    decision === "CHALLENGED"
+                      ? "Say exactly what is missing or unclear"
+                      : "Optional useful context"
+                  }
+                  className="min-h-24"
+                />
+                <FieldDescription>
+                  A challenge without a reason is just being annoying.
+                </FieldDescription>
+              </Field>
+            </FieldGroup>
+            {error && (
+              <Alert variant="destructive">
+                <AlertTitle>Review failed.</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter className="mt-2 flex-col gap-2 sm:flex-row">
+              <Button
+                type="submit"
+                disabled={pending}
+                variant={decision === "CHALLENGED" ? "destructive" : "default"}
+                size="lg"
+                className="w-full touch-manipulation"
               >
-                <ToggleGroupItem value="APPROVED">
-                  <Check /> Approve
-                </ToggleGroupItem>
-                <ToggleGroupItem value="CHALLENGED">
-                  <MessageSquareWarning /> Challenge
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </Field>
-            <Field data-invalid={Boolean(error)}>
-              <FieldLabel htmlFor={`review-note-${proofId}`}>
-                Reviewer note
-              </FieldLabel>
-              <Textarea
-                id={`review-note-${proofId}`}
-                name="note"
-                maxLength={500}
-                required={decision === "CHALLENGED"}
-                placeholder={
-                  decision === "CHALLENGED"
-                    ? "Say exactly what is missing or unclear"
-                    : "Optional useful context"
-                }
-              />
-              <FieldDescription>
-                A challenge without a reason is just being annoying.
-              </FieldDescription>
-            </Field>
-          </FieldGroup>
-          {error && (
-            <Alert variant="destructive">
-              <AlertTitle>Review failed.</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <DialogFooter>
-            <Button
-              type="submit"
-              disabled={pending}
-              variant={decision === "CHALLENGED" ? "destructive" : "default"}
-            >
-              {pending && <Spinner data-icon="inline-start" />}
-              Submit verdict
-            </Button>
-          </DialogFooter>
-        </form>
+                {pending && <Spinner data-icon="inline-start" />}
+                Submit verdict
+              </Button>
+            </DialogFooter>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

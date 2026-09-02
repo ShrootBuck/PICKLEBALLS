@@ -11,31 +11,33 @@ import {
 
 export function AuthScreen({ children }: { children: ReactNode }) {
   return (
-    <main className="grid min-h-svh lg:grid-cols-2">
-      <section className="flex flex-col justify-between gap-10 bg-primary p-8 text-primary-foreground md:p-14">
-        <div className="flex items-center gap-3">
-          <span aria-hidden="true">🎾</span>
+    <main className="grid min-h-dvh lg:grid-cols-2">
+      <section className="flex flex-col justify-between gap-8 bg-primary p-6 text-primary-foreground sm:p-8 md:p-10 lg:p-14">
+        <div className="flex items-center gap-3 text-sm font-semibold">
+          <span aria-hidden="true" className="text-lg">
+            🎾
+          </span>
           <strong>Pickle Balls</strong>
         </div>
-        <div className="flex max-w-xl flex-col gap-5">
+        <div className="flex max-w-xl flex-col gap-4 sm:gap-5">
           <Badge variant="secondary" className="w-fit">
             THE DEAL
           </Badge>
-          <h1 className="text-4xl font-semibold tracking-tight md:text-6xl">
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl lg:text-6xl">
             Do the homework. Earn the court.
           </h1>
-          <p className="text-lg">
+          <p className="text-base sm:text-lg">
             Three daily promises, photo receipts, and friends who can approve
             the work or call bullshit.
           </p>
         </div>
-        <p className="text-sm">
+        <p className="hidden text-sm opacity-80 sm:block">
           This is a private app for friends. There is no audience, funnel, or
           productivity influencer.
         </p>
       </section>
-      <section className="flex items-center justify-center p-6 md:p-12">
-        <Card className="w-full max-w-md">
+      <section className="flex items-center justify-center bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6 md:p-12">
+        <Card className="w-full max-w-md shadow-lg">
           <CardHeader>
             <Trophy />
             <CardTitle>Schoolwork accountability</CardTitle>

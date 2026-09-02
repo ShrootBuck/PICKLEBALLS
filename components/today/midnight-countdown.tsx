@@ -58,7 +58,9 @@ export function MidnightCountdown() {
       aria-live="polite"
     >
       <Clock3 />
-      {remaining <= 0 ? "00:00:00 until midnight" : `${formatRemaining(remaining)} until midnight`}
+      {remaining <= 0
+        ? "00:00:00 until midnight"
+        : `${formatRemaining(remaining)} until midnight`}
     </Badge>
   );
 }

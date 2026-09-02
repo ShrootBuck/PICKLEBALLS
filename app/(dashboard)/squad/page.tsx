@@ -79,15 +79,15 @@ export default async function SquadPage() {
   ]);
   return (
     <>
-      <section className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div className="flex flex-col gap-1">
-          <Badge variant="secondary">
+      <section className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-1.5">
+          <Badge variant="secondary" className="w-fit">
             {members.length} friends · one court
           </Badge>
-          <h1 className="text-3xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
             Accountability, minus the LinkedIn sludge.
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground md:text-base">
             See promises, proof, and blockers. Help first; roast second.
           </p>
         </div>
@@ -178,7 +178,7 @@ export default async function SquadPage() {
             <Badge variant="secondary">{proofs.length} waiting</Badge>
           </CardAction>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
+        <CardContent className="grid gap-4 sm:grid-cols-2">
           {proofs.map((proof) => (
             <Card key={proof.id} size="sm">
               <AspectRatio ratio={4 / 3}>

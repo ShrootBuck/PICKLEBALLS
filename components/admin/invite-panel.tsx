@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/empty";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -116,7 +117,12 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
             )}
           </CardContent>
           <CardFooter className="mt-4">
-            <Button type="submit" disabled={pending}>
+            <Button
+              type="submit"
+              disabled={pending}
+              size="lg"
+              className="w-full sm:w-auto touch-manipulation"
+            >
               {pending ? (
                 <Spinner data-icon="inline-start" />
               ) : (
@@ -134,41 +140,46 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
             No email gates. Discord identity plus this one-time link.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
           {invites.length ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>For</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Used by</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invites.map((invite) => {
-                  const status = invite.usedAt
-                    ? "Used"
-                    : invite.revokedAt
-                      ? "Revoked"
-                      : new Date(invite.expiresAt) < new Date()
-                        ? "Expired"
-                        : "Ready";
-                  return (
-                    <TableRow key={invite.id}>
-                      <TableCell>{invite.label ?? "Friend"}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={status === "Ready" ? "default" : "secondary"}
-                        >
-                          {status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{invite.usedBy ?? "—"}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            <ScrollArea className="w-full whitespace-nowrap">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>For</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Used by</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invites.map((invite) => {
+                    const status = invite.usedAt
+                      ? "Used"
+                      : invite.revokedAt
+                        ? "Revoked"
+                        : new Date(invite.expiresAt) < new Date()
+                          ? "Expired"
+                          : "Ready";
+                    return (
+                      <TableRow key={invite.id}>
+                        <TableCell>{invite.label ?? "Friend"}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              status === "Ready" ? "default" : "secondary"
+                            }
+                          >
+                            {status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{invite.usedBy ?? "—"}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
           ) : (
             <Empty>
               <EmptyHeader>
