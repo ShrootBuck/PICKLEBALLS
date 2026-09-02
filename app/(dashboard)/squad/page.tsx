@@ -1,7 +1,6 @@
 import { Activity, Bot, Camera, ClockAlert, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
-import { GenerateBrief } from "@/components/squad/generate-brief";
 import { ReviewProof } from "@/components/squad/review-proof";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -39,7 +38,7 @@ export default async function SquadPage() {
   const { session, membership } = await requirePageMembership();
   const dayKey = phoenixDateKey();
   const day = requireDateKey(dayKey);
-  const [members, proofs, todayHistory, events, digest] = await Promise.all([
+  const [members, proofs, todayHistory, events] = await Promise.all([
     getPrisma().membership.findMany({
       where: { circleId: membership.circleId },
       orderBy: { createdAt: "asc" },
@@ -91,25 +90,19 @@ export default async function SquadPage() {
       take: 20,
       include: { actor: true },
     }),
-    getPrisma().dailySquadDigest.findUnique({
-      where: { circleId_day: { circleId: membership.circleId, day } },
-    }),
   ]);
   return (
     <>
-      <section className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="flex flex-col gap-1.5">
-          <Badge variant="secondary" className="w-fit">
-            {members.length} friends · one court
-          </Badge>
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-            Accountability, minus the LinkedIn sludge.
-          </h1>
-          <p className="text-sm text-muted-foreground md:text-base">
-            See promises, proof, and blockers. Help first; roast second.
-          </p>
-        </div>
-        {!digest && <GenerateBrief />}
+      <section className="flex flex-col gap-1.5">
+        <Badge variant="secondary" className="w-fit">
+          {members.length} friends · one court
+        </Badge>
+        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+          Accountability, minus the LinkedIn sludge.
+        </h1>
+        <p className="text-sm text-muted-foreground md:text-base">
+          See promises, proof, and blockers. Help first; roast second.
+        </p>
       </section>
 
       <div className="grid gap-6 sm:grid-cols-2">
@@ -202,24 +195,6 @@ export default async function SquadPage() {
           );
         })}
       </div>
-
-      {digest && (
-        <Card>
-          <CardHeader>
-            <div className="flex size-8 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
-              <Bot className="size-4" />
-            </div>
-            <CardTitle>Today’s squad brief</CardTitle>
-            <CardDescription>
-              Cached once per Phoenix day. The model diagnoses; it does not
-              judge proof.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p>{digest.summary}</p>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>

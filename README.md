@@ -52,8 +52,6 @@ The app uses AI SDK 7 `generateText` with bounded `Output.object` schemas for:
 
 - Screen Time screenshot extraction (image-only, LLM does the reading)
 - advisory task-proof comparison
-- task wording refinement
-- one cached squad brief per Phoenix day
 
 Every request pins `openai/flex`, disables fallbacks, requires supported
 parameters, sets `service_tier: flex`, times out after 60 seconds, and retries

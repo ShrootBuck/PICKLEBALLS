@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Pencil,
   Plus,
-  Sparkles,
   Upload,
   X,
 } from "lucide-react";
@@ -106,7 +105,6 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
-  const [refining, setRefining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState(task?.title ?? "");
   const [definition, setDefinition] = useState(task?.definitionOfDone ?? "");
@@ -125,7 +123,6 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
         setDefinition("");
       }
       setError(null);
-      setRefining(false);
       setPending(false);
     }
   };
@@ -161,34 +158,6 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
     setOpen(false);
     setPending(false);
     router.refresh();
-  }
-
-  async function refine() {
-    setRefining(true);
-    setError(null);
-    const response = await fetch("/api/ai/refine-task", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title, definitionOfDone: definition }),
-    });
-    if (!response.ok) setError(await readError(response));
-    else {
-      const result = (await response.json()) as {
-        suggestion: {
-          title: string;
-          definitionOfDone: string;
-          whyThisIsTighter: string;
-        };
-      };
-      setTitle(result.suggestion.title);
-      setDefinition(result.suggestion.definitionOfDone);
-      toast.add({
-        title: "The model tightened the promise.",
-        description: result.suggestion.whyThisIsTighter,
-        type: "info",
-      });
-    }
-    setRefining(false);
   }
 
   return (
@@ -287,21 +256,7 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
             </form>
             <ScrollBar orientation="vertical" />
           </ScrollArea>
-          <DialogFooter className="shrink-0 flex-col gap-2 border-t bg-muted/30 p-4 sm:flex-row">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={refine}
-              disabled={refining || !title}
-              className="w-full sm:w-auto touch-manipulation"
-            >
-              {refining ? (
-                <Spinner data-icon="inline-start" />
-              ) : (
-                <Sparkles data-icon="inline-start" />
-              )}
-              Tighten with AI
-            </Button>
+          <DialogFooter className="shrink-0 border-t bg-muted/30 p-4">
             <Button
               type="submit"
               form={`task-form-${task?.id ?? "new"}`}

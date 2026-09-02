@@ -50,24 +50,6 @@ export const proofAssessmentSchema = z.object({
   reviewerQuestion: z.string().min(1).max(240),
 });
 
-export const taskRefinementSchema = z.object({
-  title: z.string().min(3).max(100),
-  definitionOfDone: z.string().min(5).max(500),
-  whyThisIsTighter: z.string().min(1).max(240),
-});
-
-export const squadDigestSchema = z.object({
-  summary: z.string().min(1).max(900),
-  needsHelp: z
-    .array(
-      z.object({
-        name: z.string().min(1).max(100),
-        reason: z.string().min(1).max(240),
-      }),
-    )
-    .max(8),
-});
-
 function model(effort: AIEffort, userId: string) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error("OPENROUTER_API_KEY_MISSING");
@@ -215,44 +197,5 @@ export function assessTaskProof(
         ],
       },
     ],
-  });
-}
-
-export function refineTask(
-  userId: string,
-  circleId: string,
-  task: { title: string; definitionOfDone: string },
-) {
-  return runStructured({
-    schema: taskRefinementSchema,
-    userId,
-    circleId,
-    feature: "TASK_REFINEMENT",
-    effort: "medium",
-    maxOutputTokens: 600,
-    system: `Turn vague schoolwork promises into specific, verifiable commitments. ${injectionGuard} Preserve the student's intent. Do not add work they did not ask for.`,
-    messages: [
-      {
-        role: "user",
-        content: `Title: ${task.title}\nDefinition of done: ${task.definitionOfDone}`,
-      },
-    ],
-  });
-}
-
-export function generateSquadDigest(
-  userId: string,
-  circleId: string,
-  facts: string,
-) {
-  return runStructured({
-    schema: squadDigestSchema,
-    userId,
-    circleId,
-    feature: "SQUAD_DIGEST",
-    effort: "medium",
-    maxOutputTokens: 900,
-    system: `Summarize a tiny friends-only schoolwork squad. ${injectionGuard} Highlight blockers, overdue work, late proof, and who may need help. Keep it direct and useful, not managerial sludge.`,
-    messages: [{ role: "user", content: facts }],
   });
 }

@@ -64,8 +64,6 @@ enum ActivityKind {
 enum AIFeature {
   SCREEN_TIME_EXTRACTION
   PROOF_ASSESSMENT
-  TASK_REFINEMENT
-  SQUAD_DIGEST
 }
 
 enum AIRunStatus {
@@ -175,7 +173,6 @@ model Circle {
   receipts     ScreenTimeReceipt[]
   invites      Invite[]
   aiRuns       AIRun[]
-  digests      DailySquadDigest[]
 }
 
 model Membership {
@@ -413,16 +410,4 @@ model AIRun {
   @@index([createdAt])
 }
 
-model DailySquadDigest {
-  id          String   @id @default(cuid())
-  circleId    String
-  day         DateTime @db.Date
-  summary     String
-  needsHelp   Json
-  generatedAt DateTime @default(now())
 
-  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
-
-  @@unique([circleId, day])
-  @@index([generatedAt])
-}
