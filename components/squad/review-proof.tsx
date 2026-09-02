@@ -75,7 +75,7 @@ export function ReviewProof({
           <DialogHeader className="shrink-0 p-6 pb-0">
             <DialogTitle>Call the proof</DialogTitle>
             <DialogDescription>
-              {taskTitle}. First valid review wins, so look before clicking.
+              {taskTitle}. Two approvals verify — one challenge sends it back.
             </DialogDescription>
           </DialogHeader>
           <form

@@ -21,7 +21,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { DatePicker } from "@/components/ui/date-picker";
 import {
   Field,
   FieldDescription,
@@ -29,13 +28,6 @@ import {
   FieldLabel,
   FieldTitle,
 } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-  InputGroupText,
-} from "@/components/ui/input-group";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -84,10 +76,6 @@ const chartConfig = {
   minutes: { label: "Daily average", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
-function numberOrNull(value: string) {
-  return value === "" ? null : Number(value);
-}
-
 export function ScreenTimeDashboard({
   periods,
   receipts,
@@ -98,27 +86,11 @@ export function ScreenTimeDashboard({
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [cadence, setCadence] = useState<Cadence>("DAILY");
-  const [periodStart, setPeriodStart] = useState(periods.DAILY.start);
-  const [periodEnd, setPeriodEnd] = useState(periods.DAILY.end);
   const [extraction, setExtraction] = useState<Extraction | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
-  const [metrics, setMetrics] = useState({
-    average: "",
-    total: "",
-    social: "",
-    pickups: "",
-    comparison: "",
-  });
-
-  function chooseCadence(next: Cadence) {
-    setCadence(next);
-    setPeriodStart(periods[next].start);
-    setPeriodEnd(periods[next].end);
-  }
 
   async function analyze() {
     const file = fileRef.current?.files?.[0];
@@ -135,24 +107,15 @@ export function ScreenTimeDashboard({
       extraction?: Extraction;
       error?: string;
     };
-    if (!response.ok || !body.extraction)
-      setError(body.error ?? "The model could not read it.");
-    else {
+    if (!response.ok || !body.extraction) {
+      setError(body.error ?? "The model could not read it. We'll still save the image.");
+      setExtraction(null);
+    } else {
       const value = body.extraction;
       setExtraction(value);
-      if (value.cadence !== "UNKNOWN") chooseCadence(value.cadence);
-      if (value.periodStart) setPeriodStart(value.periodStart);
-      if (value.periodEnd) setPeriodEnd(value.periodEnd);
-      setMetrics({
-        average: value.dailyAverageMinutes?.toString() ?? "",
-        total: value.totalScreenTimeMinutes?.toString() ?? "",
-        social: value.socialMinutes?.toString() ?? "",
-        pickups: value.pickups?.toString() ?? "",
-        comparison: value.comparisonPercent?.toString() ?? "",
-      });
-      setDirty(false);
+      if (value.cadence !== "UNKNOWN") setCadence(value.cadence);
       toast.add({
-        title: "AI extraction ready for your correction.",
+        title: value.confidence > 0.7 ? "AI read the receipt." : "AI gave it a shot — image is what matters.",
         type: "info",
       });
     }
@@ -161,28 +124,63 @@ export function ScreenTimeDashboard({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const file = fileRef.current?.files?.[0];
+    if (!file) return setError("Attach a screenshot first.");
     setSaving(true);
     setError(null);
+
+    // Auto-run AI if not yet done — but don't block save if it fails
+    let currentExtraction = extraction;
+    if (!currentExtraction) {
+      try {
+        const form = new FormData();
+        form.set("image", file);
+        const response = await fetch("/api/screen-time/analyze", {
+          method: "POST",
+          body: form,
+        });
+        const body = (await response.json()) as {
+          extraction?: Extraction;
+          error?: string;
+        };
+        if (response.ok && body.extraction) {
+          currentExtraction = body.extraction;
+          setExtraction(currentExtraction);
+          if (currentExtraction.cadence !== "UNKNOWN") setCadence(currentExtraction.cadence);
+        }
+      } catch {
+        // LLM failure is fine — we still care about the image
+      }
+    }
+
+    const effectiveCadence =
+      currentExtraction?.cadence && currentExtraction.cadence !== "UNKNOWN"
+        ? currentExtraction.cadence
+        : cadence;
+    const periodStart =
+      currentExtraction?.periodStart ?? periods[effectiveCadence].start;
+    const periodEnd =
+      currentExtraction?.periodEnd ?? periods[effectiveCadence].end;
+
     const form = new FormData();
-    const file = fileRef.current?.files?.[0];
-    if (file) form.set("image", file);
+    form.set("image", file);
     form.set(
       "receipt",
       JSON.stringify({
-        cadence,
+        cadence: effectiveCadence,
         periodStart,
         periodEnd,
-        dailyAverageMinutes: numberOrNull(metrics.average),
-        totalScreenTimeMinutes: numberOrNull(metrics.total),
-        socialMinutes: numberOrNull(metrics.social),
-        pickups: numberOrNull(metrics.pickups),
-        comparisonPercent: numberOrNull(metrics.comparison),
-        topApps: extraction?.topApps ?? [],
-        summary: extraction?.summary ?? null,
-        confidence: extraction?.confidence ?? null,
-        warnings: extraction?.warnings ?? [],
-        originalAIExtraction: extraction,
-        hasUserCorrections: Boolean(extraction && dirty),
+        dailyAverageMinutes: currentExtraction?.dailyAverageMinutes ?? null,
+        totalScreenTimeMinutes: currentExtraction?.totalScreenTimeMinutes ?? null,
+        socialMinutes: currentExtraction?.socialMinutes ?? null,
+        pickups: currentExtraction?.pickups ?? null,
+        comparisonPercent: currentExtraction?.comparisonPercent ?? null,
+        topApps: currentExtraction?.topApps ?? [],
+        summary: currentExtraction?.summary ?? null,
+        confidence: currentExtraction?.confidence ?? null,
+        warnings: currentExtraction?.warnings ?? [],
+        originalAIExtraction: currentExtraction,
+        hasUserCorrections: false,
       }),
     );
     const response = await fetch("/api/screen-time/receipts", {
@@ -193,6 +191,9 @@ export function ScreenTimeDashboard({
     if (!response.ok) setError(body.error ?? "Could not save receipt.");
     else {
       toast.add({ title: "Screen Time receipt posted.", type: "success" });
+      setExtraction(null);
+      if (fileRef.current) fileRef.current.value = "";
+      setSelectedFileName(null);
       router.refresh();
     }
     setSaving(false);
@@ -239,7 +240,7 @@ export function ScreenTimeDashboard({
               <Clock3 />
               <CardTitle>Daily by default. Weekly when useful.</CardTitle>
               <CardDescription>
-                The model reads the screenshot; you confirm the numbers.
+                Just post the image. The LLM reads it — if it fails, we still keep the image.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -250,7 +251,7 @@ export function ScreenTimeDashboard({
                     <ToggleGroup
                       value={[cadence]}
                       onValueChange={(value) =>
-                        value[0] && chooseCadence(value[0] as Cadence)
+                        value[0] && setCadence(value[0] as Cadence)
                       }
                       aria-labelledby="cadence-label"
                       variant="outline"
@@ -270,11 +271,12 @@ export function ScreenTimeDashboard({
                         Weekly
                       </ToggleGroupItem>
                     </ToggleGroup>
+                    <FieldDescription>
+                      Auto-detected from screenshot when possible. You can override.
+                    </FieldDescription>
                   </Field>
                   <Field>
-                    <FieldLabel>
-                      Screenshot (optional with manual entry)
-                    </FieldLabel>
+                    <FieldLabel>Screenshot</FieldLabel>
                     <div className="flex flex-col gap-2 rounded-xl border border-dashed bg-muted/20 p-4">
                       <div className="flex items-center gap-3">
                         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -297,6 +299,7 @@ export function ScreenTimeDashboard({
                             onClick={() => {
                               if (fileRef.current) fileRef.current.value = "";
                               setSelectedFileName(null);
+                              setExtraction(null);
                             }}
                             aria-label="Clear file"
                           >
@@ -304,20 +307,20 @@ export function ScreenTimeDashboard({
                           </Button>
                         )}
                       </div>
-                      <Input
+                      <input
                         ref={fileRef}
                         id="screen-time-image"
                         type="file"
                         accept="image/png,image/jpeg,image/webp,image/heic"
-                        className="h-11 cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
+                        required
+                        className="h-11 cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium block w-full text-sm text-muted-foreground file:text-foreground"
                         onChange={(e) =>
                           setSelectedFileName(e.target.files?.[0]?.name ?? null)
                         }
                       />
                     </div>
                     <FieldDescription>
-                      Images are sanitized and kept for 30 days. Manual entry is
-                      allowed.
+                      Images are sanitized and kept for 30 days. The LLM does the reading — no manual typing needed.
                     </FieldDescription>
                   </Field>
                   <Button
@@ -333,154 +336,8 @@ export function ScreenTimeDashboard({
                     ) : (
                       <Bot data-icon="inline-start" />
                     )}
-                    {analyzing ? "Reading screenshot…" : "Read with AI"}
+                    {analyzing ? "Reading screenshot…" : "Read with AI (optional)"}
                   </Button>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <DatePicker
-                      label="Period start"
-                      value={periodStart}
-                      onChange={(v) => {
-                        setPeriodStart(v);
-                        setDirty(true);
-                      }}
-                      required
-                    />
-                    <DatePicker
-                      label="Period end"
-                      value={periodEnd}
-                      onChange={(v) => {
-                        setPeriodEnd(v);
-                        setDirty(true);
-                      }}
-                      required
-                    />
-                    <Field>
-                      <FieldLabel htmlFor="metric-average">
-                        Daily average (minutes)
-                      </FieldLabel>
-                      <InputGroup>
-                        <InputGroupInput
-                          id="metric-average"
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          placeholder="120"
-                          value={metrics.average}
-                          onChange={(event) => {
-                            setMetrics((current) => ({
-                              ...current,
-                              average: event.target.value,
-                            }));
-                            setDirty(true);
-                          }}
-                        />
-                        <InputGroupAddon align="inline-end">
-                          <InputGroupText>min</InputGroupText>
-                        </InputGroupAddon>
-                      </InputGroup>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="metric-total">
-                        Total minutes
-                      </FieldLabel>
-                      <InputGroup>
-                        <InputGroupInput
-                          id="metric-total"
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          placeholder="840"
-                          value={metrics.total}
-                          onChange={(event) => {
-                            setMetrics((current) => ({
-                              ...current,
-                              total: event.target.value,
-                            }));
-                            setDirty(true);
-                          }}
-                        />
-                        <InputGroupAddon align="inline-end">
-                          <InputGroupText>min</InputGroupText>
-                        </InputGroupAddon>
-                      </InputGroup>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="metric-social">
-                        Social minutes
-                      </FieldLabel>
-                      <InputGroup>
-                        <InputGroupInput
-                          id="metric-social"
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          placeholder="45"
-                          value={metrics.social}
-                          onChange={(event) => {
-                            setMetrics((current) => ({
-                              ...current,
-                              social: event.target.value,
-                            }));
-                            setDirty(true);
-                          }}
-                        />
-                        <InputGroupAddon align="inline-end">
-                          <InputGroupText>min</InputGroupText>
-                        </InputGroupAddon>
-                      </InputGroup>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="metric-pickups">Pickups</FieldLabel>
-                      <InputGroup>
-                        <InputGroupInput
-                          id="metric-pickups"
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          placeholder="32"
-                          value={metrics.pickups}
-                          onChange={(event) => {
-                            setMetrics((current) => ({
-                              ...current,
-                              pickups: event.target.value,
-                            }));
-                            setDirty(true);
-                          }}
-                        />
-                        <InputGroupAddon align="inline-end">
-                          <InputGroupText>times</InputGroupText>
-                        </InputGroupAddon>
-                      </InputGroup>
-                    </Field>
-                    <Field className="sm:col-span-2">
-                      <FieldLabel htmlFor="metric-comparison">
-                        Change percent
-                      </FieldLabel>
-                      <InputGroup>
-                        <InputGroupInput
-                          id="metric-comparison"
-                          type="number"
-                          inputMode="numeric"
-                          min={-100}
-                          placeholder="-12 or 8"
-                          value={metrics.comparison}
-                          onChange={(event) => {
-                            setMetrics((current) => ({
-                              ...current,
-                              comparison: event.target.value,
-                            }));
-                            setDirty(true);
-                          }}
-                        />
-                        <InputGroupAddon align="inline-end">
-                          <InputGroupText>%</InputGroupText>
-                        </InputGroupAddon>
-                      </InputGroup>
-                      <FieldDescription>
-                        Use negative for decrease, positive for increase.
-                      </FieldDescription>
-                    </Field>
-                  </div>
                 </FieldGroup>
                 {extraction && (
                   <Alert>
@@ -514,7 +371,7 @@ export function ScreenTimeDashboard({
                   ) : (
                     <Save data-icon="inline-start" />
                   )}
-                  Save confirmed receipt
+                  Save receipt
                 </Button>
               </form>
             </CardContent>

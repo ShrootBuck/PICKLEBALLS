@@ -39,7 +39,7 @@ export default async function SquadPage() {
   const { session, membership } = await requirePageMembership();
   const dayKey = phoenixDateKey();
   const day = requireDateKey(dayKey);
-  const [members, proofs, events, digest] = await Promise.all([
+  const [members, proofs, todayHistory, events, digest] = await Promise.all([
     getPrisma().membership.findMany({
       where: { circleId: membership.circleId },
       orderBy: { createdAt: "asc" },
@@ -65,7 +65,25 @@ export default async function SquadPage() {
         replacedById: null,
       },
       orderBy: { submittedAt: "asc" },
-      include: { owner: true, commitment: true },
+      include: {
+        owner: true,
+        commitment: true,
+        reviews: true,
+      },
+    }),
+    getPrisma().taskProof.findMany({
+      where: {
+        circleId: membership.circleId,
+        replacedById: null,
+        commitment: { day },
+      },
+      orderBy: { submittedAt: "desc" },
+      take: 20,
+      include: {
+        owner: true,
+        commitment: true,
+        reviews: true,
+      },
     }),
     getPrisma().activityEvent.findMany({
       where: { circleId: membership.circleId },
@@ -172,70 +190,81 @@ export default async function SquadPage() {
           <Camera />
           <CardTitle>Proof queue</CardTitle>
           <CardDescription>
-            One non-owner review resolves each receipt.
+            Two approvals required. One challenge sends it back. You cannot
+            review your own.
           </CardDescription>
           <CardAction>
             <Badge variant="secondary">{proofs.length} waiting</Badge>
           </CardAction>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          {proofs.map((proof) => (
-            <Card key={proof.id} size="sm">
-              <AspectRatio ratio={4 / 3}>
-                <Image
-                  className="size-full object-cover"
-                  src={`/api/proofs/${proof.id}/image`}
-                  alt={`Proof for ${proof.commitment.title}`}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  unoptimized
-                />
-              </AspectRatio>
-              <CardHeader>
-                <CardTitle>{proof.commitment.title}</CardTitle>
-                <CardDescription>
-                  {proof.owner.name} · {proof.isLate ? "late proof" : "on time"}
-                </CardDescription>
-                {proof.isLate && (
-                  <CardAction>
-                    <Badge variant="destructive">Late</Badge>
-                  </CardAction>
-                )}
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3">
-                {proof.ownerNote && (
-                  <p className="text-sm">“{proof.ownerNote}”</p>
-                )}
-                {proof.aiStatus === "SUCCEEDED" && (
-                  <Item variant="muted">
-                    <ItemMedia variant="icon">
-                      <Bot />
-                    </ItemMedia>
-                    <ItemContent>
-                      <ItemTitle>AI read</ItemTitle>
-                      <ItemDescription>
-                        {proof.aiVisibleEvidence}
-                      </ItemDescription>
-                      <ItemDescription>
-                        Question: {proof.aiReviewerQuestion}
-                      </ItemDescription>
-                    </ItemContent>
-                  </Item>
-                )}
-                {proof.ownerId !== session.user.id && (
-                  <ReviewProof
-                    proofId={proof.id}
-                    taskTitle={proof.commitment.title}
+          {proofs.map((proof) => {
+            const approvals = proof.reviews.filter(
+              (r) => r.decision === "APPROVED",
+            ).length;
+            const alreadyReviewed = proof.reviews.some(
+              (r) => r.reviewerId === session.user.id,
+            );
+            return (
+              <Card key={proof.id} size="sm">
+                <AspectRatio ratio={4 / 3}>
+                  <Image
+                    className="size-full object-cover"
+                    src={`/api/proofs/${proof.id}/image`}
+                    alt={`Proof for ${proof.commitment.title}`}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    unoptimized
                   />
-                )}
-                {proof.ownerId === session.user.id && (
-                  <Badge variant="secondary">
-                    You cannot review your own proof
-                  </Badge>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                </AspectRatio>
+                <CardHeader>
+                  <CardTitle>{proof.commitment.title}</CardTitle>
+                  <CardDescription>
+                    {proof.owner.name} · {proof.isLate ? "late proof" : "on time"}{" "}
+                    · {approvals}/2 approvals
+                  </CardDescription>
+                  {proof.isLate && (
+                    <CardAction>
+                      <Badge variant="destructive">Late</Badge>
+                    </CardAction>
+                  )}
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  {proof.ownerNote && (
+                    <p className="text-sm">“{proof.ownerNote}”</p>
+                  )}
+                  {proof.aiStatus === "SUCCEEDED" && (
+                    <Item variant="muted">
+                      <ItemMedia variant="icon">
+                        <Bot />
+                      </ItemMedia>
+                      <ItemContent>
+                        <ItemTitle>AI read</ItemTitle>
+                        <ItemDescription>
+                          {proof.aiVisibleEvidence}
+                        </ItemDescription>
+                        <ItemDescription>
+                          Question: {proof.aiReviewerQuestion}
+                        </ItemDescription>
+                      </ItemContent>
+                    </Item>
+                  )}
+                  {proof.ownerId === session.user.id ? (
+                    <Badge variant="secondary">
+                      You cannot review your own proof
+                    </Badge>
+                  ) : alreadyReviewed ? (
+                    <Badge variant="outline">You already reviewed</Badge>
+                  ) : (
+                    <ReviewProof
+                      proofId={proof.id}
+                      taskTitle={proof.commitment.title}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
           {proofs.length === 0 && (
             <Empty className="md:col-span-2">
               <EmptyHeader>
@@ -246,6 +275,94 @@ export default async function SquadPage() {
                 <EmptyDescription>
                   Either everyone is working or nobody has posted. Those are
                   very different situations.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <Camera />
+          <CardTitle>Today&apos;s history — no FOMO</CardTitle>
+          <CardDescription>
+            Every proof posted for {dayKey} — images included, even after
+            verdict.
+          </CardDescription>
+          <CardAction>
+            <Badge variant="secondary">{todayHistory.length} proofs</Badge>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          {todayHistory.map((proof) => {
+            const approvals = proof.reviews.filter(
+              (r) => r.decision === "APPROVED",
+            ).length;
+            const statusLabel =
+              proof.reviewStatus === "APPROVED"
+                ? "Verified"
+                : proof.reviewStatus === "CHALLENGED"
+                  ? "Challenged"
+                  : `${approvals}/2 approvals`;
+            return (
+              <Card key={`history-${proof.id}`} size="sm">
+                <AspectRatio ratio={4 / 3}>
+                  <Image
+                    className="size-full object-cover"
+                    src={`/api/proofs/${proof.id}/image`}
+                    alt={`Proof for ${proof.commitment.title}`}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    unoptimized
+                  />
+                </AspectRatio>
+                <CardHeader>
+                  <CardTitle>{proof.commitment.title}</CardTitle>
+                  <CardDescription>
+                    {proof.owner.name} · {statusLabel}{" "}
+                    {proof.isLate ? "· late" : ""}
+                  </CardDescription>
+                  <CardAction>
+                    <Badge
+                      variant={
+                        proof.reviewStatus === "APPROVED"
+                          ? "default"
+                          : proof.reviewStatus === "CHALLENGED"
+                            ? "destructive"
+                            : "secondary"
+                      }
+                    >
+                      {proof.reviewStatus.toLowerCase()}
+                    </Badge>
+                  </CardAction>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-1">
+                  {proof.ownerNote && (
+                    <p className="text-sm text-muted-foreground">
+                      “{proof.ownerNote}”
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {new Intl.DateTimeFormat("en-US", {
+                      timeZone: "America/Phoenix",
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    }).format(proof.submittedAt)}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })}
+          {todayHistory.length === 0 && (
+            <Empty className="md:col-span-2">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Camera />
+                </EmptyMedia>
+                <EmptyTitle>No proofs today yet</EmptyTitle>
+                <EmptyDescription>
+                  When someone posts, you will see the image here. No more FOMO.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

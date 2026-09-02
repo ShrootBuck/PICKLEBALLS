@@ -237,6 +237,8 @@ export async function submitProof(
   });
 }
 
+export const requiredApprovals = 2;
+
 export async function reviewProof(
   proofId: string,
   reviewerId: string,
@@ -252,7 +254,7 @@ export async function reviewProof(
       async (transaction) => {
         const proof = await transaction.taskProof.findFirst({
           where: { id: proofId, circleId, replacedById: null },
-          include: { commitment: true, review: true },
+          include: { commitment: true, reviews: true },
         });
         if (!proof) throw new DomainError("Proof not found.", 404);
         if (proof.ownerId === reviewerId)
@@ -260,8 +262,13 @@ export async function reviewProof(
             "You cannot review your own homework. Nice try.",
             403,
           );
-        if (proof.review)
-          throw new DomainError("Somebody already called it.", 409);
+        if (proof.reviewStatus !== "PENDING") {
+          throw new DomainError("This proof already has a verdict.", 409);
+        }
+        if (proof.reviews.some((r) => r.reviewerId === reviewerId)) {
+          throw new DomainError("You already reviewed this proof.", 409);
+        }
+        const isChallenge = parsed.data.decision === "CHALLENGED";
 
         const review = await transaction.taskProofReview.create({
           data: {
@@ -273,24 +280,62 @@ export async function reviewProof(
             createdAt: now,
           },
         });
-        const approved = parsed.data.decision === "APPROVED";
-        await transaction.taskProof.update({
-          where: { id: proofId },
-          data: { reviewStatus: approved ? "APPROVED" : "CHALLENGED" },
-        });
-        await transaction.commitment.update({
-          where: { id: proof.commitmentId },
-          data: { status: approved ? "VERIFIED" : "OPEN" },
-        });
-        await transaction.activityEvent.create({
-          data: {
-            circleId,
-            actorId: reviewerId,
-            kind: approved ? "PROOF_APPROVED" : "PROOF_CHALLENGED",
-            entityId: proofId,
-            summary: `${approved ? "approved" : "challenged"} proof for “${proof.commitment.title}”`,
-          },
-        });
+
+        if (isChallenge) {
+          await transaction.taskProof.update({
+            where: { id: proofId },
+            data: { reviewStatus: "CHALLENGED" },
+          });
+          await transaction.commitment.update({
+            where: { id: proof.commitmentId },
+            data: { status: "OPEN" },
+          });
+          await transaction.activityEvent.create({
+            data: {
+              circleId,
+              actorId: reviewerId,
+              kind: "PROOF_CHALLENGED",
+              entityId: proofId,
+              summary: `challenged proof for “${proof.commitment.title}”`,
+            },
+          });
+          return review;
+        }
+
+        const approvals = proof.reviews.filter(
+          (r) => r.decision === "APPROVED",
+        ).length + 1;
+
+        if (approvals >= requiredApprovals) {
+          await transaction.taskProof.update({
+            where: { id: proofId },
+            data: { reviewStatus: "APPROVED" },
+          });
+          await transaction.commitment.update({
+            where: { id: proof.commitmentId },
+            data: { status: "VERIFIED" },
+          });
+          await transaction.activityEvent.create({
+            data: {
+              circleId,
+              actorId: reviewerId,
+              kind: "PROOF_APPROVED",
+              entityId: proofId,
+              summary: `approved proof for “${proof.commitment.title}” (${approvals}/${requiredApprovals})`,
+            },
+          });
+        } else {
+          // Keep pending, still needs more approvals
+          await transaction.activityEvent.create({
+            data: {
+              circleId,
+              actorId: reviewerId,
+              kind: "PROOF_APPROVED",
+              entityId: proofId,
+              summary: `approved proof for “${proof.commitment.title}” (${approvals}/${requiredApprovals}) — needs one more`,
+            },
+          });
+        }
         return review;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -300,7 +345,7 @@ export async function reviewProof(
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      throw new DomainError("Somebody already reviewed this proof.", 409);
+      throw new DomainError("You already reviewed this proof.", 409);
     }
     throw error;
   }

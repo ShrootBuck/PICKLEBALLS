@@ -2,8 +2,8 @@
 
 Pickle Balls is a private schoolwork accountability app for four friends. It is
 not a pickleball tracker. Each person can set up to ten tasks per Phoenix day,
-post photo proof, and get one peer approval or challenge. Daily and weekly
-Screen Time receipts are a separate flow.
+post photo proof, and get two peer approvals or one challenge to verify. Daily and weekly
+Screen Time receipts are a separate flow — just an image, the LLM reads it, and the image is what matters.
 
 ## Stack
 
@@ -50,7 +50,7 @@ placeholder email because the auth user table requires a unique email.
 
 The app uses AI SDK 7 `generateText` with bounded `Output.object` schemas for:
 
-- Screen Time screenshot extraction with manual correction
+- Screen Time screenshot extraction (image-only, LLM does the reading)
 - advisory task-proof comparison
 - task wording refinement
 - one cached squad brief per Phoenix day

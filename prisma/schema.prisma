@@ -274,7 +274,7 @@ model TaskProof {
   owner      User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   circle     Circle           @relation(fields: [circleId], references: [id], onDelete: Cascade)
   image      TaskProofImage?
-  review     TaskProofReview?
+  reviews    TaskProofReview[]
   replacedBy TaskProof?       @relation("ProofReplacement", fields: [replacedById], references: [id], onDelete: SetNull)
   replaces   TaskProof?       @relation("ProofReplacement")
 
@@ -297,7 +297,7 @@ model TaskProofImage {
 
 model TaskProofReview {
   id         String              @id @default(cuid())
-  proofId    String              @unique
+  proofId    String
   reviewerId String
   circleId   String
   decision   ProofReviewDecision
@@ -308,6 +308,8 @@ model TaskProofReview {
   reviewer User      @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
   circle   Circle    @relation(fields: [circleId], references: [id], onDelete: Cascade)
 
+  @@unique([proofId, reviewerId])
+  @@index([proofId])
   @@index([circleId, createdAt])
   @@index([reviewerId, createdAt])
 }

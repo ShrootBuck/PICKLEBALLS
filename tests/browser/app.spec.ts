@@ -71,23 +71,37 @@ test("owner creates a task and posts proof", async ({ browser }) => {
 test("a peer reviews pending proof and owner tools stay role-gated", async ({
   browser,
 }) => {
-  const context = await browser.newContext({ storageState: authState("mia") });
-  const page = await context.newPage();
-  await page.goto("/squad");
+  // First approval — still needs one more (2 required)
+  const miaContext = await browser.newContext({ storageState: authState("mia") });
+  const miaPage = await miaContext.newPage();
+  await miaPage.goto("/squad");
   await expect(
-    page.getByRole("heading", { name: /Accountability/ }),
+    miaPage.getByRole("heading", { name: /Accountability/ }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Review proof/ }),
+    miaPage.getByRole("button", { name: /Review proof/ }),
   ).toBeVisible();
-  await page.getByRole("button", { name: /Review proof/ }).click();
-  await page.getByText("Approve", { exact: true }).click();
-  await page.getByRole("button", { name: "Submit verdict" }).click();
-  await expect(page.getByText("No proof waiting")).toBeVisible();
+  await miaPage.getByRole("button", { name: /Review proof/ }).click();
+  await miaPage.getByText("Approve", { exact: true }).click();
+  await miaPage.getByRole("button", { name: "Submit verdict" }).click();
+  await expect(miaPage.getByText("1/2 approvals")).toBeVisible();
+  await miaContext.close();
 
-  await page.goto("/admin");
-  await expect(page).toHaveURL(/\/$/);
-  await context.close();
+  // Second approval — now verified and queue empty
+  const leoContext = await browser.newContext({ storageState: authState("leo") });
+  const leoPage = await leoContext.newPage();
+  await leoPage.goto("/squad");
+  await expect(
+    leoPage.getByRole("button", { name: /Review proof/ }),
+  ).toBeVisible();
+  await leoPage.getByRole("button", { name: /Review proof/ }).click();
+  await leoPage.getByText("Approve", { exact: true }).click();
+  await leoPage.getByRole("button", { name: "Submit verdict" }).click();
+  await expect(leoPage.getByText("No proof waiting")).toBeVisible();
+
+  await leoPage.goto("/admin");
+  await expect(leoPage).toHaveURL(/\/$/);
+  await leoContext.close();
 });
 
 test("daily and weekly Screen Time live in their own flow", async ({
