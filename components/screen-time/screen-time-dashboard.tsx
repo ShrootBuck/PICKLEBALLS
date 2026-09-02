@@ -1,18 +1,11 @@
 "use client";
 
-import {
-  Bot,
-  ChartColumn,
-  Clock3,
-  FileImage,
-  Save,
-  Upload,
-  X,
-} from "lucide-react";
+import { Bot, ChartColumn, FileImage, Save, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useRef, useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+import { PageHeader } from "@/components/layout/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -234,17 +227,14 @@ export function ScreenTimeDashboard({
 
   return (
     <>
-      <section className="flex flex-col gap-2.5">
+      <PageHeader
+        title="Screen Time"
+        description="Separate from task proof. Daily or weekly honesty receipts."
+      >
         <Badge variant="secondary" className="w-fit">
-          Separate receipt flow
+          Own flow
         </Badge>
-        <h1 className="max-w-2xl text-3xl font-semibold tracking-tight text-balance md:text-4xl">
-          Screen Time, no crossover episode.
-        </h1>
-        <p className="max-w-xl text-sm text-balance text-muted-foreground md:text-base">
-          This is not task proof. It is its own daily or weekly honesty receipt.
-        </p>
-      </section>
+      </PageHeader>
 
       <Tabs defaultValue="submit" className="w-full">
         <TabsList className="w-full sm:w-fit">
@@ -258,12 +248,9 @@ export function ScreenTimeDashboard({
         <TabsContent value="submit" className="mt-4">
           <Card>
             <CardHeader>
-              <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                <Clock3 />
-              </div>
-              <CardTitle>Daily by default. Weekly when useful.</CardTitle>
+              <CardTitle>Post a receipt</CardTitle>
               <CardDescription>
-                Just post the image. The model reads it — if it fails, we still
+                Drop the screenshot. The model reads it — if it fails, we still
                 keep the image.
               </CardDescription>
             </CardHeader>
@@ -427,10 +414,7 @@ export function ScreenTimeDashboard({
           <div className="grid items-start gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-                  <ChartColumn />
-                </div>
-                <CardTitle>Daily average trend</CardTitle>
+                <CardTitle>Daily average</CardTitle>
                 <CardDescription>Confirmed values only.</CardDescription>
               </CardHeader>
               <CardContent>
@@ -471,9 +455,6 @@ export function ScreenTimeDashboard({
             </Card>
             <Card>
               <CardHeader>
-                <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-                  <FileImage />
-                </div>
                 <CardTitle>Squad receipts</CardTitle>
                 <CardDescription>
                   Daily and weekly stay explicit.

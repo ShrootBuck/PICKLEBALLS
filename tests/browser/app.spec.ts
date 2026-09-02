@@ -30,7 +30,7 @@ test("bootstrap owner repairs an existing Discord account", async ({
   const page = await context.newPage();
   await page.goto("/admin");
   await expect(
-    page.getByRole("heading", { name: "Tiny squad administration." }),
+    page.getByRole("heading", { name: "Owner tools" }),
   ).toBeVisible();
   await context.close();
 });
@@ -41,9 +41,7 @@ test("owner creates a task and posts proof", async ({ browser }) => {
   });
   const page = await context.newPage();
   await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "Promises. Then go play." }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
 
   await page.getByRole("button", { name: "Add task" }).click();
   await page.getByLabel("Task").fill("Finish calculus problem set");
@@ -77,9 +75,7 @@ test("a peer reviews pending proof and owner tools stay role-gated", async ({
   });
   const miaPage = await miaContext.newPage();
   await miaPage.goto("/squad");
-  await expect(
-    miaPage.getByRole("heading", { name: /Accountability/ }),
-  ).toBeVisible();
+  await expect(miaPage.getByRole("heading", { name: "Squad" })).toBeVisible();
   await expect(
     miaPage.getByRole("button", { name: /Review proof/ }),
   ).toBeVisible();

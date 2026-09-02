@@ -66,9 +66,6 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
     <div className="grid items-start gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Link2 />
-          </div>
           <CardTitle>One-time Discord invite</CardTitle>
           <CardDescription>
             The token is stored only as a hash. Copy it now.
@@ -149,9 +146,6 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
       </Card>
       <Card>
         <CardHeader>
-          <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-            <Link2 />
-          </div>
           <CardTitle>Invite history</CardTitle>
           <CardDescription>
             No email gates. Discord identity plus this one-time link.

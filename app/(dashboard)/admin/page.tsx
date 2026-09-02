@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { InvitePanel } from "@/components/admin/invite-panel";
+import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
@@ -17,17 +18,14 @@ export default async function AdminPage() {
   });
   return (
     <>
-      <section className="flex flex-col gap-2.5">
+      <PageHeader
+        title="Owner tools"
+        description="Make links, inspect who used them, move on."
+      >
         <Badge variant="secondary" className="w-fit">
           Owner only
         </Badge>
-        <h1 className="max-w-2xl text-3xl font-semibold tracking-tight text-balance md:text-4xl">
-          Tiny squad administration.
-        </h1>
-        <p className="max-w-xl text-sm text-balance text-muted-foreground md:text-base">
-          No enterprise cosplay. Make links, inspect who used them, move on.
-        </p>
-      </section>
+      </PageHeader>
       <InvitePanel
         invites={invites.map((invite) => ({
           id: invite.id,

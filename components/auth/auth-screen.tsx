@@ -1,4 +1,4 @@
-import { Camera, Clock3, Trophy, Users } from "lucide-react";
+import { Camera, Clock3, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -50,14 +50,14 @@ export function AuthScreen({ children }: { children: ReactNode }) {
             Private squad
           </Badge>
         </div>
-        <div className="relative flex max-w-xl flex-col gap-5">
+        <div className="relative flex max-w-xl flex-col gap-4">
           <Badge variant="secondary" className="w-fit uppercase">
             The deal
           </Badge>
           <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl md:text-5xl">
             Do the homework. Earn the court.
           </h1>
-          <p className="max-w-md text-base text-balance sm:text-lg">
+          <p className="max-w-md text-base text-pretty sm:text-lg">
             Daily promises, photo receipts, and friends who can approve the work
             or call it out.
           </p>
@@ -83,11 +83,8 @@ export function AuthScreen({ children }: { children: ReactNode }) {
         </div>
       </section>
       <section className="flex items-center justify-center bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6 md:p-12">
-        <Card className="w-full max-w-md shadow-lg">
+        <Card className="w-full max-w-md">
           <CardHeader>
-            <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <Trophy />
-            </div>
             <CardTitle className="text-xl">Schoolwork accountability</CardTitle>
             <CardDescription>
               Pickleball is the theme. The homework is the point.

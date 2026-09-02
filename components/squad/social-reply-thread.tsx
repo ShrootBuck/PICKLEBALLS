@@ -11,14 +11,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemMedia,
-  ItemTitle,
-} from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
@@ -47,28 +39,26 @@ const replyTimeFormatter = new Intl.DateTimeFormat("en-US", {
 
 function ReplyItem({ reply }: { reply: SocialReply }) {
   return (
-    <Item size="xs">
-      <ItemMedia>
-        <Avatar className="size-6 ring-1 ring-border">
-          <AvatarImage src={reply.author.image ?? undefined} alt="" />
-          <AvatarFallback>{reply.author.initials}</AvatarFallback>
-        </Avatar>
-      </ItemMedia>
-      <ItemContent>
-        <ItemTitle>
-          <span className="truncate">{reply.author.name}</span>
+    <div className="flex gap-2">
+      <Avatar className="size-6 shrink-0">
+        <AvatarImage src={reply.author.image ?? undefined} alt="" />
+        <AvatarFallback>{reply.author.initials}</AvatarFallback>
+      </Avatar>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="truncate text-sm font-medium">
+            {reply.author.name}
+          </span>
           <time
             dateTime={reply.createdAt}
-            className="shrink-0 text-xs font-normal text-muted-foreground tabular-nums"
+            className="shrink-0 text-xs text-muted-foreground tabular-nums"
           >
             {replyTimeFormatter.format(new Date(reply.createdAt))}
           </time>
-        </ItemTitle>
-        <ItemDescription className="line-clamp-none whitespace-pre-wrap break-words text-foreground">
-          {reply.body}
-        </ItemDescription>
-      </ItemContent>
-    </Item>
+        </div>
+        <p className="whitespace-pre-wrap break-words text-sm">{reply.body}</p>
+      </div>
+    </div>
   );
 }
 
@@ -131,7 +121,7 @@ export function SocialReplyThread({
       : `${replies.length} ${replies.length === 1 ? "reply" : "replies"}`;
 
   return (
-    <div className="flex basis-full flex-col items-start gap-1">
+    <div className="flex w-full flex-col items-start gap-2">
       <Button
         type="button"
         variant="ghost"
@@ -144,25 +134,20 @@ export function SocialReplyThread({
         {replyLabel}
       </Button>
 
-      {!open && latestReply && (
-        <ItemGroup className="gap-1">
-          <ReplyItem reply={latestReply} />
-        </ItemGroup>
-      )}
+      {!open && latestReply ? <ReplyItem reply={latestReply} /> : null}
 
-      {open && (
+      {open ? (
         <div
           id={threadId}
-          className="flex w-full flex-col gap-2 rounded-lg border bg-muted/40 p-2"
+          className="flex w-full flex-col gap-3 rounded-lg bg-muted/50 p-3"
         >
-          {" "}
-          {replies.length > 0 && (
-            <ItemGroup className="gap-1" aria-live="polite">
+          {replies.length > 0 ? (
+            <div className="flex flex-col gap-3" aria-live="polite">
               {replies.map((reply) => (
                 <ReplyItem key={reply.id} reply={reply} />
               ))}
-            </ItemGroup>
-          )}
+            </div>
+          ) : null}
           <form onSubmit={submit} className="w-full">
             <FieldGroup className="gap-2">
               <Field data-invalid={Boolean(error)}>
@@ -206,7 +191,7 @@ export function SocialReplyThread({
             </FieldGroup>
           </form>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

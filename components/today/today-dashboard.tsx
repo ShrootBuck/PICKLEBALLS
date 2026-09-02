@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useRef, useState } from "react";
+import { PageHeader } from "@/components/layout/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,15 +51,6 @@ import {
   FieldTitle,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemMedia,
-  ItemTitle,
-} from "@/components/ui/item";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
@@ -66,7 +58,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { dailyTaskLimit } from "@/lib/task-policy";
-import { MidnightCountdown } from "./midnight-countdown";
 
 type Task = {
   id: string;
@@ -489,20 +480,15 @@ function CheckInCard({ initial }: { initial: CheckIn }) {
   const [blocker, setBlocker] = useState(initial?.blocker ?? "");
   const [pending, setPending] = useState(false);
   return (
-    <Card>
+    <Card size="sm" className="lg:sticky lg:top-20">
       <CardHeader>
-        <div className="flex size-10 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
-          <Bot />
-        </div>
-        <CardTitle>Quick check-in</CardTitle>
-        <CardDescription>
-          Tell the squad where the day actually stands.
-        </CardDescription>
-        {initial && (
+        <CardTitle>Check-in</CardTitle>
+        <CardDescription>Where the day actually stands.</CardDescription>
+        {initial ? (
           <CardAction>
             <Badge variant="outline">Saved</Badge>
           </CardAction>
-        )}
+        ) : null}
       </CardHeader>
       <CardContent>
         <FieldGroup>
@@ -546,8 +532,7 @@ function CheckInCard({ initial }: { initial: CheckIn }) {
       <CardFooter>
         <Button
           disabled={pending}
-          size="lg"
-          className="w-full sm:w-auto touch-manipulation"
+          className="w-full touch-manipulation"
           onClick={async () => {
             setPending(true);
             const response = await fetch("/api/check-in", {
@@ -563,7 +548,7 @@ function CheckInCard({ initial }: { initial: CheckIn }) {
             router.refresh();
           }}
         >
-          {pending && <Spinner data-icon="inline-start" />}
+          {pending ? <Spinner data-icon="inline-start" /> : null}
           Save check-in
         </Button>
       </CardFooter>
@@ -587,100 +572,45 @@ export function TodayDashboard({
   const percent = tasks.length
     ? Math.round((verified / tasks.length) * 100)
     : 0;
+  const hasActions = (task: Task) =>
+    task.status === "OPEN" ||
+    task.status === "RENEGOTIATED" ||
+    !task.proof ||
+    task.proof.reviewStatus === "CHALLENGED";
+
   return (
     <>
-      <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="flex max-w-2xl flex-col gap-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">Phoenix · {day}</Badge>
-            <MidnightCountdown />
-            {awaiting > 0 && (
-              <Badge variant="outline">{awaiting} awaiting review</Badge>
-            )}
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight text-balance md:text-4xl">
-            Promises. Then go play.
-          </h1>
-          <p className="max-w-xl text-sm text-balance text-muted-foreground md:text-base">
-            Put down the schoolwork that earns your free time. Specific,
-            verifiable, due at midnight.
-          </p>
+      <PageHeader
+        title="Today"
+        description={`${tasks.length}/${dailyTaskLimit} locked in · ${verified} verified. Photo or it did not happen.`}
+        actions={
+          tasks.length < dailyTaskLimit ? <TaskDialog day={day} /> : null
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">Phoenix · {day}</Badge>
+          {awaiting > 0 ? (
+            <Badge variant="outline">{awaiting} in review</Badge>
+          ) : null}
         </div>
-        {tasks.length < dailyTaskLimit && (
-          <div className="shrink-0">
-            <TaskDialog day={day} />
-          </div>
-        )}
-      </section>
+      </PageHeader>
 
-      <Card>
-        <CardHeader>
-          <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <CalendarClock />
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="text-muted-foreground">
+                {verified} of {tasks.length} verified
+              </span>
+              <span className="tabular-nums">{percent}%</span>
+            </div>
+            <Progress
+              value={percent}
+              aria-label={`${verified} of ${tasks.length} promises verified`}
+            />
           </div>
-          <CardTitle>Today’s board</CardTitle>
-          <CardDescription>
-            {tasks.length}/{dailyTaskLimit} tasks set · {verified} verified
-            {awaiting > 0 ? ` · ${awaiting} in review` : ""}
-          </CardDescription>
-          <CardAction>
-            <Badge
-              variant={
-                percent === 100 && tasks.length > 0 ? "default" : "secondary"
-              }
-            >
-              {percent}%
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <Progress
-            value={percent}
-            aria-label={`${verified} of ${tasks.length} promises verified`}
-          />
-          <ItemGroup className="gap-3">
-            {tasks.map((task) => (
-              <Item
-                key={task.id}
-                variant="outline"
-                className="flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-start"
-              >
-                <ItemMedia variant="icon" className="hidden sm:flex">
-                  {task.status === "VERIFIED" ? (
-                    <CheckCircle2 />
-                  ) : (
-                    <CalendarClock />
-                  )}
-                </ItemMedia>
-                <ItemContent className="min-w-0 flex-1">
-                  <ItemTitle>{task.title}</ItemTitle>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {statusBadge(task.status)}{" "}
-                    {task.proof?.isLate && (
-                      <Badge variant="destructive">Late proof</Badge>
-                    )}
-                  </div>
-                  <ItemDescription className="line-clamp-2">
-                    {task.definitionOfDone}
-                  </ItemDescription>
-                  <ItemDescription className="text-xs tabular-nums">
-                    Due midnight · Phoenix · {task.day}
-                  </ItemDescription>
-                </ItemContent>
-                <ItemActions className="w-full flex-row flex-wrap justify-start sm:w-auto sm:justify-end">
-                  {(task.status === "OPEN" ||
-                    task.status === "RENEGOTIATED") && (
-                    <TaskDialog day={day} task={task} />
-                  )}
-                  {(!task.proof ||
-                    task.proof.reviewStatus === "CHALLENGED") && (
-                    <ProofDialog task={task} />
-                  )}
-                </ItemActions>
-              </Item>
-            ))}
-          </ItemGroup>
-          {tasks.length === 0 && (
+
+          {tasks.length === 0 ? (
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -693,10 +623,41 @@ export function TodayDashboard({
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {tasks.map((task) => (
+                <Card key={task.id} size="sm">
+                  <CardHeader>
+                    <CardTitle>{task.title}</CardTitle>
+                    <CardDescription className="line-clamp-2">
+                      {task.definitionOfDone}
+                    </CardDescription>
+                    <CardAction className="flex flex-col items-end gap-1">
+                      {statusBadge(task.status)}
+                      {task.proof?.isLate ? (
+                        <Badge variant="destructive">Late proof</Badge>
+                      ) : null}
+                    </CardAction>
+                  </CardHeader>
+                  {hasActions(task) ? (
+                    <CardFooter className="justify-end gap-2">
+                      {(task.status === "OPEN" ||
+                        task.status === "RENEGOTIATED") && (
+                        <TaskDialog day={day} task={task} />
+                      )}
+                      {(!task.proof ||
+                        task.proof.reviewStatus === "CHALLENGED") && (
+                        <ProofDialog task={task} />
+                      )}
+                    </CardFooter>
+                  ) : null}
+                </Card>
+              ))}
+            </div>
           )}
-        </CardContent>
-      </Card>
-      <CheckInCard initial={checkIn} />
+        </div>
+        <CheckInCard initial={checkIn} />
+      </div>
     </>
   );
 }

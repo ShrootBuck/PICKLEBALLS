@@ -21,7 +21,7 @@ function getDueMs(now: Date) {
   return due.getTime() - now.getTime();
 }
 
-export function MidnightCountdown() {
+export function MidnightCountdown({ compact = false }: { compact?: boolean }) {
   const [remaining, setRemaining] = useState<number | null>(null);
 
   useEffect(() => {
@@ -39,11 +39,20 @@ export function MidnightCountdown() {
     return () => window.clearInterval(id);
   }, []);
 
+  const label =
+    remaining === null
+      ? "--:--:--"
+      : remaining <= 0
+        ? "00:00:00"
+        : formatRemaining(remaining);
+  const suffix = compact ? "" : " until midnight";
+
   if (remaining === null) {
     return (
       <Badge variant="outline" className="gap-1.5 tabular-nums">
         <Clock3 />
-        --:--:-- until midnight
+        {label}
+        {suffix}
       </Badge>
     );
   }
@@ -56,11 +65,11 @@ export function MidnightCountdown() {
       variant={isCritical ? "destructive" : isUrgent ? "default" : "secondary"}
       className="gap-1.5 tabular-nums"
       aria-live="polite"
+      aria-label={`${label} until midnight`}
     >
       <Clock3 />
-      {remaining <= 0
-        ? "00:00:00 until midnight"
-        : `${formatRemaining(remaining)} until midnight`}
+      {label}
+      {suffix}
     </Badge>
   );
 }
