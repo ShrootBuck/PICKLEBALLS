@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   Sidebar,
   SidebarContent,
@@ -54,15 +55,24 @@ export function AppSidebar({
               render={<Link href="/" prefetch />}
               isActive={pathname === "/"}
             >
-              <span aria-hidden="true">🎾</span>
-              <span>Pickle Balls</span>
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-base text-sidebar-primary-foreground">
+                <span aria-hidden="true">🎾</span>
+              </span>
+              <span className="flex min-w-0 flex-col items-start">
+                <span className="truncate text-sm font-semibold tracking-tight">
+                  Pickle Balls
+                </span>
+                <span className="truncate text-xs font-normal text-sidebar-accent-foreground/70">
+                  School first
+                </span>
+              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>School first</SidebarGroupLabel>
+          <SidebarGroupLabel>Accountability</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {links.map(({ href, label, icon: Icon }) => (
@@ -93,34 +103,28 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<div />}
-              className="cursor-default hover:bg-transparent active:bg-transparent"
-            >
-              <Avatar className="size-7">
-                <AvatarImage
-                  src={user.image ?? undefined}
-                  alt={`${user.name} avatar`}
-                />
-                <AvatarFallback>{user.initials}</AvatarFallback>
-              </Avatar>
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate">{user.name}</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {user.discordUsername
-                    ? `@${user.discordUsername}`
-                    : "Discord"}
-                </span>
-              </span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarFooter className="flex flex-col gap-2">
+        <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+          <Avatar className="size-8 ring-1 ring-sidebar-border">
+            <AvatarImage
+              src={user.image ?? undefined}
+              alt={`${user.name} avatar`}
+            />
+            <AvatarFallback>{user.initials}</AvatarFallback>
+          </Avatar>
+          <span className="flex min-w-0 flex-1 flex-col text-left">
+            <span className="truncate text-sm font-medium">{user.name}</span>
+            <span className="truncate text-xs text-sidebar-accent-foreground/70">
+              {user.discordUsername
+                ? `@${user.discordUsername}`
+                : "Discord member"}
+            </span>
+          </span>
+        </div>
+        <Separator className="bg-sidebar-border/60" />
         <Button
           variant="ghost"
-          size="default"
+          size="sm"
           disabled={signOutPending}
           className="w-full justify-start touch-manipulation"
           onClick={async () => {

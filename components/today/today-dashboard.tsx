@@ -5,8 +5,10 @@ import {
   CalendarClock,
   Camera,
   CheckCircle2,
+  CircleDashed,
   Pencil,
   Plus,
+  TriangleAlert,
   Upload,
   X,
 } from "lucide-react";
@@ -33,6 +35,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Field,
   FieldDescription,
@@ -92,13 +101,28 @@ function statusBadge(status: Task["status"]) {
     MISSED: "Missed",
     RENEGOTIATED: "Renegotiated",
   };
-  const variant =
-    status === "MISSED"
-      ? "destructive"
-      : status === "VERIFIED"
-        ? "default"
-        : "secondary";
-  return <Badge variant={variant}>{labels[status]}</Badge>;
+  if (status === "MISSED")
+    return (
+      <Badge variant="destructive">
+        <TriangleAlert />
+        {labels[status]}
+      </Badge>
+    );
+  if (status === "VERIFIED")
+    return (
+      <Badge variant="default">
+        <CheckCircle2 />
+        {labels[status]}
+      </Badge>
+    );
+  if (status === "OPEN" || status === "RENEGOTIATED")
+    return (
+      <Badge variant="outline">
+        <CircleDashed />
+        {labels[status]}
+      </Badge>
+    );
+  return <Badge variant="secondary">{labels[status]}</Badge>;
 }
 
 function TaskDialog({ task }: { day: string; task?: Task }) {
@@ -228,10 +252,14 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
                     “Study math” is not evidence. Name the finish line.
                   </FieldDescription>
                 </Field>
-                <div className="rounded-lg bg-muted px-3 py-3 text-sm text-muted-foreground">
-                  Due tonight at midnight — Phoenix time. Everyone shares the
-                  same deadline, refreshed daily.
-                </div>
+                <Alert>
+                  <CalendarClock />
+                  <AlertTitle>Due tonight at midnight</AlertTitle>
+                  <AlertDescription>
+                    Phoenix time. Everyone shares the same deadline, refreshed
+                    daily.
+                  </AlertDescription>
+                </Alert>
                 {task && (
                   <Field>
                     <FieldLabel htmlFor={`note-${task.id}`}>
@@ -256,7 +284,7 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
             </form>
             <ScrollBar orientation="vertical" />
           </ScrollArea>
-          <DialogFooter className="shrink-0 border-t bg-muted/30 p-4">
+          <DialogFooter className="mx-0 mb-0 shrink-0">
             <Button
               type="submit"
               form={`task-form-${task?.id ?? "new"}`}
@@ -351,7 +379,7 @@ function ProofDialog({ task }: { task: Task }) {
                   </FieldLabel>
                   {/* biome-ignore lint/a11y/useSemanticElements: dropzone uses div to avoid nested button with clear action */}
                   <div
-                    className="relative flex flex-col gap-2 rounded-xl border border-dashed bg-muted/20 p-4 transition-colors hover:bg-muted/30 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 cursor-pointer"
+                    className="relative flex flex-col gap-2 rounded-xl border border-dashed bg-muted/40 p-4 transition-colors hover:border-primary/40 hover:bg-muted/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 cursor-pointer"
                     onClick={() => fileRef.current?.click()}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
@@ -431,7 +459,7 @@ function ProofDialog({ task }: { task: Task }) {
             </form>
             <ScrollBar orientation="vertical" />
           </ScrollArea>
-          <DialogFooter className="shrink-0 border-t bg-muted/30 p-4">
+          <DialogFooter className="mx-0 mb-0 shrink-0">
             <Button
               type="submit"
               form={`proof-form-${task.id}`}
@@ -463,13 +491,18 @@ function CheckInCard({ initial }: { initial: CheckIn }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex size-8 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
-          <Bot className="size-4" />
+        <div className="flex size-10 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
+          <Bot />
         </div>
         <CardTitle>Quick check-in</CardTitle>
         <CardDescription>
           Tell the squad where the day actually stands.
         </CardDescription>
+        {initial && (
+          <CardAction>
+            <Badge variant="outline">Saved</Badge>
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent>
         <FieldGroup>
@@ -548,42 +581,61 @@ export function TodayDashboard({
   checkIn: CheckIn;
 }) {
   const verified = tasks.filter((task) => task.status === "VERIFIED").length;
+  const awaiting = tasks.filter(
+    (task) => task.status === "AWAITING_REVIEW",
+  ).length;
+  const percent = tasks.length
+    ? Math.round((verified / tasks.length) * 100)
+    : 0;
   return (
     <>
       <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="flex flex-col gap-2">
+        <div className="flex max-w-2xl flex-col gap-2.5">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">Phoenix · {day}</Badge>
             <MidnightCountdown />
+            {awaiting > 0 && (
+              <Badge variant="outline">{awaiting} awaiting review</Badge>
+            )}
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+          <h1 className="text-3xl font-semibold tracking-tight text-balance md:text-4xl">
             Promises. Then go play.
           </h1>
-          <p className="text-sm text-muted-foreground md:text-base">
-            Put down the schoolwork that earns your free time.
+          <p className="max-w-xl text-sm text-balance text-muted-foreground md:text-base">
+            Put down the schoolwork that earns your free time. Specific,
+            verifiable, due at midnight.
           </p>
         </div>
-        {tasks.length < dailyTaskLimit && <TaskDialog day={day} />}
+        {tasks.length < dailyTaskLimit && (
+          <div className="shrink-0">
+            <TaskDialog day={day} />
+          </div>
+        )}
       </section>
 
       <Card>
         <CardHeader>
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <CalendarClock className="size-4" />
+          <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <CalendarClock />
           </div>
           <CardTitle>Today’s board</CardTitle>
           <CardDescription>
             {tasks.length}/{dailyTaskLimit} tasks set · {verified} verified
+            {awaiting > 0 ? ` · ${awaiting} in review` : ""}
           </CardDescription>
           <CardAction>
-            <Badge>
-              {tasks.length ? Math.round((verified / tasks.length) * 100) : 0}%
+            <Badge
+              variant={
+                percent === 100 && tasks.length > 0 ? "default" : "secondary"
+              }
+            >
+              {percent}%
             </Badge>
           </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <Progress
-            value={tasks.length ? (verified / tasks.length) * 100 : 0}
+            value={percent}
             aria-label={`${verified} of ${tasks.length} promises verified`}
           />
           <ItemGroup className="gap-3">
@@ -591,7 +643,7 @@ export function TodayDashboard({
               <Item
                 key={task.id}
                 variant="outline"
-                className="flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center"
+                className="flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-start"
               >
                 <ItemMedia variant="icon" className="hidden sm:flex">
                   {task.status === "VERIFIED" ? (
@@ -601,21 +653,21 @@ export function TodayDashboard({
                   )}
                 </ItemMedia>
                 <ItemContent className="min-w-0 flex-1">
-                  <ItemTitle className="flex flex-wrap items-center gap-2">
-                    <span className="truncate">{task.title}</span>
+                  <ItemTitle>{task.title}</ItemTitle>
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {statusBadge(task.status)}{" "}
                     {task.proof?.isLate && (
                       <Badge variant="destructive">Late proof</Badge>
                     )}
-                  </ItemTitle>
+                  </div>
                   <ItemDescription className="line-clamp-2">
                     {task.definitionOfDone}
                   </ItemDescription>
-                  <ItemDescription className="text-xs">
+                  <ItemDescription className="text-xs tabular-nums">
                     Due midnight · Phoenix · {task.day}
                   </ItemDescription>
                 </ItemContent>
-                <ItemActions className="w-full flex-row flex-wrap justify-end sm:w-auto">
+                <ItemActions className="w-full flex-row flex-wrap justify-start sm:w-auto sm:justify-end">
                   {(task.status === "OPEN" ||
                     task.status === "RENEGOTIATED") && (
                     <TaskDialog day={day} task={task} />
@@ -629,13 +681,18 @@ export function TodayDashboard({
             ))}
           </ItemGroup>
           {tasks.length === 0 && (
-            <Alert>
-              <Bot />
-              <AlertTitle>No promises yet.</AlertTitle>
-              <AlertDescription>
-                A blank board does not count as being “flexible.” Add the work.
-              </AlertDescription>
-            </Alert>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Bot />
+                </EmptyMedia>
+                <EmptyTitle>No promises yet</EmptyTitle>
+                <EmptyDescription>
+                  A blank board does not count as being “flexible.” Add the work
+                  that earns your free time.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
         </CardContent>
       </Card>

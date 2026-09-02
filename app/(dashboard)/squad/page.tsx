@@ -1,4 +1,15 @@
-import { Activity, Bot, Camera, ClockAlert, Users } from "lucide-react";
+import {
+  Activity,
+  Bot,
+  Camera,
+  CheckCircle2,
+  CircleDashed,
+  ClockAlert,
+  History,
+  PencilLine,
+  TriangleAlert,
+  Upload,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { ReviewProof } from "@/components/squad/review-proof";
@@ -29,11 +40,34 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@/components/ui/item";
+import { Separator } from "@/components/ui/separator";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
 import { phoenixDateKey, requireDateKey } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Squad" };
+
+function activityIcon(kind: string) {
+  switch (kind) {
+    case "TASK_CREATED":
+      return PencilLine;
+    case "PROOF_SUBMITTED":
+      return Upload;
+    case "PROOF_APPROVED":
+      return CheckCircle2;
+    case "PROOF_CHALLENGED":
+      return TriangleAlert;
+    case "TASK_MISSED":
+      return ClockAlert;
+    case "TASK_EDITED":
+    case "TASK_RENEGOTIATED":
+      return History;
+    case "CHECK_IN_SET":
+      return Activity;
+    default:
+      return CircleDashed;
+  }
+}
 
 export default async function SquadPage() {
   const { session, membership } = await requirePageMembership();
@@ -126,33 +160,33 @@ export default async function SquadPage() {
   ]);
   return (
     <>
-      <section className="flex flex-col gap-1.5">
+      <section className="flex flex-col gap-2.5">
         <Badge variant="secondary" className="w-fit">
-          {members.length} friends · one court
+          {members.length} friends · one court · {dayKey}
         </Badge>
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+        <h1 className="max-w-2xl text-3xl font-semibold tracking-tight text-balance md:text-4xl">
           Accountability, minus the LinkedIn sludge.
         </h1>
-        <p className="text-sm text-muted-foreground md:text-base">
+        <p className="max-w-xl text-sm text-balance text-muted-foreground md:text-base">
           See promises, proof, and blockers. Help first; roast second.
         </p>
       </section>
 
-      <div className="grid gap-6 sm:grid-cols-2">
+      <div className="grid items-start gap-4 sm:grid-cols-2">
         {members.map(({ user, role }) => {
           const checkIn = user.checkIns[0];
           const verified = user.commitments.filter(
             (task) => task.status === "VERIFIED",
           ).length;
           return (
-            <Card key={user.id}>
+            <Card key={user.id} className="transition-shadow hover:shadow-md">
               <CardHeader>
                 <div className="flex min-w-0 items-center gap-3">
-                  <Avatar className="size-10">
+                  <Avatar className="size-10 ring-1 ring-border">
                     <AvatarImage src={user.image ?? undefined} alt="" />
                     <AvatarFallback>{user.initials}</AvatarFallback>
                   </Avatar>
-                  <div className="flex min-w-0 flex-col">
+                  <div className="flex min-w-0 flex-1 flex-col">
                     <CardTitle className="truncate">{user.name}</CardTitle>
                     <CardDescription className="truncate">
                       {user.discordUsername
@@ -165,12 +199,12 @@ export default async function SquadPage() {
                   <Badge variant={role === "OWNER" ? "default" : "secondary"}>
                     {role === "OWNER"
                       ? "Owner"
-                      : `${verified}/${user.commitments.length}`}
+                      : `${verified}/${user.commitments.length} done`}
                   </Badge>
                 </CardAction>
               </CardHeader>
-              <CardContent>
-                <ItemGroup>
+              <CardContent className="flex flex-col gap-3">
+                <ItemGroup className="gap-2">
                   {user.commitments.map((task) => {
                     const statusVariant =
                       task.status === "VERIFIED"
@@ -183,15 +217,12 @@ export default async function SquadPage() {
                     return (
                       <Item key={task.id} size="sm" variant="muted">
                         <ItemContent>
-                          <ItemTitle className="flex items-center gap-2">
-                            <span className="truncate">{task.title}</span>
-                            <Badge
-                              variant={statusVariant}
-                              className="shrink-0 text-[10px] leading-none"
-                            >
+                          <ItemTitle>{task.title}</ItemTitle>
+                          <div>
+                            <Badge variant={statusVariant}>
                               {task.status.toLowerCase().replaceAll("_", " ")}
                             </Badge>
-                          </ItemTitle>
+                          </div>
                         </ItemContent>
                         <SocialReplyThread
                           targetType="COMMITMENT"
@@ -207,41 +238,46 @@ export default async function SquadPage() {
                     );
                   })}
                   {user.commitments.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
                       No tasks. Suspiciously peaceful.
                     </p>
                   )}
                 </ItemGroup>
                 {checkIn && (
-                  <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
-                    <Badge
-                      variant={
-                        checkIn.signal === "AT_RISK"
-                          ? "destructive"
-                          : checkIn.signal === "CLEAR"
-                            ? "default"
-                            : "secondary"
-                      }
-                      className="capitalize"
-                    >
-                      {checkIn.signal.toLowerCase().replaceAll("_", " ")}
-                    </Badge>
-                    {checkIn.blocker && (
-                      <span className="text-muted-foreground">
-                        · {checkIn.blocker}
-                      </span>
-                    )}
-                    <SocialReplyThread
-                      targetType="CHECK_IN"
-                      targetId={checkIn.id}
-                      initialReplies={checkIn.replies
-                        .toReversed()
-                        .map((reply) => ({
-                          ...reply,
-                          createdAt: reply.createdAt.toISOString(),
-                        }))}
-                    />
-                  </div>
+                  <>
+                    <Separator />
+                    <div className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3 text-sm">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge
+                          variant={
+                            checkIn.signal === "AT_RISK"
+                              ? "destructive"
+                              : checkIn.signal === "CLEAR"
+                                ? "default"
+                                : "secondary"
+                          }
+                          className="capitalize"
+                        >
+                          {checkIn.signal.toLowerCase().replaceAll("_", " ")}
+                        </Badge>
+                        {checkIn.blocker && (
+                          <span className="min-w-0 flex-1 text-muted-foreground">
+                            {checkIn.blocker}
+                          </span>
+                        )}
+                      </div>
+                      <SocialReplyThread
+                        targetType="CHECK_IN"
+                        targetId={checkIn.id}
+                        initialReplies={checkIn.replies
+                          .toReversed()
+                          .map((reply) => ({
+                            ...reply,
+                            createdAt: reply.createdAt.toISOString(),
+                          }))}
+                      />
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -251,8 +287,8 @@ export default async function SquadPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Camera className="size-4" />
+          <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <Camera />
           </div>
           <CardTitle>Proof queue</CardTitle>
           <CardDescription>
@@ -263,7 +299,7 @@ export default async function SquadPage() {
             <Badge variant="secondary">{proofs.length} waiting</Badge>
           </CardAction>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid items-start gap-4 sm:grid-cols-2">
           {proofs.map((proof) => {
             const approvals = proof.reviews.filter(
               (r) => r.decision === "APPROVED",
@@ -272,13 +308,10 @@ export default async function SquadPage() {
               (r) => r.reviewerId === session.user.id,
             );
             return (
-              <Card key={proof.id} size="sm" className="overflow-hidden">
-                <AspectRatio
-                  ratio={4 / 3}
-                  className="overflow-hidden rounded-t-xl"
-                >
+              <Card key={proof.id} size="sm" className="group overflow-hidden">
+                <AspectRatio ratio={4 / 3} className="overflow-hidden">
                   <Image
-                    className="size-full object-cover"
+                    className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                     src={`/api/proofs/${proof.id}/image`}
                     alt={`Proof for ${proof.commitment.title}`}
                     fill
@@ -354,8 +387,8 @@ export default async function SquadPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-            <Camera className="size-4" />
+          <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <History />
           </div>
           <CardTitle>Today&apos;s history — no FOMO</CardTitle>
           <CardDescription>
@@ -366,7 +399,7 @@ export default async function SquadPage() {
             <Badge variant="secondary">{todayHistory.length} proofs</Badge>
           </CardAction>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid items-start gap-4 sm:grid-cols-2">
           {todayHistory.map((proof) => {
             const approvals = proof.reviews.filter(
               (r) => r.decision === "APPROVED",
@@ -381,14 +414,11 @@ export default async function SquadPage() {
               <Card
                 key={`history-${proof.id}`}
                 size="sm"
-                className="overflow-hidden"
+                className="group overflow-hidden"
               >
-                <AspectRatio
-                  ratio={4 / 3}
-                  className="overflow-hidden rounded-t-xl"
-                >
+                <AspectRatio ratio={4 / 3} className="overflow-hidden">
                   <Image
-                    className="size-full object-cover"
+                    className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                     src={`/api/proofs/${proof.id}/image`}
                     alt={`Proof for ${proof.commitment.title}`}
                     fill
@@ -451,35 +481,46 @@ export default async function SquadPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-            <Activity className="size-4" />
+          <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <Activity />
           </div>
           <CardTitle>Actual activity</CardTitle>
           <CardDescription>
             Stored events, not a fake feed with suspiciously perfect timestamps.
           </CardDescription>
+          <CardAction>
+            <Badge variant="secondary">{events.length} events</Badge>
+          </CardAction>
         </CardHeader>
         <CardContent>
-          <ItemGroup>
-            {events.map((event) => (
-              <Item key={event.id}>
-                <ItemMedia variant="icon">
-                  <Users />
-                </ItemMedia>
-                <ItemContent>
-                  <ItemTitle>
-                    {event.actor.name} {event.summary}
-                  </ItemTitle>
-                  <ItemDescription>
-                    {new Intl.DateTimeFormat("en-US", {
-                      timeZone: "America/Phoenix",
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    }).format(event.createdAt)}
-                  </ItemDescription>
-                </ItemContent>
-              </Item>
-            ))}
+          <ItemGroup className="gap-1">
+            {events.map((event) => {
+              const Icon = activityIcon(event.kind);
+              return (
+                <Item key={event.id} size="sm">
+                  <ItemMedia variant="icon">
+                    <Icon />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>
+                      {event.actor.name} {event.summary}
+                    </ItemTitle>
+                    <ItemDescription className="tabular-nums">
+                      {new Intl.DateTimeFormat("en-US", {
+                        timeZone: "America/Phoenix",
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(event.createdAt)}
+                    </ItemDescription>
+                  </ItemContent>
+                </Item>
+              );
+            })}
+            {events.length === 0 && (
+              <p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
+                Nothing yet. Do something worth logging.
+              </p>
+            )}
           </ItemGroup>
         </CardContent>
       </Card>

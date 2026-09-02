@@ -132,7 +132,7 @@ export function ReviewProof({
               </Alert>
             )}
           </form>
-          <DialogFooter className="shrink-0 flex-col gap-2 sm:flex-row">
+          <DialogFooter className="mx-0 mb-0 shrink-0">
             <Button
               type="submit"
               form={`review-form-${proofId}`}

@@ -17,14 +17,14 @@ export default async function AdminPage() {
   });
   return (
     <>
-      <section className="flex flex-col gap-1.5">
+      <section className="flex flex-col gap-2.5">
         <Badge variant="secondary" className="w-fit">
           Owner only
         </Badge>
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+        <h1 className="max-w-2xl text-3xl font-semibold tracking-tight text-balance md:text-4xl">
           Tiny squad administration.
         </h1>
-        <p className="text-sm text-muted-foreground md:text-base">
+        <p className="max-w-xl text-sm text-balance text-muted-foreground md:text-base">
           No enterprise cosplay. Make links, inspect who used them, move on.
         </p>
       </section>

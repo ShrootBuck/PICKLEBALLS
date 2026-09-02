@@ -1,6 +1,14 @@
 "use client";
 
-import { Bot, Clock3, FileImage, Save, Upload, X } from "lucide-react";
+import {
+  Bot,
+  ChartColumn,
+  Clock3,
+  FileImage,
+  Save,
+  Upload,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useRef, useState } from "react";
@@ -21,6 +29,13 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Field,
   FieldDescription,
@@ -219,36 +234,36 @@ export function ScreenTimeDashboard({
 
   return (
     <>
-      <section className="flex flex-col gap-1">
+      <section className="flex flex-col gap-2.5">
         <Badge variant="secondary" className="w-fit">
           Separate receipt flow
         </Badge>
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+        <h1 className="max-w-2xl text-3xl font-semibold tracking-tight text-balance md:text-4xl">
           Screen Time, no crossover episode.
         </h1>
-        <p className="text-sm text-muted-foreground md:text-base">
+        <p className="max-w-xl text-sm text-balance text-muted-foreground md:text-base">
           This is not task proof. It is its own daily or weekly honesty receipt.
         </p>
       </section>
 
       <Tabs defaultValue="submit" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:flex sm:w-fit">
-          <TabsTrigger value="submit" className="sm:flex-none">
+        <TabsList className="w-full sm:w-fit">
+          <TabsTrigger value="submit" className="flex-1 sm:flex-none">
             Post receipt
           </TabsTrigger>
-          <TabsTrigger value="history" className="sm:flex-none">
+          <TabsTrigger value="history" className="flex-1 sm:flex-none">
             History
           </TabsTrigger>
         </TabsList>
         <TabsContent value="submit" className="mt-4">
           <Card>
             <CardHeader>
-              <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Clock3 className="size-4" />
+              <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                <Clock3 />
               </div>
               <CardTitle>Daily by default. Weekly when useful.</CardTitle>
               <CardDescription>
-                Just post the image. The LLM reads it — if it fails, we still
+                Just post the image. The model reads it — if it fails, we still
                 keep the image.
               </CardDescription>
             </CardHeader>
@@ -291,7 +306,7 @@ export function ScreenTimeDashboard({
                     </FieldLabel>
                     {/* biome-ignore lint/a11y/useSemanticElements: dropzone uses div to avoid nested button with clear action */}
                     <div
-                      className="relative flex flex-col gap-2 rounded-xl border border-dashed bg-muted/20 p-4 transition-colors hover:bg-muted/30 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 cursor-pointer"
+                      className="relative flex flex-col gap-2 rounded-xl border border-dashed bg-muted/40 p-4 transition-colors hover:border-primary/40 hover:bg-muted/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 cursor-pointer"
                       onClick={() => fileRef.current?.click()}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
@@ -409,43 +424,62 @@ export function ScreenTimeDashboard({
           </Card>
         </TabsContent>
         <TabsContent value="history" className="mt-4">
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid items-start gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
+                <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                  <ChartColumn />
+                </div>
                 <CardTitle>Daily average trend</CardTitle>
                 <CardDescription>Confirmed values only.</CardDescription>
               </CardHeader>
-              <CardContent className="overflow-hidden">
-                <ChartContainer
-                  config={chartConfig}
-                  className="min-h-[220px] w-full"
-                >
-                  <BarChart data={chartData} accessibilityLayer>
-                    <CartesianGrid vertical={false} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar
-                      dataKey="minutes"
-                      fill="var(--color-minutes)"
-                      radius={6}
-                    />
-                  </BarChart>
-                </ChartContainer>
-                {chartData.length === 0 && (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    No data yet. Post a receipt to see the trend.
-                  </p>
+              <CardContent>
+                {chartData.length > 0 ? (
+                  <ChartContainer
+                    config={chartConfig}
+                    className="min-h-[220px] w-full"
+                  >
+                    <BarChart data={chartData} accessibilityLayer>
+                      <CartesianGrid vertical={false} />
+                      <XAxis
+                        dataKey="label"
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar
+                        dataKey="minutes"
+                        fill="var(--color-minutes)"
+                        radius={6}
+                      />
+                    </BarChart>
+                  </ChartContainer>
+                ) : (
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <ChartColumn />
+                      </EmptyMedia>
+                      <EmptyTitle>No data yet</EmptyTitle>
+                      <EmptyDescription>
+                        Post a receipt to see the trend.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
                 )}
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
+                <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                  <FileImage />
+                </div>
                 <CardTitle>Squad receipts</CardTitle>
                 <CardDescription>
                   Daily and weekly stay explicit.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-0 sm:p-6">
+              <CardContent>
                 <ScrollArea className="w-full whitespace-nowrap">
                   <Table>
                     <TableHeader>
@@ -464,14 +498,17 @@ export function ScreenTimeDashboard({
                             {receipt.ownerName}
                           </TableCell>
                           <TableCell className="tabular-nums">
-                            {receipt.periodStart}
+                            {receipt.periodStart.slice(5)} →{" "}
+                            {receipt.periodEnd.slice(5)}
                           </TableCell>
                           <TableCell className="tabular-nums">
-                            {receipt.dailyAverageMinutes ?? "—"}
+                            {receipt.dailyAverageMinutes != null
+                              ? `${receipt.dailyAverageMinutes}m`
+                              : "—"}
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
-                              <Badge variant="secondary">
+                              <Badge variant="secondary" className="capitalize">
                                 {receipt.cadence.toLowerCase()}
                               </Badge>
                               {receipt.hasUserCorrections && (

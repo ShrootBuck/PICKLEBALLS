@@ -63,11 +63,11 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
     setPending(false);
   }
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-2">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Link2 className="size-4" />
+          <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <Link2 />
           </div>
           <CardTitle>One-time Discord invite</CardTitle>
           <CardDescription>
@@ -75,7 +75,7 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
           </CardDescription>
         </CardHeader>
         <form onSubmit={submit}>
-          <CardContent>
+          <CardContent className="flex flex-col gap-4">
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="invite-label">Friend’s name</FieldLabel>
@@ -89,14 +89,18 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
               </Field>
             </FieldGroup>
             {url && (
-              <Alert className="mt-4">
+              <Alert>
                 <Link2 />
                 <AlertTitle>Copy this now.</AlertTitle>
                 <AlertDescription className="flex flex-col gap-3">
-                  <Input value={url} readOnly aria-label="New invite URL" />
+                  <span className="block truncate rounded-md border bg-muted/50 px-3 py-2 font-mono text-xs">
+                    {url}
+                  </span>
                   <Button
                     type="button"
                     variant="outline"
+                    size="sm"
+                    className="w-fit"
                     onClick={async () => {
                       try {
                         await navigator.clipboard.writeText(url);
@@ -120,7 +124,7 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
               </Alert>
             )}
             {error && (
-              <Alert variant="destructive" className="mt-4">
+              <Alert variant="destructive">
                 <AlertTitle>Invite failed.</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
@@ -145,15 +149,15 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
       </Card>
       <Card>
         <CardHeader>
-          <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-            <Link2 className="size-4" />
+          <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <Link2 />
           </div>
           <CardTitle>Invite history</CardTitle>
           <CardDescription>
             No email gates. Discord identity plus this one-time link.
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-0 sm:p-6">
+        <CardContent>
           {invites.length ? (
             <ScrollArea className="w-full whitespace-nowrap">
               <Table>
@@ -161,6 +165,7 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
                   <TableRow>
                     <TableHead>For</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Expires</TableHead>
                     <TableHead>Used by</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -175,7 +180,9 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
                           : "Ready";
                     return (
                       <TableRow key={invite.id}>
-                        <TableCell>{invite.label ?? "Friend"}</TableCell>
+                        <TableCell className="font-medium">
+                          {invite.label ?? "Friend"}
+                        </TableCell>
                         <TableCell>
                           <Badge
                             variant={
@@ -184,6 +191,9 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
                           >
                             {status}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="tabular-nums">
+                          {invite.expiresAt.slice(0, 10)}
                         </TableCell>
                         <TableCell>{invite.usedBy ?? "—"}</TableCell>
                       </TableRow>

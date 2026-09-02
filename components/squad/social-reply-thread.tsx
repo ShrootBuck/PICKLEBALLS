@@ -49,17 +49,17 @@ function ReplyItem({ reply }: { reply: SocialReply }) {
   return (
     <Item size="xs">
       <ItemMedia>
-        <Avatar className="size-6">
+        <Avatar className="size-6 ring-1 ring-border">
           <AvatarImage src={reply.author.image ?? undefined} alt="" />
           <AvatarFallback>{reply.author.initials}</AvatarFallback>
         </Avatar>
       </ItemMedia>
       <ItemContent>
-        <ItemTitle className="line-clamp-none">
-          <span>{reply.author.name}</span>
+        <ItemTitle>
+          <span className="truncate">{reply.author.name}</span>
           <time
             dateTime={reply.createdAt}
-            className="text-xs font-normal text-muted-foreground"
+            className="shrink-0 text-xs font-normal text-muted-foreground tabular-nums"
           >
             {replyTimeFormatter.format(new Date(reply.createdAt))}
           </time>
@@ -151,7 +151,11 @@ export function SocialReplyThread({
       )}
 
       {open && (
-        <div id={threadId} className="flex w-full flex-col gap-2">
+        <div
+          id={threadId}
+          className="flex w-full flex-col gap-2 rounded-lg border bg-muted/40 p-2"
+        >
+          {" "}
           {replies.length > 0 && (
             <ItemGroup className="gap-1" aria-live="polite">
               {replies.map((reply) => (
