@@ -14,7 +14,8 @@ enum MembershipRole {
 
 enum CommitmentStatus {
   OPEN
-  SHIPPED
+  AWAITING_REVIEW
+  VERIFIED
   MISSED
   RENEGOTIATED
 }
@@ -25,31 +26,79 @@ enum DailySignal {
   AT_RISK
 }
 
-enum ReceiptReviewStatus {
+enum ProofReviewStatus {
   PENDING
-  CONFIRMED
-  REJECTED
+  APPROVED
+  CHALLENGED
+}
+
+enum ProofReviewDecision {
+  APPROVED
+  CHALLENGED
+}
+
+enum AIAssessmentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+enum ScreenTimeCadence {
+  DAILY
+  WEEKLY
+}
+
+enum ActivityKind {
+  TASK_CREATED
+  TASK_EDITED
+  TASK_RENEGOTIATED
+  TASK_MISSED
+  PROOF_SUBMITTED
+  PROOF_APPROVED
+  PROOF_CHALLENGED
+  CHECK_IN_SET
+  SCREEN_TIME_SUBMITTED
+}
+
+enum AIFeature {
+  SCREEN_TIME_EXTRACTION
+  PROOF_ASSESSMENT
+  TASK_REFINEMENT
+  SQUAD_DIGEST
+}
+
+enum AIRunStatus {
+  SUCCEEDED
+  FAILED
+  RATE_LIMITED
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  name          String
-  emailVerified Boolean  @default(false)
-  image         String?
-  initials      String   @default("PB")
-  avatarColor   String   @default("lime")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String
+  emailVerified   Boolean  @default(false)
+  image           String?
+  initials        String   @default("PB")
+  discordId       String?  @unique
+  discordUsername String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  memberships    Membership[]
-  commitments    Commitment[]
-  checkIns       CheckIn[]
-  receipts       ScreenTimeReceipt[]
-  sessions       Session[]
-  accounts       Account[]
-  invitesCreated Invite[]            @relation("InvitesCreated")
-  invitesUsed    Invite[]            @relation("InvitesUsed")
+  memberships         Membership[]
+  commitments         Commitment[]
+  commitmentRevisions CommitmentRevision[]
+  proofs              TaskProof[]
+  proofReviews        TaskProofReview[]
+  checkIns            CheckIn[]
+  activities          ActivityEvent[]
+  receipts            ScreenTimeReceipt[]
+  aiRuns              AIRun[]
+  sessions            Session[]
+  accounts            Account[]
+  invitesCreated      Invite[]             @relation("InvitesCreated")
+  invitesUsed         Invite[]             @relation("InvitesUsed")
 }
 
 model Session {
@@ -65,6 +114,7 @@ model Session {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
 }
 
 model Account {
@@ -87,6 +137,7 @@ model Account {
 
   @@unique([issuer, accountId])
   @@index([userId])
+  @@index([providerId, accountId])
 }
 
 model Verification {
@@ -98,6 +149,7 @@ model Verification {
   updatedAt  DateTime @updatedAt
 
   @@index([identifier])
+  @@index([expiresAt])
 }
 
 model RateLimit {
@@ -107,13 +159,45 @@ model RateLimit {
   lastRequest BigInt
 }
 
+model Circle {
+  id        String   @id @default(cuid())
+  slug      String   @unique @default("pickle-balls")
+  name      String   @default("Pickle Balls")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships  Membership[]
+  commitments  Commitment[]
+  proofs       TaskProof[]
+  proofReviews TaskProofReview[]
+  checkIns     CheckIn[]
+  activities   ActivityEvent[]
+  receipts     ScreenTimeReceipt[]
+  invites      Invite[]
+  aiRuns       AIRun[]
+  digests      DailySquadDigest[]
+}
+
+model Membership {
+  userId    String         @unique
+  circleId  String
+  role      MembershipRole @default(MEMBER)
+  createdAt DateTime       @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, circleId])
+  @@index([circleId])
+}
+
 model Invite {
   id             String         @id @default(cuid())
   tokenHash      String         @unique
   label          String?
-  email          String?
   role           MembershipRole @default(MEMBER)
   expiresAt      DateTime
+  claimNonce     String?        @unique
   claimExpiresAt DateTime?
   usedAt         DateTime?
   revokedAt      DateTime?
@@ -128,59 +212,104 @@ model Invite {
   circle    Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
 
   @@index([circleId, createdAt])
-  @@index([createdById])
-  @@index([usedById])
   @@index([expiresAt])
 }
 
-model Circle {
-  id         String   @id @default(cuid())
-  name       String
-  inviteCode String   @unique @default(cuid())
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  memberships Membership[]
-  commitments Commitment[]
-  checkIns    CheckIn[]
-  receipts    ScreenTimeReceipt[]
-  invites     Invite[]
-}
-
-model Membership {
-  userId    String
-  circleId  String
-  role      MembershipRole @default(MEMBER)
-  createdAt DateTime       @default(now())
-
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
-
-  @@id([userId, circleId])
-  @@index([circleId])
-}
-
 model Commitment {
-  id                 String           @id @default(cuid())
-  userId             String
-  circleId           String
-  day                DateTime         @db.Date
-  title              String
-  definitionOfDone   String?
-  dueAt              DateTime
-  status             CommitmentStatus @default(OPEN)
-  evidenceUrl        String?
-  evidenceNote       String?
-  completedAt        DateTime?
-  renegotiatedFromId String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  id               String           @id @default(cuid())
+  userId           String
+  circleId         String
+  day              DateTime         @db.Date
+  title            String
+  definitionOfDone String
+  dueAt            DateTime
+  status           CommitmentStatus @default(OPEN)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle    Circle               @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  revisions CommitmentRevision[]
+  proofs    TaskProof[]
 
   @@index([circleId, day])
   @@index([userId, day])
+  @@index([dueAt, status])
+}
+
+model CommitmentRevision {
+  id               String           @id @default(cuid())
+  commitmentId     String
+  editorId         String
+  title            String
+  definitionOfDone String
+  dueAt            DateTime
+  status           CommitmentStatus
+  revisionNote     String?
+  createdAt        DateTime         @default(now())
+
+  commitment Commitment @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  editor     User       @relation(fields: [editorId], references: [id], onDelete: Cascade)
+
+  @@index([commitmentId, createdAt])
+  @@index([createdAt])
+}
+
+model TaskProof {
+  id                 String             @id @default(cuid())
+  commitmentId       String
+  ownerId            String
+  circleId           String
+  ownerNote          String?
+  submittedAt        DateTime           @default(now())
+  isLate             Boolean
+  aiStatus           AIAssessmentStatus @default(PENDING)
+  aiVisibleEvidence  String?
+  aiUncertainty      String?
+  aiReviewerQuestion String?
+  reviewStatus       ProofReviewStatus  @default(PENDING)
+  replacedById       String?            @unique
+
+  commitment Commitment       @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  owner      User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  circle     Circle           @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  image      TaskProofImage?
+  review     TaskProofReview?
+  replacedBy TaskProof?       @relation("ProofReplacement", fields: [replacedById], references: [id], onDelete: SetNull)
+  replaces   TaskProof?       @relation("ProofReplacement")
+
+  @@index([commitmentId, submittedAt])
+  @@index([circleId, submittedAt])
+  @@index([ownerId, submittedAt])
+}
+
+model TaskProofImage {
+  proofId   String   @id
+  data      Bytes    @db.ByteA
+  mimeType  String
+  sizeBytes Int
+  width     Int
+  height    Int
+  createdAt DateTime @default(now())
+
+  proof TaskProof @relation(fields: [proofId], references: [id], onDelete: Cascade)
+}
+
+model TaskProofReview {
+  id         String              @id @default(cuid())
+  proofId    String              @unique
+  reviewerId String
+  circleId   String
+  decision   ProofReviewDecision
+  note       String?
+  createdAt  DateTime            @default(now())
+
+  proof    TaskProof @relation(fields: [proofId], references: [id], onDelete: Cascade)
+  reviewer User      @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  circle   Circle    @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@index([circleId, createdAt])
+  @@index([reviewerId, createdAt])
 }
 
 model CheckIn {
@@ -188,7 +317,7 @@ model CheckIn {
   userId    String
   circleId  String
   day       DateTime    @db.Date
-  signal    DailySignal @default(WORKING)
+  signal    DailySignal
   blocker   String?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
@@ -200,33 +329,52 @@ model CheckIn {
   @@index([circleId, day])
 }
 
+model ActivityEvent {
+  id        String       @id @default(cuid())
+  circleId  String
+  actorId   String
+  kind      ActivityKind
+  entityId  String?
+  summary   String
+  metadata  Json?
+  createdAt DateTime     @default(now())
+
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  actor  User   @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([circleId, createdAt])
+  @@index([createdAt])
+}
+
 model ScreenTimeReceipt {
-  id                     String              @id @default(cuid())
+  id                     String            @id @default(cuid())
   userId                 String
   circleId               String
-  reportDate             DateTime            @db.Date
-  capturedAt             DateTime            @default(now())
-  imageUrl               String?
-  view                   String
+  cadence                ScreenTimeCadence
+  periodStart            DateTime          @db.Date
+  periodEnd              DateTime          @db.Date
+  capturedAt             DateTime          @default(now())
   dailyAverageMinutes    Int?
   totalScreenTimeMinutes Int?
   socialMinutes          Int?
   pickups                Int?
   comparisonPercent      Float?
   topApps                Json
-  aiSummary              String
-  confidence             Float
-  warnings               Json
-  reviewStatus           ReceiptReviewStatus @default(PENDING)
-  createdAt              DateTime            @default(now())
-  updatedAt              DateTime            @updatedAt
+  aiSummary              String?
+  aiConfidence           Float?
+  aiWarnings             Json
+  originalAIExtraction   Json?
+  hasUserCorrections     Boolean           @default(false)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
 
   user   User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   circle Circle                  @relation(fields: [circleId], references: [id], onDelete: Cascade)
   image  ScreenTimeReceiptImage?
 
-  @@unique([userId, circleId, reportDate])
-  @@index([circleId, reportDate])
+  @@unique([userId, circleId, cadence, periodStart])
+  @@index([circleId, cadence, periodStart])
+  @@index([createdAt])
 }
 
 model ScreenTimeReceiptImage {
@@ -234,8 +382,45 @@ model ScreenTimeReceiptImage {
   data      Bytes    @db.ByteA
   mimeType  String
   sizeBytes Int
+  width     Int
+  height    Int
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
   receipt ScreenTimeReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+}
+
+model AIRun {
+  id           String      @id @default(cuid())
+  userId       String
+  circleId     String
+  feature      AIFeature
+  status       AIRunStatus
+  model        String
+  provider     String
+  durationMs   Int
+  inputTokens  Int?
+  outputTokens Int?
+  errorCode    String?
+  createdAt    DateTime    @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@index([userId, feature, createdAt])
+  @@index([circleId, createdAt])
+  @@index([createdAt])
+}
+
+model DailySquadDigest {
+  id          String   @id @default(cuid())
+  circleId    String
+  day         DateTime @db.Date
+  summary     String
+  needsHelp   Json
+  generatedAt DateTime @default(now())
+
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@unique([circleId, day])
+  @@index([generatedAt])
 }

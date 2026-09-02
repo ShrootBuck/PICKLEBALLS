@@ -1,38 +1,74 @@
 import { prismaAdapter } from "@better-auth/prisma-adapter";
 import { betterAuth } from "better-auth";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import {
+  APIError,
+  addOAuthServerContext,
+  createAuthMiddleware,
+  getOAuthState,
+} from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
+import {
+  findReservedInvite,
+  redeemReservedInvite,
+  reserveInvite,
+} from "@/lib/invites";
 import { getPrisma } from "@/lib/prisma";
 
-export const internalSignupHeader = "x-pickle-balls-internal-signup";
-
-function getInitials(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("")
-    .slice(0, 2);
+function initials(name: string) {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("")
+      .slice(0, 2) || "PB"
+  );
 }
 
-const trustedOrigins = [
+function oauthClaim(state: Awaited<ReturnType<typeof getOAuthState>>) {
+  const context = state?.serverContext;
+  if (
+    typeof context?.inviteId !== "string" ||
+    typeof context?.claimNonce !== "string"
+  ) {
+    return null;
+  }
+  return { inviteId: context.inviteId, claimNonce: context.claimNonce };
+}
+
+const configuredOrigins = [
+  "http://localhost:3000",
   process.env.BETTER_AUTH_URL,
   process.env.NEXT_PUBLIC_APP_URL,
-].filter((origin): origin is string => Boolean(origin));
+].filter((value): value is string => Boolean(value));
 
 export const auth = betterAuth({
   appName: "Pickle Balls",
-  database: prismaAdapter(getPrisma(), {
-    provider: "postgresql",
-  }),
-  trustedOrigins,
-  emailAndPassword: {
-    enabled: true,
-    minPasswordLength: 12,
-    maxPasswordLength: 128,
+  database: prismaAdapter(getPrisma(), { provider: "postgresql" }),
+  trustedOrigins: [...new Set(configuredOrigins)],
+  socialProviders: {
+    discord: {
+      clientId:
+        process.env.DISCORD_CLIENT_ID ?? "discord-client-not-configured",
+      clientSecret:
+        process.env.DISCORD_CLIENT_SECRET ?? "discord-secret-not-configured",
+      disableImplicitSignUp: true,
+      overrideUserInfoOnSignIn: true,
+      mapProfileToUser: (profile) => ({
+        discordId: profile.id,
+        discordUsername: profile.username,
+        email: profile.email ?? `${profile.id}@discord.placeholder.invalid`,
+        emailVerified: profile.verified || profile.email == null,
+        name: profile.global_name || profile.username,
+        image: profile.image_url,
+        initials: initials(profile.global_name || profile.username),
+      }),
+    },
   },
   disabledPaths: [
+    "/sign-up/email",
+    "/sign-in/email",
     "/request-password-reset",
     "/reset-password",
     "/send-verification-email",
@@ -46,64 +82,125 @@ export const auth = betterAuth({
         defaultValue: "PB",
         input: false,
       },
-      avatarColor: {
-        type: "string",
-        required: false,
-        defaultValue: "lime",
-        input: false,
-      },
+      discordId: { type: "string", required: false, input: false },
+      discordUsername: { type: "string", required: false, input: false },
     },
+    validateUserInfo: async ({ source }) => {
+      if (source.action !== "create-user") return;
+      if (source.oauth?.providerId !== "discord") {
+        return { error: "discord_only" };
+      }
+
+      const discordId = source.oauth.profile?.id;
+      if (
+        typeof discordId === "string" &&
+        process.env.BOOTSTRAP_DISCORD_USER_ID === discordId
+      ) {
+        return;
+      }
+
+      const claim = oauthClaim(await getOAuthState());
+      if (
+        !claim ||
+        !(await findReservedInvite(claim.inviteId, claim.claimNonce))
+      ) {
+        return { error: "invite_required" };
+      }
+    },
+  },
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/sign-in/social") return;
+      const body = ctx.body as
+        | {
+            provider?: string;
+            additionalData?: { inviteToken?: unknown };
+          }
+        | undefined;
+      if (body?.provider !== "discord") return;
+
+      const token = body.additionalData?.inviteToken;
+      if (typeof token !== "string" || token.length === 0) return;
+      const reservation = await reserveInvite(token);
+      if (!reservation) {
+        throw new APIError("FORBIDDEN", {
+          message: "That invite is expired, used, or already claimed.",
+        });
+      }
+      await addOAuthServerContext({
+        inviteId: reservation.inviteId,
+        claimNonce: reservation.claimNonce,
+      });
+    }),
   },
   databaseHooks: {
     user: {
       create: {
         before: async (user) => ({
-          data: {
-            ...user,
-            initials: getInitials(user.name) || "PB",
-            avatarColor: "lime",
-          },
+          data: { ...user, initials: initials(user.name) },
         }),
+        after: async (user) => {
+          const discordId =
+            typeof user.discordId === "string" ? user.discordId : null;
+          if (
+            discordId &&
+            discordId === process.env.BOOTSTRAP_DISCORD_USER_ID
+          ) {
+            const circle = await getPrisma().circle.upsert({
+              where: { slug: "pickle-balls" },
+              update: { name: "Pickle Balls" },
+              create: { slug: "pickle-balls", name: "Pickle Balls" },
+            });
+            await getPrisma().membership.upsert({
+              where: {
+                userId_circleId: { userId: user.id, circleId: circle.id },
+              },
+              update: { role: "OWNER" },
+              create: { userId: user.id, circleId: circle.id, role: "OWNER" },
+            });
+            return;
+          }
+
+          const claim = oauthClaim(await getOAuthState());
+          if (claim) {
+            await redeemReservedInvite(
+              claim.inviteId,
+              claim.claimNonce,
+              user.id,
+            );
+          }
+        },
       },
     },
-  },
-  hooks: {
-    before: createAuthMiddleware(async (ctx) => {
-      if (ctx.path !== "/sign-up/email") return;
-
-      const internalSecret = ctx.headers?.get(internalSignupHeader);
-      if (
-        !process.env.BETTER_AUTH_SECRET ||
-        internalSecret !== process.env.BETTER_AUTH_SECRET
-      ) {
-        throw new APIError("FORBIDDEN", {
-          message: "You need a valid squad invite to sign up.",
-        });
-      }
-    }),
   },
   session: {
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
-    cookieCache: {
-      enabled: true,
-      maxAge: 60 * 5,
-      strategy: "compact",
-    },
+    cookieCache: { enabled: true, maxAge: 60 * 5, strategy: "compact" },
+  },
+  account: {
+    encryptOAuthTokens: true,
+    storeStateStrategy: "database",
+    accountLinking: { enabled: false },
   },
   rateLimit: {
     enabled: true,
     storage: "database",
+    window: 60,
+    max: 60,
     customRules: {
-      "/sign-in/email": { window: 60, max: 5 },
-      "/sign-up/email": { window: 60, max: 3 },
+      "/sign-in/social": { window: 60, max: 8 },
+      "/callback/discord": { window: 60, max: 12 },
     },
   },
   advanced: {
-    database: {
-      joins: true,
-    },
+    database: { joins: true },
     cookiePrefix: "pickle-balls",
+    useSecureCookies: process.env.NODE_ENV === "production",
+    ipAddress: {
+      ipAddressHeaders: ["x-forwarded-for", "x-real-ip"],
+      disableIpTracking: false,
+    },
   },
   plugins: [nextCookies()],
 });

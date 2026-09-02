@@ -1,31 +1,38 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { AuthForm } from "@/components/auth/auth-form";
 import { AuthScreen } from "@/components/auth/auth-screen";
+import { DiscordButton } from "@/components/auth/discord-button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { auth } from "@/lib/auth";
 
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    invite?: string | string[];
-  }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session) redirect("/");
-
   const query = await searchParams;
-
   return (
     <AuthScreen>
-      <AuthForm
-        mode="sign-in"
-        initialError={
-          query.invite === "required"
-            ? "Signup only works through a one-time invite. Ask Zayd for one."
-            : undefined
-        }
-      />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl font-semibold">Get back to work.</h2>
+          <p className="text-sm text-muted-foreground">
+            Returning friends sign in here. New friends need a one-time invite.
+          </p>
+        </div>
+        {query.error && (
+          <Alert variant="destructive">
+            <AlertTitle>Access denied.</AlertTitle>
+            <AlertDescription>
+              Your Discord account is not in this squad. Use your invite link or
+              ask Zayd.
+            </AlertDescription>
+          </Alert>
+        )}
+        <DiscordButton />
+      </div>
     </AuthScreen>
   );
 }

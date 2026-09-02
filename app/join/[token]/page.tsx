@@ -1,18 +1,12 @@
-import { ArrowRight, Link2Off } from "lucide-react";
+import { Link2Off } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AuthForm } from "@/components/auth/auth-form";
 import { AuthScreen } from "@/components/auth/auth-screen";
+import { DiscordButton } from "@/components/auth/discord-button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { hashInviteToken } from "@/lib/invites";
 import { getPrisma } from "@/lib/prisma";
@@ -24,7 +18,6 @@ export default async function JoinPage({
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session) redirect("/");
-
   const { token } = await params;
   const now = new Date();
   const invite =
@@ -37,43 +30,44 @@ export default async function JoinPage({
             usedAt: null,
             OR: [{ claimExpiresAt: null }, { claimExpiresAt: { lt: now } }],
           },
-          select: { email: true, label: true },
+          select: { label: true },
         })
       : null;
-
   return (
     <AuthScreen>
       {invite ? (
-        <AuthForm
-          mode="sign-up"
-          inviteToken={token}
-          invitedEmail={invite.email}
-          inviteLabel={invite.label}
-        />
+        <div className="flex flex-col gap-4">
+          <Badge variant="secondary" className="w-fit">
+            One-time invite{invite.label ? ` · ${invite.label}` : ""}
+          </Badge>
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-semibold">
+              Join the accountability group.
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Discord supplies your name and profile photo. The invite is
+              reserved when you continue.
+            </p>
+          </div>
+          <DiscordButton inviteToken={token} />
+        </div>
       ) : (
-        <Card className="w-full max-w-[460px]">
-          <CardHeader>
-            <Link2Off aria-hidden="true" />
-            <CardTitle>This invite is dead.</CardTitle>
-            <CardDescription>
-              It expired, got revoked, or somebody already used it. Ask Zayd for
-              a fresh one.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            One link creates one account. That is the whole damn point.
-          </CardContent>
-          <CardFooter>
-            <Button
-              render={<Link href="/sign-in" />}
-              nativeButton={false}
-              className="w-full"
-            >
-              Back to sign in
-              <ArrowRight data-icon="inline-end" />
-            </Button>
-          </CardFooter>
-        </Card>
+        <div className="flex flex-col gap-4">
+          <Alert variant="destructive">
+            <Link2Off />
+            <AlertTitle>This invite is dead.</AlertTitle>
+            <AlertDescription>
+              Expired, revoked, already used, or currently reserved.
+            </AlertDescription>
+          </Alert>
+          <Button
+            render={<Link href="/sign-in" />}
+            nativeButton={false}
+            variant="outline"
+          >
+            Back to sign in
+          </Button>
+        </div>
       )}
     </AuthScreen>
   );

@@ -1,73 +1,46 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { createInviteSchema } from "@/lib/auth-validation";
+import { z } from "zod";
 import {
   createInviteToken,
   hashInviteToken,
   inviteLifetimeMs,
-  isAdminEmail,
 } from "@/lib/invites";
 import { getPrisma } from "@/lib/prisma";
+import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 
-export const runtime = "nodejs";
+const schema = z.object({ label: z.string().trim().min(1).max(80) });
 
 export async function POST(request: Request) {
-  const requestUrl = new URL(request.url);
-  if (request.headers.get("origin") !== requestUrl.origin) {
-    return NextResponse.json(
-      { error: "Invalid request origin." },
-      { status: 403 },
-    );
-  }
-
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session || !isAdminEmail(session.user.email)) {
+  if (!hasSameOrigin(request))
+    return NextResponse.json({ error: "Bad origin." }, { status: 403 });
+  const auth = await getRequestMembership(request.headers);
+  if (!auth || auth.membership.role !== "OWNER") {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
-
-  const parsed = createInviteSchema.safeParse(
-    await request.json().catch(() => null),
-  );
-  if (!parsed.success) {
+  const parsed = schema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success)
     return NextResponse.json(
-      {
-        error: "Fix the invite form.",
-        fields: parsed.error.flatten().fieldErrors,
-      },
+      { error: "Add a name for the invite." },
       { status: 400 },
     );
-  }
-
-  const prisma = getPrisma();
-  const membership = await prisma.membership.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "asc" },
-    select: { circleId: true },
-  });
-
-  if (!membership) {
-    return NextResponse.json(
-      { error: "Your admin account is not attached to a squad." },
-      { status: 409 },
-    );
-  }
 
   const token = createInviteToken();
-  const invite = await prisma.invite.create({
+  const invite = await getPrisma().invite.create({
     data: {
       tokenHash: hashInviteToken(token),
       label: parsed.data.label,
       expiresAt: new Date(Date.now() + inviteLifetimeMs),
-      createdById: session.user.id,
-      circleId: membership.circleId,
+      createdById: auth.session.user.id,
+      circleId: auth.membership.circleId,
     },
-    select: { id: true, expiresAt: true },
   });
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? requestUrl.origin;
-  const url = new URL(`/join/${token}`, appUrl).toString();
-
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
   return NextResponse.json(
-    { id: invite.id, url, expiresAt: invite.expiresAt.toISOString() },
+    {
+      id: invite.id,
+      expiresAt: invite.expiresAt,
+      url: new URL(`/join/${token}`, appUrl),
+    },
     { status: 201 },
   );
 }

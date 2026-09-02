@@ -1,85 +1,94 @@
 # Pickle Balls
 
-Pickle Balls is a small-group accountability app. You make up to three concrete promises, report blockers before the deadline, and post a daily Screen Time receipt. The goal is not to schedule pickleball. The goal is to stop losing the time to scrolling.
+Pickle Balls is a private schoolwork accountability app for four friends. It is
+not a pickleball tracker. Each person can set up to three tasks per Phoenix day,
+post photo proof, and get one peer approval or challenge. Daily and weekly
+Screen Time receipts are a separate flow.
 
 ## Stack
 
 - Next.js 16 and React 19
 - Prisma ORM 7 with PostgreSQL
-- Better Auth with invite-gated email/password accounts
-- AI SDK 7 with OpenRouter
-- shadcn/ui with Base UI primitives
-- Biome and TypeScript
+- Better Auth 1.7.2 with invite-gated Discord OAuth
+- AI SDK 7 with `openai/gpt-5.6-sol` through OpenRouter OpenAI Flex
+- shadcn/ui Base Nova with Base UI primitives
+- Biome, TypeScript, Bun tests, Sharp image sanitization
 
 ## Local setup
-
-Install dependencies and create the local environment file:
 
 ```bash
 bun install
 cp .env.example .env
-```
-
-Add a PostgreSQL URL, a generated Better Auth secret, and an OpenRouter API key
-to `.env`, then prepare the database:
-
-```bash
 bun run db:generate
-bun run db:deploy
+bun run db:push
 bun run db:seed
 bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+The seed creates only the private `Pickle Balls` circle. It does not create fake
+people. `bun run db:reset` destroys all current database data, pushes the schema,
+regenerates Prisma, and seeds the circle. Run it only when a reset is intentional.
 
-The seed creates the `Pickle Balls` circle and placeholder member profiles. It
-does not create password accounts.
+## Discord authentication
 
-## Authentication
+Create a Discord application and configure these redirect URLs:
 
-Better Auth owns users, password accounts, database sessions, and auth rate
-limits. Calling Better Auth's public email sign-up route directly is blocked.
-Registration only works at a one-time `/join/[token]` URL.
+- Local: `http://localhost:3000/api/auth/callback/discord`
+- Production: `https://YOUR_DOMAIN/api/auth/callback/discord`
 
-Bootstrap `zayd@zaydkrunz.com` once from the terminal:
+Set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, and the first owner's immutable
+Discord ID as `BOOTSTRAP_DISCORD_USER_ID`. The bootstrap identity gets the OWNER
+membership. All other new identities need an unused `/join/[token]` link made by
+the owner. Returning members use `/sign-in`.
 
-```bash
-bun run auth:bootstrap-admin
-```
+Better Auth stores seven-day sessions, database rate limits, encrypted OAuth
+tokens, and Discord provider-account identity. Discord display names, usernames,
+and avatars refresh on sign-in. Phone-only Discord accounts get a non-routable
+placeholder email because the auth user table requires a unique email.
 
-Open the printed link and create the admin password. After that, use `/admin`
-to make seven-day, single-use links for the other members. Only a SHA-256 hash
-of each token is stored, so copy a new link when the panel shows it.
+## AI behavior
 
-The home page and Screen Time analysis route require a valid session. Passwords
-must have at least 12 characters. There is deliberately no email delivery,
-verification, or automated password reset in this four-person version.
+The app uses AI SDK 7 `generateText` with bounded `Output.object` schemas for:
 
-## Screen Time extraction
+- Screen Time screenshot extraction with manual correction
+- advisory task-proof comparison
+- task wording refinement
+- one cached squad brief per Phoenix day
 
-`POST /api/screen-time/analyze` accepts one PNG, JPEG, or WebP file up to 8 MB.
-AI SDK structured output extracts only the visible Screen Time values. The person
-who uploaded the image must review and confirm those values before the receipt
-appears in the app.
+Every request pins `openai/flex`, disables fallbacks, requires supported
+parameters, sets `service_tier: flex`, times out after 60 seconds, and retries
+once. AI never resolves proof. A friend does. Metadata-only run logs have a
+30-day lifetime; prompts and images are not logged.
 
-The image is sent to `openai/gpt-5.6-sol` by default through OpenRouter. The
-request pins OpenAI's Flex tier, disables provider fallbacks, requires structured
-output support, and requests high reasoning. After confirmation, the receipt is
-upserted and the original image is stored as Postgres `BYTEA` in a separate
-one-to-one row. Squad members can read it only through the authenticated image
-route; normal receipt queries never load the blob. The app keeps a rolling
-30-day calendar window. Each app load or receipt save deletes older commitments,
-check-ins, receipts, images, invites, verification rows, sessions, and rate-limit
-rows. Receipt images disappear through `ON DELETE CASCADE`. Change
-`rollingWindowDays` in `lib/rolling-retention.ts` when the group wants a different
-value. Users, password accounts, memberships, and the circle remain so a reset
-does not lock out the whole group.
+## Storage and retention
+
+Proof and Screen Time images are decoded, auto-rotated, stripped of metadata,
+bounded to 2048 pixels, and re-encoded as WebP before Postgres storage. Image
+routes require circle membership and send private caching plus `nosniff`.
+
+Operational data is pruned after 30 Phoenix calendar days on protected app
+access and by `/api/cron/cleanup`. Vercel calls that route daily with
+`Authorization: Bearer $CRON_SECRET`. Users, the circle, memberships, and active
+Better Auth identity remain.
 
 ## Checks
 
 ```bash
+bun run db:validate
+bun run db:generate
+bun run test
+bun run audit:ui
 bun run lint
 bun run typecheck
 bun run build
-bun run db:validate
 ```
+
+Browser tests require a disposable Postgres database whose database name
+contains `test`:
+
+```bash
+TEST_DATABASE_URL="postgresql://.../pickle_balls_test" bun run test:browser
+```
+
+The browser-test setup force-resets only that guarded test database and seeds
+four Discord-style sessions. It never uses `DATABASE_URL` as the reset target.

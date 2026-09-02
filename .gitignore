@@ -39,6 +39,9 @@ yarn-error.log*
 
 # vercel
 .vercel
+tests/browser/.auth/
+test-results/
+playwright-report/
 
 # typescript
 *.tsbuildinfo
