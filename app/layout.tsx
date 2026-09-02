@@ -67,7 +67,7 @@ export const metadata: Metadata = {
       "Schoolwork promises. Photo receipts. Friends who call the bluff.",
   },
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://pickleballs.example.com",
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://pickle-balls.com",
   ),
 };
 
