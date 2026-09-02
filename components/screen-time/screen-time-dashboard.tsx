@@ -28,6 +28,7 @@ import {
   FieldLabel,
   FieldTitle,
 } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -108,14 +109,20 @@ export function ScreenTimeDashboard({
       error?: string;
     };
     if (!response.ok || !body.extraction) {
-      setError(body.error ?? "The model could not read it. We'll still save the image.");
+      setError(
+        body.error ??
+          "The model could not read it. We'll still save the image.",
+      );
       setExtraction(null);
     } else {
       const value = body.extraction;
       setExtraction(value);
       if (value.cadence !== "UNKNOWN") setCadence(value.cadence);
       toast.add({
-        title: value.confidence > 0.7 ? "AI read the receipt." : "AI gave it a shot — image is what matters.",
+        title:
+          value.confidence > 0.7
+            ? "AI read the receipt."
+            : "AI gave it a shot — image is what matters.",
         type: "info",
       });
     }
@@ -146,7 +153,8 @@ export function ScreenTimeDashboard({
         if (response.ok && body.extraction) {
           currentExtraction = body.extraction;
           setExtraction(currentExtraction);
-          if (currentExtraction.cadence !== "UNKNOWN") setCadence(currentExtraction.cadence);
+          if (currentExtraction.cadence !== "UNKNOWN")
+            setCadence(currentExtraction.cadence);
         }
       } catch {
         // LLM failure is fine — we still care about the image
@@ -171,7 +179,8 @@ export function ScreenTimeDashboard({
         periodStart,
         periodEnd,
         dailyAverageMinutes: currentExtraction?.dailyAverageMinutes ?? null,
-        totalScreenTimeMinutes: currentExtraction?.totalScreenTimeMinutes ?? null,
+        totalScreenTimeMinutes:
+          currentExtraction?.totalScreenTimeMinutes ?? null,
         socialMinutes: currentExtraction?.socialMinutes ?? null,
         pickups: currentExtraction?.pickups ?? null,
         comparisonPercent: currentExtraction?.comparisonPercent ?? null,
@@ -223,30 +232,30 @@ export function ScreenTimeDashboard({
       </section>
 
       <Tabs defaultValue="submit" className="w-full">
-        <ScrollArea className="w-full">
-          <TabsList className="w-full justify-start">
-            <TabsTrigger value="submit" className="flex-1 sm:flex-none">
-              Post receipt
-            </TabsTrigger>
-            <TabsTrigger value="history" className="flex-1 sm:flex-none">
-              History
-            </TabsTrigger>
-          </TabsList>
-          <ScrollBar orientation="horizontal" className="invisible" />
-        </ScrollArea>
+        <TabsList className="grid w-full grid-cols-2 sm:flex sm:w-fit">
+          <TabsTrigger value="submit" className="sm:flex-none">
+            Post receipt
+          </TabsTrigger>
+          <TabsTrigger value="history" className="sm:flex-none">
+            History
+          </TabsTrigger>
+        </TabsList>
         <TabsContent value="submit" className="mt-4">
           <Card>
             <CardHeader>
-              <Clock3 />
+              <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <Clock3 className="size-4" />
+              </div>
               <CardTitle>Daily by default. Weekly when useful.</CardTitle>
               <CardDescription>
-                Just post the image. The LLM reads it — if it fails, we still keep the image.
+                Just post the image. The LLM reads it — if it fails, we still
+                keep the image.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={save} className="flex flex-col gap-5">
                 <FieldGroup>
-                  <Field orientation="responsive">
+                  <Field>
                     <FieldTitle id="cadence-label">Cadence</FieldTitle>
                     <ToggleGroup
                       value={[cadence]}
@@ -272,12 +281,28 @@ export function ScreenTimeDashboard({
                       </ToggleGroupItem>
                     </ToggleGroup>
                     <FieldDescription>
-                      Auto-detected from screenshot when possible. You can override.
+                      Auto-detected from screenshot when possible. You can
+                      override.
                     </FieldDescription>
                   </Field>
                   <Field>
-                    <FieldLabel>Screenshot</FieldLabel>
-                    <div className="flex flex-col gap-2 rounded-xl border border-dashed bg-muted/20 p-4">
+                    <FieldLabel htmlFor="screen-time-image">
+                      Screenshot
+                    </FieldLabel>
+                    {/* biome-ignore lint/a11y/useSemanticElements: dropzone uses div to avoid nested button with clear action */}
+                    <div
+                      className="relative flex flex-col gap-2 rounded-xl border border-dashed bg-muted/20 p-4 transition-colors hover:bg-muted/30 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 cursor-pointer"
+                      onClick={() => fileRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          fileRef.current?.click();
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Choose screenshot"
+                    >
                       <div className="flex items-center gap-3">
                         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                           <Upload className="size-4" />
@@ -296,7 +321,8 @@ export function ScreenTimeDashboard({
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               if (fileRef.current) fileRef.current.value = "";
                               setSelectedFileName(null);
                               setExtraction(null);
@@ -307,20 +333,23 @@ export function ScreenTimeDashboard({
                           </Button>
                         )}
                       </div>
-                      <input
+                      <Input
                         ref={fileRef}
                         id="screen-time-image"
+                        name="image"
                         type="file"
                         accept="image/png,image/jpeg,image/webp,image/heic"
-                        required
-                        className="h-11 cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium block w-full text-sm text-muted-foreground file:text-foreground"
+                        className="sr-only"
+                        tabIndex={-1}
                         onChange={(e) =>
                           setSelectedFileName(e.target.files?.[0]?.name ?? null)
                         }
+                        onClick={(e) => e.stopPropagation()}
                       />
                     </div>
                     <FieldDescription>
-                      Images are sanitized and kept for 30 days. The LLM does the reading — no manual typing needed.
+                      Images are sanitized and kept for 30 days. The LLM does
+                      the reading — no manual typing needed.
                     </FieldDescription>
                   </Field>
                   <Button
@@ -329,14 +358,16 @@ export function ScreenTimeDashboard({
                     onClick={analyze}
                     disabled={analyzing}
                     size="lg"
-                    className="w-full sm:w-auto"
+                    className="w-full sm:w-fit"
                   >
                     {analyzing ? (
                       <Spinner data-icon="inline-start" />
                     ) : (
                       <Bot data-icon="inline-start" />
                     )}
-                    {analyzing ? "Reading screenshot…" : "Read with AI (optional)"}
+                    {analyzing
+                      ? "Reading screenshot…"
+                      : "Read with AI (optional)"}
                   </Button>
                 </FieldGroup>
                 {extraction && (
@@ -364,7 +395,7 @@ export function ScreenTimeDashboard({
                   type="submit"
                   disabled={saving}
                   size="lg"
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-fit"
                 >
                   {saving ? (
                     <Spinner data-icon="inline-start" />

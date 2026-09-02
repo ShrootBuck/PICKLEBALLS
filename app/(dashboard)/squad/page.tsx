@@ -112,7 +112,7 @@ export default async function SquadPage() {
         {!digest && <GenerateBrief />}
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2">
         {members.map(({ user, role }) => {
           const checkIn = user.checkIns[0];
           const verified = user.commitments.filter(
@@ -121,16 +121,20 @@ export default async function SquadPage() {
           return (
             <Card key={user.id}>
               <CardHeader>
-                <Avatar className="size-10">
-                  <AvatarImage src={user.image ?? undefined} alt="" />
-                  <AvatarFallback>{user.initials}</AvatarFallback>
-                </Avatar>
-                <CardTitle>{user.name}</CardTitle>
-                <CardDescription>
-                  {user.discordUsername
-                    ? `@${user.discordUsername}`
-                    : "Discord member"}
-                </CardDescription>
+                <div className="flex min-w-0 items-center gap-3">
+                  <Avatar className="size-10">
+                    <AvatarImage src={user.image ?? undefined} alt="" />
+                    <AvatarFallback>{user.initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex min-w-0 flex-col">
+                    <CardTitle className="truncate">{user.name}</CardTitle>
+                    <CardDescription className="truncate">
+                      {user.discordUsername
+                        ? `@${user.discordUsername}`
+                        : "Discord member"}
+                    </CardDescription>
+                  </div>
+                </div>
                 <CardAction>
                   <Badge variant={role === "OWNER" ? "default" : "secondary"}>
                     {role === "OWNER"
@@ -141,16 +145,31 @@ export default async function SquadPage() {
               </CardHeader>
               <CardContent>
                 <ItemGroup>
-                  {user.commitments.map((task) => (
-                    <Item key={task.id} size="sm" variant="muted">
-                      <ItemContent>
-                        <ItemTitle>{task.title}</ItemTitle>
-                        <ItemDescription>
-                          {task.status.toLowerCase().replace("_", " ")}
-                        </ItemDescription>
-                      </ItemContent>
-                    </Item>
-                  ))}
+                  {user.commitments.map((task) => {
+                    const statusVariant =
+                      task.status === "VERIFIED"
+                        ? ("default" as const)
+                        : task.status === "MISSED"
+                          ? ("destructive" as const)
+                          : task.status === "AWAITING_REVIEW"
+                            ? ("secondary" as const)
+                            : ("outline" as const);
+                    return (
+                      <Item key={task.id} size="sm" variant="muted">
+                        <ItemContent>
+                          <ItemTitle className="flex items-center gap-2">
+                            <span className="truncate">{task.title}</span>
+                            <Badge
+                              variant={statusVariant}
+                              className="shrink-0 text-[10px] leading-none"
+                            >
+                              {task.status.toLowerCase().replaceAll("_", " ")}
+                            </Badge>
+                          </ItemTitle>
+                        </ItemContent>
+                      </Item>
+                    );
+                  })}
                   {user.commitments.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       No tasks. Suspiciously peaceful.
@@ -158,10 +177,25 @@ export default async function SquadPage() {
                   )}
                 </ItemGroup>
                 {checkIn && (
-                  <p className="mt-4 text-sm text-muted-foreground">
-                    {checkIn.signal.toLowerCase().replace("_", " ")}
-                    {checkIn.blocker ? ` · ${checkIn.blocker}` : ""}
-                  </p>
+                  <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+                    <Badge
+                      variant={
+                        checkIn.signal === "AT_RISK"
+                          ? "destructive"
+                          : checkIn.signal === "CLEAR"
+                            ? "default"
+                            : "secondary"
+                      }
+                      className="capitalize"
+                    >
+                      {checkIn.signal.toLowerCase().replaceAll("_", " ")}
+                    </Badge>
+                    {checkIn.blocker && (
+                      <span className="text-muted-foreground">
+                        · {checkIn.blocker}
+                      </span>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -172,7 +206,9 @@ export default async function SquadPage() {
       {digest && (
         <Card>
           <CardHeader>
-            <Bot />
+            <div className="flex size-8 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
+              <Bot className="size-4" />
+            </div>
             <CardTitle>Today’s squad brief</CardTitle>
             <CardDescription>
               Cached once per Phoenix day. The model diagnoses; it does not
@@ -187,7 +223,9 @@ export default async function SquadPage() {
 
       <Card>
         <CardHeader>
-          <Camera />
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Camera className="size-4" />
+          </div>
           <CardTitle>Proof queue</CardTitle>
           <CardDescription>
             Two approvals required. One challenge sends it back. You cannot
@@ -206,8 +244,11 @@ export default async function SquadPage() {
               (r) => r.reviewerId === session.user.id,
             );
             return (
-              <Card key={proof.id} size="sm">
-                <AspectRatio ratio={4 / 3}>
+              <Card key={proof.id} size="sm" className="overflow-hidden">
+                <AspectRatio
+                  ratio={4 / 3}
+                  className="overflow-hidden rounded-t-xl"
+                >
                   <Image
                     className="size-full object-cover"
                     src={`/api/proofs/${proof.id}/image`}
@@ -220,8 +261,9 @@ export default async function SquadPage() {
                 <CardHeader>
                   <CardTitle>{proof.commitment.title}</CardTitle>
                   <CardDescription>
-                    {proof.owner.name} · {proof.isLate ? "late proof" : "on time"}{" "}
-                    · {approvals}/2 approvals
+                    {proof.owner.name} ·{" "}
+                    {proof.isLate ? "late proof" : "on time"} · {approvals}/2
+                    approvals
                   </CardDescription>
                   {proof.isLate && (
                     <CardAction>
@@ -284,7 +326,9 @@ export default async function SquadPage() {
 
       <Card>
         <CardHeader>
-          <Camera />
+          <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <Camera className="size-4" />
+          </div>
           <CardTitle>Today&apos;s history — no FOMO</CardTitle>
           <CardDescription>
             Every proof posted for {dayKey} — images included, even after
@@ -306,8 +350,15 @@ export default async function SquadPage() {
                   ? "Challenged"
                   : `${approvals}/2 approvals`;
             return (
-              <Card key={`history-${proof.id}`} size="sm">
-                <AspectRatio ratio={4 / 3}>
+              <Card
+                key={`history-${proof.id}`}
+                size="sm"
+                className="overflow-hidden"
+              >
+                <AspectRatio
+                  ratio={4 / 3}
+                  className="overflow-hidden rounded-t-xl"
+                >
                   <Image
                     className="size-full object-cover"
                     src={`/api/proofs/${proof.id}/image`}
@@ -372,7 +423,9 @@ export default async function SquadPage() {
 
       <Card>
         <CardHeader>
-          <Activity />
+          <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <Activity className="size-4" />
+          </div>
           <CardTitle>Actual activity</CardTitle>
           <CardDescription>
             Stored events, not a fake feed with suspiciously perfect timestamps.

@@ -302,9 +302,8 @@ export async function reviewProof(
           return review;
         }
 
-        const approvals = proof.reviews.filter(
-          (r) => r.decision === "APPROVED",
-        ).length + 1;
+        const approvals =
+          proof.reviews.filter((r) => r.decision === "APPROVED").length + 1;
 
         if (approvals >= requiredApprovals) {
           await transaction.taskProof.update({
@@ -370,7 +369,7 @@ export async function setCheckIn(
       actorId: userId,
       kind: "CHECK_IN_SET",
       entityId: checkIn.id,
-      summary: `checked in ${signal.toLowerCase().replace("_", " ")}`,
+      summary: `checked in ${signal.toLowerCase().replaceAll("_", " ")}`,
     },
   });
   return checkIn;

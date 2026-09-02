@@ -15,7 +15,6 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { MidnightCountdown } from "./midnight-countdown";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -59,6 +58,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { dailyTaskLimit } from "@/lib/task-policy";
+import { MidnightCountdown } from "./midnight-countdown";
 
 type Task = {
   id: string;
@@ -328,6 +328,10 @@ function ProofDialog({ task }: { task: Task }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!fileRef.current?.files?.[0]) {
+      setError("Attach a photo first.");
+      return;
+    }
     setPending(true);
     setError(null);
     const response = await fetch(`/api/commitments/${task.id}/proof`, {
@@ -387,8 +391,23 @@ function ProofDialog({ task }: { task: Task }) {
             >
               <FieldGroup>
                 <Field>
-                  <FieldLabel>Proof photo</FieldLabel>
-                  <div className="flex flex-col gap-2 rounded-xl border border-dashed bg-muted/20 p-4">
+                  <FieldLabel htmlFor={`proof-${task.id}`}>
+                    Proof photo
+                  </FieldLabel>
+                  {/* biome-ignore lint/a11y/useSemanticElements: dropzone uses div to avoid nested button with clear action */}
+                  <div
+                    className="relative flex flex-col gap-2 rounded-xl border border-dashed bg-muted/20 p-4 transition-colors hover:bg-muted/30 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 cursor-pointer"
+                    onClick={() => fileRef.current?.click()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        fileRef.current?.click();
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Choose proof photo"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                         <Upload className="size-4" />
@@ -406,7 +425,8 @@ function ProofDialog({ task }: { task: Task }) {
                           type="button"
                           variant="ghost"
                           size="icon-sm"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             if (fileRef.current) fileRef.current.value = "";
                             setFileName(null);
                           }}
@@ -422,11 +442,12 @@ function ProofDialog({ task }: { task: Task }) {
                       name="image"
                       type="file"
                       accept="image/png,image/jpeg,image/webp,image/heic"
-                      required
-                      className="h-11 cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
+                      className="sr-only"
+                      tabIndex={-1}
                       onChange={(e) =>
                         setFileName(e.target.files?.[0]?.name ?? null)
                       }
+                      onClick={(e) => e.stopPropagation()}
                     />
                   </div>
                   <FieldDescription>
@@ -487,6 +508,9 @@ function CheckInCard({ initial }: { initial: CheckIn }) {
   return (
     <Card>
       <CardHeader>
+        <div className="flex size-8 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
+          <Bot className="size-4" />
+        </div>
         <CardTitle>Quick check-in</CardTitle>
         <CardDescription>
           Tell the squad where the day actually stands.
@@ -494,7 +518,7 @@ function CheckInCard({ initial }: { initial: CheckIn }) {
       </CardHeader>
       <CardContent>
         <FieldGroup>
-          <Field orientation="responsive">
+          <Field>
             <FieldTitle id="check-in-signal">Status</FieldTitle>
             <ToggleGroup
               value={[signal ?? "WORKING"]}
@@ -589,23 +613,23 @@ export function TodayDashboard({
 
       <Card>
         <CardHeader>
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <CalendarClock className="size-4" />
+          </div>
           <CardTitle>Today’s board</CardTitle>
           <CardDescription>
             {tasks.length}/{dailyTaskLimit} tasks set · {verified} verified
           </CardDescription>
           <CardAction>
             <Badge>
-              {tasks.length
-                ? Math.round((verified / tasks.length) * 100)
-                : 0}
-              %
+              {tasks.length ? Math.round((verified / tasks.length) * 100) : 0}%
             </Badge>
           </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <Progress
             value={tasks.length ? (verified / tasks.length) * 100 : 0}
-            aria-label={`${verified} of ${tasks.length} tasks verified`}
+            aria-label={`${verified} of ${tasks.length} promises verified`}
           />
           <ItemGroup className="gap-3">
             {tasks.map((task) => (
@@ -636,7 +660,7 @@ export function TodayDashboard({
                     Due midnight · Phoenix · {task.day}
                   </ItemDescription>
                 </ItemContent>
-                <ItemActions className="w-full flex-row flex-wrap sm:w-auto sm:flex-col md:flex-row">
+                <ItemActions className="w-full flex-row flex-wrap justify-end sm:w-auto">
                   {(task.status === "OPEN" ||
                     task.status === "RENEGOTIATED") && (
                     <TaskDialog day={day} task={task} />

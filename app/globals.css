@@ -93,6 +93,21 @@
     -webkit-touch-callout: none;
   }
 
+  button:not(:disabled):not([data-disabled]),
+  [role="button"]:not(:disabled):not([data-disabled]),
+  a,
+  label,
+  select,
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role="button"]:disabled,
+  [data-disabled] {
+    cursor: not-allowed;
+  }
+
   body {
     @apply min-h-dvh bg-background text-foreground antialiased;
     /* safe-area insets for iOS notch + home indicator */

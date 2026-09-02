@@ -1,5 +1,5 @@
-import { after } from "next/server";
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { TodayDashboard } from "@/components/today/today-dashboard";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";

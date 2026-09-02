@@ -68,7 +68,7 @@ export function ReviewProof({
       <DialogTrigger
         render={<Button size="sm" className="touch-manipulation" />}
       >
-        <Gavel data-icon="inline-start" /> Review
+        <Gavel data-icon="inline-start" /> Review proof
       </DialogTrigger>
       <DialogContent className="max-h-[90dvh] overflow-hidden p-0 sm:max-w-lg">
         <div className="flex max-h-[90dvh] flex-col">
@@ -80,6 +80,7 @@ export function ReviewProof({
           </DialogHeader>
           <form
             onSubmit={submit}
+            id={`review-form-${proofId}`}
             className="flex flex-1 flex-col gap-4 overflow-auto p-6"
           >
             <FieldGroup>
@@ -130,19 +131,20 @@ export function ReviewProof({
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            <DialogFooter className="mt-2 flex-col gap-2 sm:flex-row">
-              <Button
-                type="submit"
-                disabled={pending}
-                variant={decision === "CHALLENGED" ? "destructive" : "default"}
-                size="lg"
-                className="w-full touch-manipulation"
-              >
-                {pending && <Spinner data-icon="inline-start" />}
-                Submit verdict
-              </Button>
-            </DialogFooter>
           </form>
+          <DialogFooter className="shrink-0 flex-col gap-2 sm:flex-row">
+            <Button
+              type="submit"
+              form={`review-form-${proofId}`}
+              disabled={pending}
+              variant={decision === "CHALLENGED" ? "destructive" : "default"}
+              size="lg"
+              className="w-full touch-manipulation sm:w-fit"
+            >
+              {pending && <Spinner data-icon="inline-start" />}
+              Submit verdict
+            </Button>
+          </DialogFooter>
         </div>
       </DialogContent>
     </Dialog>

@@ -27,8 +27,8 @@ export function AuthScreen({ children }: { children: ReactNode }) {
             Do the homework. Earn the court.
           </h1>
           <p className="text-base sm:text-lg">
-            Daily promises, photo receipts, and friends who can approve the
-            work or call bullshit.
+            Daily promises, photo receipts, and friends who can approve the work
+            or call bullshit.
           </p>
         </div>
         <p className="hidden text-sm opacity-80 sm:block">
@@ -37,9 +37,11 @@ export function AuthScreen({ children }: { children: ReactNode }) {
         </p>
       </section>
       <section className="flex items-center justify-center bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6 md:p-12">
-        <Card className="w-full max-w-md shadow-lg">
+        <Card className="w-full max-w-md border-foreground/10 shadow-xl shadow-foreground/[0.04]">
           <CardHeader>
-            <Trophy />
+            <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <Trophy className="size-4" />
+            </div>
             <CardTitle>Schoolwork accountability</CardTitle>
             <CardDescription>
               Pickleball is the theme. The homework is the point.

@@ -63,9 +63,12 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
     setPending(false);
   }
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid items-start gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Link2 className="size-4" />
+          </div>
           <CardTitle>One-time Discord invite</CardTitle>
           <CardDescription>
             The token is stored only as a hash. Copy it now.
@@ -95,8 +98,15 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
                     type="button"
                     variant="outline"
                     onClick={async () => {
-                      await navigator.clipboard.writeText(url);
-                      setCopied(true);
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        setCopied(true);
+                        window.setTimeout(() => setCopied(false), 2000);
+                      } catch {
+                        setError(
+                          "Clipboard blocked. Select the URL and copy manually.",
+                        );
+                      }
                     }}
                   >
                     {copied ? (
@@ -116,7 +126,7 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
               </Alert>
             )}
           </CardContent>
-          <CardFooter className="mt-4">
+          <CardFooter>
             <Button
               type="submit"
               disabled={pending}
@@ -135,6 +145,9 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
       </Card>
       <Card>
         <CardHeader>
+          <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <Link2 className="size-4" />
+          </div>
           <CardTitle>Invite history</CardTitle>
           <CardDescription>
             No email gates. Discord identity plus this one-time link.

@@ -72,7 +72,9 @@ test("a peer reviews pending proof and owner tools stay role-gated", async ({
   browser,
 }) => {
   // First approval — still needs one more (2 required)
-  const miaContext = await browser.newContext({ storageState: authState("mia") });
+  const miaContext = await browser.newContext({
+    storageState: authState("mia"),
+  });
   const miaPage = await miaContext.newPage();
   await miaPage.goto("/squad");
   await expect(
@@ -88,7 +90,9 @@ test("a peer reviews pending proof and owner tools stay role-gated", async ({
   await miaContext.close();
 
   // Second approval — now verified and queue empty
-  const leoContext = await browser.newContext({ storageState: authState("leo") });
+  const leoContext = await browser.newContext({
+    storageState: authState("leo"),
+  });
   const leoPage = await leoContext.newPage();
   await leoPage.goto("/squad");
   await expect(

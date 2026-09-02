@@ -3,7 +3,7 @@
 import { ClipboardCheck, Clock3, LogOut, Shield, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,13 +42,7 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [signOutPending, setSignOutPending] = useState(false);
-
-  useEffect(() => {
-    setPendingHref(null);
-  }, [pathname]);
 
   return (
     <Sidebar collapsible="icon" variant="inset">
@@ -59,7 +53,6 @@ export function AppSidebar({
               size="lg"
               render={<Link href="/" prefetch />}
               isActive={pathname === "/"}
-              data-pending={pendingHref === "/" ? "true" : undefined}
             >
               <span aria-hidden="true">🎾</span>
               <span>Pickle Balls</span>
@@ -72,59 +65,27 @@ export function AppSidebar({
           <SidebarGroupLabel>School first</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {links.map(({ href, label, icon: Icon }) => {
-                const isActive = pathname === href;
-                const isLinkPending = pendingHref === href && isPending;
-                return (
-                  <SidebarMenuItem key={href}>
-                    <SidebarMenuButton
-                      render={
-                        <Link
-                          href={href}
-                          prefetch
-                          onClick={() => {
-                            if (!isActive) {
-                              setPendingHref(href);
-                              startTransition(() => {});
-                            }
-                          }}
-                        />
-                      }
-                      isActive={isActive}
-                      tooltip={label}
-                      aria-busy={isLinkPending}
-                    >
-                      <Icon />
-                      <span>{label}</span>
-                      {isLinkPending && <Spinner className="ml-auto size-3" />}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {links.map(({ href, label, icon: Icon }) => (
+                <SidebarMenuItem key={href}>
+                  <SidebarMenuButton
+                    render={<Link href={href} prefetch />}
+                    isActive={pathname === href}
+                    tooltip={label}
+                  >
+                    <Icon />
+                    <span>{label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
               {isOwner && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    render={
-                      <Link
-                        href="/admin"
-                        prefetch
-                        onClick={() => {
-                          if (pathname !== "/admin") {
-                            setPendingHref("/admin");
-                            startTransition(() => {});
-                          }
-                        }}
-                      />
-                    }
+                    render={<Link href="/admin" prefetch />}
                     isActive={pathname === "/admin"}
                     tooltip="Owner tools"
-                    aria-busy={pendingHref === "/admin" && isPending}
                   >
                     <Shield />
                     <span>Owner tools</span>
-                    {pendingHref === "/admin" && isPending && (
-                      <Spinner className="ml-auto size-3" />
-                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
@@ -135,7 +96,10 @@ export function AppSidebar({
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton>
+            <SidebarMenuButton
+              render={<div />}
+              className="cursor-default hover:bg-transparent active:bg-transparent"
+            >
               <Avatar className="size-7">
                 <AvatarImage
                   src={user.image ?? undefined}

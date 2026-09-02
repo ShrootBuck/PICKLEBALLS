@@ -1,3 +1,4 @@
+import { ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,7 +9,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { ShieldAlert } from "lucide-react";
 
 export default function NotFound() {
   return (
@@ -23,7 +23,9 @@ export default function NotFound() {
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <Button render={<Link href="/" />}>Back to Today</Button>
+        <Button render={<Link href="/" />} nativeButton={false}>
+          Back to Today
+        </Button>
       </EmptyContent>
     </Empty>
   );

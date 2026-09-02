@@ -8,7 +8,7 @@ import { auth } from "@/lib/auth";
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; invite?: string }>;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session) redirect("/");
@@ -22,6 +22,15 @@ export default async function SignInPage({
             Returning friends sign in here. New friends need a one-time invite.
           </p>
         </div>
+        {query.invite === "required" && (
+          <Alert>
+            <AlertTitle>New here?</AlertTitle>
+            <AlertDescription>
+              Sign-up is invite-only. Use the one-time link from the owner, or
+              sign in below if you already joined.
+            </AlertDescription>
+          </Alert>
+        )}
         {query.error && (
           <Alert variant="destructive">
             <AlertTitle>Access denied.</AlertTitle>
