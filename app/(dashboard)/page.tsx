@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import type { Metadata } from "next";
 import { TodayDashboard } from "@/components/today/today-dashboard";
 import { getPrisma } from "@/lib/prisma";
@@ -11,7 +12,9 @@ export default async function TodayPage() {
   const { session, membership } = await requirePageMembership();
   const dayKey = phoenixDateKey();
   const day = requireDateKey(dayKey);
-  await reconcileMissedTasks(membership.circleId);
+  after(() => {
+    reconcileMissedTasks(membership.circleId).catch(() => undefined);
+  });
   const [tasks, checkIn] = await Promise.all([
     getPrisma().commitment.findMany({
       where: { userId: session.user.id, circleId: membership.circleId, day },

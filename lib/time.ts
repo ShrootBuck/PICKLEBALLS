@@ -40,6 +40,12 @@ export function phoenixDateTime(day: string, time: string) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+export function phoenixDayDueAt(day: string) {
+  if (!parseDateKey(day)) return null;
+  const date = new Date(`${day}T23:59:59.999-07:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 export function isPlannableDay(day: string, now = new Date()) {
   const today = phoenixDateKey(now);
   return day >= today && day <= addDays(today, maxPlanningDays);

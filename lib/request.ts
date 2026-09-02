@@ -8,9 +8,27 @@ import { ensureBootstrapMembership } from "@/lib/bootstrap";
 import { getPrisma } from "@/lib/prisma";
 
 export function hasSameOrigin(request: Request) {
+  const requestOrigin = new URL(request.url).origin;
   const origin = request.headers.get("origin");
-  if (!origin) return false;
-  return origin === new URL(request.url).origin;
+  if (origin) return origin === requestOrigin;
+  const referer = request.headers.get("referer");
+  if (referer) {
+    try {
+      return new URL(referer).origin === requestOrigin;
+    } catch {
+      return false;
+    }
+  }
+  // Same-origin fetch may omit origin/referer in some environments; fall back to host check.
+  const host = request.headers.get("host");
+  if (host) {
+    try {
+      return new URL(request.url).host === host;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 async function getMembership(userId: string) {

@@ -18,11 +18,8 @@ function createPrismaClient() {
 }
 
 export function getPrisma() {
-  const client = globalForPrisma.pickleBallsPrisma ?? createPrismaClient();
-
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.pickleBallsPrisma = client;
-  }
-
+  if (globalForPrisma.pickleBallsPrisma) return globalForPrisma.pickleBallsPrisma;
+  const client = createPrismaClient();
+  globalForPrisma.pickleBallsPrisma = client;
   return client;
 }

@@ -3,6 +3,7 @@
 import { ClipboardCheck, Clock3, LogOut, Shield, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +19,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
 
 const links = [
@@ -40,6 +42,13 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [signOutPending, setSignOutPending] = useState(false);
+
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
 
   return (
     <Sidebar collapsible="icon" variant="inset">
@@ -48,8 +57,9 @@ export function AppSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              render={<Link href="/" />}
+              render={<Link href="/" prefetch />}
               isActive={pathname === "/"}
+              data-pending={pendingHref === "/" ? "true" : undefined}
             >
               <span aria-hidden="true">🎾</span>
               <span>Pickle Balls</span>
@@ -62,27 +72,61 @@ export function AppSidebar({
           <SidebarGroupLabel>School first</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {links.map(({ href, label, icon: Icon }) => (
-                <SidebarMenuItem key={href}>
-                  <SidebarMenuButton
-                    render={<Link href={href} />}
-                    isActive={pathname === href}
-                    tooltip={label}
-                  >
-                    <Icon />
-                    <span>{label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {links.map(({ href, label, icon: Icon }) => {
+                const isActive = pathname === href;
+                const isLinkPending = pendingHref === href && isPending;
+                return (
+                  <SidebarMenuItem key={href}>
+                    <SidebarMenuButton
+                      render={
+                        <Link
+                          href={href}
+                          prefetch
+                          onClick={() => {
+                            if (!isActive) {
+                              setPendingHref(href);
+                              startTransition(() => {});
+                            }
+                          }}
+                        />
+                      }
+                      isActive={isActive}
+                      tooltip={label}
+                      aria-busy={isLinkPending}
+                    >
+                      <Icon />
+                      <span>{label}</span>
+                      {isLinkPending && (
+                        <Spinner className="ml-auto size-3" />
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
               {isOwner && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    render={<Link href="/admin" />}
+                    render={
+                      <Link
+                        href="/admin"
+                        prefetch
+                        onClick={() => {
+                          if (pathname !== "/admin") {
+                            setPendingHref("/admin");
+                            startTransition(() => {});
+                          }
+                        }}
+                      />
+                    }
                     isActive={pathname === "/admin"}
                     tooltip="Owner tools"
+                    aria-busy={pendingHref === "/admin" && isPending}
                   >
                     <Shield />
                     <span>Owner tools</span>
+                    {pendingHref === "/admin" && isPending && (
+                      <Spinner className="ml-auto size-3" />
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
@@ -95,7 +139,10 @@ export function AppSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton>
               <Avatar className="size-7">
-                <AvatarImage src={user.image ?? undefined} alt="" />
+                <AvatarImage
+                  src={user.image ?? undefined}
+                  alt={`${user.name} avatar`}
+                />
                 <AvatarFallback>{user.initials}</AvatarFallback>
               </Avatar>
               <span className="flex min-w-0 flex-col">
@@ -112,13 +159,28 @@ export function AppSidebar({
         <Button
           variant="ghost"
           size="sm"
+          disabled={signOutPending}
           onClick={async () => {
-            await authClient.signOut();
-            router.replace("/sign-in");
-            router.refresh();
+            setSignOutPending(true);
+            try {
+              await authClient.signOut({
+                fetchOptions: {
+                  onSuccess: () => {
+                    router.replace("/sign-in");
+                    router.refresh();
+                  },
+                },
+              });
+            } finally {
+              setSignOutPending(false);
+            }
           }}
         >
-          <LogOut data-icon="inline-start" />
+          {signOutPending ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <LogOut data-icon="inline-start" />
+          )}
           Sign out
         </Button>
       </SidebarFooter>

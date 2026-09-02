@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { assessTaskProof } from "@/lib/ai";
 import { jsonError } from "@/lib/api";
@@ -34,41 +35,51 @@ export async function POST(
       note,
     );
 
-    const proofWithTask = await getPrisma().taskProof.findUniqueOrThrow({
-      where: { id: proof.id },
-      include: { image: true, commitment: true },
+    // Run AI assessment in the background so upload feels instant.
+    // Uses Next.js `after()` to keep work alive after response.
+    after(async () => {
+      try {
+        const proofWithTask = await getPrisma().taskProof.findUnique({
+          where: { id: proof.id },
+          include: { image: true, commitment: true },
+        });
+        if (!proofWithTask?.image) {
+          await getPrisma().taskProof.update({
+            where: { id: proof.id },
+            data: { aiStatus: "FAILED" },
+          });
+          return;
+        }
+        const assessment = await assessTaskProof(
+          auth.session.user.id,
+          auth.membership.circleId,
+          proofWithTask.commitment,
+          {
+            data: proofWithTask.image.data,
+            mimeType: proofWithTask.image.mimeType,
+          },
+        );
+        await getPrisma().taskProof.update({
+          where: { id: proof.id },
+          data: {
+            aiStatus: "SUCCEEDED",
+            aiVisibleEvidence: assessment.visibleEvidence,
+            aiUncertainty: assessment.uncertainty,
+            aiReviewerQuestion: assessment.reviewerQuestion,
+          },
+        });
+      } catch {
+        await getPrisma()
+          .taskProof.update({
+            where: { id: proof.id },
+            data: { aiStatus: "FAILED" },
+          })
+          .catch(() => undefined);
+      }
     });
-    if (!proofWithTask.image) {
-      throw new Error("The sanitized proof image was not stored.");
-    }
-    let assessment = null;
-    try {
-      assessment = await assessTaskProof(
-        auth.session.user.id,
-        auth.membership.circleId,
-        proofWithTask.commitment,
-        {
-          data: proofWithTask.image.data,
-          mimeType: proofWithTask.image.mimeType,
-        },
-      );
-      await getPrisma().taskProof.update({
-        where: { id: proof.id },
-        data: {
-          aiStatus: "SUCCEEDED",
-          aiVisibleEvidence: assessment.visibleEvidence,
-          aiUncertainty: assessment.uncertainty,
-          aiReviewerQuestion: assessment.reviewerQuestion,
-        },
-      });
-    } catch {
-      await getPrisma().taskProof.update({
-        where: { id: proof.id },
-        data: { aiStatus: "FAILED" },
-      });
-    }
+
     return NextResponse.json(
-      { proof: { ...proof, assessment } },
+      { proof: { ...proof, assessment: null } },
       { status: 201 },
     );
   } catch (error) {

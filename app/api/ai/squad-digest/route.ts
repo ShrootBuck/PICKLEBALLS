@@ -53,15 +53,19 @@ export async function POST(request: Request) {
       auth.membership.circleId,
       facts,
     );
-    const digest = await getPrisma().dailySquadDigest.create({
-      data: {
+    // Use upsert to handle concurrent requests racing to create the same day's digest.
+    const digest = await getPrisma().dailySquadDigest.upsert({
+      where: { circleId_day: { circleId: auth.membership.circleId, day } },
+      create: {
         circleId: auth.membership.circleId,
         day,
         summary: output.summary,
         needsHelp: output.needsHelp,
       },
+      update: {},
     });
-    return NextResponse.json({ digest, cached: false });
+    const wasCached = digest.summary !== output.summary;
+    return NextResponse.json({ digest, cached: wasCached });
   } catch (error) {
     return jsonError(error);
   }

@@ -4,13 +4,8 @@ import { Prisma } from "@/generated/prisma/client";
 import { sanitizeImage } from "@/lib/image";
 import { getPrisma } from "@/lib/prisma";
 import { commitmentInputSchema, proofReviewSchema } from "@/lib/schemas";
-import {
-  canEditTask,
-  dailyTaskLimit,
-  isLateProof,
-  validateTaskTiming,
-} from "@/lib/task-policy";
-import { phoenixDateKey, requireDateKey } from "@/lib/time";
+import { canEditTask, dailyTaskLimit, isLateProof } from "@/lib/task-policy";
+import { phoenixDateKey, phoenixDayDueAt, requireDateKey } from "@/lib/time";
 
 export class DomainError extends Error {
   constructor(
@@ -67,9 +62,13 @@ export async function createCommitment(
 ) {
   const parsed = commitmentInputSchema.safeParse(input);
   if (!parsed.success) throw new DomainError("Fix the task fields.");
-  const timing = validateTaskTiming(parsed.data.day, parsed.data.dueTime, now);
-  if (!timing.ok) throw new DomainError(timing.error);
-  const day = requireDateKey(parsed.data.day);
+  const dayKey = phoenixDateKey(now);
+  const day = requireDateKey(dayKey);
+  const dueAt = phoenixDayDueAt(dayKey);
+  if (!dueAt) throw new DomainError("Could not compute midnight deadline.");
+  if (dueAt <= now) {
+    throw new DomainError("Too late — today's board is locked at midnight.");
+  }
 
   return getPrisma().$transaction(
     async (transaction) => {
@@ -89,7 +88,7 @@ export async function createCommitment(
           day,
           title: parsed.data.title,
           definitionOfDone: parsed.data.definitionOfDone,
-          dueAt: timing.dueAt,
+          dueAt,
         },
       });
       await transaction.commitmentRevision.create({
@@ -109,7 +108,7 @@ export async function createCommitment(
           actorId: userId,
           kind: "TASK_CREATED",
           entityId: task.id,
-          summary: `set “${task.title}” for ${parsed.data.day}`,
+          summary: `set “${task.title}” for ${dayKey}`,
         },
       });
       return task;
@@ -127,9 +126,6 @@ export async function updateCommitment(
 ) {
   const parsed = commitmentInputSchema.safeParse(input);
   if (!parsed.success) throw new DomainError("Fix the task fields.");
-  const timing = validateTaskTiming(parsed.data.day, parsed.data.dueTime, now);
-  if (!timing.ok) throw new DomainError(timing.error);
-  const day = requireDateKey(parsed.data.day);
 
   return getPrisma().$transaction(async (transaction) => {
     const current = await transaction.commitment.findFirst({
@@ -138,17 +134,9 @@ export async function updateCommitment(
     if (!current) throw new DomainError("Task not found.", 404);
     if (!canEditTask(current.dueAt, now)) {
       throw new DomainError(
-        "The deadline passed. The edit window is closed.",
+        "Midnight passed — the edit window is closed.",
         409,
       );
-    }
-
-    if (current.day.getTime() !== day.getTime()) {
-      const count = await transaction.commitment.count({
-        where: { userId, circleId, day },
-      });
-      if (count >= dailyTaskLimit)
-        throw new DomainError("That day already has three tasks.", 409);
     }
 
     await transaction.commitmentRevision.create({
@@ -165,10 +153,8 @@ export async function updateCommitment(
     const task = await transaction.commitment.update({
       where: { id: current.id },
       data: {
-        day,
         title: parsed.data.title,
         definitionOfDone: parsed.data.definitionOfDone,
-        dueAt: timing.dueAt,
         status: "RENEGOTIATED",
       },
     });
@@ -178,7 +164,7 @@ export async function updateCommitment(
         actorId: userId,
         kind: "TASK_RENEGOTIATED",
         entityId: task.id,
-        summary: `renegotiated “${task.title}” before the bell`,
+        summary: `renegotiated “${task.title}” before midnight`,
       },
     });
     return task;

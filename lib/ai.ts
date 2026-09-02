@@ -131,8 +131,8 @@ async function runStructured<S extends z.ZodType>({
         model: aiModelId,
         provider: aiProviderRoute,
         durationMs: Date.now() - started,
-        inputTokens: result.totalUsage.inputTokens,
-        outputTokens: result.totalUsage.outputTokens,
+        inputTokens: result.totalUsage?.inputTokens ?? null,
+        outputTokens: result.totalUsage?.outputTokens ?? null,
       },
     });
     return schema.parse(result.output);

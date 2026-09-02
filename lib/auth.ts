@@ -51,9 +51,19 @@ export const auth = betterAuth({
   socialProviders: {
     discord: {
       clientId:
-        process.env.DISCORD_CLIENT_ID ?? "discord-client-not-configured",
+        process.env.DISCORD_CLIENT_ID ??
+        (process.env.NODE_ENV === "production"
+          ? (() => {
+              throw new Error("DISCORD_CLIENT_ID is not configured");
+            })()
+          : "discord-client-not-configured"),
       clientSecret:
-        process.env.DISCORD_CLIENT_SECRET ?? "discord-secret-not-configured",
+        process.env.DISCORD_CLIENT_SECRET ??
+        (process.env.NODE_ENV === "production"
+          ? (() => {
+              throw new Error("DISCORD_CLIENT_SECRET is not configured");
+            })()
+          : "discord-secret-not-configured"),
       disableImplicitSignUp: true,
       overrideUserInfoOnSignIn: true,
       mapProfileToUser: (profile) => ({
@@ -67,6 +77,7 @@ export const auth = betterAuth({
       }),
     },
   },
+  emailAndPassword: { enabled: false },
   disabledPaths: [
     "/sign-up/email",
     "/sign-in/email",
@@ -160,7 +171,7 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
-    cookieCache: { enabled: true, maxAge: 60 * 5, strategy: "compact" },
+    cookieCache: { enabled: true, maxAge: 60 * 5, strategy: "jwe" },
   },
   account: {
     encryptOAuthTokens: true,

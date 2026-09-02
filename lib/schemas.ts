@@ -1,10 +1,8 @@
 import { z } from "zod";
 
 export const commitmentInputSchema = z.object({
-  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   title: z.string().trim().min(3).max(100),
   definitionOfDone: z.string().trim().min(5).max(500),
-  dueTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   revisionNote: z.string().trim().max(240).optional(),
 });
 

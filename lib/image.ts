@@ -29,7 +29,7 @@ export async function sanitizeImage(file: File) {
     throw new Error("Use a real PNG, JPEG, WebP, or HEIC image.");
   }
 
-  const data = await sharp(input, {
+  const { data, info } = await sharp(input, {
     failOn: "error",
     limitInputPixels: 40_000_000,
   })
@@ -41,16 +41,14 @@ export async function sanitizeImage(file: File) {
       withoutEnlargement: true,
     })
     .webp({ quality: 86, effort: 4 })
-    .toBuffer();
-  const output = await sharp(data).metadata();
-  if (!output.width || !output.height)
-    throw new Error("Could not decode image.");
+    .toBuffer({ resolveWithObject: true });
+  if (!info.width || !info.height) throw new Error("Could not decode image.");
 
   return {
     data: new Uint8Array(data),
     mimeType: "image/webp",
     sizeBytes: data.byteLength,
-    width: output.width,
-    height: output.height,
+    width: info.width,
+    height: info.height,
   };
 }

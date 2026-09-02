@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { MidnightCountdown } from "./midnight-countdown";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -105,20 +106,36 @@ function TaskDialog({ day, task }: { day: string; task?: Task }) {
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState(task?.title ?? "");
   const [definition, setDefinition] = useState(task?.definitionOfDone ?? "");
-  const dueTime = task
-    ? new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/Phoenix",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }).format(new Date(task.dueAt))
-    : "20:00";
+
+  // Reset form when dialog opens/closes or task identity changes (fixes stale "new task" data)
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (next) {
+      setTitle(task?.title ?? "");
+      setDefinition(task?.definitionOfDone ?? "");
+      setError(null);
+    } else {
+      // Clear stale state when closing so next "Add task" starts blank
+      if (!task) {
+        setTitle("");
+        setDefinition("");
+      }
+      setError(null);
+      setRefining(false);
+      setPending(false);
+    }
+  };
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
     setError(null);
-    const data = Object.fromEntries(new FormData(event.currentTarget));
+    const formData = new FormData(event.currentTarget);
+    const data = {
+      title,
+      definitionOfDone: definition,
+      revisionNote: String(formData.get("revisionNote") ?? "").trim() || undefined,
+    };
     const response = await fetch(
       task ? `/api/commitments/${task.id}` : "/api/commitments",
       {
@@ -170,7 +187,7 @@ function TaskDialog({ day, task }: { day: string; task?: Task }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
           <Button
@@ -228,31 +245,8 @@ function TaskDialog({ day, task }: { day: string; task?: Task }) {
                 “Study math” is not evidence. Name the finish line.
               </FieldDescription>
             </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor={`day-${task?.id ?? "new"}`}>
-                  Day
-                </FieldLabel>
-                <Input
-                  id={`day-${task?.id ?? "new"}`}
-                  name="day"
-                  type="date"
-                  defaultValue={task?.day ?? day}
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor={`due-${task?.id ?? "new"}`}>
-                  Due time
-                </FieldLabel>
-                <Input
-                  id={`due-${task?.id ?? "new"}`}
-                  name="dueTime"
-                  type="time"
-                  defaultValue={dueTime}
-                  required
-                />
-              </Field>
+            <div className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+              Due tonight at midnight — Phoenix time. Everyone shares the same deadline, refreshed daily.
             </div>
             {task && (
               <Field>
@@ -477,7 +471,10 @@ export function TodayDashboard({
     <>
       <section className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-1">
-          <Badge variant="secondary">Phoenix · {day}</Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary">Phoenix · {day}</Badge>
+            <MidnightCountdown />
+          </div>
           <h1 className="text-3xl font-semibold tracking-tight">
             Three promises. Then go play.
           </h1>
@@ -521,14 +518,7 @@ export function TodayDashboard({
                     )}
                   </ItemTitle>
                   <ItemDescription>{task.definitionOfDone}</ItemDescription>
-                  <ItemDescription>
-                    Due{" "}
-                    {new Intl.DateTimeFormat("en-US", {
-                      timeZone: "America/Phoenix",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    }).format(new Date(task.dueAt))}
-                  </ItemDescription>
+                  <ItemDescription>Due midnight · Phoenix · {task.day}</ItemDescription>
                 </ItemContent>
                 <ItemActions>
                   {(task.status === "OPEN" ||
