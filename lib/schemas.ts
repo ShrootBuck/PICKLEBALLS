@@ -11,6 +11,12 @@ export const checkInSchema = z.object({
   blocker: z.string().trim().max(500).optional(),
 });
 
+export const socialReplySchema = z.object({
+  targetType: z.enum(["COMMITMENT", "CHECK_IN"]),
+  targetId: z.string().trim().min(1).max(100),
+  body: z.string().trim().min(1).max(500),
+});
+
 export const proofReviewSchema = z
   .object({
     decision: z.enum(["APPROVED", "CHALLENGED"]),

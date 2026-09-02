@@ -313,7 +313,7 @@ export function ScreenTimeDashboard({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             PNG, JPEG, WebP, or HEIC. Max 6 MB. Sanitized and
-                            kept 30 days.
+                            saved with your history.
                           </p>
                         </div>
                         {selectedFileName && (
@@ -348,8 +348,8 @@ export function ScreenTimeDashboard({
                       />
                     </div>
                     <FieldDescription>
-                      Images are sanitized and kept for 30 days. The LLM does
-                      the reading — no manual typing needed.
+                      Images are sanitized and saved with your history. The LLM
+                      does the reading — no manual typing needed.
                     </FieldDescription>
                   </Field>
                   <Button

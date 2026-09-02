@@ -55,19 +55,22 @@ The app uses AI SDK 7 `generateText` with bounded `Output.object` schemas for:
 
 Every request pins `openai/flex`, disables fallbacks, requires supported
 parameters, sets `service_tier: flex`, times out after 60 seconds, and retries
-once. AI never resolves proof. A friend does. Metadata-only run logs have a
-30-day lifetime; prompts and images are not logged.
+once. AI never resolves proof. A friend does. Metadata-only run logs are stored;
+prompts and images are not logged.
 
-## Storage and retention
+## Storage
 
 Proof and Screen Time images are decoded, auto-rotated, stripped of metadata,
 bounded to 2048 pixels, and re-encoded as WebP before Postgres storage. Image
 routes require circle membership and send private caching plus `nosniff`.
 
-Operational data is pruned after 30 Phoenix calendar days by
-`/api/cron/cleanup`. Vercel calls that route daily with the configured
-`CRON_SECRET` bearer token. Run `bun run db:prune` for a manual cleanup. Users,
-the circle, memberships, and active Better Auth identity remain.
+App history is kept indefinitely. This includes tasks, revisions, proofs,
+check-ins, replies, activity, Screen Time receipts, images, and AI run metadata.
+The app does not run an age-based purge.
+
+Vercel calls `/api/cron/reconcile` daily with the configured `CRON_SECRET`
+bearer token. That job only marks overdue tasks as missed; it does not delete
+data.
 
 ## Checks
 

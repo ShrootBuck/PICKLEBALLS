@@ -108,6 +108,54 @@ test("a peer reviews pending proof and owner tools stay role-gated", async ({
   await leoContext.close();
 });
 
+test("squad members can reply to tasks and check-ins", async ({ browser }) => {
+  const context = await browser.newContext({
+    storageState: authState("owner"),
+  });
+  const page = await context.newPage();
+  const taskTitle = "Decide whether to text my ex back";
+  const blocker = "Overthinking one questionable text";
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Add task" }).click();
+  await page.getByLabel("Task").fill(taskTitle);
+  await page
+    .getByLabel("Definition of done")
+    .fill("Make a decision and stop staring at the draft");
+  await page.getByRole("button", { name: "Lock it in" }).click();
+  await expect(page.getByText(taskTitle)).toBeVisible();
+
+  await page.getByText("At risk", { exact: true }).click();
+  await page.getByLabel("Blocker").fill(blocker);
+  await page.getByRole("button", { name: "Save check-in" }).click();
+  await expect(page.getByText("Squad updated.")).toBeVisible();
+
+  await page.goto("/squad");
+  const task = page.locator('[data-slot="item"]').filter({
+    has: page.getByText(taskTitle, { exact: true }),
+  });
+  await task.getByRole("button", { name: "Reply", exact: true }).click();
+  await task
+    .getByLabel("Write a reply")
+    .fill("Sleep on it. Chaos is still available tomorrow.");
+  await task.getByRole("button", { name: "Post reply" }).click();
+  await expect(
+    task.getByText("Sleep on it. Chaos is still available tomorrow."),
+  ).toBeVisible();
+
+  const checkIn = page.getByText(blocker, { exact: false }).locator("..");
+  await checkIn.getByRole("button", { name: "Reply", exact: true }).click();
+  await checkIn
+    .getByLabel("Write a reply")
+    .fill("Put the phone down and finish the task first.");
+  await checkIn.getByRole("button", { name: "Post reply" }).click();
+  await expect(
+    checkIn.getByText("Put the phone down and finish the task first."),
+  ).toBeVisible();
+
+  await context.close();
+});
+
 test("daily and weekly Screen Time live in their own flow", async ({
   browser,
 }) => {

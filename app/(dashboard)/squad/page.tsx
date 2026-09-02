@@ -2,6 +2,7 @@ import { Activity, Bot, Camera, ClockAlert, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { ReviewProof } from "@/components/squad/review-proof";
+import { SocialReplyThread } from "@/components/squad/social-reply-thread";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -48,10 +49,42 @@ export default async function SquadPage() {
             commitments: {
               where: { circleId: membership.circleId, day },
               orderBy: { dueAt: "asc" },
+              include: {
+                replies: {
+                  orderBy: { createdAt: "desc" },
+                  take: 50,
+                  include: {
+                    author: {
+                      select: {
+                        id: true,
+                        name: true,
+                        image: true,
+                        initials: true,
+                      },
+                    },
+                  },
+                },
+              },
             },
             checkIns: {
               where: { circleId: membership.circleId, day },
               take: 1,
+              include: {
+                replies: {
+                  orderBy: { createdAt: "desc" },
+                  take: 50,
+                  include: {
+                    author: {
+                      select: {
+                        id: true,
+                        name: true,
+                        image: true,
+                        initials: true,
+                      },
+                    },
+                  },
+                },
+              },
             },
           },
         },
@@ -160,6 +193,16 @@ export default async function SquadPage() {
                             </Badge>
                           </ItemTitle>
                         </ItemContent>
+                        <SocialReplyThread
+                          targetType="COMMITMENT"
+                          targetId={task.id}
+                          initialReplies={task.replies
+                            .toReversed()
+                            .map((reply) => ({
+                              ...reply,
+                              createdAt: reply.createdAt.toISOString(),
+                            }))}
+                        />
                       </Item>
                     );
                   })}
@@ -188,6 +231,16 @@ export default async function SquadPage() {
                         · {checkIn.blocker}
                       </span>
                     )}
+                    <SocialReplyThread
+                      targetType="CHECK_IN"
+                      targetId={checkIn.id}
+                      initialReplies={checkIn.replies
+                        .toReversed()
+                        .map((reply) => ({
+                          ...reply,
+                          createdAt: reply.createdAt.toISOString(),
+                        }))}
+                    />
                   </div>
                 )}
               </CardContent>
