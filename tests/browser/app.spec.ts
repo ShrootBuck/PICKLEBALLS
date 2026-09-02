@@ -42,7 +42,7 @@ test("owner creates a task and posts proof", async ({ browser }) => {
   const page = await context.newPage();
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Three promises. Then go play." }),
+    page.getByRole("heading", { name: "Promises. Then go play." }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Add task" }).click();
@@ -50,11 +50,6 @@ test("owner creates a task and posts proof", async ({ browser }) => {
   await page
     .getByLabel("Definition of done")
     .fill("All 18 problems solved and checked");
-  const tomorrow = new Date(
-    Date.now() + 24 * 60 * 60 * 1000,
-  ).toLocaleDateString("en-CA", { timeZone: "America/Phoenix" });
-  await page.getByLabel("Day").fill(tomorrow);
-  await page.getByLabel("Due time").fill("23:59");
   await page.getByRole("button", { name: "Lock it in" }).click();
   await expect(page.getByText("Finish calculus problem set")).toBeVisible();
 

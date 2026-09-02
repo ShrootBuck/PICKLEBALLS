@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Pickle Balls",
     short_name: "Pickle Balls",
     description:
-      "Three schoolwork promises. Photo receipts. Friends who call the bluff.",
+      "Schoolwork promises. Photo receipts. Friends who call the bluff.",
     start_url: "/",
     scope: "/",
     display: "standalone",
@@ -41,7 +41,7 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         name: "Today",
         short_name: "Today",
-        description: "See your three promises for today",
+        description: "See your promises for today",
         url: "/",
         icons: [{ src: "/icon", sizes: "512x512", type: "image/png" }],
       },

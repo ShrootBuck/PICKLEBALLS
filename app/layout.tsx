@@ -31,8 +31,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: { default: "Pickle Balls", template: "%s · Pickle Balls" },
-  description:
-    "Three schoolwork promises. Photo receipts. Friends who call the bluff.",
+  description: "Schoolwork promises. Photo receipts. Friends who call the bluff.",
   applicationName: "Pickle Balls",
   appleWebApp: {
     capable: true,
@@ -56,15 +55,13 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   openGraph: {
     title: "Pickle Balls",
-    description:
-      "Three schoolwork promises. Photo receipts. Friends who call the bluff.",
+    description: "Schoolwork promises. Photo receipts. Friends who call the bluff.",
     type: "website",
   },
   twitter: {
     card: "summary",
     title: "Pickle Balls",
-    description:
-      "Three schoolwork promises. Photo receipts. Friends who call the bluff.",
+    description: "Schoolwork promises. Photo receipts. Friends who call the bluff.",
   },
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://pickleballs.example.com",

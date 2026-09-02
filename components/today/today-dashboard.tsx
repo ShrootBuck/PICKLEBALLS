@@ -58,6 +58,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { dailyTaskLimit } from "@/lib/task-policy";
 
 type Task = {
   id: string;
@@ -577,29 +578,34 @@ export function TodayDashboard({
             <MidnightCountdown />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-            Three promises. Then go play.
+            Promises. Then go play.
           </h1>
           <p className="text-sm text-muted-foreground md:text-base">
             Put down the schoolwork that earns your free time.
           </p>
         </div>
-        {tasks.length < 3 && <TaskDialog day={day} />}
+        {tasks.length < dailyTaskLimit && <TaskDialog day={day} />}
       </section>
 
       <Card>
         <CardHeader>
           <CardTitle>Today’s board</CardTitle>
           <CardDescription>
-            {tasks.length}/3 tasks set · {verified} verified
+            {tasks.length}/{dailyTaskLimit} tasks set · {verified} verified
           </CardDescription>
           <CardAction>
-            <Badge>{Math.round((verified / 3) * 100)}%</Badge>
+            <Badge>
+              {tasks.length
+                ? Math.round((verified / tasks.length) * 100)
+                : 0}
+              %
+            </Badge>
           </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <Progress
-            value={(verified / 3) * 100}
-            aria-label={`${verified} of 3 tasks verified`}
+            value={tasks.length ? (verified / tasks.length) * 100 : 0}
+            aria-label={`${verified} of ${tasks.length} tasks verified`}
           />
           <ItemGroup className="gap-3">
             {tasks.map((task) => (

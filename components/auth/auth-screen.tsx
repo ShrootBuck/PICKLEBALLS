@@ -27,8 +27,8 @@ export function AuthScreen({ children }: { children: ReactNode }) {
             Do the homework. Earn the court.
           </h1>
           <p className="text-base sm:text-lg">
-            Three daily promises, photo receipts, and friends who can approve
-            the work or call bullshit.
+            Daily promises, photo receipts, and friends who can approve the
+            work or call bullshit.
           </p>
         </div>
         <p className="hidden text-sm opacity-80 sm:block">

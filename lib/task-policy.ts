@@ -5,7 +5,7 @@ import {
   phoenixDateTime,
 } from "@/lib/time";
 
-export const dailyTaskLimit = 3;
+export const dailyTaskLimit = 10;
 
 export function validateTaskTiming(
   day: string,

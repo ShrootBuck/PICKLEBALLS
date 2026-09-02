@@ -77,7 +77,7 @@ export async function createCommitment(
       });
       if (count >= dailyTaskLimit) {
         throw new DomainError(
-          "Three tasks. Finish something before inventing a fourth.",
+          `Limit is ${dailyTaskLimit} tasks. Finish something before adding more.`,
           409,
         );
       }

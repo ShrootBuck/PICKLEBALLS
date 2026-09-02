@@ -27,7 +27,7 @@ describe("Phoenix task policy", () => {
     expect(validateTaskTiming("2026-09-01", "23:59", now).ok).toBe(true);
     expect(validateTaskTiming("2026-09-08", "23:59", now).ok).toBe(true);
     expect(validateTaskTiming("2026-09-09", "23:59", now).ok).toBe(false);
-    expect(dailyTaskLimit).toBe(3);
+    expect(dailyTaskLimit).toBe(10);
   });
 
   test("locks edits at the due instant and permanently marks later proof", () => {
