@@ -12,7 +12,6 @@ import {
   Sparkles,
   TriangleAlert,
   Upload,
-  Wand2,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -54,6 +53,13 @@ import {
   FieldTitle,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "@/components/ui/item";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
@@ -62,6 +68,14 @@ import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { dailyTaskLimit } from "@/lib/task-policy";
 import { formatDayLong } from "@/lib/time";
+
+type ProofReview = {
+  id: string;
+  decision: "APPROVED" | "CHALLENGED";
+  note: string | null;
+  createdAt: string;
+  reviewerName: string;
+};
 
 type Task = {
   id: string;
@@ -73,8 +87,10 @@ type Task = {
   proof: null | {
     id: string;
     isLate: boolean;
+    ownerNote: string | null;
     reviewStatus: "PENDING" | "APPROVED" | "CHALLENGED";
     aiStatus: "PENDING" | "SUCCEEDED" | "FAILED" | "SKIPPED";
+    reviews: ProofReview[];
   };
 };
 
@@ -133,6 +149,39 @@ function signalBadge(signal: CheckInHistoryItem["signal"]) {
   return <Badge variant="secondary">Working</Badge>;
 }
 
+function ProofFeedback({ proof }: { proof: NonNullable<Task["proof"]> }) {
+  if (proof.reviews.length === 0) return null;
+  return (
+    <ItemGroup className="gap-2">
+      {proof.reviews.map((review) => (
+        <Item key={review.id} size="sm" variant="muted">
+          <ItemContent>
+            <div className="flex items-center justify-between gap-2">
+              <ItemTitle className="text-[13px]">
+                {review.reviewerName}
+              </ItemTitle>
+              <Badge
+                variant={
+                  review.decision === "CHALLENGED" ? "destructive" : "default"
+                }
+              >
+                {review.decision === "CHALLENGED" ? "Challenged" : "Approved"}
+              </Badge>
+            </div>
+            {review.note ? (
+              <ItemDescription className="text-sm text-foreground">
+                {review.note}
+              </ItemDescription>
+            ) : (
+              <ItemDescription>No note. Just a vote.</ItemDescription>
+            )}
+          </ItemContent>
+        </Item>
+      ))}
+    </ItemGroup>
+  );
+}
+
 const historyTime = new Intl.DateTimeFormat("en-US", {
   timeZone: "America/Phoenix",
   hour: "numeric",
@@ -143,7 +192,6 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
-  const [sharpening, setSharpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState(task?.title ?? "");
   const [definition, setDefinition] = useState(task?.definitionOfDone ?? "");
@@ -163,41 +211,6 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
       setPending(false);
     }
   };
-
-  async function sharpen() {
-    if (!title.trim() || sharpening) return;
-    setSharpening(true);
-    try {
-      const response = await fetch("/api/ai/sharpen", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          title: title.trim(),
-          definitionOfDone: definition.trim(),
-        }),
-      });
-      const result = (await response.json()) as {
-        title?: string;
-        definitionOfDone?: string;
-        steps?: string[];
-        error?: string;
-      };
-      if (!response.ok) {
-        toast.add({
-          title: result.error ?? "AI flopped. Keep it manual.",
-          type: "error",
-        });
-        return;
-      }
-      if (result.title) setTitle(result.title);
-      if (result.definitionOfDone) setDefinition(result.definitionOfDone);
-      toast.add({ title: "Sharpened. Less vague now.", type: "success" });
-    } catch {
-      toast.add({ title: "AI is down. You write it.", type: "error" });
-    } finally {
-      setSharpening(false);
-    }
-  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -257,7 +270,7 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
               {task ? "Renegotiate before midnight" : "Make a real promise"}
             </DialogTitle>
             <DialogDescription className="text-sm leading-relaxed">
-              Specific enough that your boys can verify it from one photo. No
+              Specific enough that the squad can verify it from one photo. No
               vague bullshit.
             </DialogDescription>
           </DialogHeader>
@@ -269,25 +282,9 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
             >
               <FieldGroup>
                 <Field>
-                  <div className="flex items-center justify-between gap-2">
-                    <FieldLabel htmlFor={`title-${task?.id ?? "new"}`}>
-                      What are you actually doing?
-                    </FieldLabel>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      onClick={sharpen}
-                      disabled={sharpening || title.trim().length < 3}
-                    >
-                      {sharpening ? (
-                        <Spinner data-icon="inline-start" />
-                      ) : (
-                        <Wand2 data-icon="inline-start" />
-                      )}
-                      Sharpen
-                    </Button>
-                  </div>
+                  <FieldLabel htmlFor={`title-${task?.id ?? "new"}`}>
+                    What are you actually doing?
+                  </FieldLabel>
                   <Input
                     id={`title-${task?.id ?? "new"}`}
                     name="title"
@@ -371,12 +368,22 @@ function ProofDialog({ task }: { task: Task }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const [confirmEmpty, setConfirmEmpty] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!fileRef.current?.files?.[0]) {
       setError("Attach a photo first. Words are cheap.");
+      return;
+    }
+    const description = new FormData(event.currentTarget)
+      .get("note")
+      ?.toString()
+      .trim();
+    if (!description && !confirmEmpty) {
+      setConfirmEmpty(true);
       return;
     }
     setPending(true);
@@ -397,6 +404,8 @@ function ProofDialog({ task }: { task: Task }) {
     setOpen(false);
     setPending(false);
     setFileName(null);
+    setNote("");
+    setConfirmEmpty(false);
     router.refresh();
   }
 
@@ -406,6 +415,8 @@ function ProofDialog({ task }: { task: Task }) {
       setError(null);
       setPending(false);
       setFileName(null);
+      setNote("");
+      setConfirmEmpty(false);
       if (fileRef.current) fileRef.current.value = "";
     }
   };
@@ -508,12 +519,27 @@ function ProofDialog({ task }: { task: Task }) {
                   <Textarea
                     id={`proof-note-${task.id}`}
                     name="note"
+                    value={note}
+                    onChange={(event) => {
+                      setNote(event.target.value);
+                      if (event.target.value.trim()) setConfirmEmpty(false);
+                    }}
                     maxLength={500}
                     placeholder="Page numbers, scores, whatever makes it obvious"
                     className="min-h-24"
                   />
                 </Field>
               </FieldGroup>
+              {confirmEmpty && (
+                <Alert>
+                  <TriangleAlert />
+                  <AlertTitle>No description. Still submit?</AlertTitle>
+                  <AlertDescription>
+                    Submissions are permanent — you cannot add one later.
+                    Friends will judge a bare photo.
+                  </AlertDescription>
+                </Alert>
+              )}
               {error && (
                 <Alert variant="destructive">
                   <AlertTitle>Upload failed.</AlertTitle>
@@ -524,20 +550,48 @@ function ProofDialog({ task }: { task: Task }) {
             <ScrollBar orientation="vertical" />
           </ScrollArea>
           <DialogFooter className="mx-0 mb-0 shrink-0">
-            <Button
-              type="submit"
-              form={`proof-form-${task.id}`}
-              disabled={pending}
-              className="w-full touch-manipulation"
-              size="lg"
-            >
-              {pending ? (
-                <Spinner data-icon="inline-start" />
-              ) : (
-                <Camera data-icon="inline-start" />
-              )}
-              {pending ? "Reading it…" : "Post proof"}
-            </Button>
+            {confirmEmpty ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setConfirmEmpty(false)}
+                  disabled={pending}
+                  className="w-full sm:w-auto touch-manipulation"
+                >
+                  Keep editing
+                </Button>
+                <Button
+                  type="submit"
+                  form={`proof-form-${task.id}`}
+                  disabled={pending}
+                  className="w-full sm:w-auto touch-manipulation"
+                  size="lg"
+                >
+                  {pending ? (
+                    <Spinner data-icon="inline-start" />
+                  ) : (
+                    <Camera data-icon="inline-start" />
+                  )}
+                  {pending ? "Reading it…" : "Submit without it"}
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="submit"
+                form={`proof-form-${task.id}`}
+                disabled={pending}
+                className="w-full touch-manipulation"
+                size="lg"
+              >
+                {pending ? (
+                  <Spinner data-icon="inline-start" />
+                ) : (
+                  <Camera data-icon="inline-start" />
+                )}
+                {pending ? "Reading it…" : "Post proof"}
+              </Button>
+            )}
           </DialogFooter>
         </div>
       </DialogContent>
@@ -843,6 +897,17 @@ export function TodayDashboard({
                       ) : null}
                     </CardAction>
                   </CardHeader>
+                  {task.proof &&
+                  (task.proof.ownerNote || task.proof.reviews.length > 0) ? (
+                    <CardContent className="flex flex-col gap-3">
+                      {task.proof.ownerNote ? (
+                        <p className="text-sm text-pretty text-muted-foreground">
+                          “{task.proof.ownerNote}”
+                        </p>
+                      ) : null}
+                      <ProofFeedback proof={task.proof} />
+                    </CardContent>
+                  ) : null}
                   {hasActions(task) ? (
                     <CardFooter className="justify-end gap-2">
                       {(task.status === "OPEN" ||

@@ -25,6 +25,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { requiredApprovals } from "@/lib/task-policy";
 
 export function ReviewProof({
   proofId,
@@ -75,8 +76,8 @@ export function ReviewProof({
           <DialogHeader className="shrink-0 p-6 pb-0">
             <DialogTitle>Call it like it is</DialogTitle>
             <DialogDescription>
-              {taskTitle}. Two approvals verify it. One challenge sends it back
-              to the grind.
+              {taskTitle}. {requiredApprovals} approvals verify it. One
+              challenge sends it back to the grind.
             </DialogDescription>
           </DialogHeader>
           <form

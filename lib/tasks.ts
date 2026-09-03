@@ -4,7 +4,12 @@ import { Prisma } from "@/generated/prisma/client";
 import { sanitizeImage } from "@/lib/image";
 import { getPrisma } from "@/lib/prisma";
 import { commitmentInputSchema, proofReviewSchema } from "@/lib/schemas";
-import { canEditTask, dailyTaskLimit, isLateProof } from "@/lib/task-policy";
+import {
+  canEditTask,
+  dailyTaskLimit,
+  isLateProof,
+  requiredApprovals,
+} from "@/lib/task-policy";
 import { phoenixDateKey, phoenixDayDueAt, requireDateKey } from "@/lib/time";
 
 export class DomainError extends Error {
@@ -237,8 +242,7 @@ export async function submitProof(
   });
 }
 
-export const requiredApprovals = 2;
-
+export { requiredApprovals };
 export async function reviewProof(
   proofId: string,
   reviewerId: string,

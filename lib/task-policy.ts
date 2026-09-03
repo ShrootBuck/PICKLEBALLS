@@ -7,6 +7,8 @@ import {
 
 export const dailyTaskLimit = 10;
 
+export const requiredApprovals = 2;
+
 export function validateTaskTiming(
   day: string,
   dueTime: string,

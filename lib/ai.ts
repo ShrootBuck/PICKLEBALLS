@@ -16,7 +16,7 @@ import {
 } from "@/lib/ai-config";
 import { getPrisma } from "@/lib/prisma";
 
-const APP_CONTEXT = `Pickle Balls is a tiny accountability app for 4 high-school friends. Each day every member locks in 1-10 promises before midnight. Proof is a photo. Photo or it did not happen. Two friend approvals verify a proof. One challenge sends it back to open. You are an adviser, never the judge. Friends decide. Be blunt, short, and fair. No fluff, no therapy talk, no detective act.`;
+const APP_CONTEXT = `Pickle Balls is a tiny accountability app for a small private circle. Each day every member locks in 1-10 promises before midnight. Proof is a photo. Photo or it did not happen. Two friend approvals verify a proof. One challenge sends it back to open. You are an adviser, never the judge. Friends decide. Be blunt, short, and fair. No fluff, no therapy talk, no detective act.`;
 
 export const screenTimeExtractionSchema = z.object({
   cadence: z.enum(["DAILY", "WEEKLY", "UNKNOWN"]),
@@ -52,12 +52,6 @@ export const proofAssessmentSchema = z.object({
   uncertainty: z.string().min(1).max(300),
   reviewerQuestion: z.string().max(200).nullable(),
   oneLiner: z.string().min(1).max(140),
-});
-
-export const taskSharpenSchema = z.object({
-  title: z.string().min(3).max(100),
-  definitionOfDone: z.string().min(5).max(500),
-  steps: z.array(z.string().max(120)).max(3),
 });
 
 export const blockerCoachSchema = z.object({
@@ -226,33 +220,6 @@ Rules:
             text: `Promise: ${task.title}\nDefinition of done: ${task.definitionOfDone}${note}\n\nJudge this photo against that promise only.`,
           },
           { type: "file", data: image.data, mediaType: image.mimeType },
-        ],
-      },
-    ],
-  });
-}
-
-export function sharpenTask(
-  userId: string,
-  circleId: string,
-  input: { title: string; definitionOfDone: string },
-) {
-  return runStructured({
-    schema: taskSharpenSchema,
-    userId,
-    circleId,
-    feature: "TASK_SHARPEN",
-    effort: "medium",
-    maxOutputTokens: 500,
-    system: `${APP_CONTEXT} You turn vague student promises into sharp, photo-verifiable tasks. Keep the user's intent. Make the title under 12 words and the definition of done something a friend can check from one photo. No motivational slop. ${injectionGuard}`,
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: `Rough title: ${input.title}\nRough definition: ${input.definitionOfDone || "(empty)"}\n\nReturn a sharper title, a concrete definition of done, and up to 3 bite steps.`,
-          },
         ],
       },
     ],

@@ -24,6 +24,12 @@ export default async function TodayPage() {
           where: { replacedById: null },
           orderBy: { submittedAt: "desc" },
           take: 1,
+          include: {
+            reviews: {
+              orderBy: { createdAt: "asc" },
+              include: { reviewer: { select: { name: true } } },
+            },
+          },
         },
       },
     }),
@@ -77,8 +83,16 @@ export default async function TodayPage() {
           ? {
               id: task.proofs[0].id,
               isLate: task.proofs[0].isLate,
+              ownerNote: task.proofs[0].ownerNote,
               reviewStatus: task.proofs[0].reviewStatus,
               aiStatus: task.proofs[0].aiStatus,
+              reviews: task.proofs[0].reviews.map((review) => ({
+                id: review.id,
+                decision: review.decision,
+                note: review.note,
+                createdAt: review.createdAt.toISOString(),
+                reviewerName: review.reviewer.name,
+              })),
             }
           : null,
       }))}

@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useId, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
@@ -44,9 +49,7 @@ function ReplyItem({ reply }: { reply: SocialReply }) {
       </Avatar>
       <div className="min-w-0 flex-1 rounded-xl bg-background/70 px-3 py-2">
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-[13px] font-semibold">
-            {reply.author.name}
-          </span>
+          <span className="text-[13px] font-semibold">{reply.author.name}</span>
           <time
             dateTime={reply.createdAt}
             className="shrink-0 text-[11px] text-muted-foreground tabular-nums"
@@ -81,6 +84,7 @@ export function SocialReplyThread({
   const [body, setBody] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(initialReplies.length > 0);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -119,8 +123,20 @@ export function SocialReplyThread({
       <div className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground">
         <MessageCircle className="size-3.5" />
         {replies.length === 0
-          ? "No replies yet. Start the roast."
+          ? "No replies yet."
           : `${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}
+        {replies.length === 0 && !expanded ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-auto"
+            onClick={() => setExpanded(true)}
+          >
+            <Send data-icon="inline-start" />
+            Reply
+          </Button>
+        ) : null}
       </div>
 
       {replies.length > 0 ? (
@@ -144,56 +160,59 @@ export function SocialReplyThread({
         </div>
       ) : null}
 
-      <form onSubmit={submit} className="w-full">
-        <FieldGroup className="gap-2">
-          <Field data-invalid={Boolean(error)}>
-            <FieldLabel htmlFor={inputId} className="sr-only">
-              Write a reply
-            </FieldLabel>
-            <Textarea
-              id={inputId}
-              value={body}
-              onChange={(event) => setBody(event.target.value)}
-              onKeyDown={(event) => {
-                if (
-                  event.key === "Enter" &&
-                  (event.metaKey || event.ctrlKey)
-                ) {
-                  event.currentTarget.form?.requestSubmit();
+      {expanded || replies.length > 0 ? (
+        <form onSubmit={submit} className="w-full">
+          <FieldGroup className="gap-2">
+            <Field data-invalid={Boolean(error)}>
+              <FieldLabel htmlFor={inputId} className="sr-only">
+                Write a reply
+              </FieldLabel>
+              <Textarea
+                id={inputId}
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" &&
+                    (event.metaKey || event.ctrlKey)
+                  ) {
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
+                maxLength={500}
+                placeholder={
+                  replies.length === 0
+                    ? "Say something useful (or at least funny)"
+                    : "Keep it going…"
                 }
-              }}
-              maxLength={500}
-              placeholder={
-                replies.length === 0
-                  ? "Say something useful (or at least funny)"
-                  : "Keep it going…"
-              }
-              aria-invalid={Boolean(error)}
-              disabled={pending}
-              className="min-h-11 resize-none bg-background py-2.5 text-sm"
-              rows={1}
-            />
-            <FieldError>{error}</FieldError>
-          </Field>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-muted-foreground tabular-nums">
-              {body.trim().length}/500
-            </span>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={pending || body.trim().length === 0}
-            >
-              {pending ? (
-                <Spinner data-icon="inline-start" />
-              ) : (
-                <Send data-icon="inline-start" />
-              )}
-              Reply
-            </Button>
-          </div>
-        </FieldGroup>
-      </form>
+                aria-invalid={Boolean(error)}
+                disabled={pending}
+                autoFocus={replies.length === 0}
+                className="min-h-11 resize-none bg-background py-2.5 text-sm"
+                rows={1}
+              />
+              <FieldError>{error}</FieldError>
+            </Field>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                {body.trim().length}/500
+              </span>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={pending || body.trim().length === 0}
+              >
+                {pending ? (
+                  <Spinner data-icon="inline-start" />
+                ) : (
+                  <Send data-icon="inline-start" />
+                )}
+                Reply
+              </Button>
+            </div>
+          </FieldGroup>
+        </form>
+      ) : null}
     </div>
   );
 }

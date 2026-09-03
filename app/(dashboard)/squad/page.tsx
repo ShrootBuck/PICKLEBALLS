@@ -84,7 +84,14 @@ function toProofCard(
     ownerId: string;
     owner: { name: string };
     commitment: { title: string };
-    reviews: Array<{ decision: string; reviewerId: string }>;
+    reviews: Array<{
+      id: string;
+      decision: string;
+      note: string | null;
+      createdAt: Date;
+      reviewerId: string;
+      reviewer: { name: string };
+    }>;
   },
   viewerId: string,
 ): ProofCardData {
@@ -102,6 +109,13 @@ function toProofCard(
     alreadyReviewed: proof.reviews.some(
       (review) => review.reviewerId === viewerId,
     ),
+    reviews: proof.reviews.map((review) => ({
+      id: review.id,
+      decision: review.decision === "CHALLENGED" ? "CHALLENGED" : "APPROVED",
+      note: review.note,
+      createdAt: review.createdAt.toISOString(),
+      reviewerName: review.reviewer.name,
+    })),
     aiStatus: proof.aiStatus,
     aiVisibleEvidence: proof.aiVisibleEvidence,
     aiReviewerQuestion: proof.aiReviewerQuestion,
@@ -194,7 +208,10 @@ export default async function SquadPage() {
       include: {
         owner: true,
         commitment: true,
-        reviews: true,
+        reviews: {
+          orderBy: { createdAt: "asc" },
+          include: { reviewer: { select: { name: true } } },
+        },
       },
     }),
     getPrisma().taskProof.findMany({
@@ -208,7 +225,10 @@ export default async function SquadPage() {
       include: {
         owner: true,
         commitment: true,
-        reviews: true,
+        reviews: {
+          orderBy: { createdAt: "asc" },
+          include: { reviewer: { select: { name: true } } },
+        },
       },
     }),
     getPrisma().activityEvent.findMany({

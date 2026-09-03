@@ -37,7 +37,6 @@ import {
   FieldTitle,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -461,78 +460,75 @@ export function ScreenTimeDashboard({
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="w-full whitespace-nowrap">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Who</TableHead>
-                        <TableHead>Period</TableHead>
-                        <TableHead>Average</TableHead>
-                        <TableHead>Cadence</TableHead>
-                        <TableHead className="text-right">Receipt</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {receipts.map((receipt) => (
-                        <TableRow key={receipt.id}>
-                          <TableCell className="font-medium">
-                            {receipt.ownerName}
-                          </TableCell>
-                          <TableCell className="tabular-nums">
-                            {receipt.periodStart.slice(5)} →{" "}
-                            {receipt.periodEnd.slice(5)}
-                          </TableCell>
-                          <TableCell className="tabular-nums">
-                            {receipt.dailyAverageMinutes != null
-                              ? `${receipt.dailyAverageMinutes}m`
-                              : "—"}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              <Badge variant="secondary" className="capitalize">
-                                {receipt.cadence.toLowerCase()}
-                              </Badge>
-                              {receipt.hasUserCorrections && (
-                                <Badge variant="outline">corrected</Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {receipt.hasImage ? (
-                              <Button
-                                render={
-                                  <Link
-                                    href={`/api/screen-time/receipts/${receipt.id}/image`}
-                                    target="_blank"
-                                  />
-                                }
-                                nativeButton={false}
-                                size="sm"
-                                variant="outline"
-                              >
-                                <FileImage data-icon="inline-start" />
-                                View
-                              </Button>
-                            ) : (
-                              <Badge variant="outline">manual</Badge>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Who</TableHead>
+                      <TableHead>Period</TableHead>
+                      <TableHead>Average</TableHead>
+                      <TableHead>Cadence</TableHead>
+                      <TableHead className="text-right">Receipt</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {receipts.map((receipt) => (
+                      <TableRow key={receipt.id}>
+                        <TableCell className="font-medium">
+                          {receipt.ownerName}
+                        </TableCell>
+                        <TableCell className="tabular-nums">
+                          {receipt.periodStart.slice(5)} →{" "}
+                          {receipt.periodEnd.slice(5)}
+                        </TableCell>
+                        <TableCell className="tabular-nums">
+                          {receipt.dailyAverageMinutes != null
+                            ? `${receipt.dailyAverageMinutes}m`
+                            : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            <Badge variant="secondary" className="capitalize">
+                              {receipt.cadence.toLowerCase()}
+                            </Badge>
+                            {receipt.hasUserCorrections && (
+                              <Badge variant="outline">corrected</Badge>
                             )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {receipts.length === 0 && (
-                        <TableRow>
-                          <TableCell
-                            colSpan={5}
-                            className="py-8 text-center text-sm text-muted-foreground"
-                          >
-                            No receipts yet. Be the first.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {receipt.hasImage ? (
+                            <Button
+                              render={
+                                <Link
+                                  href={`/api/screen-time/receipts/${receipt.id}/image`}
+                                  target="_blank"
+                                />
+                              }
+                              nativeButton={false}
+                              size="sm"
+                              variant="outline"
+                            >
+                              <FileImage data-icon="inline-start" />
+                              View
+                            </Button>
+                          ) : (
+                            <Badge variant="outline">manual</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {receipts.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={5}
+                          className="py-8 text-center text-sm text-muted-foreground"
+                        >
+                          No receipts yet. Be the first.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </div>

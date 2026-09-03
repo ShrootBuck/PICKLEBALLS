@@ -1,5 +1,5 @@
 import { Bot } from "lucide-react";
-import Image from "next/image";
+import { ProofImageViewer } from "@/components/squad/proof-image-viewer";
 import { ReviewProof } from "@/components/squad/review-proof";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "@/components/ui/item";
+import { requiredApprovals } from "@/lib/task-policy";
 import { cn } from "@/lib/utils";
+
+export type ProofReview = {
+  id: string;
+  decision: "APPROVED" | "CHALLENGED";
+  note: string | null;
+  createdAt: string;
+  reviewerName: string;
+};
 
 export type ProofCardData = {
   id: string;
@@ -24,6 +40,7 @@ export type ProofCardData = {
   reviewStatus: "PENDING" | "APPROVED" | "CHALLENGED";
   approvals: number;
   alreadyReviewed: boolean;
+  reviews: ProofReview[];
   aiStatus: "PENDING" | "SUCCEEDED" | "FAILED" | "SKIPPED";
   aiVisibleEvidence: string | null;
   aiReviewerQuestion: string | null;
@@ -66,7 +83,7 @@ export function ProofCard({
   const meta = [
     proof.ownerName,
     proof.isLate ? "late as hell" : "on time",
-    `${proof.approvals}/2 approvals`,
+    `${proof.approvals}/${requiredApprovals} approvals`,
   ]
     .filter(Boolean)
     .join(" — ");
@@ -79,23 +96,11 @@ export function ProofCard({
           compact ? "flex-row items-stretch" : "flex-col md:flex-row",
         )}
       >
-        <div
-          className={cn(
-            "relative shrink-0 overflow-hidden bg-muted",
-            compact
-              ? "size-24 sm:size-28"
-              : "h-44 w-full md:h-auto md:w-56 md:min-h-44",
-          )}
-        >
-          <Image
-            className="object-cover"
-            src={`/api/proofs/${proof.id}/image`}
-            alt={`Proof for ${proof.title}`}
-            fill
-            sizes={compact ? "112px" : "(max-width: 768px) 100vw, 224px"}
-            unoptimized
-          />
-        </div>
+        <ProofImageViewer
+          proofId={proof.id}
+          title={proof.title}
+          compact={compact}
+        />
         <div className="flex min-w-0 flex-1 flex-col">
           <CardHeader className={cn("py-3", compact && "pr-3")}>
             <CardTitle className="truncate">{proof.title}</CardTitle>
@@ -162,6 +167,39 @@ export function ProofCard({
               ) : (
                 <ReviewProof proofId={proof.id} taskTitle={proof.title} />
               )
+            ) : null}
+            {proof.reviews.length > 0 ? (
+              <ItemGroup className="gap-2">
+                {proof.reviews.map((review) => (
+                  <Item key={review.id} size="sm" variant="muted">
+                    <ItemContent>
+                      <div className="flex items-center justify-between gap-2">
+                        <ItemTitle className="text-[13px]">
+                          {review.reviewerName}
+                        </ItemTitle>
+                        <Badge
+                          variant={
+                            review.decision === "CHALLENGED"
+                              ? "destructive"
+                              : "default"
+                          }
+                        >
+                          {review.decision === "CHALLENGED"
+                            ? "Challenged"
+                            : "Approved"}
+                        </Badge>
+                      </div>
+                      {review.note ? (
+                        <ItemDescription className="text-sm text-foreground">
+                          {review.note}
+                        </ItemDescription>
+                      ) : (
+                        <ItemDescription>No note. Just a vote.</ItemDescription>
+                      )}
+                    </ItemContent>
+                  </Item>
+                ))}
+              </ItemGroup>
             ) : null}
           </CardContent>
         </div>

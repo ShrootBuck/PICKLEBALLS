@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/empty";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -64,14 +63,14 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
   }
   return (
     <div className="grid items-start gap-4 lg:grid-cols-2">
-      <Card>
-        <CardHeader>
-          <CardTitle>One-time Discord invite</CardTitle>
-          <CardDescription>
-            The token is stored only as a hash. Copy it now.
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={submit}>
+      <form onSubmit={submit} className="min-w-0">
+        <Card>
+          <CardHeader>
+            <CardTitle>One-time Discord invite</CardTitle>
+            <CardDescription>
+              The token is stored only as a hash. Copy it now.
+            </CardDescription>
+          </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <FieldGroup>
               <Field>
@@ -142,8 +141,8 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
               Create invite
             </Button>
           </CardFooter>
-        </form>
-      </Card>
+        </Card>
+      </form>
       <Card>
         <CardHeader>
           <CardTitle>Invite history</CardTitle>
@@ -153,50 +152,45 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
         </CardHeader>
         <CardContent>
           {invites.length ? (
-            <ScrollArea className="w-full whitespace-nowrap">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>For</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Expires</TableHead>
-                    <TableHead>Used by</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invites.map((invite) => {
-                    const status = invite.usedAt
-                      ? "Used"
-                      : invite.revokedAt
-                        ? "Revoked"
-                        : new Date(invite.expiresAt) < new Date()
-                          ? "Expired"
-                          : "Ready";
-                    return (
-                      <TableRow key={invite.id}>
-                        <TableCell className="font-medium">
-                          {invite.label ?? "Friend"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              status === "Ready" ? "default" : "secondary"
-                            }
-                          >
-                            {status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="tabular-nums">
-                          {invite.expiresAt.slice(0, 10)}
-                        </TableCell>
-                        <TableCell>{invite.usedBy ?? "—"}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>For</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Expires</TableHead>
+                  <TableHead>Used by</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invites.map((invite) => {
+                  const status = invite.usedAt
+                    ? "Used"
+                    : invite.revokedAt
+                      ? "Revoked"
+                      : new Date(invite.expiresAt) < new Date()
+                        ? "Expired"
+                        : "Ready";
+                  return (
+                    <TableRow key={invite.id}>
+                      <TableCell className="font-medium">
+                        {invite.label ?? "Friend"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={status === "Ready" ? "default" : "secondary"}
+                        >
+                          {status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {invite.expiresAt.slice(0, 10)}
+                      </TableCell>
+                      <TableCell>{invite.usedBy ?? "—"}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           ) : (
             <Empty>
               <EmptyHeader>
@@ -205,7 +199,7 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
                 </EmptyMedia>
                 <EmptyTitle>No invites</EmptyTitle>
                 <EmptyDescription>
-                  Correct. This is for four friends, not growth hacking.
+                  Small circle only. No growth hacking.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

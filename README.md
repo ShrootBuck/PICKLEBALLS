@@ -1,6 +1,6 @@
 # Pickle Balls
 
-Pickle Balls is a private schoolwork accountability app for four friends. It is
+Pickle Balls is a private schoolwork accountability app for a small circle. It is
 not a pickleball tracker. Each person can set up to ten tasks per Phoenix day,
 post photo proof, and get two peer approvals or one challenge to verify. Daily and weekly
 Screen Time receipts are a separate flow — just an image, the LLM reads it, and the image is what matters.
