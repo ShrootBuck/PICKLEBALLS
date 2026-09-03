@@ -16,11 +16,20 @@ export async function GET(
   });
   if (!image)
     return NextResponse.json({ error: "Not found." }, { status: 404 });
-  return new Response(image.data, {
-    headers: {
-      "content-type": image.mimeType,
-      "cache-control": "private, max-age=300",
-      "x-content-type-options": "nosniff",
-    },
-  });
+  // Proof images are immutable: a proofId maps to exactly one byte blob for
+  // its whole life (re-submits create a new proof row, never mutate).
+  // So the browser can cache this permanently without ever revalidating.
+  const etag = `"proof-${id}-${image.sizeBytes}"`;
+  const headers: Record<string, string> = {
+    "content-type": image.mimeType,
+    "cache-control": "private, max-age=31536000, immutable",
+    etag,
+    "last-modified": image.createdAt.toUTCString(),
+    "content-length": String(image.sizeBytes),
+    "x-content-type-options": "nosniff",
+  };
+  if (request.headers.get("if-none-match") === etag) {
+    return new Response(null, { status: 304, headers });
+  }
+  return new Response(image.data, { headers });
 }

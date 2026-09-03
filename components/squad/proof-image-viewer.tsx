@@ -29,16 +29,16 @@ export function ProofImageViewer({
           "relative block shrink-0 cursor-zoom-in overflow-hidden bg-muted",
           compact
             ? "size-24 sm:size-28"
-            : "h-44 w-full md:h-auto md:min-h-44 md:w-56",
+            : "h-72 w-full md:h-auto md:min-h-64 md:w-72",
         )}
         aria-label={`Expand proof for ${title}`}
       >
         <Image
-          className="object-cover"
+          className="object-contain"
           src={`/api/proofs/${proofId}/image`}
           alt={`Proof for ${title}`}
           fill
-          sizes={compact ? "112px" : "(max-width: 768px) 100vw, 224px"}
+          sizes={compact ? "112px" : "(max-width: 768px) 100vw, 288px"}
           unoptimized
         />
       </DialogTrigger>
