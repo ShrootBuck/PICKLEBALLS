@@ -31,7 +31,7 @@ export default async function AdminPage() {
       where: { circleId: membership.circleId },
       orderBy: { createdAt: "asc" },
       include: {
-        user: { select: { name: true, discordUsername: true } },
+        user: { select: { name: true } },
       },
     }),
     getPrisma().aIRun.groupBy({
@@ -85,9 +85,6 @@ export default async function AdminPage() {
                   <TableRow key={`${member.userId}-${member.circleId}`}>
                     <TableCell className="font-medium">
                       {member.user.name}
-                      {member.user.discordUsername
-                        ? ` @${member.user.discordUsername}`
-                        : ""}
                     </TableCell>
                     <TableCell>
                       <Badge

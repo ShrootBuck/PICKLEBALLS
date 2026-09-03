@@ -12,6 +12,7 @@ import {
   Upload,
 } from "lucide-react";
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProofCard } from "@/components/squad/proof-card";
 import {
@@ -283,7 +284,7 @@ export default async function SquadPage() {
         }
         board={
           <div className="grid items-start gap-3 sm:grid-cols-2">
-            {members.map(({ user, role }) => {
+            {members.map(({ user, role }, index) => {
               const checkIn = user.checkIns[0];
               const verified = user.commitments.filter(
                 (task) => task.status === "VERIFIED",
@@ -294,7 +295,13 @@ export default async function SquadPage() {
                 <Card
                   key={user.id}
                   size="sm"
-                  className={atRisk ? "border-destructive/40" : ""}
+                  style={
+                    {
+                      "--board-col": index % 2 === 0 ? 1 : 2,
+                      "--board-row": Math.floor(index / 2) + 1,
+                    } as CSSProperties
+                  }
+                  className={`${atRisk ? "border-destructive/40 " : ""}sm:[grid-column-start:var(--board-col)] sm:[grid-row-start:var(--board-row)]`}
                 >
                   <CardHeader>
                     <div className="flex min-w-0 items-center gap-3">

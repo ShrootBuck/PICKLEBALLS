@@ -1,5 +1,3 @@
-export const dailyTaskLimit = 10;
-
 // Every task needs one approval from someone else. Solo circles have no one
 // to review, so proofs verify on post.
 export function requiredApprovalsForCircle(circleSize: number) {

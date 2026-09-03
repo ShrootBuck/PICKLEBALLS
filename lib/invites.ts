@@ -14,6 +14,18 @@ export function hashInviteToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
+function initialsFor(name: string) {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("")
+      .slice(0, 2) || "PB"
+  );
+}
+
 export async function reserveInvite(token: string, now = new Date()) {
   if (token.length < 32 || token.length > 200) return null;
   const prisma = getPrisma();
@@ -82,7 +94,7 @@ export async function redeemReservedInvite(
         revokedAt: null,
         usedAt: null,
       },
-      select: { circleId: true, role: true },
+      select: { circleId: true, role: true, label: true },
     });
     if (!invite) throw new Error("Invite claim expired before redemption.");
 
@@ -96,6 +108,16 @@ export async function redeemReservedInvite(
       },
     });
     if (redeemed.count !== 1) throw new Error("Invite was already redeemed.");
+
+    // The invite label is the member's name everywhere in the app,
+    // not whatever Discord says.
+    const label = invite.label?.trim();
+    if (label) {
+      await transaction.user.update({
+        where: { id: userId },
+        data: { name: label.slice(0, 80), initials: initialsFor(label) },
+      });
+    }
 
     await transaction.membership.create({
       data: {

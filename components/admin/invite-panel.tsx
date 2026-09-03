@@ -93,7 +93,7 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
               cannot be shown again. Revoke and reissue instead.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4">
+          <CardContent className="flex min-w-0 flex-col gap-4">
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="invite-label">Friend’s name</FieldLabel>
@@ -107,11 +107,11 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
               </Field>
             </FieldGroup>
             {url && (
-              <Alert>
+              <Alert className="min-w-0">
                 <Link2 />
                 <AlertTitle>Copy this now.</AlertTitle>
-                <AlertDescription className="flex flex-col gap-3">
-                  <span className="block truncate rounded-md border bg-muted/50 px-3 py-2 font-mono text-xs">
+                <AlertDescription className="flex min-w-0 flex-col gap-3">
+                  <span className="block w-full min-w-0 truncate rounded-md border bg-muted/50 px-3 py-2 font-mono text-xs">
                     {url}
                   </span>
                   <Button

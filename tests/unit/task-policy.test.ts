@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
   canEditTask,
-  dailyTaskLimit,
   isLateProof,
   requiredApprovalsForCircle,
   shouldMarkMissed,
@@ -16,10 +15,6 @@ describe("Phoenix task policy", () => {
     expect(phoenixDateKey(new Date("2026-09-02T07:00:00.000Z"))).toBe(
       "2026-09-02",
     );
-  });
-
-  test("caps the daily board", () => {
-    expect(dailyTaskLimit).toBe(10);
   });
 
   test("one approval verifies when peers exist", () => {

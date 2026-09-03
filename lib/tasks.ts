@@ -7,7 +7,6 @@ import { getPrisma } from "@/lib/prisma";
 import { commitmentInputSchema, proofReviewSchema } from "@/lib/schemas";
 import {
   canEditTask,
-  dailyTaskLimit,
   isLateProof,
   requiredApprovalsForCircle,
   shouldMarkMissed,
@@ -74,15 +73,6 @@ export async function createCommitment(
 
   return getPrisma().$transaction(
     async (transaction) => {
-      const count = await transaction.commitment.count({
-        where: { userId, circleId, day },
-      });
-      if (count >= dailyTaskLimit) {
-        throw new DomainError(
-          `Limit is ${dailyTaskLimit} tasks. Finish something before adding more.`,
-          409,
-        );
-      }
       const task = await transaction.commitment.create({
         data: {
           userId,

@@ -64,7 +64,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { dailyTaskLimit } from "@/lib/task-policy";
 import { formatDayLong } from "@/lib/time";
 
 type ProofReview = {
@@ -629,7 +628,7 @@ function CheckInCard({
           </CardAction>
         ) : null}
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex min-w-0 flex-col gap-5">
         <FieldGroup>
           <Field>
             <FieldTitle id="check-in-signal">Status</FieldTitle>
@@ -684,7 +683,7 @@ function CheckInCard({
           </Alert>
         )}
         {history.length > 0 && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2.5">
             <p className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
               <History className="size-3.5" />
               Today ({history.length})
@@ -693,7 +692,7 @@ function CheckInCard({
               {history.map((item) => (
                 <div
                   key={item.id}
-                  className="flex flex-col gap-1.5 rounded-xl bg-muted/60 px-3 py-2.5"
+                  className="flex flex-col gap-2 rounded-xl bg-muted/60 px-3 py-3"
                 >
                   <div className="flex items-center gap-2">
                     {signalBadge(item.signal)}
@@ -785,10 +784,8 @@ export function TodayDashboard({
     <>
       <PageHeader
         title="Today"
-        description={`Did you get shit done or just bullshit? ${tasks.length}/${dailyTaskLimit} locked, ${verified} verified.`}
-        actions={
-          tasks.length < dailyTaskLimit ? <TaskDialog day={day} /> : null
-        }
+        description={`Did you get shit done or just bullshit? ${tasks.length} locked, ${verified} verified.`}
+        actions={<TaskDialog day={day} />}
       >
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary" className="text-[13px]">

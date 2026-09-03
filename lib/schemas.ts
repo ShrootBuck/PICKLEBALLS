@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const commitmentInputSchema = z.object({
-  title: z.string().trim().min(3).max(100),
-  definitionOfDone: z.string().trim().min(5).max(500),
+  title: z.string().trim().min(1).max(100),
+  definitionOfDone: z.string().trim().min(1).max(500),
 });
 
 export const checkInSchema = z.object({

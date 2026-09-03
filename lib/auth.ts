@@ -147,6 +147,18 @@ export const auth = betterAuth({
   },
   databaseHooks: {
     user: {
+      update: {
+        before: async (userData) => {
+          // Invite labels own the display name. Discord re-logins may
+          // refresh the avatar and handle, but must not clobber the label.
+          // (Prisma skips `undefined` fields, so this preserves name/initials.)
+          if (typeof userData.name === "string") {
+            return {
+              data: { ...userData, name: undefined, initials: undefined },
+            };
+          }
+        },
+      },
       create: {
         before: async (user) => ({
           data: { ...user, initials: initials(user.name) },

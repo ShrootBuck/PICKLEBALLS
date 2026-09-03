@@ -38,7 +38,6 @@ export default async function DashboardLayout({
           name: membership.user.name,
           image: membership.user.image,
           initials: membership.user.initials,
-          discordUsername: membership.user.discordUsername,
         }}
       />
       <SidebarInset className="flex h-svh flex-col overflow-hidden">

@@ -46,7 +46,6 @@ export function AppSidebar({
     name: string;
     image: string | null;
     initials: string;
-    discordUsername: string | null;
   };
   isOwner: boolean;
   pendingVerdicts: number;
@@ -55,9 +54,6 @@ export function AppSidebar({
   const router = useRouter();
   const { isMobile } = useSidebar();
   const [signOutPending, setSignOutPending] = useState(false);
-  const handle = user.discordUsername
-    ? `@${user.discordUsername}`
-    : "Discord member";
   const todayLabel = formatDayShort(phoenixDateKey());
 
   return (
@@ -161,9 +157,6 @@ export function AppSidebar({
                   <span className="truncate text-sm font-medium">
                     {user.name}
                   </span>
-                  <span className="truncate text-xs text-sidebar-accent-foreground/70">
-                    {handle}
-                  </span>
                 </span>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -174,7 +167,7 @@ export function AppSidebar({
               >
                 <DropdownMenuGroup>
                   <DropdownMenuLabel className="font-normal">
-                    {handle}
+                    {user.name}
                   </DropdownMenuLabel>
                   <DropdownMenuItem
                     variant="destructive"
