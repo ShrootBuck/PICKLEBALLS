@@ -658,7 +658,7 @@ function CheckInCard({
               id="blocker"
               value={blocker}
               onChange={(event) => setBlocker(event.target.value)}
-              placeholder="Be honest. Phone? Nikita? Laziness?"
+              placeholder="Be honest. Phone? Distractions? Laziness?"
               maxLength={500}
               className="min-h-20"
             />
