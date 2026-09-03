@@ -142,20 +142,15 @@ export function SocialReplyThread({
         <div
           className={cn(
             "flex flex-col gap-2",
-            compact && replies.length > 3
-              ? "max-h-56 overflow-y-auto pr-1"
+            compact && replies.length > 4
+              ? "max-h-64 overflow-y-auto pr-1"
               : "",
           )}
           aria-live="polite"
         >
-          {(compact ? replies.slice(-3) : replies).map((reply) => (
+          {replies.map((reply) => (
             <ReplyItem key={reply.id} reply={reply} />
           ))}
-          {compact && replies.length > 3 ? (
-            <p className="text-xs text-muted-foreground">
-              Showing the last 3 of {replies.length}. Talk more below.
-            </p>
-          ) : null}
         </div>
       ) : null}
 
