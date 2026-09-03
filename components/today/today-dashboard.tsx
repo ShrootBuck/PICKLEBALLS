@@ -13,8 +13,13 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
+import {
+  SocialReplyThread,
+  type ThreadReply,
+} from "@/components/squad/social-reply-thread";
+import { OnboardingCard } from "@/components/today/onboarding-card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,13 +41,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
 import {
   Field,
   FieldDescription,
@@ -75,6 +73,8 @@ type ProofReview = {
   note: string | null;
   createdAt: string;
   reviewerName: string;
+  reviewerId: string;
+  replies: ThreadReply[];
 };
 
 type Task = {
@@ -89,7 +89,7 @@ type Task = {
     isLate: boolean;
     ownerNote: string | null;
     reviewStatus: "PENDING" | "APPROVED" | "CHALLENGED";
-    aiStatus: "PENDING" | "SUCCEEDED" | "FAILED" | "SKIPPED";
+    aiStatus: "PENDING" | "SUCCEEDED" | "FAILED";
     reviews: ProofReview[];
   };
 };
@@ -149,7 +149,13 @@ function signalBadge(signal: CheckInHistoryItem["signal"]) {
   return <Badge variant="secondary">Working</Badge>;
 }
 
-function ProofFeedback({ proof }: { proof: NonNullable<Task["proof"]> }) {
+function ProofFeedback({
+  proof,
+  currentUserId,
+}: {
+  proof: NonNullable<Task["proof"]>;
+  currentUserId: string;
+}) {
   if (proof.reviews.length === 0) return null;
   return (
     <ItemGroup className="gap-2">
@@ -159,6 +165,7 @@ function ProofFeedback({ proof }: { proof: NonNullable<Task["proof"]> }) {
             <ItemHeader>
               <ItemTitle className="text-[13px]">
                 {review.reviewerName}
+                {review.reviewerId === currentUserId ? " (you)" : ""}
               </ItemTitle>
               <Badge
                 variant={
@@ -175,6 +182,15 @@ function ProofFeedback({ proof }: { proof: NonNullable<Task["proof"]> }) {
             ) : (
               <ItemDescription>No note. Just a vote.</ItemDescription>
             )}
+            <div className="mt-2">
+              <SocialReplyThread
+                targetType="REVIEW"
+                targetId={review.id}
+                initialReplies={review.replies}
+                currentUserId={currentUserId}
+                compact
+              />
+            </div>
           </ItemContent>
         </Item>
       ))}
@@ -352,6 +368,8 @@ function ProofDialog({ task }: { task: Task }) {
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [confirmEmpty, setConfirmEmpty] = useState(false);
+  const isReplace = task.proof?.reviewStatus === "CHALLENGED";
+  const isLate = task.status === "MISSED";
   const [formKey, setFormKey] = useState(0);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -407,9 +425,11 @@ function ProofDialog({ task }: { task: Task }) {
         render={<Button size="sm" className="touch-manipulation" />}
       >
         <Camera data-icon="inline-start" />
-        {task.proof?.reviewStatus === "CHALLENGED"
+        {isReplace
           ? "Replace proof"
-          : "Upload proof"}
+          : isLate
+            ? "Upload late proof"
+            : "Upload proof"}
       </DialogTrigger>
       <DialogContent className="max-h-[90dvh] overflow-hidden p-0 sm:max-w-lg">
         <div className="flex max-h-[90dvh] flex-col">
@@ -458,8 +478,9 @@ function ProofDialog({ task }: { task: Task }) {
                   <TriangleAlert />
                   <AlertTitle>No description. Still submit?</AlertTitle>
                   <AlertDescription>
-                    Submissions are permanent — you cannot add one later.
-                    Friends will judge a bare photo.
+                    {isReplace
+                      ? "This replaces your challenged proof. Friends will judge a bare photo."
+                      : "First proof only — you cannot add one later. Friends will judge a bare photo."}
                   </AlertDescription>
                 </Alert>
               )}
@@ -535,6 +556,11 @@ function CheckInCard({
   );
   const [blocker, setBlocker] = useState("");
   const [pending, setPending] = useState(false);
+  // Server data goes stale after refresh; sync the toggle to latest post.
+  // Same-value setState bails out, so depending on the whole object is safe.
+  useEffect(() => {
+    if (initial) setSignal(initial.signal);
+  }, [initial]);
   const [coach, setCoach] = useState<string | null>(null);
   const [coachSteps, setCoachSteps] = useState<string[]>([]);
   const [coachPending, setCoachPending] = useState(false);
@@ -720,11 +746,13 @@ function CheckInCard({
 
 export function TodayDashboard({
   day,
+  currentUserId,
   tasks,
   checkIn,
   checkInHistory,
 }: {
   day: string;
+  currentUserId: string;
   tasks: Task[];
   checkIn: CheckIn;
   checkInHistory: CheckInHistoryItem[];
@@ -790,18 +818,7 @@ export function TodayDashboard({
           </div>
 
           {tasks.length === 0 ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <Bot />
-                </EmptyMedia>
-                <EmptyTitle>Blank board, zero excuses</EmptyTitle>
-                <EmptyDescription>
-                  A blank board is just procrastination with extra steps. Add
-                  the work that earns your free time.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <OnboardingCard action={<TaskDialog day={day} />} />
           ) : (
             <div className="flex flex-col gap-3">
               {tasks.map((task) => (
@@ -828,7 +845,10 @@ export function TodayDashboard({
                           “{task.proof.ownerNote}”
                         </p>
                       ) : null}
-                      <ProofFeedback proof={task.proof} />
+                      <ProofFeedback
+                        proof={task.proof}
+                        currentUserId={currentUserId}
+                      />
                     </CardContent>
                   ) : null}
                   {hasActions(task) ? (

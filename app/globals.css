@@ -3,6 +3,9 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* Light-only theme: .dark is never applied, so dark: stays inert.
+   The variant above only exists to stop Tailwind defaulting to
+   prefers-color-scheme. Do not add a .dark block. */
 
 :root {
   --background: oklch(0.965 0.012 112);

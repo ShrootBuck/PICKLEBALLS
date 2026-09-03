@@ -41,12 +41,10 @@ enum AIAssessmentStatus {
   PENDING
   SUCCEEDED
   FAILED
-  SKIPPED
 }
 
 enum ActivityKind {
   TASK_CREATED
-  TASK_EDITED
   TASK_RENEGOTIATED
   TASK_MISSED
   PROOF_SUBMITTED
@@ -252,6 +250,7 @@ model TaskProof {
   circle     Circle            @relation(fields: [circleId], references: [id], onDelete: Cascade)
   image      TaskProofImage?
   reviews    TaskProofReview[]
+  replies    SocialReply[]
   replacedBy TaskProof?        @relation("ProofReplacement", fields: [replacedById], references: [id], onDelete: SetNull)
   replaces   TaskProof?        @relation("ProofReplacement")
 
@@ -284,6 +283,7 @@ model TaskProofReview {
   proof    TaskProof @relation(fields: [proofId], references: [id], onDelete: Cascade)
   reviewer User      @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
   circle   Circle    @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  replies  SocialReply[]
 
   @@unique([proofId, reviewerId])
   @@index([proofId])
@@ -335,17 +335,23 @@ model SocialReply {
   circleId     String
   commitmentId String?
   checkInId    String?
+  proofId      String?
+  reviewId     String?
   body         String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  author     User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  circle     Circle      @relation(fields: [circleId], references: [id], onDelete: Cascade)
-  commitment Commitment? @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
-  checkIn    CheckIn?    @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+  author     User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  circle     Circle           @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  commitment Commitment?      @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  checkIn    CheckIn?         @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+  proof      TaskProof?       @relation(fields: [proofId], references: [id], onDelete: Cascade)
+  review     TaskProofReview? @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
   @@index([commitmentId, createdAt])
   @@index([checkInId, createdAt])
+  @@index([proofId, createdAt])
+  @@index([reviewId, createdAt])
   @@index([circleId, createdAt])
   @@index([authorId, createdAt])
 }

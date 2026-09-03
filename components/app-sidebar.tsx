@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardCheck, LogOut, Shield, Users } from "lucide-react";
+import { ClipboardCheck, History, LogOut, Shield, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -34,11 +34,13 @@ import { formatDayShort, phoenixDateKey } from "@/lib/time";
 const links = [
   { href: "/", label: "Today", hint: "Your board", icon: ClipboardCheck },
   { href: "/squad", label: "Squad", hint: "Talk + verdicts", icon: Users },
+  { href: "/history", label: "History", hint: "Past boards", icon: History },
 ];
 
 export function AppSidebar({
   user,
   isOwner,
+  pendingVerdicts,
 }: {
   user: {
     name: string;
@@ -47,6 +49,7 @@ export function AppSidebar({
     discordUsername: string | null;
   };
   isOwner: boolean;
+  pendingVerdicts: number;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -104,6 +107,11 @@ export function AppSidebar({
                   >
                     <Icon />
                     <span className="font-medium">{label}</span>
+                    {href === "/squad" && pendingVerdicts > 0 ? (
+                      <span className="ml-auto rounded-full bg-sidebar-primary px-1.5 text-[11px] font-semibold text-sidebar-primary-foreground tabular-nums group-data-[collapsible=icon]:hidden">
+                        {pendingVerdicts}
+                      </span>
+                    ) : null}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

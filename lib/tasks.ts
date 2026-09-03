@@ -1,6 +1,7 @@
 import "server-only";
 
 import { Prisma } from "@/generated/prisma/client";
+import { DomainError } from "@/lib/errors";
 import { sanitizeImage } from "@/lib/image";
 import { getPrisma } from "@/lib/prisma";
 import { commitmentInputSchema, proofReviewSchema } from "@/lib/schemas";
@@ -8,19 +9,12 @@ import {
   canEditTask,
   dailyTaskLimit,
   isLateProof,
-  requiredApprovals,
   requiredApprovalsForCircle,
+  shouldMarkMissed,
 } from "@/lib/task-policy";
 import { phoenixDateKey, phoenixDayDueAt, requireDateKey } from "@/lib/time";
 
-export class DomainError extends Error {
-  constructor(
-    message: string,
-    readonly status = 400,
-  ) {
-    super(message);
-  }
-}
+export { DomainError };
 
 export async function reconcileMissedTasks(circleId: string, now = new Date()) {
   const candidates = await getPrisma().commitment.findMany({
@@ -30,12 +24,14 @@ export async function reconcileMissedTasks(circleId: string, now = new Date()) {
       status: { in: ["OPEN", "RENEGOTIATED"] },
       proofs: { none: {} },
     },
-    select: { id: true, userId: true, title: true },
+    select: { id: true, userId: true, title: true, status: true, dueAt: true },
   });
   if (candidates.length === 0) return { count: 0 };
   return getPrisma().$transaction(async (transaction) => {
     let count = 0;
     for (const task of candidates) {
+      // Single source of truth for the miss rule (also unit-tested).
+      if (!shouldMarkMissed(task.status, task.dueAt, 0, now)) continue;
       const updated = await transaction.commitment.updateMany({
         where: {
           id: task.id,
@@ -132,6 +128,13 @@ export async function updateCommitment(
         "Midnight passed — the edit window is closed.",
         409,
       );
+    }
+    // No-op edit: same text in, no shame badge out.
+    if (
+      current.title === parsed.data.title &&
+      current.definitionOfDone === parsed.data.definitionOfDone
+    ) {
+      return current;
     }
 
     const task = await transaction.commitment.update({
@@ -246,7 +249,7 @@ export async function submitProof(
   });
 }
 
-export { requiredApprovals, requiredApprovalsForCircle };
+export { requiredApprovalsForCircle };
 export async function reviewProof(
   proofId: string,
   reviewerId: string,
@@ -362,60 +365,6 @@ export async function reviewProof(
   }
 }
 
-export async function reconcilePendingSingleApprovals(circleId?: string) {
-  const proofs = await getPrisma().taskProof.findMany({
-    where: {
-      reviewStatus: "PENDING",
-      replacedById: null,
-      ...(circleId ? { circleId } : {}),
-    },
-    include: {
-      commitment: { select: { id: true, title: true, status: true } },
-      reviews: { orderBy: { createdAt: "asc" } },
-    },
-  });
-  // Under the old 2-approval policy a proof could sit at 1 approval still
-  // pending. Under the 1-approval policy that one vote is a full verdict.
-  const eligible = proofs.filter(
-    (proof) =>
-      proof.reviews.some((r) => r.decision === "APPROVED") &&
-      !proof.reviews.some((r) => r.decision !== "APPROVED"),
-  );
-  if (eligible.length === 0) return { count: 0, ids: [] as string[] };
-  const ids: string[] = [];
-  await getPrisma().$transaction(async (transaction) => {
-    for (const proof of eligible) {
-      const firstApproval = proof.reviews.find(
-        (r) => r.decision === "APPROVED",
-      );
-      if (!firstApproval) continue;
-      const updated = await transaction.taskProof.updateMany({
-        where: { id: proof.id, reviewStatus: "PENDING" },
-        data: { reviewStatus: "APPROVED" },
-      });
-      if (updated.count === 0) continue;
-      await transaction.commitment.updateMany({
-        where: {
-          id: proof.commitmentId,
-          status: { in: ["OPEN", "RENEGOTIATED", "AWAITING_REVIEW"] },
-        },
-        data: { status: "VERIFIED" },
-      });
-      await transaction.activityEvent.create({
-        data: {
-          circleId: proof.circleId,
-          actorId: firstApproval.reviewerId,
-          kind: "PROOF_APPROVED",
-          entityId: proof.id,
-          summary: `approved proof for “${proof.commitment.title}” (1/1)`,
-        },
-      });
-      ids.push(proof.id);
-    }
-  });
-  return { count: ids.length, ids };
-}
-
 export async function setCheckIn(
   userId: string,
   circleId: string,
@@ -455,40 +404,4 @@ export async function setCheckIn(
     return { checkIn, update };
   });
   return result.checkIn;
-}
-
-export async function getCheckInHistory(
-  userId: string,
-  circleId: string,
-  dayKey: string,
-  limit = 20,
-) {
-  const day = requireDateKey(dayKey);
-  const [checkIn, updates] = await Promise.all([
-    getPrisma().checkIn.findUnique({
-      where: { userId_circleId_day: { userId, circleId, day } },
-    }),
-    getPrisma().checkInUpdate.findMany({
-      where: { userId, circleId, day },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-    }),
-  ]);
-  // Smooth backfill for display: old check-ins from before history existed still show.
-  if (updates.length === 0 && checkIn) {
-    return [
-      {
-        id: checkIn.id,
-        signal: checkIn.signal,
-        blocker: checkIn.blocker,
-        createdAt: checkIn.updatedAt,
-      },
-    ];
-  }
-  return updates.map((update) => ({
-    id: update.id,
-    signal: update.signal,
-    blocker: update.blocker,
-    createdAt: update.createdAt,
-  }));
 }

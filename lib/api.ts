@@ -1,7 +1,7 @@
 import "server-only";
 
 import { NextResponse } from "next/server";
-import { DomainError } from "@/lib/tasks";
+import { DomainError } from "@/lib/errors";
 
 export function jsonError(error: unknown) {
   if (error instanceof DomainError) {

@@ -27,7 +27,23 @@ export default async function TodayPage() {
           include: {
             reviews: {
               orderBy: { createdAt: "asc" },
-              include: { reviewer: { select: { name: true } } },
+              include: {
+                reviewer: { select: { id: true, name: true } },
+                replies: {
+                  orderBy: { createdAt: "asc" },
+                  take: 50,
+                  include: {
+                    author: {
+                      select: {
+                        id: true,
+                        name: true,
+                        image: true,
+                        initials: true,
+                      },
+                    },
+                  },
+                },
+              },
             },
           },
         },
@@ -72,6 +88,7 @@ export default async function TodayPage() {
   return (
     <TodayDashboard
       day={dayKey}
+      currentUserId={session.user.id}
       tasks={tasks.map((task) => ({
         id: task.id,
         day: task.day.toISOString().slice(0, 10),
@@ -92,6 +109,14 @@ export default async function TodayPage() {
                 note: review.note,
                 createdAt: review.createdAt.toISOString(),
                 reviewerName: review.reviewer.name,
+                reviewerId: review.reviewer.id,
+                replies: review.replies.map((reply) => ({
+                  id: reply.id,
+                  body: reply.body,
+                  createdAt: reply.createdAt.toISOString(),
+                  updatedAt: reply.updatedAt.toISOString(),
+                  author: reply.author,
+                })),
               })),
             }
           : null,

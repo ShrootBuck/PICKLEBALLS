@@ -21,13 +21,12 @@ bun install
 cp .env.example .env
 bun run db:generate
 bun run db:push
-bun run db:seed
 bun run dev
 ```
 
-The seed creates only the private `Pickle Balls` circle. It does not create fake
-people. `bun run db:reset` destroys all current database data, pushes the schema,
-regenerates Prisma, and seeds the circle. Run it only when a reset is intentional.
+The `Pickle Balls` circle is created automatically on first owner sign-in.
+`bun run db:reset` destroys all current database data and pushes the schema.
+Run it only when a reset is intentional.
 
 ## Discord authentication
 

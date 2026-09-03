@@ -21,10 +21,8 @@ export const viewport: Viewport = {
   maximumScale: 5,
   minimumScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#23412e" },
-    { media: "(prefers-color-scheme: dark)", color: "#1a2e22" },
-  ],
+  // Light-only theme. Single theme color, no PWA tricks.
+  themeColor: "#23412e",
   colorScheme: "light",
   interactiveWidget: "resizes-visual",
 };
@@ -34,11 +32,6 @@ export const metadata: Metadata = {
   description:
     "Schoolwork promises. Photo receipts. Friends who call the bluff.",
   applicationName: "Pickle Balls",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Pickle Balls",
-  },
   formatDetection: {
     telephone: false,
     date: false,
@@ -53,7 +46,6 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-icon", sizes: "180x180", type: "image/png" }],
     shortcut: "/icon",
   },
-  manifest: "/manifest.webmanifest",
   openGraph: {
     title: "Pickle Balls",
     description:
@@ -83,12 +75,6 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta
-          name="apple-mobile-web-app-status-bar-style"
-          content="black-translucent"
-        />
         <link rel="apple-touch-icon" href="/apple-icon" />
       </head>
       <body className="touch-manipulation antialiased">

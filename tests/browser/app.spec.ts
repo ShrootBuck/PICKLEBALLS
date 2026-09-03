@@ -44,9 +44,11 @@ test("owner creates a task and posts proof", async ({ browser }) => {
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
 
   await page.getByRole("button", { name: "Add task" }).click();
-  await page.getByLabel("Task").fill("Finish calculus problem set");
   await page
-    .getByLabel("Definition of done")
+    .getByLabel("What are you actually doing?")
+    .fill("Finish calculus problem set");
+  await page
+    .getByLabel("How do we know you did it?")
     .fill("All 18 problems solved and checked");
   await page.getByRole("button", { name: "Lock it in" }).click();
   await expect(page.getByText("Finish calculus problem set")).toBeVisible();
@@ -60,9 +62,11 @@ test("owner creates a task and posts proof", async ({ browser }) => {
       "base64",
     ),
   });
-  await page.getByLabel("Note to the squad").fill("Completed work is visible.");
+  await page
+    .getByLabel("What are we looking at?")
+    .fill("Completed work is visible.");
   await page.getByRole("button", { name: "Post proof" }).click();
-  await expect(page.getByText("Awaiting review")).toBeVisible();
+  await expect(page.getByText("Needs verdict")).toBeVisible();
   await context.close();
 });
 
@@ -82,6 +86,7 @@ test("a peer reviews pending proof and owner tools stay role-gated", async ({
   await miaPage.getByRole("button", { name: /Review proof/ }).click();
   await miaPage.getByText("Approve", { exact: true }).click();
   await miaPage.getByRole("button", { name: "Submit verdict" }).click();
+  await miaPage.getByRole("tab", { name: "Verdicts" }).click();
   await expect(miaPage.getByText("Nothing to judge")).toBeVisible();
   await miaContext.close();
 
@@ -91,6 +96,7 @@ test("a peer reviews pending proof and owner tools stay role-gated", async ({
   });
   const leoPage = await leoContext.newPage();
   await leoPage.goto("/squad");
+  await leoPage.getByRole("tab", { name: "Verdicts" }).click();
   await expect(leoPage.getByText("Nothing to judge")).toBeVisible();
 
   await leoPage.goto("/admin");
@@ -108,17 +114,17 @@ test("squad members can reply to tasks and check-ins", async ({ browser }) => {
 
   await page.goto("/");
   await page.getByRole("button", { name: "Add task" }).click();
-  await page.getByLabel("Task").fill(taskTitle);
+  await page.getByLabel("What are you actually doing?").fill(taskTitle);
   await page
-    .getByLabel("Definition of done")
+    .getByLabel("How do we know you did it?")
     .fill("Make a decision and stop staring at the draft");
   await page.getByRole("button", { name: "Lock it in" }).click();
   await expect(page.getByText(taskTitle)).toBeVisible();
 
   await page.getByText("At risk", { exact: true }).click();
-  await page.getByLabel("Blocker").fill(blocker);
-  await page.getByRole("button", { name: "Save check-in" }).click();
-  await expect(page.getByText("Squad updated.")).toBeVisible();
+  await page.getByLabel("What is in the way?").fill(blocker);
+  await page.getByRole("button", { name: "Post check-in" }).click();
+  await expect(page.getByText("Posted. No take-backs.")).toBeVisible();
 
   await page.goto("/squad");
   const task = page.locator('[data-slot="item"]').filter({
@@ -128,7 +134,7 @@ test("squad members can reply to tasks and check-ins", async ({ browser }) => {
   await task
     .getByLabel("Write a reply")
     .fill("Sleep on it. Chaos is still available tomorrow.");
-  await task.getByRole("button", { name: "Post reply" }).click();
+  await task.getByRole("button", { name: "Reply", exact: true }).click();
   await expect(
     task.getByText("Sleep on it. Chaos is still available tomorrow."),
   ).toBeVisible();
@@ -138,7 +144,7 @@ test("squad members can reply to tasks and check-ins", async ({ browser }) => {
   await checkIn
     .getByLabel("Write a reply")
     .fill("Put the phone down and finish the task first.");
-  await checkIn.getByRole("button", { name: "Post reply" }).click();
+  await checkIn.getByRole("button", { name: "Reply", exact: true }).click();
   await expect(
     checkIn.getByText("Put the phone down and finish the task first."),
   ).toBeVisible();

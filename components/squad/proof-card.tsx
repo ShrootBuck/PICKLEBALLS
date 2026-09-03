@@ -1,6 +1,10 @@
 import { Bot } from "lucide-react";
 import { ProofImageViewer } from "@/components/squad/proof-image-viewer";
 import { ReviewProof } from "@/components/squad/review-proof";
+import {
+  SocialReplyThread,
+  type ThreadReply,
+} from "@/components/squad/social-reply-thread";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -27,6 +31,7 @@ export type ProofReview = {
   note: string | null;
   createdAt: string;
   reviewerName: string;
+  replies: ThreadReply[];
 };
 
 export type ProofCardData = {
@@ -41,8 +46,10 @@ export type ProofCardData = {
   approvals: number;
   requiredApprovals: number;
   alreadyReviewed: boolean;
+  myReview: ProofReview | null;
   reviews: ProofReview[];
-  aiStatus: "PENDING" | "SUCCEEDED" | "FAILED" | "SKIPPED";
+  replies: ThreadReply[];
+  aiStatus: "PENDING" | "SUCCEEDED" | "FAILED";
   aiVisibleEvidence: string | null;
   aiReviewerQuestion: string | null;
   aiUncertainty: string | null;
@@ -67,7 +74,7 @@ function matchBadge(match: string | null) {
 function statusBadge(status: ProofCardData["reviewStatus"]) {
   if (status === "APPROVED") return <Badge>Verified</Badge>;
   if (status === "CHALLENGED")
-    return <Badge variant="destructive">Called out</Badge>;
+    return <Badge variant="destructive">Challenged</Badge>;
   return <Badge variant="secondary">Needs verdict</Badge>;
 }
 
@@ -85,9 +92,7 @@ export function ProofCard({
     proof.ownerName,
     proof.isLate ? "late as hell" : "on time",
     `${proof.approvals}/${proof.requiredApprovals} approvals`,
-  ]
-    .filter(Boolean)
-    .join(" — ");
+  ].join(" — ");
 
   return (
     <Card size="sm" className="gap-0 py-0">
@@ -172,6 +177,7 @@ export function ProofCard({
               ) : proof.alreadyReviewed ? (
                 <Badge variant="outline" className="w-fit">
                   You already voted
+                  {proof.myReview?.note ? ` — “${proof.myReview.note}”` : ""}
                 </Badge>
               ) : (
                 <ReviewProof
@@ -209,11 +215,27 @@ export function ProofCard({
                       ) : (
                         <ItemDescription>No note. Just a vote.</ItemDescription>
                       )}
+                      <div className="mt-2">
+                        <SocialReplyThread
+                          targetType="REVIEW"
+                          targetId={review.id}
+                          initialReplies={review.replies}
+                          currentUserId={viewerId}
+                          compact
+                        />
+                      </div>
                     </ItemContent>
                   </Item>
                 ))}
               </ItemGroup>
             ) : null}
+            <SocialReplyThread
+              targetType="PROOF"
+              targetId={proof.id}
+              initialReplies={proof.replies}
+              currentUserId={viewerId}
+              compact={compact}
+            />
           </CardContent>
         </div>
       </div>

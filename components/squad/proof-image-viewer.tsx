@@ -28,7 +28,7 @@ export function ProofImageViewer({
         className={cn(
           "relative block shrink-0 cursor-zoom-in overflow-hidden bg-muted",
           compact
-            ? "aspect-square size-24 sm:size-28"
+            ? "aspect-square size-40 sm:size-44"
             : "h-64 w-full sm:h-72 md:h-auto md:min-h-80 md:w-72 md:self-stretch",
         )}
         aria-label={`Expand proof for ${title}`}
@@ -38,7 +38,7 @@ export function ProofImageViewer({
           src={`/api/proofs/${proofId}/image`}
           alt={`Proof for ${title}`}
           fill
-          sizes={compact ? "112px" : "(max-width: 768px) 100vw, 288px"}
+          sizes={compact ? "176px" : "(max-width: 768px) 100vw, 288px"}
           unoptimized
         />
       </DialogTrigger>

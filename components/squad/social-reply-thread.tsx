@@ -1,7 +1,6 @@
 "use client";
 
-import { MessageCircle, Send } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { MessageCircle, Pencil, Send, Trash2, X } from "lucide-react";
 import { type FormEvent, useId, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -15,12 +14,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-type ReplyTargetType = "COMMITMENT" | "CHECK_IN";
-
-type SocialReply = {
+export type ThreadReply = {
   id: string;
   body: string;
   createdAt: string;
+  updatedAt?: string;
   author: {
     id: string;
     name: string;
@@ -28,6 +26,16 @@ type SocialReply = {
     initials: string;
   };
 };
+
+type ReplyTargetType = "COMMITMENT" | "CHECK_IN" | "PROOF" | "REVIEW";
+
+type SocialReply = ThreadReply;
+
+const EDIT_WINDOW_MS = 10 * 60 * 1000;
+
+function withinEditWindow(createdAt: string) {
+  return Date.now() - new Date(createdAt).getTime() <= EDIT_WINDOW_MS;
+}
 
 const replyTimeFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "America/Phoenix",
@@ -37,7 +45,75 @@ const replyTimeFormatter = new Intl.DateTimeFormat("en-US", {
   minute: "2-digit",
 });
 
-function ReplyItem({ reply }: { reply: SocialReply }) {
+function ReplyItem({
+  reply,
+  mine,
+  onEdited,
+  onDeleted,
+}: {
+  reply: SocialReply;
+  mine: boolean;
+  onEdited: (reply: SocialReply) => void;
+  onDeleted: (id: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(reply.body);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const editable = mine && withinEditWindow(reply.createdAt);
+  const edited = reply.updatedAt != null && reply.updatedAt !== reply.createdAt;
+
+  async function saveEdit() {
+    const trimmed = draft.trim();
+    if (!trimmed || trimmed === reply.body || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/replies/${reply.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ body: trimmed }),
+      });
+      const result = (await response.json()) as {
+        reply?: SocialReply;
+        error?: string;
+      };
+      if (!response.ok || !result.reply) {
+        setError(result.error ?? "Edit flopped. Try again.");
+        return;
+      }
+      onEdited(result.reply);
+      setEditing(false);
+    } catch {
+      setError("Could not save. Check your wifi and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/replies/${reply.id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const result = (await response.json()) as { error?: string };
+        setError(result.error ?? "Delete flopped. Try again.");
+        return;
+      }
+      onDeleted(reply.id);
+    } catch {
+      setError("Could not delete. Check your wifi and try again.");
+    } finally {
+      setBusy(false);
+      setConfirmingDelete(false);
+    }
+  }
+
   return (
     <div className="flex gap-2.5">
       <Avatar className="size-7 shrink-0">
@@ -54,11 +130,97 @@ function ReplyItem({ reply }: { reply: SocialReply }) {
             className="shrink-0 text-[11px] text-muted-foreground tabular-nums"
           >
             {replyTimeFormatter.format(new Date(reply.createdAt))}
+            {edited ? " · edited" : ""}
           </time>
+          {editable && !editing ? (
+            <span className="ml-auto flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 min-h-0 px-1.5 text-[11px]"
+                onClick={() => {
+                  setDraft(reply.body);
+                  setEditing(true);
+                }}
+              >
+                <Pencil data-icon="inline-start" />
+                Edit
+              </Button>
+              {confirmingDelete ? (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="h-7 min-h-0 px-1.5 text-[11px]"
+                  disabled={busy}
+                  onClick={remove}
+                >
+                  {busy ? <Spinner data-icon="inline-start" /> : null}
+                  Sure?
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 min-h-0 px-1.5 text-[11px]"
+                  onClick={() => setConfirmingDelete(true)}
+                >
+                  <Trash2 data-icon="inline-start" />
+                  Delete
+                </Button>
+              )}
+            </span>
+          ) : null}
         </div>
-        <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-snug">
-          {reply.body}
-        </p>
+        {editing ? (
+          <div className="mt-1.5 flex flex-col gap-1.5">
+            <Textarea
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              maxLength={500}
+              rows={2}
+              disabled={busy}
+              className="min-h-11 resize-none bg-background py-2 text-sm"
+            />
+            {error ? <p className="text-xs text-destructive">{error}</p> : null}
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                className="h-7 min-h-0 text-xs"
+                disabled={busy || draft.trim().length === 0}
+                onClick={saveEdit}
+              >
+                {busy ? <Spinner data-icon="inline-start" /> : null}
+                Save
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 min-h-0 text-xs"
+                disabled={busy}
+                onClick={() => {
+                  setEditing(false);
+                  setError(null);
+                  setDraft(reply.body);
+                }}
+              >
+                <X data-icon="inline-start" />
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-snug">
+            {reply.body}
+          </p>
+        )}
+        {error && !editing ? (
+          <p className="mt-1 text-xs text-destructive">{error}</p>
+        ) : null}
       </div>
     </div>
   );
@@ -69,13 +231,14 @@ export function SocialReplyThread({
   targetId,
   initialReplies,
   compact = false,
+  currentUserId,
 }: {
   targetType: ReplyTargetType;
   targetId: string;
   initialReplies: SocialReply[];
   compact?: boolean;
+  currentUserId?: string;
 }) {
-  const router = useRouter();
   const generatedId = useId();
   const threadId = `reply-thread-${generatedId.replaceAll(":", "")}`;
   const inputId = `${threadId}-input`;
@@ -83,7 +246,7 @@ export function SocialReplyThread({
   const [body, setBody] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(initialReplies.length > 0);
+  const [expanded, setExpanded] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -107,9 +270,10 @@ export function SocialReplyThread({
         return;
       }
 
+      // Optimistic enough: server is source of truth for this thread, no
+      // full-page refresh. Keeps the page from flickering on every reply.
       setReplies((current) => [...current, result.reply as SocialReply]);
       setBody("");
-      router.refresh();
     } catch {
       setError("Could not post. Check your wifi and try again.");
     } finally {
@@ -120,92 +284,109 @@ export function SocialReplyThread({
   return (
     <div className="flex w-full flex-col gap-2.5 rounded-xl bg-muted/60 p-3">
       <div className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground">
-        <MessageCircle className="size-3.5" />
+        <MessageCircle className="size-3.5 shrink-0" />
         {replies.length === 0
-          ? "No replies yet."
+          ? "No replies yet. Talk shit."
           : `${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}
-        {replies.length === 0 && !expanded ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="ml-auto"
-            onClick={() => setExpanded(true)}
-          >
-            <Send data-icon="inline-start" />
-            Reply
-          </Button>
-        ) : null}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="ml-auto h-7 min-h-0 text-xs"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
+        >
+          {expanded ? "Hide" : "Reply"}
+        </Button>
       </div>
 
-      {replies.length > 0 ? (
-        <div
-          className={cn(
-            "flex flex-col gap-2",
-            compact && replies.length > 4
-              ? "max-h-64 overflow-y-auto pr-1"
-              : "",
-          )}
-          aria-live="polite"
-        >
-          {replies.map((reply) => (
-            <ReplyItem key={reply.id} reply={reply} />
-          ))}
-        </div>
-      ) : null}
-
-      {expanded || replies.length > 0 ? (
-        <form onSubmit={submit} className="w-full">
-          <FieldGroup className="gap-2">
-            <Field data-invalid={Boolean(error)}>
-              <FieldLabel htmlFor={inputId} className="sr-only">
-                Write a reply
-              </FieldLabel>
-              <Textarea
-                id={inputId}
-                value={body}
-                onChange={(event) => setBody(event.target.value)}
-                onKeyDown={(event) => {
-                  if (
-                    event.key === "Enter" &&
-                    (event.metaKey || event.ctrlKey)
-                  ) {
-                    event.currentTarget.form?.requestSubmit();
+      {expanded ? (
+        <>
+          {replies.length > 0 ? (
+            <div
+              className={cn(
+                "flex flex-col gap-2",
+                compact && replies.length > 4
+                  ? "max-h-64 overflow-y-auto pr-1"
+                  : "",
+              )}
+              aria-live="polite"
+            >
+              {replies.map((reply) => (
+                <ReplyItem
+                  key={reply.id}
+                  reply={reply}
+                  mine={
+                    currentUserId != null && reply.author.id === currentUserId
                   }
-                }}
-                maxLength={500}
-                placeholder={
-                  replies.length === 0
-                    ? "Say something useful (or at least funny)"
-                    : "Keep it going…"
-                }
-                aria-invalid={Boolean(error)}
-                disabled={pending}
-                autoFocus={replies.length === 0}
-                className="min-h-11 resize-none bg-background py-2.5 text-sm"
-                rows={1}
-              />
-              <FieldError>{error}</FieldError>
-            </Field>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] text-muted-foreground tabular-nums">
-                {body.trim().length}/500
-              </span>
-              <Button
-                type="submit"
-                size="sm"
-                disabled={pending || body.trim().length === 0}
-              >
-                {pending ? (
-                  <Spinner data-icon="inline-start" />
-                ) : (
-                  <Send data-icon="inline-start" />
-                )}
-                Reply
-              </Button>
+                  onEdited={(updated) =>
+                    setReplies((current) =>
+                      current.map((item) =>
+                        item.id === updated.id ? updated : item,
+                      ),
+                    )
+                  }
+                  onDeleted={(id) =>
+                    setReplies((current) =>
+                      current.filter((item) => item.id !== id),
+                    )
+                  }
+                />
+              ))}
             </div>
-          </FieldGroup>
-        </form>
+          ) : null}
+
+          <form onSubmit={submit} className="w-full">
+            <FieldGroup className="gap-2">
+              <Field data-invalid={Boolean(error)}>
+                <FieldLabel htmlFor={inputId} className="sr-only">
+                  Write a reply
+                </FieldLabel>
+                <Textarea
+                  id={inputId}
+                  value={body}
+                  onChange={(event) => setBody(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" &&
+                      (event.metaKey || event.ctrlKey)
+                    ) {
+                      event.currentTarget.form?.requestSubmit();
+                    }
+                  }}
+                  maxLength={500}
+                  placeholder={
+                    replies.length === 0
+                      ? "Say something useful (or at least funny)"
+                      : "Keep it going…"
+                  }
+                  aria-invalid={Boolean(error)}
+                  disabled={pending}
+                  className="min-h-11 resize-none bg-background py-2.5 text-sm"
+                  rows={1}
+                />
+                <FieldError>{error}</FieldError>
+              </Field>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-muted-foreground tabular-nums">
+                  {body.trim().length}/500
+                </span>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={pending || body.trim().length === 0}
+                >
+                  {pending ? (
+                    <Spinner data-icon="inline-start" />
+                  ) : (
+                    <Send data-icon="inline-start" />
+                  )}
+                  Reply
+                </Button>
+              </div>
+            </FieldGroup>
+          </form>
+        </>
       ) : null}
     </div>
   );

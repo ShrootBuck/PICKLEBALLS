@@ -24,16 +24,61 @@ export function requireDateKey(value: string) {
   return date;
 }
 
-export function phoenixDayDueAt(day: string) {
-  if (!parseDateKey(day)) return null;
-  const date = new Date(`${day}T23:59:59.999-07:00`);
+// Offset of a wall-clock zone at a given instant, in minutes. Positive east
+// of UTC. Derived from Intl so DST rule changes never silently break us.
+function zoneOffsetMinutes(timeZone: string, date: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((value) => value.type === type)?.value ?? 0);
+  // Intl can report midnight as hour 24. Normalize before math.
+  const hour = get("hour") % 24;
+  const asUTC = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    hour,
+    get("minute"),
+    get("second"),
+  );
+  return Math.round((asUTC - date.getTime()) / 60000);
+}
+
+// A Phoenix wall-clock time on a calendar day, as an instant.
+function phoenixWallToDate(
+  dayKey: string,
+  hour: number,
+  minute: number,
+  second: number,
+  ms: number,
+) {
+  if (!parseDateKey(dayKey)) return null;
+  const [y, m, d] = dayKey.split("-").map(Number);
+  // Guess with the offset at noon, then refine once. One pass is exact for
+  // zones without a mid-day transition (Phoenix has no DST at all).
+  const noonUTC = Date.UTC(y, m - 1, d, 12, 0, 0, 0);
+  const offset = zoneOffsetMinutes(appTimeZone, new Date(noonUTC));
+  const date = new Date(
+    Date.UTC(y, m - 1, d, hour, minute, second, ms) - offset * 60000,
+  );
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-const phoenixNoon = "T12:00:00-07:00";
+export function phoenixDayDueAt(day: string) {
+  // 23:59:59.999 Phoenix wall time, whatever the current UTC offset is.
+  return phoenixWallToDate(day, 23, 59, 59, 999);
+}
 
 function dayKeyToDate(dayKey: string) {
-  return new Date(`${dayKey}${phoenixNoon}`);
+  return new Date(`${dayKey}T12:00:00.000Z`);
 }
 
 export function formatDayLong(dayKey: string) {

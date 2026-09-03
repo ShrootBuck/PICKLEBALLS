@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { proofReviewSchema, socialReplySchema } from "@/lib/schemas";
+import {
+  proofReviewSchema,
+  replyEditSchema,
+  socialReplySchema,
+} from "@/lib/schemas";
+import { canEditReply } from "@/lib/task-policy";
 
 describe("proof review validation", () => {
   test("allows approval without performative paperwork", () => {
@@ -22,7 +27,7 @@ describe("proof review validation", () => {
 });
 
 describe("social reply validation", () => {
-  test("accepts a useful reply to a task or check-in", () => {
+  test("accepts replies to tasks, check-ins, proofs, and reviews", () => {
     expect(
       socialReplySchema.safeParse({
         targetType: "COMMITMENT",
@@ -37,6 +42,20 @@ describe("social reply validation", () => {
         body: "Do it.",
       }).success,
     ).toBe(true);
+    expect(
+      socialReplySchema.safeParse({
+        targetType: "PROOF",
+        targetId: "proof-1",
+        body: "Clean solve.",
+      }).success,
+    ).toBe(true);
+    expect(
+      socialReplySchema.safeParse({
+        targetType: "REVIEW",
+        targetId: "review-1",
+        body: "Fair. Retaking the photo now.",
+      }).success,
+    ).toBe(true);
   });
 
   test("rejects empty, oversized, and unknown-target replies", () => {
@@ -49,8 +68,8 @@ describe("social reply validation", () => {
     ).toBe(false);
     expect(
       socialReplySchema.safeParse({
-        targetType: "PROOF",
-        targetId: "proof-1",
+        targetType: "SPACE",
+        targetId: "void-1",
         body: "Nice.",
       }).success,
     ).toBe(false);
@@ -61,5 +80,23 @@ describe("social reply validation", () => {
         body: "a".repeat(501),
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("reply edit window", () => {
+  test("allows edits inside 10 minutes, blocks after", () => {
+    const now = new Date("2026-09-02T12:00:00Z");
+    expect(canEditReply(new Date("2026-09-02T11:55:00Z"), now)).toBe(true);
+    expect(canEditReply(new Date("2026-09-02T11:49:00Z"), now)).toBe(false);
+  });
+
+  test("validates edited bodies like new replies", () => {
+    expect(replyEditSchema.safeParse({ body: "  fixed typo  " }).success).toBe(
+      true,
+    );
+    expect(replyEditSchema.safeParse({ body: "   " }).success).toBe(false);
+    expect(replyEditSchema.safeParse({ body: "a".repeat(501) }).success).toBe(
+      false,
+    );
   });
 });

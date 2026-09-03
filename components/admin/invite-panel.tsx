@@ -53,7 +53,8 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
     event.preventDefault();
     setPending(true);
     setError(null);
-    const data = Object.fromEntries(new FormData(event.currentTarget));
+    const form = event.currentTarget;
+    const data = Object.fromEntries(new FormData(form));
     const response = await fetch("/api/admin/invites", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -61,7 +62,11 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
     });
     const body = (await response.json()) as { error?: string; url?: string };
     if (!response.ok) setError(body.error ?? "Invite failed.");
-    else setUrl(body.url ?? null);
+    else {
+      setUrl(body.url ?? null);
+      form.reset();
+      router.refresh();
+    }
     setPending(false);
   }
   async function revoke(id: string) {
@@ -169,66 +174,70 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
         </CardHeader>
         <CardContent>
           {invites.length ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>For</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Expires</TableHead>
-                  <TableHead>Used by</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invites.map((invite) => {
-                  const status = invite.usedAt
-                    ? "Used"
-                    : invite.revokedAt
-                      ? "Revoked"
-                      : new Date(invite.expiresAt) < new Date()
-                        ? "Expired"
-                        : "Ready";
-                  return (
-                    <TableRow key={invite.id}>
-                      <TableCell className="font-medium">
-                        {invite.label ?? "Friend"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={status === "Ready" ? "default" : "secondary"}
-                        >
-                          {status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="tabular-nums">
-                        {invite.expiresAt.slice(0, 10)}
-                      </TableCell>
-                      <TableCell>{invite.usedBy ?? "—"}</TableCell>
-                      <TableCell className="text-right">
-                        {status === "Ready" ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={revokingId === invite.id}
-                            onClick={() => revoke(invite.id)}
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>For</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Expires</TableHead>
+                    <TableHead>Used by</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invites.map((invite) => {
+                    const status = invite.usedAt
+                      ? "Used"
+                      : invite.revokedAt
+                        ? "Revoked"
+                        : new Date(invite.expiresAt) < new Date()
+                          ? "Expired"
+                          : "Ready";
+                    return (
+                      <TableRow key={invite.id}>
+                        <TableCell className="font-medium">
+                          {invite.label ?? "Friend"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              status === "Ready" ? "default" : "secondary"
+                            }
                           >
-                            {revokingId === invite.id ? (
-                              <Spinner data-icon="inline-start" />
-                            ) : null}
-                            Revoke
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            —
-                          </span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                            {status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="tabular-nums">
+                          {invite.expiresAt.slice(0, 10)}
+                        </TableCell>
+                        <TableCell>{invite.usedBy ?? "—"}</TableCell>
+                        <TableCell className="text-right">
+                          {status === "Ready" ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={revokingId === invite.id}
+                              onClick={() => revoke(invite.id)}
+                            >
+                              {revokingId === invite.id ? (
+                                <Spinner data-icon="inline-start" />
+                              ) : null}
+                              Revoke
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              —
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           ) : (
             <Empty>
               <EmptyHeader>

@@ -11,8 +11,12 @@ export const checkInSchema = z.object({
 });
 
 export const socialReplySchema = z.object({
-  targetType: z.enum(["COMMITMENT", "CHECK_IN"]),
+  targetType: z.enum(["COMMITMENT", "CHECK_IN", "PROOF", "REVIEW"]),
   targetId: z.string().trim().min(1).max(100),
+  body: z.string().trim().min(1).max(500),
+});
+
+export const replyEditSchema = z.object({
   body: z.string().trim().min(1).max(500),
 });
 

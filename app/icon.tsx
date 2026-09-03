@@ -8,9 +8,8 @@ export const size = {
 };
 
 export default function Icon() {
+  // Plain favicon. No PWA, no maskable variant.
   const isMaskable = false;
-  // Next will call this without params; query param handling would need separate route
-  // We keep single icon and let manifest reference with purpose maskable as same image
   return new ImageResponse(
     <div
       style={{
