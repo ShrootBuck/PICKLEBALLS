@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
+    "db:dev": "prisma dev --name pickleballs --detach",
     "db:validate": "prisma validate",
     "db:reset": "prisma migrate reset --force && prisma generate",
     "test": "bun test tests/unit",

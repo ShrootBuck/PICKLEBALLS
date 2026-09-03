@@ -19,12 +19,27 @@ approval from someone else verifies a proof.
 ```bash
 bun install
 cp .env.example .env
+bun run db:dev        # start the local Postgres (once per reboot: bunx prisma dev start pickleballs)
 bun run db:generate
-bunx prisma migrate dev
+bun run db:migrate    # create all tables in the local database
 bun run dev
 ```
 
 The `Pickle Balls` circle is created automatically on first owner sign-in.
+
+## Dev vs prod databases
+
+- **Local dev** uses a Postgres running on your own machine (`prisma dev`,
+  `localhost:51218`). `.env` points there. Break it freely.
+- **Prod** is the hosted Prisma Postgres database. Its URL lives **only** in
+  Vercel's environment variables and in `.env.production.local` (gitignored
+  backup, never committed). Never put the prod URL in `.env`.
+- **Browser tests** use a separate disposable database:
+  `TEST_DATABASE_URL="postgres://postgres:postgres@localhost:51218/pickle_balls_test?sslmode=disable"`.
+  The test setup refuses any database without `test` in its name.
+
+Rule of thumb: if `.env` ever contains `pooled.db.prisma.io`, stop and fix
+it before running any `prisma` or `db:` command.
 
 ## Database migrations
 
