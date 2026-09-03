@@ -6,6 +6,7 @@ import {
   ClockAlert,
   Flame,
   History,
+  MessageCircle,
   PencilLine,
   TriangleAlert,
   Upload,
@@ -42,6 +43,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
+import { requiredApprovalsForCircle } from "@/lib/task-policy";
 import { formatDayLong, phoenixDateKey, requireDateKey } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Squad" };
@@ -63,6 +65,8 @@ function activityIcon(kind: string) {
       return History;
     case "CHECK_IN_SET":
       return Activity;
+    case "REPLY_POSTED":
+      return MessageCircle;
     default:
       return CircleDashed;
   }
@@ -94,6 +98,7 @@ function toProofCard(
     }>;
   },
   viewerId: string,
+  requiredApprovals: number,
 ): ProofCardData {
   return {
     id: proof.id,
@@ -106,6 +111,7 @@ function toProofCard(
     reviewStatus: proof.reviewStatus,
     approvals: proof.reviews.filter((review) => review.decision === "APPROVED")
       .length,
+    requiredApprovals,
     alreadyReviewed: proof.reviews.some(
       (review) => review.reviewerId === viewerId,
     ),
@@ -205,6 +211,7 @@ export default async function SquadPage() {
         replacedById: null,
       },
       orderBy: { submittedAt: "asc" },
+      take: 20,
       include: {
         owner: true,
         commitment: true,
@@ -232,12 +239,25 @@ export default async function SquadPage() {
       },
     }),
     getPrisma().activityEvent.findMany({
-      where: { circleId: membership.circleId },
+      where: {
+        circleId: membership.circleId,
+        kind: {
+          in: [
+            "PROOF_SUBMITTED",
+            "PROOF_APPROVED",
+            "PROOF_CHALLENGED",
+            "TASK_MISSED",
+            "TASK_RENEGOTIATED",
+          ],
+        },
+      },
       orderBy: { createdAt: "desc" },
       take: 20,
       include: { actor: true },
     }),
   ]);
+
+  const requiredApprovals = requiredApprovalsForCircle(members.length);
 
   return (
     <>
@@ -276,7 +296,7 @@ export default async function SquadPage() {
             {proofs.map((proof) => (
               <ProofCard
                 key={proof.id}
-                proof={toProofCard(proof, session.user.id)}
+                proof={toProofCard(proof, session.user.id, requiredApprovals)}
                 viewerId={session.user.id}
                 mode="review"
               />
@@ -292,154 +312,164 @@ export default async function SquadPage() {
               {members
                 .filter((_, i) => i % 2 === col)
                 .map(({ user, role }) => {
-            const checkIn = user.checkIns[0];
-            const verified = user.commitments.filter(
-              (task) => task.status === "VERIFIED",
-            ).length;
-            const total = user.commitments.length;
-            const atRisk = checkIn?.signal === "AT_RISK";
-            return (
-              <Card
-                key={user.id}
-                size="sm"
-                className={atRisk ? "border-destructive/40" : ""}
-              >
-                <CardHeader>
-                  <div className="flex min-w-0 items-center gap-3">
-                    <Avatar className="size-10">
-                      <AvatarImage src={user.image ?? undefined} alt="" />
-                      <AvatarFallback>{user.initials}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <CardTitle className="truncate text-[15px] tracking-tight">
-                        {user.name}
-                        {user.id === session.user.id ? " (you)" : ""}
-                      </CardTitle>
-                      <CardDescription className="truncate text-[13px]">
-                        {total === 0
-                          ? "No promises. Suspicious."
-                          : `${verified}/${total} verified`}
-                        {checkIn?.signal === "AT_RISK"
-                          ? ", needs backup"
-                          : checkIn?.signal === "CLEAR"
-                            ? ", chilling"
-                            : ""}
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <CardAction>
-                    <Badge variant={role === "OWNER" ? "default" : "secondary"}>
-                      {role === "OWNER" ? (
-                        <>
-                          <Flame data-icon="inline-start" />
-                          Owner
-                        </>
-                      ) : (
-                        `${verified}/${total}`
-                      )}
-                    </Badge>
-                  </CardAction>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  <ItemGroup className="gap-2">
-                    {user.commitments.map((task) => (
-                      <Item
-                        key={task.id}
-                        size="sm"
-                        variant="muted"
-                        className="flex-col items-stretch gap-2"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <ItemTitle className="min-w-0 flex-1 text-sm leading-snug">
-                            {task.title}
-                          </ItemTitle>
-                          <Badge variant={taskStatusVariant(task.status)}>
-                            {task.status.toLowerCase().replaceAll("_", " ")}
-                          </Badge>
+                  const checkIn = user.checkIns[0];
+                  const verified = user.commitments.filter(
+                    (task) => task.status === "VERIFIED",
+                  ).length;
+                  const total = user.commitments.length;
+                  const atRisk = checkIn?.signal === "AT_RISK";
+                  return (
+                    <Card
+                      key={user.id}
+                      size="sm"
+                      className={atRisk ? "border-destructive/40" : ""}
+                    >
+                      <CardHeader>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Avatar className="size-10">
+                            <AvatarImage src={user.image ?? undefined} alt="" />
+                            <AvatarFallback>{user.initials}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <CardTitle className="truncate text-[15px] tracking-tight">
+                              {user.name}
+                              {user.id === session.user.id ? " (you)" : ""}
+                            </CardTitle>
+                            <CardDescription className="truncate text-[13px]">
+                              {total === 0
+                                ? "No promises. Suspicious."
+                                : `${verified}/${total} verified`}
+                              {checkIn?.signal === "AT_RISK"
+                                ? ", needs backup"
+                                : checkIn?.signal === "CLEAR"
+                                  ? ", chilling"
+                                  : ""}
+                            </CardDescription>
+                          </div>
                         </div>
-                        <SocialReplyThread
-                          targetType="COMMITMENT"
-                          targetId={task.id}
-                          initialReplies={task.replies.map((reply) => ({
-                            ...reply,
-                            createdAt: reply.createdAt.toISOString(),
-                          }))}
-                          compact
-                        />
-                      </Item>
-                    ))}
-                    {user.commitments.length === 0 ? (
-                      <p className="rounded-xl border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
-                        No tasks. Either done or bullshitting.
-                      </p>
-                    ) : null}
-                  </ItemGroup>
-                  {checkIn ? (
-                    <>
-                      <Separator />
-                      <div className="flex flex-col gap-2 rounded-xl bg-muted/50 p-3">
-                        <div className="flex flex-wrap items-center gap-2">
+                        <CardAction>
                           <Badge
-                            variant={signalVariant(checkIn.signal)}
-                            className="capitalize"
+                            variant={role === "OWNER" ? "default" : "secondary"}
                           >
-                            {checkIn.signal.toLowerCase().replaceAll("_", " ")}
+                            {role === "OWNER" ? (
+                              <>
+                                <Flame data-icon="inline-start" />
+                                Owner
+                              </>
+                            ) : (
+                              "Member"
+                            )}
                           </Badge>
-                          {checkIn.updates.length > 1 ? (
-                            <span className="text-xs text-muted-foreground tabular-nums">
-                              {checkIn.updates.length} posts today
-                            </span>
-                          ) : null}
-                        </div>
-                        {checkIn.blocker ? (
-                          <p className="text-sm leading-relaxed text-pretty">
-                            {checkIn.blocker}
-                          </p>
-                        ) : (
-                          <p className="text-[13px] text-muted-foreground italic">
-                            No blocker posted. Fingers crossed.
-                          </p>
-                        )}
-                        {checkIn.updates.length > 1 ? (
-                          <div className="flex flex-col gap-1.5 border-l-2 pl-3">
-                            {checkIn.updates.slice(1, 4).map((older) => (
-                              <p
-                                key={older.id}
-                                className="text-[13px] leading-snug text-muted-foreground"
-                              >
-                                <span className="font-medium capitalize">
-                                  {older.signal
+                        </CardAction>
+                      </CardHeader>
+                      <CardContent className="flex flex-col gap-3">
+                        <ItemGroup className="gap-2">
+                          {user.commitments.map((task) => (
+                            <Item
+                              key={task.id}
+                              size="sm"
+                              variant="muted"
+                              className="flex-col items-stretch gap-2"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <ItemTitle className="min-w-0 flex-1 text-sm leading-snug">
+                                  {task.title}
+                                </ItemTitle>
+                                <Badge variant={taskStatusVariant(task.status)}>
+                                  {task.status
                                     .toLowerCase()
                                     .replaceAll("_", " ")}
-                                </span>
-                                {older.blocker ? ` — ${older.blocker}` : ""}
-                              </p>
-                            ))}
-                          </div>
-                        ) : null}
-                        <SocialReplyThread
-                          targetType="CHECK_IN"
-                          targetId={checkIn.id}
-                          initialReplies={checkIn.replies.map((reply) => ({
-                            ...reply,
-                            createdAt: reply.createdAt.toISOString(),
-                          }))}
-                          compact
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <Separator />
-                      <p className="rounded-xl bg-muted/50 px-3 py-2.5 text-center text-[13px] text-muted-foreground">
-                        No check-in yet. Probably bullshitting.
-                      </p>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-                );
-              })}
+                                </Badge>
+                              </div>
+                              <SocialReplyThread
+                                targetType="COMMITMENT"
+                                targetId={task.id}
+                                initialReplies={task.replies.map((reply) => ({
+                                  ...reply,
+                                  createdAt: reply.createdAt.toISOString(),
+                                }))}
+                                compact
+                              />
+                            </Item>
+                          ))}
+                          {user.commitments.length === 0 ? (
+                            <p className="rounded-xl border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
+                              No tasks. Either done or bullshitting.
+                            </p>
+                          ) : null}
+                        </ItemGroup>
+                        {checkIn ? (
+                          <>
+                            <Separator />
+                            <div className="flex flex-col gap-2 rounded-xl bg-muted/50 p-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge
+                                  variant={signalVariant(checkIn.signal)}
+                                  className="capitalize"
+                                >
+                                  {checkIn.signal
+                                    .toLowerCase()
+                                    .replaceAll("_", " ")}
+                                </Badge>
+                                {checkIn.updates.length > 1 ? (
+                                  <span className="text-xs text-muted-foreground tabular-nums">
+                                    {checkIn.updates.length} posts today
+                                  </span>
+                                ) : null}
+                              </div>
+                              {checkIn.blocker ? (
+                                <p className="text-sm leading-relaxed text-pretty">
+                                  {checkIn.blocker}
+                                </p>
+                              ) : (
+                                <p className="text-[13px] text-muted-foreground italic">
+                                  No blocker posted. Fingers crossed.
+                                </p>
+                              )}
+                              {checkIn.updates.length > 1 ? (
+                                <div className="flex flex-col gap-1.5 border-l-2 pl-3">
+                                  {checkIn.updates.slice(1, 4).map((older) => (
+                                    <p
+                                      key={older.id}
+                                      className="text-[13px] leading-snug text-muted-foreground"
+                                    >
+                                      <span className="font-medium capitalize">
+                                        {older.signal
+                                          .toLowerCase()
+                                          .replaceAll("_", " ")}
+                                      </span>
+                                      {older.blocker
+                                        ? ` — ${older.blocker}`
+                                        : ""}
+                                    </p>
+                                  ))}
+                                </div>
+                              ) : null}
+                              <SocialReplyThread
+                                targetType="CHECK_IN"
+                                targetId={checkIn.id}
+                                initialReplies={checkIn.replies.map(
+                                  (reply) => ({
+                                    ...reply,
+                                    createdAt: reply.createdAt.toISOString(),
+                                  }),
+                                )}
+                                compact
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <Separator />
+                            <p className="rounded-xl bg-muted/50 px-3 py-2.5 text-center text-[13px] text-muted-foreground">
+                              No check-in yet. Probably bullshitting.
+                            </p>
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
             </div>
           ))}
         </div>
@@ -466,7 +496,7 @@ export default async function SquadPage() {
             {todayHistory.map((proof) => (
               <ProofCard
                 key={`history-${proof.id}`}
-                proof={toProofCard(proof, session.user.id)}
+                proof={toProofCard(proof, session.user.id, requiredApprovals)}
                 viewerId={session.user.id}
                 mode="history"
               />

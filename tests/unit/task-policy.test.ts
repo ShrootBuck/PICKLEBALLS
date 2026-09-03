@@ -3,14 +3,10 @@ import {
   canEditTask,
   dailyTaskLimit,
   isLateProof,
+  requiredApprovalsForCircle,
   shouldMarkMissed,
-  validateTaskTiming,
 } from "@/lib/task-policy";
-import {
-  cadencePeriod,
-  isValidCadencePeriod,
-  phoenixDateKey,
-} from "@/lib/time";
+import { phoenixDateKey } from "@/lib/time";
 
 describe("Phoenix task policy", () => {
   test("uses the fixed Phoenix boundary", () => {
@@ -22,12 +18,18 @@ describe("Phoenix task policy", () => {
     );
   });
 
-  test("permits today through seven days and no farther", () => {
-    const now = new Date("2026-09-01T18:00:00.000Z");
-    expect(validateTaskTiming("2026-09-01", "23:59", now).ok).toBe(true);
-    expect(validateTaskTiming("2026-09-08", "23:59", now).ok).toBe(true);
-    expect(validateTaskTiming("2026-09-09", "23:59", now).ok).toBe(false);
+  test("caps the daily board", () => {
     expect(dailyTaskLimit).toBe(10);
+  });
+
+  test("scales approvals with circle size", () => {
+    expect(requiredApprovalsForCircle(1)).toBe(0);
+    expect(requiredApprovalsForCircle(2)).toBe(1);
+    expect(requiredApprovalsForCircle(3)).toBe(1);
+    expect(requiredApprovalsForCircle(4)).toBe(2);
+    expect(requiredApprovalsForCircle(6)).toBe(3);
+    expect(requiredApprovalsForCircle(7)).toBe(3);
+    expect(requiredApprovalsForCircle(8)).toBe(4);
   });
 
   test("locks edits at the due instant and permanently marks later proof", () => {
@@ -45,29 +47,5 @@ describe("Phoenix task policy", () => {
     expect(shouldMarkMissed("RENEGOTIATED", due, 0, now)).toBe(true);
     expect(shouldMarkMissed("VERIFIED", due, 0, now)).toBe(false);
     expect(shouldMarkMissed("OPEN", due, 1, now)).toBe(false);
-  });
-});
-
-describe("Screen Time periods", () => {
-  test("normalizes a week to Monday through Sunday", () => {
-    expect(cadencePeriod("WEEKLY", "2026-09-02")).toEqual({
-      start: "2026-08-31",
-      end: "2026-09-06",
-    });
-  });
-
-  test("accepts one-day daily and seven-day weekly receipts", () => {
-    expect(isValidCadencePeriod("DAILY", "2026-09-01", "2026-09-01")).toBe(
-      true,
-    );
-    expect(isValidCadencePeriod("DAILY", "2026-09-01", "2026-09-02")).toBe(
-      false,
-    );
-    expect(isValidCadencePeriod("WEEKLY", "2026-08-31", "2026-09-06")).toBe(
-      true,
-    );
-    expect(isValidCadencePeriod("WEEKLY", "2026-08-31", "2026-09-05")).toBe(
-      false,
-    );
   });
 });

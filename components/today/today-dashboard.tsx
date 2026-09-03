@@ -11,11 +11,9 @@ import {
   Plus,
   Sparkles,
   TriangleAlert,
-  Upload,
-  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -52,12 +50,14 @@ import {
   FieldLabel,
   FieldTitle,
 } from "@/components/ui/field";
+import { FileUpload } from "@/components/ui/file-upload";
 import { Input } from "@/components/ui/input";
 import {
   Item,
   ItemContent,
   ItemDescription,
   ItemGroup,
+  ItemHeader,
   ItemTitle,
 } from "@/components/ui/item";
 import { Progress } from "@/components/ui/progress";
@@ -156,7 +156,7 @@ function ProofFeedback({ proof }: { proof: NonNullable<Task["proof"]> }) {
       {proof.reviews.map((review) => (
         <Item key={review.id} size="sm" variant="muted">
           <ItemContent>
-            <div className="flex items-center justify-between gap-2">
+            <ItemHeader>
               <ItemTitle className="text-[13px]">
                 {review.reviewerName}
               </ItemTitle>
@@ -167,7 +167,7 @@ function ProofFeedback({ proof }: { proof: NonNullable<Task["proof"]> }) {
               >
                 {review.decision === "CHALLENGED" ? "Challenged" : "Approved"}
               </Badge>
-            </div>
+            </ItemHeader>
             {review.note ? (
               <ItemDescription className="text-sm text-foreground">
                 {review.note}
@@ -216,12 +216,9 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
     event.preventDefault();
     setPending(true);
     setError(null);
-    const formData = new FormData(event.currentTarget);
     const data = {
       title,
       definitionOfDone: definition,
-      revisionNote:
-        String(formData.get("revisionNote") ?? "").trim() || undefined,
     };
     const response = await fetch(
       task ? `/api/commitments/${task.id}` : "/api/commitments",
@@ -321,20 +318,6 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
                     Same deadline for everyone. No extensions.
                   </AlertDescription>
                 </Alert>
-                {task && (
-                  <Field>
-                    <FieldLabel htmlFor={`note-${task.id}`}>
-                      Why are you changing it?
-                    </FieldLabel>
-                    <Input
-                      id={`note-${task.id}`}
-                      name="revisionNote"
-                      maxLength={240}
-                      placeholder="Schedule changed, scope still honest"
-                      className="h-11"
-                    />
-                  </Field>
-                )}
               </FieldGroup>
               {error && (
                 <Alert variant="destructive">
@@ -367,21 +350,19 @@ function ProofDialog({ task }: { task: Task }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [confirmEmpty, setConfirmEmpty] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [formKey, setFormKey] = useState(0);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!fileRef.current?.files?.[0]) {
+    const formData = new FormData(event.currentTarget);
+    const file = formData.get("image");
+    if (!(file instanceof File) || file.size === 0) {
       setError("Attach a photo first. Words are cheap.");
       return;
     }
-    const description = new FormData(event.currentTarget)
-      .get("note")
-      ?.toString()
-      .trim();
+    const description = formData.get("note")?.toString().trim();
     if (!description && !confirmEmpty) {
       setConfirmEmpty(true);
       return;
@@ -403,9 +384,9 @@ function ProofDialog({ task }: { task: Task }) {
     });
     setOpen(false);
     setPending(false);
-    setFileName(null);
     setNote("");
     setConfirmEmpty(false);
+    setFormKey((key) => key + 1);
     router.refresh();
   }
 
@@ -414,10 +395,9 @@ function ProofDialog({ task }: { task: Task }) {
     if (!next) {
       setError(null);
       setPending(false);
-      setFileName(null);
       setNote("");
       setConfirmEmpty(false);
-      if (fileRef.current) fileRef.current.value = "";
+      setFormKey((key) => key + 1);
     }
   };
 
@@ -444,74 +424,17 @@ function ProofDialog({ task }: { task: Task }) {
           <ScrollArea className="flex-1">
             <form
               onSubmit={submit}
+              key={formKey}
               id={`proof-form-${task.id}`}
               className="flex flex-col gap-4 p-6"
             >
               <FieldGroup>
-                <Field>
-                  <FieldLabel htmlFor={`proof-${task.id}`}>
-                    Proof photo
-                  </FieldLabel>
-                  {/* biome-ignore lint/a11y/useSemanticElements: dropzone uses div to avoid nested button with clear action */}
-                  <div
-                    className="relative flex cursor-pointer flex-col gap-2 rounded-xl border border-dashed bg-muted/40 p-4 transition-colors hover:border-primary/40 hover:bg-muted/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50"
-                    onClick={() => fileRef.current?.click()}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        fileRef.current?.click();
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    aria-label="Choose proof photo"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                        <Upload className="size-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {fileName ?? "Tap to choose photo"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          PNG, JPEG, WebP, or HEIC. Max 6 MB.
-                        </p>
-                      </div>
-                      {fileName && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (fileRef.current) fileRef.current.value = "";
-                            setFileName(null);
-                          }}
-                          aria-label="Clear file"
-                        >
-                          <X />
-                        </Button>
-                      )}
-                    </div>
-                    <Input
-                      ref={fileRef}
-                      id={`proof-${task.id}`}
-                      name="image"
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,image/heic"
-                      className="sr-only"
-                      tabIndex={-1}
-                      onChange={(e) =>
-                        setFileName(e.target.files?.[0]?.name ?? null)
-                      }
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                  <FieldDescription>
-                    Location data gets stripped automatically.
-                  </FieldDescription>
-                </Field>
+                <FileUpload
+                  id={`proof-${task.id}`}
+                  label="Proof photo"
+                  description="PNG, JPEG, WebP, or HEIC. Max 6 MB. Location data gets stripped automatically."
+                  required
+                />
                 <Field>
                   <FieldLabel htmlFor={`proof-note-${task.id}`}>
                     What are we looking at?

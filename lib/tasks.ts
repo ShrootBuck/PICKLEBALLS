@@ -9,6 +9,7 @@ import {
   dailyTaskLimit,
   isLateProof,
   requiredApprovals,
+  requiredApprovalsForCircle,
 } from "@/lib/task-policy";
 import { phoenixDateKey, phoenixDayDueAt, requireDateKey } from "@/lib/time";
 
@@ -96,17 +97,6 @@ export async function createCommitment(
           dueAt,
         },
       });
-      await transaction.commitmentRevision.create({
-        data: {
-          commitmentId: task.id,
-          editorId: userId,
-          title: task.title,
-          definitionOfDone: task.definitionOfDone,
-          dueAt: task.dueAt,
-          status: task.status,
-          revisionNote: "Created",
-        },
-      });
       await transaction.activityEvent.create({
         data: {
           circleId,
@@ -144,17 +134,6 @@ export async function updateCommitment(
       );
     }
 
-    await transaction.commitmentRevision.create({
-      data: {
-        commitmentId: current.id,
-        editorId: userId,
-        title: current.title,
-        definitionOfDone: current.definitionOfDone,
-        dueAt: current.dueAt,
-        status: current.status,
-        revisionNote: parsed.data.revisionNote || "Edited",
-      },
-    });
     const task = await transaction.commitment.update({
       where: { id: current.id },
       data: {
@@ -225,6 +204,31 @@ export async function submitProof(
         data: { replacedById: proof.id },
       });
     }
+    const memberCount = await transaction.membership.count({
+      where: { circleId },
+    });
+    const needed = requiredApprovalsForCircle(memberCount);
+    if (needed === 0) {
+      // Solo circle: no peers to review, so the proof verifies on post.
+      await transaction.taskProof.update({
+        where: { id: proof.id },
+        data: { reviewStatus: "APPROVED" },
+      });
+      await transaction.commitment.update({
+        where: { id: task.id },
+        data: { status: "VERIFIED" },
+      });
+      await transaction.activityEvent.create({
+        data: {
+          circleId,
+          actorId: userId,
+          kind: "PROOF_APPROVED",
+          entityId: proof.id,
+          summary: `verified proof for “${task.title}” (solo circle)`,
+        },
+      });
+      return { ...proof, reviewStatus: "APPROVED" as const };
+    }
     await transaction.commitment.update({
       where: { id: task.id },
       data: { status: "AWAITING_REVIEW" },
@@ -242,7 +246,7 @@ export async function submitProof(
   });
 }
 
-export { requiredApprovals };
+export { requiredApprovals, requiredApprovalsForCircle };
 export async function reviewProof(
   proofId: string,
   reviewerId: string,
@@ -308,8 +312,12 @@ export async function reviewProof(
 
         const approvals =
           proof.reviews.filter((r) => r.decision === "APPROVED").length + 1;
+        const memberCount = await transaction.membership.count({
+          where: { circleId },
+        });
+        const needed = requiredApprovalsForCircle(memberCount);
 
-        if (approvals >= requiredApprovals) {
+        if (approvals >= needed) {
           await transaction.taskProof.update({
             where: { id: proofId },
             data: { reviewStatus: "APPROVED" },
@@ -324,7 +332,7 @@ export async function reviewProof(
               actorId: reviewerId,
               kind: "PROOF_APPROVED",
               entityId: proofId,
-              summary: `approved proof for “${proof.commitment.title}” (${approvals}/${requiredApprovals})`,
+              summary: `approved proof for “${proof.commitment.title}” (${approvals}/${needed})`,
             },
           });
         } else {
@@ -335,7 +343,7 @@ export async function reviewProof(
               actorId: reviewerId,
               kind: "PROOF_APPROVED",
               entityId: proofId,
-              summary: `approved proof for “${proof.commitment.title}” (${approvals}/${requiredApprovals}) — needs one more`,
+              summary: `approved proof for “${proof.commitment.title}” (${approvals}/${needed}) — needs ${needed - approvals} more`,
             },
           });
         }

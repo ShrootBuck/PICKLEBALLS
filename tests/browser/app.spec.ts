@@ -151,19 +151,3 @@ test("squad members can reply to tasks and check-ins", async ({ browser }) => {
 
   await context.close();
 });
-
-test("daily and weekly Screen Time live in their own flow", async ({
-  browser,
-}) => {
-  const context = await browser.newContext({
-    storageState: authState("owner"),
-  });
-  const page = await context.newPage();
-  await page.goto("/screen-time");
-  await expect(
-    page.getByRole("heading", { name: /Screen Time/ }),
-  ).toBeVisible();
-  await expect(page.getByText("Daily", { exact: true })).toBeVisible();
-  await expect(page.getByText("Weekly", { exact: true })).toBeVisible();
-  await context.close();
-});

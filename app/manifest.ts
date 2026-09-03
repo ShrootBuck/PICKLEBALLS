@@ -52,13 +52,6 @@ export default function manifest(): MetadataRoute.Manifest {
         url: "/squad",
         icons: [{ src: "/icon", sizes: "512x512", type: "image/png" }],
       },
-      {
-        name: "Screen Time",
-        short_name: "Screen Time",
-        description: "Post your Screen Time receipt",
-        url: "/screen-time",
-        icons: [{ src: "/icon", sizes: "512x512", type: "image/png" }],
-      },
     ],
     prefer_related_applications: false,
   };

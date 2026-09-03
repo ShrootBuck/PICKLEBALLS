@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardCheck, Clock3, LogOut, Shield, Users } from "lucide-react";
+import { ClipboardCheck, LogOut, Shield, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -34,12 +34,6 @@ import { formatDayShort, phoenixDateKey } from "@/lib/time";
 const links = [
   { href: "/", label: "Today", hint: "Your board", icon: ClipboardCheck },
   { href: "/squad", label: "Squad", hint: "Talk + verdicts", icon: Users },
-  {
-    href: "/screen-time",
-    label: "Screen Time",
-    hint: "Receipts",
-    icon: Clock3,
-  },
 ];
 
 export function AppSidebar({

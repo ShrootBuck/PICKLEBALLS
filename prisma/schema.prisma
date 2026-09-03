@@ -44,11 +44,6 @@ enum AIAssessmentStatus {
   SKIPPED
 }
 
-enum ScreenTimeCadence {
-  DAILY
-  WEEKLY
-}
-
 enum ActivityKind {
   TASK_CREATED
   TASK_EDITED
@@ -59,13 +54,10 @@ enum ActivityKind {
   PROOF_CHALLENGED
   CHECK_IN_SET
   REPLY_POSTED
-  SCREEN_TIME_SUBMITTED
 }
 
 enum AIFeature {
-  SCREEN_TIME_EXTRACTION
   PROOF_ASSESSMENT
-  TASK_SHARPEN
   BLOCKER_COACH
 }
 
@@ -89,13 +81,11 @@ model User {
 
   memberships         Membership[]
   commitments         Commitment[]
-  commitmentRevisions CommitmentRevision[]
   proofs              TaskProof[]
   proofReviews        TaskProofReview[]
   checkIns            CheckIn[]
   checkInUpdates      CheckInUpdate[]
   activities          ActivityEvent[]
-  receipts            ScreenTimeReceipt[]
   aiRuns              AIRun[]
   sessions            Session[]
   accounts            Account[]
@@ -176,7 +166,6 @@ model Circle {
   checkIns      CheckIn[]
   checkInUpdates CheckInUpdate[]
   activities    ActivityEvent[]
-  receipts      ScreenTimeReceipt[]
   invites       Invite[]
   aiRuns        AIRun[]
   socialReplies SocialReply[]
@@ -233,31 +222,12 @@ model Commitment {
 
   user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   circle    Circle               @relation(fields: [circleId], references: [id], onDelete: Cascade)
-  revisions CommitmentRevision[]
   proofs    TaskProof[]
   replies   SocialReply[]
 
   @@index([circleId, day])
   @@index([userId, day])
   @@index([dueAt, status])
-}
-
-model CommitmentRevision {
-  id               String           @id @default(cuid())
-  commitmentId     String
-  editorId         String
-  title            String
-  definitionOfDone String
-  dueAt            DateTime
-  status           CommitmentStatus
-  revisionNote     String?
-  createdAt        DateTime         @default(now())
-
-  commitment Commitment @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
-  editor     User       @relation(fields: [editorId], references: [id], onDelete: Cascade)
-
-  @@index([commitmentId, createdAt])
-  @@index([createdAt])
 }
 
 model TaskProof {
@@ -395,49 +365,6 @@ model ActivityEvent {
 
   @@index([circleId, createdAt])
   @@index([createdAt])
-}
-
-model ScreenTimeReceipt {
-  id                     String            @id @default(cuid())
-  userId                 String
-  circleId               String
-  cadence                ScreenTimeCadence
-  periodStart            DateTime          @db.Date
-  periodEnd              DateTime          @db.Date
-  capturedAt             DateTime          @default(now())
-  dailyAverageMinutes    Int?
-  totalScreenTimeMinutes Int?
-  socialMinutes          Int?
-  pickups                Int?
-  comparisonPercent      Float?
-  topApps                Json
-  aiSummary              String?
-  aiConfidence           Float?
-  aiWarnings             Json
-  originalAIExtraction   Json?
-  hasUserCorrections     Boolean           @default(false)
-  createdAt              DateTime          @default(now())
-  updatedAt              DateTime          @updatedAt
-
-  user   User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  circle Circle                  @relation(fields: [circleId], references: [id], onDelete: Cascade)
-  image  ScreenTimeReceiptImage?
-
-  @@unique([userId, circleId, cadence, periodStart])
-  @@index([circleId, cadence, periodStart])
-  @@index([createdAt])
-}
-
-model ScreenTimeReceiptImage {
-  receiptId String   @id
-  data      Bytes    @db.ByteA
-  mimeType  String
-  sizeBytes Int
-  width     Int
-  height    Int
-  createdAt DateTime @default(now())
-
-  receipt ScreenTimeReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
 }
 
 model AIRun {

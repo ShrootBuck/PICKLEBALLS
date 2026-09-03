@@ -1,35 +1,14 @@
-import {
-  addDays,
-  isPlannableDay,
-  phoenixDateKey,
-  phoenixDateTime,
-} from "@/lib/time";
-
 export const dailyTaskLimit = 10;
 
-export const requiredApprovals = 2;
-
-export function validateTaskTiming(
-  day: string,
-  dueTime: string,
-  now = new Date(),
-) {
-  if (!isPlannableDay(day, now)) {
-    return {
-      ok: false as const,
-      error: `Plan for today through ${addDays(phoenixDateKey(now), 7)}.`,
-    };
-  }
-  const dueAt = phoenixDateTime(day, dueTime);
-  if (!dueAt) return { ok: false as const, error: "That due time is invalid." };
-  if (dueAt <= now) {
-    return {
-      ok: false as const,
-      error: "The deadline must still be in the future.",
-    };
-  }
-  return { ok: true as const, dueAt };
+// Approvals needed scale with circle size: floor(n / 2), at least 1 when
+// peers exist. Solo circles have no one to review, so proofs verify on post.
+export function requiredApprovalsForCircle(circleSize: number) {
+  if (circleSize <= 1) return 0;
+  return Math.min(circleSize - 1, Math.max(1, Math.floor(circleSize / 2)));
 }
+
+// Back-compat default for the seeded 4-person squad (floor(4/2) = 2).
+export const requiredApprovals = 2;
 
 export function canEditTask(dueAt: Date, now = new Date()) {
   return now < dueAt;

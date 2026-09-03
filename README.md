@@ -2,8 +2,8 @@
 
 Pickle Balls is a private schoolwork accountability app for a small circle. It is
 not a pickleball tracker. Each person can set up to ten tasks per Phoenix day,
-post photo proof, and get two peer approvals or one challenge to verify. Daily and weekly
-Screen Time receipts are a separate flow — just an image, the LLM reads it, and the image is what matters.
+post photo proof, and get peer approvals or one challenge to verify. Approvals
+needed scale with circle size: half the circle, rounded down.
 
 ## Stack
 
@@ -50,22 +50,21 @@ placeholder email because the auth user table requires a unique email.
 
 The app uses AI SDK 7 `generateText` with bounded `Output.object` schemas for:
 
-- Screen Time screenshot extraction (image-only, LLM does the reading)
 - advisory task-proof comparison
+- unblock coaching for check-ins
 
-Every request uses `meta/muse-spark-1.3-contributor` at high reasoning effort,
-disables fallbacks, requires supported parameters, times out after 60 seconds, and retries
+Every request uses `meta/muse-spark-1.3-contributor`, disables fallbacks, requires supported parameters, times out after 60 seconds, and retries
 once. AI never resolves proof. A friend does. Metadata-only run logs are stored;
 prompts and images are not logged.
 
 ## Storage
 
-Proof and Screen Time images are decoded, auto-rotated, stripped of metadata,
+Proof images are decoded, auto-rotated, stripped of metadata,
 bounded to 2048 pixels, and re-encoded as WebP before Postgres storage. Image
 routes require circle membership and send private caching plus `nosniff`.
 
-App history is kept indefinitely. This includes tasks, revisions, proofs,
-check-ins, replies, activity, Screen Time receipts, images, and AI run metadata.
+App history is kept indefinitely. This includes tasks, proofs,
+check-ins, replies, activity, images, and AI run metadata.
 The app does not run an age-based purge.
 
 Vercel calls `/api/cron/reconcile` daily with the configured `CRON_SECRET`

@@ -16,9 +16,9 @@ import {
   ItemContent,
   ItemDescription,
   ItemGroup,
+  ItemHeader,
   ItemTitle,
 } from "@/components/ui/item";
-import { requiredApprovals } from "@/lib/task-policy";
 import { cn } from "@/lib/utils";
 
 export type ProofReview = {
@@ -39,6 +39,7 @@ export type ProofCardData = {
   submittedAt: string;
   reviewStatus: "PENDING" | "APPROVED" | "CHALLENGED";
   approvals: number;
+  requiredApprovals: number;
   alreadyReviewed: boolean;
   reviews: ProofReview[];
   aiStatus: "PENDING" | "SUCCEEDED" | "FAILED" | "SKIPPED";
@@ -83,7 +84,7 @@ export function ProofCard({
   const meta = [
     proof.ownerName,
     proof.isLate ? "late as hell" : "on time",
-    `${proof.approvals}/${requiredApprovals} approvals`,
+    `${proof.approvals}/${proof.requiredApprovals} approvals`,
   ]
     .filter(Boolean)
     .join(" — ");
@@ -105,7 +106,15 @@ export function ProofCard({
           <CardHeader className={cn("py-3", compact && "pr-3")}>
             <CardTitle className="truncate">{proof.title}</CardTitle>
             <CardDescription className="truncate">{meta}</CardDescription>
-            <CardAction>{statusBadge(proof.reviewStatus)}</CardAction>
+            <CardAction className="flex flex-col items-end gap-1">
+              {statusBadge(proof.reviewStatus)}
+              {mode === "history" && proof.aiStatus === "SUCCEEDED"
+                ? matchBadge(proof.aiTaskMatch)
+                : null}
+              {proof.aiStatus === "PENDING" ? (
+                <Badge variant="outline">AI reading…</Badge>
+              ) : null}
+            </CardAction>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 pb-3">
             {proof.ownerNote ? (
@@ -165,7 +174,11 @@ export function ProofCard({
                   You already voted
                 </Badge>
               ) : (
-                <ReviewProof proofId={proof.id} taskTitle={proof.title} />
+                <ReviewProof
+                  proofId={proof.id}
+                  taskTitle={proof.title}
+                  requiredApprovals={proof.requiredApprovals}
+                />
               )
             ) : null}
             {proof.reviews.length > 0 ? (
@@ -173,7 +186,7 @@ export function ProofCard({
                 {proof.reviews.map((review) => (
                   <Item key={review.id} size="sm" variant="muted">
                     <ItemContent>
-                      <div className="flex items-center justify-between gap-2">
+                      <ItemHeader>
                         <ItemTitle className="text-[13px]">
                           {review.reviewerName}
                         </ItemTitle>
@@ -188,7 +201,7 @@ export function ProofCard({
                             ? "Challenged"
                             : "Approved"}
                         </Badge>
-                      </div>
+                      </ItemHeader>
                       {review.note ? (
                         <ItemDescription className="text-sm text-foreground">
                           {review.note}

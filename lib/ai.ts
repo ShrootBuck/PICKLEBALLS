@@ -18,34 +18,6 @@ import { getPrisma } from "@/lib/prisma";
 
 const APP_CONTEXT = `Pickle Balls is a tiny accountability app for a small private circle. Each day every member locks in 1-10 promises before midnight. Proof is a photo. Photo or it did not happen. Two friend approvals verify a proof. One challenge sends it back to open. You are an adviser, never the judge. Friends decide. Be blunt, short, and fair. No fluff, no therapy talk, no detective act.`;
 
-export const screenTimeExtractionSchema = z.object({
-  cadence: z.enum(["DAILY", "WEEKLY", "UNKNOWN"]),
-  periodStart: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .nullable(),
-  periodEnd: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .nullable(),
-  dailyAverageMinutes: z.number().int().min(0).max(10080).nullable(),
-  totalScreenTimeMinutes: z.number().int().min(0).max(10080).nullable(),
-  socialMinutes: z.number().int().min(0).max(10080).nullable(),
-  pickups: z.number().int().min(0).max(100000).nullable(),
-  comparisonPercent: z.number().min(-100).max(10000).nullable(),
-  topApps: z
-    .array(
-      z.object({
-        name: z.string().min(1).max(80),
-        minutes: z.number().int().min(0).max(10080),
-      }),
-    )
-    .max(12),
-  summary: z.string().min(1).max(500),
-  confidence: z.number().min(0).max(1),
-  warnings: z.array(z.string().max(200)).max(10),
-});
-
 export const proofAssessmentSchema = z.object({
   visibleEvidence: z.string().min(1).max(600),
   taskMatch: z.enum(["STRONG", "PARTIAL", "WEAK", "UNREADABLE"]),
@@ -150,34 +122,6 @@ async function runStructured<S extends z.ZodType>({
       .catch(() => undefined);
     throw error;
   }
-}
-
-export function extractScreenTime(
-  userId: string,
-  circleId: string,
-  image: { data: Uint8Array; mimeType: string },
-) {
-  return runStructured({
-    schema: screenTimeExtractionSchema,
-    userId,
-    circleId,
-    feature: "SCREEN_TIME_EXTRACTION",
-    effort: "high",
-    maxOutputTokens: 900,
-    system: `${APP_CONTEXT} You read Apple Screen Time screenshots so the squad can verify phone habits. ${injectionGuard} Convert hours and minutes to total minutes. Use null for cropped or absent metrics. Never shame the person. State only what the pixels show.`,
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: "Extract the visible daily or weekly Screen Time receipt for manual confirmation.",
-          },
-          { type: "file", data: image.data, mediaType: image.mimeType },
-        ],
-      },
-    ],
-  });
 }
 
 export function assessTaskProof(

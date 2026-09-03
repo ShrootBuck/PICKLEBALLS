@@ -28,13 +28,13 @@ export function ProofImageViewer({
         className={cn(
           "relative block shrink-0 cursor-zoom-in overflow-hidden bg-muted",
           compact
-            ? "size-24 sm:size-28"
-            : "h-72 w-full md:h-auto md:min-h-64 md:w-72",
+            ? "aspect-square size-24 sm:size-28"
+            : "h-64 w-full sm:h-72 md:h-auto md:min-h-80 md:w-72 md:self-stretch",
         )}
         aria-label={`Expand proof for ${title}`}
       >
         <Image
-          className="object-contain"
+          className={compact ? "object-cover" : "object-contain"}
           src={`/api/proofs/${proofId}/image`}
           alt={`Proof for ${title}`}
           fill

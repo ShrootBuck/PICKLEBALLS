@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Copy, Link2, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -42,10 +43,12 @@ type Invite = {
 };
 
 export function InvitePanel({ invites }: { invites: Invite[] }) {
+  const router = useRouter();
   const [pending, setPending] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
@@ -61,6 +64,19 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
     else setUrl(body.url ?? null);
     setPending(false);
   }
+  async function revoke(id: string) {
+    setRevokingId(id);
+    setError(null);
+    const response = await fetch(`/api/admin/invites/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      const body = (await response.json()) as { error?: string };
+      setError(body.error ?? "Revoke failed.");
+    }
+    setRevokingId(null);
+    router.refresh();
+  }
   return (
     <div className="grid items-start gap-4 lg:grid-cols-2">
       <form onSubmit={submit} className="min-w-0">
@@ -68,7 +84,8 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
           <CardHeader>
             <CardTitle>One-time Discord invite</CardTitle>
             <CardDescription>
-              The token is stored only as a hash. Copy it now.
+              The token is stored only as a hash. Copy it now — a lost link
+              cannot be shown again. Revoke and reissue instead.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -159,6 +176,7 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
                   <TableHead>Status</TableHead>
                   <TableHead>Expires</TableHead>
                   <TableHead>Used by</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -186,6 +204,26 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
                         {invite.expiresAt.slice(0, 10)}
                       </TableCell>
                       <TableCell>{invite.usedBy ?? "—"}</TableCell>
+                      <TableCell className="text-right">
+                        {status === "Ready" ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={revokingId === invite.id}
+                            onClick={() => revoke(invite.id)}
+                          >
+                            {revokingId === invite.id ? (
+                              <Spinner data-icon="inline-start" />
+                            ) : null}
+                            Revoke
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}

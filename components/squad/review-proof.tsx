@@ -25,14 +25,15 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { requiredApprovals } from "@/lib/task-policy";
 
 export function ReviewProof({
   proofId,
   taskTitle,
+  requiredApprovals,
 }: {
   proofId: string;
   taskTitle: string;
+  requiredApprovals: number;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -76,8 +77,11 @@ export function ReviewProof({
           <DialogHeader className="shrink-0 p-6 pb-0">
             <DialogTitle>Call it like it is</DialogTitle>
             <DialogDescription>
-              {taskTitle}. {requiredApprovals} approvals verify it. One
-              challenge sends it back to the grind.
+              {taskTitle}. {requiredApprovals}{" "}
+              {requiredApprovals === 1
+                ? "approval verifies"
+                : "approvals verify"}{" "}
+              it. One challenge sends it back to the grind.
             </DialogDescription>
           </DialogHeader>
           <form
