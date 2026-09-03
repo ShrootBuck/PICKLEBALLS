@@ -8,6 +8,11 @@ export async function ensureBootstrapMembership(
 ) {
   const bootstrapDiscordId = process.env.BOOTSTRAP_DISCORD_USER_ID;
   if (!bootstrapDiscordId) return null;
+  if (process.env.NODE_ENV !== "test") {
+    console.warn(
+      "[auth] BOOTSTRAP_DISCORD_USER_ID is set: that Discord account can always claim OWNER. Remove it once the first owner has signed in.",
+    );
+  }
 
   const prisma = getPrisma();
   const isBootstrapUser =

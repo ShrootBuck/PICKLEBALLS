@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageCircle, Pencil, Send, Trash2, X } from "lucide-react";
-import { type FormEvent, useId, useState } from "react";
+import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { formatReplyTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 export type ThreadReply = {
@@ -36,14 +37,6 @@ const EDIT_WINDOW_MS = 10 * 60 * 1000;
 function withinEditWindow(createdAt: string) {
   return Date.now() - new Date(createdAt).getTime() <= EDIT_WINDOW_MS;
 }
-
-const replyTimeFormatter = new Intl.DateTimeFormat("en-US", {
-  timeZone: "America/Phoenix",
-  month: "short",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-});
 
 function ReplyItem({
   reply,
@@ -129,7 +122,7 @@ function ReplyItem({
             dateTime={reply.createdAt}
             className="shrink-0 text-[11px] text-muted-foreground tabular-nums"
           >
-            {replyTimeFormatter.format(new Date(reply.createdAt))}
+            {formatReplyTime(reply.createdAt)}
             {edited ? " · edited" : ""}
           </time>
           {editable && !editing ? (
@@ -232,12 +225,14 @@ export function SocialReplyThread({
   initialReplies,
   compact = false,
   currentUserId,
+  defaultExpanded = false,
 }: {
   targetType: ReplyTargetType;
   targetId: string;
   initialReplies: SocialReply[];
   compact?: boolean;
   currentUserId?: string;
+  defaultExpanded?: boolean;
 }) {
   const generatedId = useId();
   const threadId = `reply-thread-${generatedId.replaceAll(":", "")}`;
@@ -246,7 +241,18 @@ export function SocialReplyThread({
   const [body, setBody] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const anchorRef = useRef<HTMLDivElement>(null);
+
+  // Deep-linked threads (from the activity bell) open and scroll into view.
+  useEffect(() => {
+    if (defaultExpanded) {
+      anchorRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }, [defaultExpanded]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -282,7 +288,11 @@ export function SocialReplyThread({
   }
 
   return (
-    <div className="flex w-full flex-col gap-2.5 rounded-xl bg-muted/60 p-3">
+    <div
+      ref={anchorRef}
+      id={`thread-${targetId}`}
+      className="flex w-full scroll-mt-20 flex-col gap-2.5 rounded-xl bg-muted/60 p-3"
+    >
       <div className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground">
         <MessageCircle className="size-3.5 shrink-0" />
         {replies.length === 0

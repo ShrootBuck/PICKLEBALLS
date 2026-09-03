@@ -1,7 +1,7 @@
 # Pickle Balls
 
 Pickle Balls is a private schoolwork accountability app for a small circle. It is
-not a pickleball tracker. Each person can set up to ten tasks per Phoenix day,
+not a pickleball tracker. Each person can set as many tasks as they want per Phoenix day,
 post photo proof, and get one peer approval or one challenge to verify. One
 approval from someone else verifies a proof.
 
@@ -20,13 +20,32 @@ approval from someone else verifies a proof.
 bun install
 cp .env.example .env
 bun run db:generate
-bun run db:push
+bunx prisma migrate dev
 bun run dev
 ```
 
 The `Pickle Balls` circle is created automatically on first owner sign-in.
-`bun run db:reset` destroys all current database data and pushes the schema.
+
+## Database migrations
+
+Schema changes go through Prisma Migrate, never `db push`:
+
+```bash
+bunx prisma migrate dev --name describe_the_change  # local, applies + creates SQL
+bun run db:migrate                                   # prod/CI: applies pending SQL only
+```
+
+`bun run vercel-build` runs `prisma migrate deploy`, so Vercel applies
+pending migrations on every deploy with full history and rollback. `bun run
+db:reset` destroys all current database data and re-applies migrations.
 Run it only when a reset is intentional.
+
+One-time note: databases created with the old `db push` flow have no
+migration history. Mark the baseline as applied once instead of replaying it:
+
+```bash
+bunx prisma migrate resolve --applied 20260903000000_baseline
+```
 
 ## Discord authentication
 

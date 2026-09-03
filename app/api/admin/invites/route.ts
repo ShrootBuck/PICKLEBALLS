@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { jsonError, readJson } from "@/lib/api";
 import {
   createInviteToken,
   hashInviteToken,
@@ -17,30 +18,44 @@ export async function POST(request: Request) {
   if (!auth || auth.membership.role !== "OWNER") {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
-  const parsed = schema.safeParse(await request.json().catch(() => null));
+  const parsed = schema.safeParse(await readJson(request).catch(() => null));
   if (!parsed.success)
     return NextResponse.json(
       { error: "Add a name for the invite." },
       { status: 400 },
     );
 
-  const token = createInviteToken();
-  const invite = await getPrisma().invite.create({
-    data: {
-      tokenHash: hashInviteToken(token),
-      label: parsed.data.label,
-      expiresAt: new Date(Date.now() + inviteLifetimeMs),
-      createdById: auth.session.user.id,
-      circleId: auth.membership.circleId,
-    },
-  });
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
-  return NextResponse.json(
-    {
-      id: invite.id,
-      expiresAt: invite.expiresAt,
-      url: new URL(`/join/${token}`, appUrl),
-    },
-    { status: 201 },
-  );
+  try {
+    const token = createInviteToken();
+    const invite = await getPrisma().invite.create({
+      data: {
+        tokenHash: hashInviteToken(token),
+        label: parsed.data.label,
+        expiresAt: new Date(Date.now() + inviteLifetimeMs),
+        createdById: auth.session.user.id,
+        circleId: auth.membership.circleId,
+      },
+    });
+    await getPrisma().activityEvent.create({
+      data: {
+        circleId: auth.membership.circleId,
+        actorId: auth.session.user.id,
+        kind: "INVITE_CREATED",
+        entityId: invite.id,
+        summary: `invited “${parsed.data.label}”`,
+      },
+    });
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
+    return NextResponse.json(
+      {
+        id: invite.id,
+        expiresAt: invite.expiresAt,
+        url: new URL(`/join/${token}`, appUrl).toString(),
+      },
+      { status: 201 },
+    );
+  } catch (error) {
+    return jsonError(error);
+  }
 }

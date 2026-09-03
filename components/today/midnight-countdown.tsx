@@ -1,8 +1,10 @@
 "use client";
 
 import { Clock3 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "@/components/ui/toast";
 import { phoenixDateKey, phoenixDayDueAt } from "@/lib/time";
 
 function formatRemaining(ms: number) {
@@ -22,22 +24,28 @@ function getDueMs(now: Date) {
 }
 
 export function MidnightCountdown({ compact = false }: { compact?: boolean }) {
+  const router = useRouter();
   const [remaining, setRemaining] = useState<number | null>(null);
+  const rolledDay = useRef<string | null>(null);
 
   useEffect(() => {
     const tick = () => {
       const now = new Date();
+      const key = phoenixDateKey(now);
       const ms = getDueMs(now);
       setRemaining(ms);
-      if (ms <= 0) {
-        // At midnight Phoenix time the board rolls — refresh once.
-        window.location.reload();
+      if (ms <= 0 && rolledDay.current !== key) {
+        // At midnight Phoenix time the board rolls. Soft-refresh so drafts
+        // and scroll survive instead of a hard reload.
+        rolledDay.current = key;
+        router.refresh();
+        toast.add({ title: "New day — board rolled.", type: "success" });
       }
     };
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [router]);
 
   const label =
     remaining === null

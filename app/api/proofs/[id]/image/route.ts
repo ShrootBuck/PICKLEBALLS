@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { getRequestMembership } from "@/lib/request";
@@ -19,7 +20,9 @@ export async function GET(
   // Proof images are immutable: a proofId maps to exactly one byte blob for
   // its whole life (re-submits create a new proof row, never mutate).
   // So the browser can cache this permanently without ever revalidating.
-  const etag = `"proof-${id}-${image.sizeBytes}"`;
+  // The hash covers the bytes, so same-size different-image collisions
+  // are impossible in practice.
+  const etag = `"proof-${id}-${createHash("sha256").update(image.data).digest("hex").slice(0, 32)}"`;
   const headers: Record<string, string> = {
     "content-type": image.mimeType,
     "cache-control": "private, max-age=31536000, immutable",

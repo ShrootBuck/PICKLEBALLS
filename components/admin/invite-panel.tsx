@@ -1,7 +1,6 @@
 "use client";
 
 import { Check, Copy, Link2, Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -42,8 +41,8 @@ type Invite = {
   usedBy: string | null;
 };
 
-export function InvitePanel({ invites }: { invites: Invite[] }) {
-  const router = useRouter();
+export function InvitePanel({ invites: initial }: { invites: Invite[] }) {
+  const [invites, setInvites] = useState(initial);
   const [pending, setPending] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,32 +54,74 @@ export function InvitePanel({ invites }: { invites: Invite[] }) {
     setError(null);
     const form = event.currentTarget;
     const data = Object.fromEntries(new FormData(form));
-    const response = await fetch("/api/admin/invites", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    const body = (await response.json()) as { error?: string; url?: string };
-    if (!response.ok) setError(body.error ?? "Invite failed.");
-    else {
-      setUrl(body.url ?? null);
-      form.reset();
-      router.refresh();
+    try {
+      const response = await fetch("/api/admin/invites", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        url?: string;
+        id?: string;
+        expiresAt?: string;
+      };
+      if (!response.ok) {
+        setError(body.error ?? "Invite failed.");
+      } else {
+        setUrl(body.url ?? null);
+        // Local update, no full-page refresh.
+        if (body.id && body.expiresAt) {
+          setInvites((prev) => [
+            {
+              id: body.id as string,
+              label:
+                typeof data.label === "string" && data.label.trim()
+                  ? data.label.trim()
+                  : null,
+              expiresAt: body.expiresAt as string,
+              usedAt: null,
+              revokedAt: null,
+              usedBy: null,
+            },
+            ...prev,
+          ]);
+        }
+        form.reset();
+      }
+    } catch {
+      setError("Could not reach the server. Check your wifi and try again.");
+    } finally {
+      setPending(false);
     }
-    setPending(false);
   }
   async function revoke(id: string) {
     setRevokingId(id);
     setError(null);
-    const response = await fetch(`/api/admin/invites/${id}`, {
-      method: "DELETE",
-    });
-    if (!response.ok) {
-      const body = (await response.json()) as { error?: string };
-      setError(body.error ?? "Revoke failed.");
+    try {
+      const response = await fetch(`/api/admin/invites/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setError(body.error ?? "Revoke failed.");
+      } else {
+        // Local update, no full-page refresh.
+        setInvites((prev) =>
+          prev.map((invite) =>
+            invite.id === id
+              ? { ...invite, revokedAt: new Date().toISOString() }
+              : invite,
+          ),
+        );
+      }
+    } catch {
+      setError("Could not reach the server. Check your wifi and try again.");
+    } finally {
+      setRevokingId(null);
     }
-    setRevokingId(null);
-    router.refresh();
   }
   return (
     <div className="grid items-start gap-4 lg:grid-cols-2">

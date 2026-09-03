@@ -12,7 +12,6 @@ import {
   Sparkles,
   TriangleAlert,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
@@ -64,7 +63,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { formatDayLong } from "@/lib/time";
+import { formatDayLong, formatHistoryTime } from "@/lib/time";
 
 type ProofReview = {
   id: string;
@@ -197,14 +196,20 @@ function ProofFeedback({
   );
 }
 
-const historyTime = new Intl.DateTimeFormat("en-US", {
-  timeZone: "America/Phoenix",
-  hour: "numeric",
-  minute: "2-digit",
-});
-
-function TaskDialog({ task }: { day: string; task?: Task }) {
-  const router = useRouter();
+function TaskDialog({
+  task,
+  onSaved,
+}: {
+  task?: Task;
+  onSaved?: (saved: {
+    id: string;
+    day: string;
+    title: string;
+    definitionOfDone: string;
+    dueAt: string;
+    status: Task["status"];
+  }) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -235,26 +240,51 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
       title,
       definitionOfDone: definition,
     };
-    const response = await fetch(
-      task ? `/api/commitments/${task.id}` : "/api/commitments",
-      {
-        method: task ? "PATCH" : "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(data),
-      },
-    );
-    if (!response.ok) {
-      setError(await readError(response));
+    try {
+      const response = await fetch(
+        task ? `/api/commitments/${task.id}` : "/api/commitments",
+        {
+          method: task ? "PATCH" : "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(data),
+        },
+      );
+      if (!response.ok) {
+        setError(await readError(response));
+        setPending(false);
+        return;
+      }
+      const body = (await response.json()) as {
+        task: {
+          id: string;
+          day: string;
+          title: string;
+          definitionOfDone: string;
+          dueAt: string;
+          status: Task["status"];
+        };
+      };
+      // Local update, no full-page refresh: keeps scroll, drafts, and vibes.
+      onSaved?.({
+        id: body.task.id,
+        day: body.task.day.slice(0, 10),
+        title: body.task.title,
+        definitionOfDone: body.task.definitionOfDone,
+        dueAt: body.task.dueAt,
+        status: body.task.status,
+      });
+      toast.add({
+        title: task
+          ? "Renegotiated. No excuses now."
+          : "Locked in. No bullshit.",
+        type: "success",
+      });
+      setOpen(false);
       setPending(false);
-      return;
+    } catch {
+      setError("Could not reach the server. Check your wifi and try again.");
+      setPending(false);
     }
-    toast.add({
-      title: task ? "Renegotiated. No excuses now." : "Locked in. No bullshit.",
-      type: "success",
-    });
-    setOpen(false);
-    setPending(false);
-    router.refresh();
   }
 
   return (
@@ -306,6 +336,10 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
                     required
                     maxLength={100}
                     className="h-11"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={
+                      error ? `task-error-${task?.id ?? "new"}` : undefined
+                    }
                   />
                 </Field>
                 <Field>
@@ -321,6 +355,10 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
                     required
                     maxLength={500}
                     className="min-h-24"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={
+                      error ? `task-error-${task?.id ?? "new"}` : undefined
+                    }
                   />
                   <FieldDescription>
                     “Study math” proves nothing. Name the finish line.
@@ -335,7 +373,10 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
                 </Alert>
               </FieldGroup>
               {error && (
-                <Alert variant="destructive">
+                <Alert
+                  variant="destructive"
+                  id={`task-error-${task?.id ?? "new"}`}
+                >
                   <AlertTitle>Nope.</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -360,8 +401,17 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
   );
 }
 
-function ProofDialog({ task }: { task: Task }) {
-  const router = useRouter();
+function ProofDialog({
+  task,
+  onProof,
+}: {
+  task: Task;
+  onProof?: (
+    taskId: string,
+    proof: NonNullable<Task["proof"]>,
+    status: Task["status"],
+  ) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -386,25 +436,53 @@ function ProofDialog({ task }: { task: Task }) {
     }
     setPending(true);
     setError(null);
-    const response = await fetch(`/api/commitments/${task.id}/proof`, {
-      method: "POST",
-      body: new FormData(event.currentTarget),
-    });
-    if (!response.ok) {
-      setError(await readError(response));
+    try {
+      const response = await fetch(`/api/commitments/${task.id}/proof`, {
+        method: "POST",
+        body: new FormData(event.currentTarget),
+      });
+      if (!response.ok) {
+        setError(await readError(response));
+        setPending(false);
+        return;
+      }
+      const body = (await response.json()) as {
+        proof: {
+          id: string;
+          isLate: boolean;
+          ownerNote: string | null;
+          reviewStatus: NonNullable<Task["proof"]>["reviewStatus"];
+          aiStatus: NonNullable<Task["proof"]>["aiStatus"];
+        };
+      };
+      // Solo circles verify on post; everyone else waits for a verdict.
+      const status: Task["status"] =
+        body.proof.reviewStatus === "APPROVED" ? "VERIFIED" : "AWAITING_REVIEW";
+      onProof?.(
+        task.id,
+        {
+          id: body.proof.id,
+          isLate: body.proof.isLate,
+          ownerNote: body.proof.ownerNote,
+          reviewStatus: body.proof.reviewStatus,
+          aiStatus: body.proof.aiStatus,
+          reviews: [],
+        },
+        status,
+      );
+      toast.add({
+        title: "Proof posted. Friends decide now.",
+        type: "success",
+      });
+      setOpen(false);
       setPending(false);
-      return;
+      setNote("");
+      setConfirmEmpty(false);
+      setFormKey((key) => key + 1);
+    } catch {
+      setError("Could not reach the server. Check your wifi and try again.");
+      setPending(false);
     }
-    toast.add({
-      title: "Proof posted. Friends decide now.",
-      type: "success",
-    });
-    setOpen(false);
-    setPending(false);
-    setNote("");
-    setConfirmEmpty(false);
-    setFormKey((key) => key + 1);
-    router.refresh();
   }
 
   const handleOpenChange = (next: boolean) => {
@@ -545,44 +623,77 @@ function ProofDialog({ task }: { task: Task }) {
 function CheckInCard({
   initial,
   history,
+  onPosted,
 }: {
   initial: CheckIn;
   history: CheckInHistoryItem[];
+  onPosted?: (
+    checkIn: NonNullable<CheckIn>,
+    historyItem: CheckInHistoryItem,
+  ) => void;
 }) {
-  const router = useRouter();
   const [signal, setSignal] = useState<NonNullable<CheckIn>["signal"]>(
     initial?.signal ?? "WORKING",
   );
   const [blocker, setBlocker] = useState("");
   const [pending, setPending] = useState(false);
-  // Server data goes stale after refresh; sync the toggle to latest post.
-  // Same-value setState bails out, so depending on the whole object is safe.
+  // Latest post wins; the parent feeds the new check-in back as `initial`.
+  const initialSignal = initial?.signal;
   useEffect(() => {
-    if (initial) setSignal(initial.signal);
-  }, [initial]);
+    if (initialSignal) setSignal(initialSignal);
+  }, [initialSignal]);
   const [coach, setCoach] = useState<string | null>(null);
   const [coachSteps, setCoachSteps] = useState<string[]>([]);
   const [coachPending, setCoachPending] = useState(false);
+  const [coachCooldown, setCoachCooldown] = useState(false);
 
   async function post() {
     setPending(true);
     setCoach(null);
-    const response = await fetch("/api/check-in", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ signal, blocker }),
-    });
-    toast.add({
-      title: response.ok ? "Posted. No take-backs." : await readError(response),
-      type: response.ok ? "success" : "error",
-    });
-    if (response.ok) setBlocker("");
-    setPending(false);
-    router.refresh();
+    try {
+      const response = await fetch("/api/check-in", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ signal, blocker }),
+      });
+      if (!response.ok) {
+        toast.add({ title: await readError(response), type: "error" });
+        setPending(false);
+        return;
+      }
+      const body = (await response.json()) as {
+        checkIn: {
+          id: string;
+          signal: NonNullable<CheckIn>["signal"];
+          blocker: string | null;
+          updatedAt: string;
+        };
+        update: { id: string };
+      };
+      // Local update, no full-page refresh.
+      onPosted?.(
+        { signal: body.checkIn.signal, blocker: body.checkIn.blocker },
+        {
+          id: body.update.id,
+          signal: body.checkIn.signal,
+          blocker: body.checkIn.blocker,
+          createdAt: body.checkIn.updatedAt,
+        },
+      );
+      toast.add({ title: "Posted. No take-backs.", type: "success" });
+      setBlocker("");
+      setPending(false);
+    } catch {
+      toast.add({
+        title: "Could not reach the server. Check your wifi and try again.",
+        type: "error",
+      });
+      setPending(false);
+    }
   }
 
   async function getUnblocked() {
-    if (coachPending) return;
+    if (coachPending || coachCooldown) return;
     setCoachPending(true);
     setCoach(null);
     setCoachSteps([]);
@@ -606,6 +717,10 @@ function CheckInCard({
       }
       setCoach(result.plan ?? null);
       setCoachSteps(result.steps ?? []);
+      // One high-effort run per minute per client. No server cap — trusted
+      // circle — just stops double-clicks burning money.
+      setCoachCooldown(true);
+      window.setTimeout(() => setCoachCooldown(false), 60_000);
     } catch {
       toast.add({ title: "AI is down right now.", type: "error" });
     } finally {
@@ -697,7 +812,7 @@ function CheckInCard({
                   <div className="flex items-center gap-2">
                     {signalBadge(item.signal)}
                     <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
-                      {historyTime.format(new Date(item.createdAt))}
+                      {formatHistoryTime(item.createdAt)}
                     </span>
                   </div>
                   {item.blocker ? (
@@ -729,14 +844,14 @@ function CheckInCard({
           size="sm"
           className="w-full"
           onClick={getUnblocked}
-          disabled={coachPending}
+          disabled={coachPending || coachCooldown}
         >
           {coachPending ? (
             <Spinner data-icon="inline-start" />
           ) : (
             <Bot data-icon="inline-start" />
           )}
-          Get unblocked by AI
+          {coachCooldown ? "Chill — one run per minute" : "Get unblocked by AI"}
         </Button>
       </CardFooter>
     </Card>
@@ -746,9 +861,9 @@ function CheckInCard({
 export function TodayDashboard({
   day,
   currentUserId,
-  tasks,
-  checkIn,
-  checkInHistory,
+  tasks: initialTasks,
+  checkIn: initialCheckIn,
+  checkInHistory: initialHistory,
 }: {
   day: string;
   currentUserId: string;
@@ -756,6 +871,12 @@ export function TodayDashboard({
   checkIn: CheckIn;
   checkInHistory: CheckInHistoryItem[];
 }) {
+  // Local-first board: mutations update state directly instead of a full
+  // router.refresh(). The page keys this component by day, so state
+  // re-seeds automatically when the day rolls over.
+  const [tasks, setTasks] = useState(initialTasks);
+  const [checkIn, setCheckIn] = useState(initialCheckIn);
+  const [checkInHistory, setCheckInHistory] = useState(initialHistory);
   const verified = tasks.filter((task) => task.status === "VERIFIED").length;
   const awaiting = tasks.filter(
     (task) => task.status === "AWAITING_REVIEW",
@@ -780,12 +901,49 @@ export function TodayDashboard({
           ? `${missed} missed. Yikes.`
           : `${tasks.length - verified} left to prove`;
 
+  function handleTaskSaved(saved: {
+    id: string;
+    day: string;
+    title: string;
+    definitionOfDone: string;
+    dueAt: string;
+    status: Task["status"];
+  }) {
+    setTasks((prev) =>
+      prev.some((item) => item.id === saved.id)
+        ? prev.map((item) =>
+            item.id === saved.id ? { ...item, ...saved } : item,
+          )
+        : [...prev, { ...saved, proof: null }],
+    );
+  }
+
+  function handleProof(
+    taskId: string,
+    proof: NonNullable<Task["proof"]>,
+    status: Task["status"],
+  ) {
+    setTasks((prev) =>
+      prev.map((item) =>
+        item.id === taskId ? { ...item, proof, status } : item,
+      ),
+    );
+  }
+
+  function handleCheckInPosted(
+    next: NonNullable<CheckIn>,
+    item: CheckInHistoryItem,
+  ) {
+    setCheckIn(next);
+    setCheckInHistory((prev) => [item, ...prev]);
+  }
+
   return (
     <>
       <PageHeader
         title="Today"
         description={`Did you get shit done or just bullshit? ${tasks.length} locked, ${verified} verified.`}
-        actions={<TaskDialog day={day} />}
+        actions={<TaskDialog onSaved={handleTaskSaved} />}
       >
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary" className="text-[13px]">
@@ -815,7 +973,7 @@ export function TodayDashboard({
           </div>
 
           {tasks.length === 0 ? (
-            <OnboardingCard action={<TaskDialog day={day} />} />
+            <OnboardingCard action={<TaskDialog onSaved={handleTaskSaved} />} />
           ) : (
             <div className="flex flex-col gap-3">
               {tasks.map((task) => (
@@ -852,11 +1010,11 @@ export function TodayDashboard({
                     <CardFooter className="justify-end gap-2">
                       {(task.status === "OPEN" ||
                         task.status === "RENEGOTIATED") && (
-                        <TaskDialog day={day} task={task} />
+                        <TaskDialog task={task} onSaved={handleTaskSaved} />
                       )}
                       {(!task.proof ||
                         task.proof.reviewStatus === "CHALLENGED") && (
-                        <ProofDialog task={task} />
+                        <ProofDialog task={task} onProof={handleProof} />
                       )}
                     </CardFooter>
                   ) : null}
@@ -865,7 +1023,11 @@ export function TodayDashboard({
             </div>
           )}
         </div>
-        <CheckInCard initial={checkIn} history={checkInHistory} />
+        <CheckInCard
+          initial={checkIn}
+          history={checkInHistory}
+          onPosted={handleCheckInPosted}
+        />
       </div>
     </>
   );

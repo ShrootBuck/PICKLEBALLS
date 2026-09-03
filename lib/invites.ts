@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
+import { getInitials as initialsFor } from "@/lib/names";
 import { getPrisma } from "@/lib/prisma";
 
 export const inviteLifetimeMs = 7 * 24 * 60 * 60 * 1000;
@@ -12,18 +13,6 @@ export function createInviteToken() {
 
 export function hashInviteToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
-}
-
-function initialsFor(name: string) {
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? "")
-      .join("")
-      .slice(0, 2) || "PB"
-  );
 }
 
 export async function reserveInvite(token: string, now = new Date()) {

@@ -30,6 +30,7 @@ import { requirePageMembership } from "@/lib/request";
 import { requiredApprovalsForCircle } from "@/lib/task-policy";
 import {
   formatDayLong,
+  formatHistoryTime,
   parseDateKey,
   phoenixDateKey,
   requireDateKey,
@@ -123,11 +124,6 @@ export default async function HistoryPage({
   const memberCount = members.length;
   const verified = tasks.filter((task) => task.status === "VERIFIED").length;
   const needed = requiredApprovalsForCircle(memberCount);
-  const historyTime = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Phoenix",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 
   const tasksByUser = new Map<string, typeof tasks>();
   for (const task of tasks) {
@@ -315,7 +311,7 @@ export default async function HistoryPage({
                               {item.signal.toLowerCase().replaceAll("_", " ")}
                             </Badge>
                             <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
-                              {historyTime.format(new Date(item.createdAt))}
+                              {formatHistoryTime(item.createdAt)}
                             </span>
                           </div>
                           {item.blocker ? (

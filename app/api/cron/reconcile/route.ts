@@ -16,8 +16,12 @@ export async function GET(request: Request) {
     try {
       const result = await reconcileMissedTasks(circle.id);
       reconciled += result.count;
-    } catch {
+    } catch (error) {
       // Keep reconciling other circles if one fails.
+      console.warn("Reconcile failed for circle", {
+        circleId: circle.id,
+        error,
+      });
     }
   }
 

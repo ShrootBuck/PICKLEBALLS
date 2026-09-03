@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { after } from "next/server";
 import { TodayDashboard } from "@/components/today/today-dashboard";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
-import { reconcileMissedTasks } from "@/lib/tasks";
 import { phoenixDateKey, requireDateKey } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Today" };
@@ -12,9 +10,8 @@ export default async function TodayPage() {
   const { session, membership } = await requirePageMembership();
   const dayKey = phoenixDateKey();
   const day = requireDateKey(dayKey);
-  after(() => {
-    reconcileMissedTasks(membership.circleId).catch(() => undefined);
-  });
+  // Overdue marking is owned by the daily cron (`/api/cron/reconcile`), not
+  // by page views — scanning on every visit just slows down Today.
   const [tasks, checkIn, history] = await Promise.all([
     getPrisma().commitment.findMany({
       where: { userId: session.user.id, circleId: membership.circleId, day },
@@ -87,6 +84,7 @@ export default async function TodayPage() {
         }));
   return (
     <TodayDashboard
+      key={dayKey}
       day={dayKey}
       currentUserId={session.user.id}
       tasks={tasks.map((task) => ({

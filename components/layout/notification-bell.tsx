@@ -1,17 +1,8 @@
 "use client";
 
-import {
-  Activity,
-  Bell,
-  CheckCircle2,
-  CircleDashed,
-  ClockAlert,
-  History,
-  MessageCircle,
-  PencilLine,
-  TriangleAlert,
-  Upload,
-} from "lucide-react";
+import { Bell } from "lucide-react";
+import Link from "next/link";
+import { activityIcon as eventIcon } from "@/components/layout/activity-icons";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,45 +11,16 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { formatReplyTime } from "@/lib/time";
 
 export type BellEvent = {
   id: string;
   kind: string;
   summary: string;
   actorName: string;
+  entityId?: string | null;
   createdAt: string;
 };
-
-function eventIcon(kind: string) {
-  switch (kind) {
-    case "TASK_CREATED":
-      return PencilLine;
-    case "PROOF_SUBMITTED":
-      return Upload;
-    case "PROOF_APPROVED":
-      return CheckCircle2;
-    case "PROOF_CHALLENGED":
-      return TriangleAlert;
-    case "TASK_MISSED":
-      return ClockAlert;
-    case "TASK_RENEGOTIATED":
-      return History;
-    case "CHECK_IN_SET":
-      return Activity;
-    case "REPLY_POSTED":
-      return MessageCircle;
-    default:
-      return CircleDashed;
-  }
-}
-
-const eventTime = new Intl.DateTimeFormat("en-US", {
-  timeZone: "America/Phoenix",
-  month: "short",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-});
 
 export function NotificationBell({ events }: { events: BellEvent[] }) {
   const fresh = events.filter(
@@ -102,11 +64,8 @@ export function NotificationBell({ events }: { events: BellEvent[] }) {
             <ul className="flex max-h-80 flex-col gap-0.5 overflow-y-auto p-1">
               {events.map((event) => {
                 const Icon = eventIcon(event.kind);
-                return (
-                  <li
-                    key={event.id}
-                    className="flex items-start gap-2 rounded-md px-2 py-1.5"
-                  >
+                const content = (
+                  <>
                     <Icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                     <span className="min-w-0">
                       <span className="block truncate text-[13px]">
@@ -114,9 +73,26 @@ export function NotificationBell({ events }: { events: BellEvent[] }) {
                         {event.summary}
                       </span>
                       <span className="block text-[11px] text-muted-foreground tabular-nums">
-                        {eventTime.format(new Date(event.createdAt))}
+                        {formatReplyTime(event.createdAt)}
                       </span>
                     </span>
+                  </>
+                );
+                return (
+                  <li
+                    key={event.id}
+                    className="flex items-start gap-2 rounded-md px-2 py-1.5"
+                  >
+                    {event.entityId ? (
+                      <Link
+                        href={`/squad?focus=${event.entityId}`}
+                        className="flex min-w-0 items-start gap-2 rounded-md hover:bg-muted"
+                      >
+                        {content}
+                      </Link>
+                    ) : (
+                      content
+                    )}
                   </li>
                 );
               })}

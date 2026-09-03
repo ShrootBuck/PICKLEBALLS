@@ -1,4 +1,5 @@
 import { Bot } from "lucide-react";
+import { AiRetryButton } from "@/components/squad/ai-retry-button";
 import { ProofImageViewer } from "@/components/squad/proof-image-viewer";
 import { ReviewProof } from "@/components/squad/review-proof";
 import {
@@ -23,6 +24,7 @@ import {
   ItemHeader,
   ItemTitle,
 } from "@/components/ui/item";
+import { formatProofTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 export type ProofReview = {
@@ -57,12 +59,6 @@ export type ProofCardData = {
   aiOneLiner: string | null;
 };
 
-const timeFormatter = new Intl.DateTimeFormat("en-US", {
-  timeZone: "America/Phoenix",
-  dateStyle: "short",
-  timeStyle: "short",
-});
-
 function matchBadge(match: string | null) {
   if (match === "STRONG") return <Badge variant="default">Looks solid</Badge>;
   if (match === "PARTIAL") return <Badge variant="secondary">Partial</Badge>;
@@ -82,10 +78,14 @@ export function ProofCard({
   proof,
   viewerId,
   mode,
+  onReviewed,
+  focusId,
 }: {
   proof: ProofCardData;
   viewerId: string;
   mode: "review" | "history";
+  onReviewed?: (proofId: string) => void;
+  focusId?: string;
 }) {
   const compact = mode === "history";
   const meta = [
@@ -119,6 +119,9 @@ export function ProofCard({
               {proof.aiStatus === "PENDING" ? (
                 <Badge variant="outline">AI reading…</Badge>
               ) : null}
+              {proof.aiStatus === "FAILED" ? (
+                <AiRetryButton proofId={proof.id} />
+              ) : null}
             </CardAction>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 pb-3">
@@ -134,7 +137,7 @@ export function ProofCard({
             ) : null}
             {compact ? (
               <p className="text-xs text-muted-foreground tabular-nums">
-                {timeFormatter.format(new Date(proof.submittedAt))}
+                {formatProofTime(proof.submittedAt)}
               </p>
             ) : null}
             {mode === "review" && proof.aiStatus === "SUCCEEDED" ? (
@@ -184,6 +187,7 @@ export function ProofCard({
                   proofId={proof.id}
                   taskTitle={proof.title}
                   requiredApprovals={proof.requiredApprovals}
+                  onReviewed={onReviewed}
                 />
               )
             ) : null}
@@ -222,6 +226,7 @@ export function ProofCard({
                           initialReplies={review.replies}
                           currentUserId={viewerId}
                           compact
+                          defaultExpanded={focusId === review.id}
                         />
                       </div>
                     </ItemContent>
@@ -235,6 +240,7 @@ export function ProofCard({
               initialReplies={proof.replies}
               currentUserId={viewerId}
               compact={compact}
+              defaultExpanded={focusId === proof.id}
             />
           </CardContent>
         </div>

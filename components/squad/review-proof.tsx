@@ -1,7 +1,6 @@
 "use client";
 
 import { Check, Gavel, MessageSquareWarning } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -30,43 +29,72 @@ export function ReviewProof({
   proofId,
   taskTitle,
   requiredApprovals,
+  onReviewed,
 }: {
   proofId: string;
   taskTitle: string;
   requiredApprovals: number;
+  onReviewed?: (proofId: string) => void;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [decision, setDecision] = useState<"APPROVED" | "CHALLENGED">(
     "APPROVED",
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmChallenge, setConfirmChallenge] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
-    const form = new FormData(event.currentTarget);
-    const response = await fetch(`/api/proofs/${proofId}/review`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ decision, note: form.get("note") }),
-    });
-    if (!response.ok) {
-      const body = (await response.json()) as { error?: string };
-      setError(body.error ?? "Review failed.");
-      setPending(false);
+    // Challenging sends the proof back to open. Make it a deliberate
+    // two-click act instead of a single fat-finger.
+    if (decision === "CHALLENGED" && !confirmChallenge) {
+      setConfirmChallenge(true);
       return;
     }
-    toast.add({
-      title: decision === "APPROVED" ? "Proof approved." : "Proof challenged.",
-      type: decision === "APPROVED" ? "success" : "warning",
-    });
-    setOpen(false);
-    setPending(false);
-    router.refresh();
+    setPending(true);
+    setError(null);
+    try {
+      const form = new FormData(event.currentTarget);
+      const response = await fetch(`/api/proofs/${proofId}/review`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ decision, note: form.get("note") }),
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setError(body.error ?? "Review failed.");
+        setPending(false);
+        return;
+      }
+      toast.add({
+        title:
+          decision === "APPROVED" ? "Proof approved." : "Proof challenged.",
+        type: decision === "APPROVED" ? "success" : "warning",
+      });
+      setOpen(false);
+      setPending(false);
+      setConfirmChallenge(false);
+      // Local update, no full-page refresh.
+      onReviewed?.(proofId);
+    } catch {
+      setError("Could not reach the server. Check your wifi and try again.");
+      setPending(false);
+    }
   }
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) {
+          setError(null);
+          setPending(false);
+          setConfirmChallenge(false);
+        }
+      }}
+    >
       <DialogTrigger
         render={<Button size="sm" className="touch-manipulation" />}
       >
@@ -94,9 +122,12 @@ export function ReviewProof({
                 <FieldTitle id={`decision-${proofId}`}>Verdict</FieldTitle>
                 <ToggleGroup
                   value={[decision]}
-                  onValueChange={(value) =>
-                    value[0] && setDecision(value[0] as typeof decision)
-                  }
+                  onValueChange={(value) => {
+                    if (value[0]) {
+                      setDecision(value[0] as typeof decision);
+                      setConfirmChallenge(false);
+                    }
+                  }}
                   aria-labelledby={`decision-${proofId}`}
                   variant="outline"
                   spacing={2}
@@ -125,14 +156,27 @@ export function ReviewProof({
                       : "Optional. Say why this counts."
                   }
                   className="min-h-24"
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={
+                    error ? `review-error-${proofId}` : undefined
+                  }
                 />
                 <FieldDescription>
                   A challenge with no reason is just hating.
                 </FieldDescription>
               </Field>
             </FieldGroup>
+            {confirmChallenge && decision === "CHALLENGED" ? (
+              <Alert>
+                <MessageSquareWarning />
+                <AlertTitle>This sends it back to open. Sure?</AlertTitle>
+                <AlertDescription>
+                  Hit submit again to challenge. Switch to approve to back out.
+                </AlertDescription>
+              </Alert>
+            ) : null}
             {error && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" id={`review-error-${proofId}`}>
                 <AlertTitle>Review failed.</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
@@ -148,7 +192,11 @@ export function ReviewProof({
               className="w-full touch-manipulation sm:w-fit"
             >
               {pending && <Spinner data-icon="inline-start" />}
-              Submit verdict
+              {decision === "CHALLENGED" && !confirmChallenge
+                ? "Challenge it"
+                : decision === "CHALLENGED"
+                  ? "Confirm challenge"
+                  : "Submit verdict"}
             </Button>
           </DialogFooter>
         </div>

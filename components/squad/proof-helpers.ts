@@ -42,7 +42,7 @@ export type ProofRow = {
   replies: ReplyRow[];
   reviews: Array<{
     id: string;
-    decision: string;
+    decision: "APPROVED" | "CHALLENGED";
     note: string | null;
     createdAt: Date;
     reviewerId: string;
@@ -58,19 +58,18 @@ export function toProofCard(
 ): ProofCardData {
   const mappedReviews = proof.reviews.map((review) => ({
     id: review.id,
-    decision: (review.decision === "CHALLENGED" ? "CHALLENGED" : "APPROVED") as
-      | "CHALLENGED"
-      | "APPROVED",
+    decision: review.decision,
     note: review.note,
     createdAt: review.createdAt.toISOString(),
     reviewerName: review.reviewer.name,
     replies: review.replies.map(toThreadReply),
   }));
+  const reviewerByReviewId = new Map(
+    proof.reviews.map((review) => [review.id, review.reviewerId] as const),
+  );
   const mine =
     mappedReviews.find(
-      (review) =>
-        proof.reviews.find((item) => item.id === review.id)?.reviewerId ===
-        viewerId,
+      (review) => reviewerByReviewId.get(review.id) === viewerId,
     ) ?? null;
   return {
     id: proof.id,

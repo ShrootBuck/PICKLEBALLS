@@ -52,6 +52,8 @@ enum ActivityKind {
   PROOF_CHALLENGED
   CHECK_IN_SET
   REPLY_POSTED
+  INVITE_CREATED
+  INVITE_REVOKED
 }
 
 enum AIFeature {
@@ -170,6 +172,7 @@ model Circle {
 }
 
 model Membership {
+  // Single-circle app forever: one membership per user, globally enforced.
   userId    String         @unique
   circleId  String
   role      MembershipRole @default(MEMBER)
@@ -185,7 +188,7 @@ model Membership {
 model Invite {
   id             String         @id @default(cuid())
   tokenHash      String         @unique
-  label          String?
+  label          String?        @db.VarChar(80)
   role           MembershipRole @default(MEMBER)
   expiresAt      DateTime
   claimNonce     String?        @unique
@@ -211,8 +214,8 @@ model Commitment {
   userId           String
   circleId         String
   day              DateTime         @db.Date
-  title            String
-  definitionOfDone String
+  title            String           @db.VarChar(100)
+  definitionOfDone String           @db.VarChar(500)
   dueAt            DateTime
   status           CommitmentStatus @default(OPEN)
   createdAt        DateTime         @default(now())
@@ -232,8 +235,8 @@ model TaskProof {
   id                 String             @id @default(cuid())
   commitmentId       String
   ownerId            String
-  circleId           String
-  ownerNote          String?
+  circleId         String
+  ownerNote        String?          @db.VarChar(500)
   submittedAt        DateTime           @default(now())
   isLate             Boolean
   aiStatus           AIAssessmentStatus @default(PENDING)
@@ -277,7 +280,7 @@ model TaskProofReview {
   reviewerId String
   circleId   String
   decision   ProofReviewDecision
-  note       String?
+  note       String?            @db.VarChar(500)
   createdAt  DateTime            @default(now())
 
   proof    TaskProof @relation(fields: [proofId], references: [id], onDelete: Cascade)
@@ -297,7 +300,7 @@ model CheckIn {
   circleId  String
   day       DateTime    @db.Date
   signal    DailySignal
-  blocker   String?
+  blocker   String?     @db.VarChar(500)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
@@ -317,7 +320,7 @@ model CheckInUpdate {
   circleId  String
   day       DateTime    @db.Date
   signal    DailySignal
-  blocker   String?
+  blocker   String?     @db.VarChar(500)
   createdAt DateTime    @default(now())
 
   checkIn CheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
@@ -337,7 +340,7 @@ model SocialReply {
   checkInId    String?
   proofId      String?
   reviewId     String?
-  body         String
+  body         String           @db.VarChar(500)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -370,6 +373,7 @@ model ActivityEvent {
   actor  User   @relation(fields: [actorId], references: [id], onDelete: Cascade)
 
   @@index([circleId, createdAt])
+  @@index([circleId, kind, createdAt])
   @@index([createdAt])
 }
 

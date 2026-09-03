@@ -29,6 +29,7 @@ export function FileUpload({
   const ref = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileSize, setFileSize] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   const handleChange = () => {
     const file = ref.current?.files?.[0] ?? null;
@@ -55,21 +56,41 @@ export function FileUpload({
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium leading-none">
+        <label htmlFor={inputId} className="text-sm font-medium leading-none">
           {label}
           {required && <span className="text-destructive"> *</span>}
-        </span>
+        </label>
         {fileName && (
           <Badge variant="secondary" className="max-w-[14rem] truncate">
             {fileName}
           </Badge>
         )}
       </div>
+      {/* Drop zone is progressive enhancement: the "Choose file" button
+          below stays the keyboard path, so no interactive role here. */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: drop target only */}
       <div
         className={cn(
           "group relative flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/30 px-6 py-8 text-center transition-colors hover:bg-muted/50 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
           fileName && "border-solid bg-card hover:bg-card",
+          dragging && "border-solid border-ring bg-muted/60",
         )}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDragging(false);
+          const file = event.dataTransfer.files?.[0];
+          if (file && ref.current) {
+            const transfer = new DataTransfer();
+            transfer.items.add(file);
+            ref.current.files = transfer.files;
+            handleChange();
+          }
+        }}
       >
         <div className="flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
           <Upload className="size-5" />

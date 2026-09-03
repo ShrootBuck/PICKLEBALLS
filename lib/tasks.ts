@@ -393,5 +393,5 @@ export async function setCheckIn(
     });
     return { checkIn, update };
   });
-  return result.checkIn;
+  return result;
 }

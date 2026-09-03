@@ -18,6 +18,13 @@ export async function POST(
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   try {
     const { id } = await context.params;
+    const contentLength = request.headers.get("content-length");
+    if (contentLength && Number(contentLength) > 7 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "Image payload too large." },
+        { status: 413 },
+      );
+    }
     const form = await request.formData();
     const file = form.get("image");
     if (!(file instanceof File))
@@ -25,7 +32,12 @@ export async function POST(
         { error: "Attach a proof photo." },
         { status: 400 },
       );
-    const note = String(form.get("note") ?? "").trim() || null;
+    // Cap before trim so a multi-MB note never gets fully materialized
+    // into a string that Zod just rejects anyway.
+    const note =
+      String(form.get("note") ?? "")
+        .slice(0, 5000)
+        .trim() || null;
     const proof = await submitProof(
       id,
       auth.session.user.id,
@@ -36,6 +48,8 @@ export async function POST(
 
     // Run AI assessment in the background so upload feels instant.
     // Uses Next.js `after()` to keep work alive after response.
+    const uploaderId = auth.session.user.id;
+    const circleId = auth.membership.circleId;
     after(async () => {
       try {
         const proofWithTask = await getPrisma().taskProof.findUnique({
@@ -50,8 +64,8 @@ export async function POST(
           return;
         }
         const assessment = await assessTaskProof(
-          auth.session.user.id,
-          auth.membership.circleId,
+          uploaderId,
+          circleId,
           {
             title: proofWithTask.commitment.title,
             definitionOfDone: proofWithTask.commitment.definitionOfDone,
@@ -73,7 +87,12 @@ export async function POST(
             aiOneLiner: assessment.oneLiner,
           },
         });
-      } catch {
+      } catch (error) {
+        console.warn("AI assessment failed", {
+          proofId: proof.id,
+          circleId,
+          error,
+        });
         await getPrisma()
           .taskProof.update({
             where: { id: proof.id },
@@ -83,10 +102,7 @@ export async function POST(
       }
     });
 
-    return NextResponse.json(
-      { proof: { ...proof, assessment: null } },
-      { status: 201 },
-    );
+    return NextResponse.json({ proof }, { status: 201 });
   } catch (error) {
     return jsonError(error);
   }

@@ -101,3 +101,37 @@ export function formatDayShort(dayKey: string) {
     day: "numeric",
   }).format(dayKeyToDate(dayKey));
 }
+
+// Shared Phoenix-time formatters. Module-level so render loops never
+// construct Intl.DateTimeFormat per row.
+const replyTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: appTimeZone,
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+const historyTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: appTimeZone,
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+const proofTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: appTimeZone,
+  dateStyle: "short",
+  timeStyle: "short",
+});
+
+export function formatReplyTime(date: Date | string) {
+  return replyTimeFormatter.format(new Date(date));
+}
+
+export function formatHistoryTime(date: Date | string) {
+  return historyTimeFormatter.format(new Date(date));
+}
+
+export function formatProofTime(date: Date | string) {
+  return proofTimeFormatter.format(new Date(date));
+}

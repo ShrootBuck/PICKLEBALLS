@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { jsonError } from "@/lib/api";
+import { jsonError, readJson } from "@/lib/api";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { deleteSocialReply, updateSocialReply } from "@/lib/social-replies";
 
@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 export async function PATCH(
   request: Request,
-  context: { params: Promise<{ id: string }> },
+  context: RouteContext<"/api/replies/[id]">,
 ) {
   if (!hasSameOrigin(request)) {
     return NextResponse.json({ error: "Bad origin." }, { status: 403 });
@@ -22,7 +22,7 @@ export async function PATCH(
       id,
       auth.session.user.id,
       auth.membership.circleId,
-      await request.json(),
+      await readJson(request),
     );
     return NextResponse.json({ reply });
   } catch (error) {
@@ -32,7 +32,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  context: { params: Promise<{ id: string }> },
+  context: RouteContext<"/api/replies/[id]">,
 ) {
   if (!hasSameOrigin(request)) {
     return NextResponse.json({ error: "Bad origin." }, { status: 403 });

@@ -16,7 +16,7 @@ import {
 } from "@/lib/ai-config";
 import { getPrisma } from "@/lib/prisma";
 
-const APP_CONTEXT = `Pickle Balls is a tiny accountability app for a small private circle. Each day every member locks in 1-10 promises before midnight. Proof is a photo. Photo or it did not happen. One friend approval verifies a proof. One challenge sends it back to open. You are an adviser, never the judge. Friends decide. Be blunt, short, and fair. No fluff, no therapy talk, no detective act.`;
+const APP_CONTEXT = `Pickle Balls is a tiny accountability app for a small private circle. Each day every member locks in their promises before midnight. Proof is a photo. Photo or it did not happen. One friend approval verifies a proof. One challenge sends it back to open. You are an adviser, never the judge. Friends decide. Be blunt, short, and fair. No fluff, no therapy talk, no detective act.`;
 
 export const proofAssessmentSchema = z.object({
   visibleEvidence: z.string().min(1).max(600),
@@ -99,12 +99,21 @@ async function runStructured<S extends z.ZodType>({
     });
     return schema.parse(result.output);
   } catch (error) {
-    const code =
-      error instanceof Error && error.message === "AI_RATE_LIMIT"
-        ? "AI_RATE_LIMIT"
-        : error instanceof Error
-          ? error.name.slice(0, 80)
-          : "UNKNOWN_AI_ERROR";
+    let code = "UNKNOWN_AI_ERROR";
+    if (error instanceof Error) {
+      if (error.message === "AI_RATE_LIMIT") {
+        code = "AI_RATE_LIMIT";
+      } else if (error.name === "AbortError") {
+        code = "TIMEOUT";
+      } else if (
+        error.message.includes("429") ||
+        error.message.includes("rate limit")
+      ) {
+        code = "PROVIDER_RATE_LIMIT";
+      } else {
+        code = error.name.slice(0, 80) || "UNKNOWN_AI_ERROR";
+      }
+    }
     await getPrisma()
       .aIRun.create({
         data: {
@@ -175,7 +184,7 @@ export function coachBlocker(
 ) {
   const taskList =
     input.tasks.length > 0
-      ? input.tasks.slice(0, 10).join("; ")
+      ? input.tasks.slice(0, 30).join("; ")
       : "(no tasks locked in)";
   return runStructured({
     schema: blockerCoachSchema,

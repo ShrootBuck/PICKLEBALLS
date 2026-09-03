@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { coachBlocker } from "@/lib/ai";
-import { jsonError } from "@/lib/api";
+import { jsonError, readJson } from "@/lib/api";
 import { getPrisma } from "@/lib/prisma";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { aiUnblockSchema } from "@/lib/schemas";
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   if (!auth)
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   try {
-    const parsed = aiUnblockSchema.safeParse(await request.json());
+    const parsed = aiUnblockSchema.safeParse(await readJson(request));
     if (!parsed.success) throw new DomainError("Bad unblock request.");
     const day = requireDateKey(phoenixDateKey());
     const tasks = await getPrisma().commitment.findMany({
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       },
       select: { title: true },
       orderBy: { dueAt: "asc" },
-      take: 10,
+      take: 50,
     });
     const result = await coachBlocker(
       auth.session.user.id,

@@ -19,15 +19,9 @@ export function hasSameOrigin(request: Request) {
       return false;
     }
   }
-  // Same-origin fetch may omit origin/referer in some environments; fall back to host check.
-  const host = request.headers.get("host");
-  if (host) {
-    try {
-      return new URL(request.url).host === host;
-    } catch {
-      return false;
-    }
-  }
+  // Mutations must prove their origin. Plain cross-site form POSTs often
+  // omit Origin, and a Host check would pass those by definition — so a
+  // missing Origin/Referer is a rejection, not a pass.
   return false;
 }
 

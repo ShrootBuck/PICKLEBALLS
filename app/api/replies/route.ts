@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { jsonError } from "@/lib/api";
+import { jsonError, readJson } from "@/lib/api";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { createSocialReply } from "@/lib/social-replies";
 
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const reply = await createSocialReply(
       auth.session.user.id,
       auth.membership.circleId,
-      await request.json(),
+      await readJson(request),
     );
     return NextResponse.json({ reply }, { status: 201 });
   } catch (error) {

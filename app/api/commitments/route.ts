@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { jsonError } from "@/lib/api";
+import { jsonError, readJson } from "@/lib/api";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { createCommitment } from "@/lib/tasks";
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const task = await createCommitment(
       auth.session.user.id,
       auth.membership.circleId,
-      await request.json(),
+      await readJson(request),
     );
     return NextResponse.json({ task }, { status: 201 });
   } catch (error) {

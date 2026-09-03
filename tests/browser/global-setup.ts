@@ -22,12 +22,12 @@ export default async function globalSetup(_config: FullConfig) {
   process.env.DATABASE_URL = databaseUrl;
   process.env.BETTER_AUTH_SECRET = secret;
 
-  const pushed = spawnSync(
+  const reset = spawnSync(
     "bun",
-    ["x", "prisma", "db", "push", "--force-reset"],
+    ["x", "prisma", "migrate", "reset", "--force"],
     { env: process.env, stdio: "inherit" },
   );
-  if (pushed.status !== 0)
+  if (reset.status !== 0)
     throw new Error("Could not prepare the browser test DB.");
 
   const { getPrisma } = await import("@/lib/prisma");

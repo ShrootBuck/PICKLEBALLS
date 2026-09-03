@@ -12,19 +12,17 @@ export default function ErrorPage({
   reset: () => void;
 }) {
   return (
-    <html lang="en">
-      <body className="flex min-h-svh items-center justify-center p-6">
-        <div className="flex w-full max-w-md flex-col gap-4">
-          <Alert variant="destructive">
-            <TriangleAlert />
-            <AlertTitle>App crashed.</AlertTitle>
-            <AlertDescription>
-              {error.message || "Unexpected error. Try again."}
-            </AlertDescription>
-          </Alert>
-          <Button onClick={reset}>Try again</Button>
-        </div>
-      </body>
-    </html>
+    <div className="flex min-h-svh items-center justify-center p-6">
+      <div className="flex w-full max-w-md flex-col gap-4">
+        <Alert variant="destructive">
+          <TriangleAlert />
+          <AlertTitle>App crashed.</AlertTitle>
+          <AlertDescription>
+            {error.message || "Unexpected error. Try again."}
+          </AlertDescription>
+        </Alert>
+        <Button onClick={reset}>Try again</Button>
+      </div>
+    </div>
   );
 }

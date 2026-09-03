@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { jsonError } from "@/lib/api";
+import { jsonError, readJson } from "@/lib/api";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { updateCommitment } from "@/lib/tasks";
 
@@ -20,7 +20,7 @@ export async function PATCH(
       id,
       auth.session.user.id,
       auth.membership.circleId,
-      await request.json(),
+      await readJson(request),
     );
     return NextResponse.json({ task });
   } catch (error) {

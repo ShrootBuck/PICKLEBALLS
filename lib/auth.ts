@@ -13,19 +13,8 @@ import {
   redeemReservedInvite,
   reserveInvite,
 } from "@/lib/invites";
+import { getInitials as initials } from "@/lib/names";
 import { getPrisma } from "@/lib/prisma";
-
-function initials(name: string) {
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? "")
-      .join("")
-      .slice(0, 2) || "PB"
-  );
-}
 
 function oauthClaim(state: Awaited<ReturnType<typeof getOAuthState>>) {
   const context = state?.serverContext;

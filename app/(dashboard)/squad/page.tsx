@@ -1,18 +1,7 @@
-import {
-  Activity,
-  Camera,
-  CheckCircle2,
-  CircleDashed,
-  ClockAlert,
-  Flame,
-  History,
-  MessageCircle,
-  PencilLine,
-  TriangleAlert,
-  Upload,
-} from "lucide-react";
+import { Camera, Flame } from "lucide-react";
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
+import { activityIcon } from "@/components/layout/activity-icons";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProofCard } from "@/components/squad/proof-card";
 import {
@@ -24,6 +13,7 @@ import {
 } from "@/components/squad/proof-helpers";
 import { SocialReplyThread } from "@/components/squad/social-reply-thread";
 import { SquadTabs } from "@/components/squad/squad-tabs";
+import { VerdictList } from "@/components/squad/verdict-list";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -53,35 +43,23 @@ import { Separator } from "@/components/ui/separator";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
 import { requiredApprovalsForCircle } from "@/lib/task-policy";
-import { formatDayLong, phoenixDateKey, requireDateKey } from "@/lib/time";
+import {
+  formatDayLong,
+  formatReplyTime,
+  phoenixDateKey,
+  requireDateKey,
+} from "@/lib/time";
 
 export const metadata: Metadata = { title: "Squad" };
 
-function activityIcon(kind: string) {
-  switch (kind) {
-    case "TASK_CREATED":
-      return PencilLine;
-    case "PROOF_SUBMITTED":
-      return Upload;
-    case "PROOF_APPROVED":
-      return CheckCircle2;
-    case "PROOF_CHALLENGED":
-      return TriangleAlert;
-    case "TASK_MISSED":
-      return ClockAlert;
-    case "TASK_RENEGOTIATED":
-      return History;
-    case "CHECK_IN_SET":
-      return Activity;
-    case "REPLY_POSTED":
-      return MessageCircle;
-    default:
-      return CircleDashed;
-  }
-}
-
-export default async function SquadPage() {
+export default async function SquadPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ focus?: string }>;
+}) {
   const { session, membership } = await requirePageMembership();
+  const params = await searchParams;
+  const focusId = params.focus;
   const dayKey = phoenixDateKey();
   const day = requireDateKey(dayKey);
   const friendlyDay = formatDayLong(dayKey);
@@ -149,8 +127,8 @@ export default async function SquadPage() {
       orderBy: { submittedAt: "asc" },
       take: 20,
       include: {
-        owner: true,
-        commitment: true,
+        owner: { select: { name: true } },
+        commitment: { select: { title: true } },
         replies: {
           orderBy: { createdAt: "asc" },
           take: 50,
@@ -187,8 +165,8 @@ export default async function SquadPage() {
       orderBy: { submittedAt: "desc" },
       take: 20,
       include: {
-        owner: true,
-        commitment: true,
+        owner: { select: { name: true } },
+        commitment: { select: { title: true } },
         replies: {
           orderBy: { createdAt: "asc" },
           take: 50,
@@ -230,7 +208,7 @@ export default async function SquadPage() {
       },
       orderBy: { createdAt: "desc" },
       take: 20,
-      include: { actor: true },
+      include: { actor: { select: { name: true } } },
     }),
   ]);
 
@@ -256,31 +234,13 @@ export default async function SquadPage() {
         verdictCount={proofs.length}
         proofCount={todayHistory.length}
         verdicts={
-          proofs.length === 0 ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <ClockAlert />
-                </EmptyMedia>
-                <EmptyTitle>Nothing to judge</EmptyTitle>
-                <EmptyDescription>
-                  Either everyone is grinding or nobody posted shit. Very
-                  different situations.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {proofs.map((proof) => (
-                <ProofCard
-                  key={proof.id}
-                  proof={toProofCard(proof, session.user.id, requiredApprovals)}
-                  viewerId={session.user.id}
-                  mode="review"
-                />
-              ))}
-            </div>
-          )
+          <VerdictList
+            initial={proofs.map((proof) =>
+              toProofCard(proof, session.user.id, requiredApprovals),
+            )}
+            viewerId={session.user.id}
+            focusId={focusId}
+          />
         }
         board={
           <div className="grid items-start gap-3 sm:grid-cols-2">
@@ -364,6 +324,7 @@ export default async function SquadPage() {
                             initialReplies={task.replies.map(toThreadReply)}
                             currentUserId={session.user.id}
                             compact
+                            defaultExpanded={focusId === task.id}
                           />
                         </Item>
                       ))}
@@ -424,6 +385,7 @@ export default async function SquadPage() {
                             initialReplies={checkIn.replies.map(toThreadReply)}
                             currentUserId={session.user.id}
                             compact
+                            defaultExpanded={focusId === checkIn.id}
                           />
                         </div>
                       </>
@@ -462,6 +424,7 @@ export default async function SquadPage() {
                   proof={toProofCard(proof, session.user.id, requiredApprovals)}
                   viewerId={session.user.id}
                   mode="history"
+                  focusId={focusId}
                 />
               ))}
             </div>
@@ -483,13 +446,7 @@ export default async function SquadPage() {
                           {event.actor.name} {event.summary}
                         </ItemTitle>
                         <ItemDescription className="tabular-nums">
-                          {new Intl.DateTimeFormat("en-US", {
-                            timeZone: "America/Phoenix",
-                            month: "short",
-                            day: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                          }).format(event.createdAt)}
+                          {formatReplyTime(event.createdAt)}
                         </ItemDescription>
                       </ItemContent>
                     </Item>
