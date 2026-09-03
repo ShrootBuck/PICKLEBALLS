@@ -8,6 +8,9 @@ export type AIEffort = "low" | "medium" | "high";
 
 export function openRouterModelSettings(effort: AIEffort, userId: string) {
   return {
+    // No max_tokens cap on reasoning: user wants full high-effort thinking.
+    // Reasoning still counts toward the output budget, so we also omit
+    // maxOutputTokens on the call side and let the provider use its max.
     reasoning: { effort, exclude: true },
     provider: {
       allow_fallbacks: false,

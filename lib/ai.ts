@@ -59,7 +59,6 @@ async function runStructured<S extends z.ZodType>({
   circleId,
   feature,
   effort,
-  maxOutputTokens,
   system,
   messages,
 }: {
@@ -68,7 +67,6 @@ async function runStructured<S extends z.ZodType>({
   circleId: string;
   feature: AIFeature;
   effort: AIEffort;
-  maxOutputTokens: number;
   system: string;
   messages: NonNullable<Parameters<typeof generateText>[0]["messages"]>;
 }) {
@@ -80,7 +78,8 @@ async function runStructured<S extends z.ZodType>({
       output: Output.object({ schema }),
       system,
       messages,
-      maxOutputTokens,
+      // No maxOutputTokens: provider default (max). Reasoning tokens count
+      // toward the budget, and high effort needs the headroom.
       maxRetries: aiMaxRetries,
       abortSignal: AbortSignal.timeout(aiTimeoutMs),
       include: { requestBody: false, responseBody: false },
@@ -142,8 +141,7 @@ export function assessTaskProof(
     userId,
     circleId,
     feature: "PROOF_ASSESSMENT",
-    effort: "medium",
-    maxOutputTokens: 600,
+    effort: "high",
     system: `${APP_CONTEXT}
 You help friends judge a photo proof in under 10 seconds.
 
@@ -184,8 +182,7 @@ export function coachBlocker(
     userId,
     circleId,
     feature: "BLOCKER_COACH",
-    effort: "medium",
-    maxOutputTokens: 400,
+    effort: "high",
     system: `${APP_CONTEXT} You are the no-bullshit unblock coach. Given today's status, blocker, and task list, give one blunt plan under 40 words plus up to 3 concrete next steps under 25 minutes each. No therapy, no generic advice, no questions back. If there is no real blocker, say to lock in and start. ${injectionGuard}`,
     messages: [
       {
