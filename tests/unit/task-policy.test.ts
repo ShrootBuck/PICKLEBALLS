@@ -22,14 +22,13 @@ describe("Phoenix task policy", () => {
     expect(dailyTaskLimit).toBe(10);
   });
 
-  test("scales approvals with circle size", () => {
+  test("one approval verifies when peers exist", () => {
     expect(requiredApprovalsForCircle(1)).toBe(0);
     expect(requiredApprovalsForCircle(2)).toBe(1);
     expect(requiredApprovalsForCircle(3)).toBe(1);
-    expect(requiredApprovalsForCircle(4)).toBe(2);
-    expect(requiredApprovalsForCircle(6)).toBe(3);
-    expect(requiredApprovalsForCircle(7)).toBe(3);
-    expect(requiredApprovalsForCircle(8)).toBe(4);
+    expect(requiredApprovalsForCircle(4)).toBe(1);
+    expect(requiredApprovalsForCircle(6)).toBe(1);
+    expect(requiredApprovalsForCircle(8)).toBe(1);
   });
 
   test("locks edits at the due instant and permanently marks later proof", () => {

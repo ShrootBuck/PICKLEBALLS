@@ -362,6 +362,60 @@ export async function reviewProof(
   }
 }
 
+export async function reconcilePendingSingleApprovals(circleId?: string) {
+  const proofs = await getPrisma().taskProof.findMany({
+    where: {
+      reviewStatus: "PENDING",
+      replacedById: null,
+      ...(circleId ? { circleId } : {}),
+    },
+    include: {
+      commitment: { select: { id: true, title: true, status: true } },
+      reviews: { orderBy: { createdAt: "asc" } },
+    },
+  });
+  // Under the old 2-approval policy a proof could sit at 1 approval still
+  // pending. Under the 1-approval policy that one vote is a full verdict.
+  const eligible = proofs.filter(
+    (proof) =>
+      proof.reviews.some((r) => r.decision === "APPROVED") &&
+      !proof.reviews.some((r) => r.decision !== "APPROVED"),
+  );
+  if (eligible.length === 0) return { count: 0, ids: [] as string[] };
+  const ids: string[] = [];
+  await getPrisma().$transaction(async (transaction) => {
+    for (const proof of eligible) {
+      const firstApproval = proof.reviews.find(
+        (r) => r.decision === "APPROVED",
+      );
+      if (!firstApproval) continue;
+      const updated = await transaction.taskProof.updateMany({
+        where: { id: proof.id, reviewStatus: "PENDING" },
+        data: { reviewStatus: "APPROVED" },
+      });
+      if (updated.count === 0) continue;
+      await transaction.commitment.updateMany({
+        where: {
+          id: proof.commitmentId,
+          status: { in: ["OPEN", "RENEGOTIATED", "AWAITING_REVIEW"] },
+        },
+        data: { status: "VERIFIED" },
+      });
+      await transaction.activityEvent.create({
+        data: {
+          circleId: proof.circleId,
+          actorId: firstApproval.reviewerId,
+          kind: "PROOF_APPROVED",
+          entityId: proof.id,
+          summary: `approved proof for “${proof.commitment.title}” (1/1)`,
+        },
+      });
+      ids.push(proof.id);
+    }
+  });
+  return { count: ids.length, ids };
+}
+
 export async function setCheckIn(
   userId: string,
   circleId: string,

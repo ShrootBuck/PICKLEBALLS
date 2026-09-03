@@ -2,8 +2,8 @@
 
 Pickle Balls is a private schoolwork accountability app for a small circle. It is
 not a pickleball tracker. Each person can set up to ten tasks per Phoenix day,
-post photo proof, and get peer approvals or one challenge to verify. Approvals
-needed scale with circle size: half the circle, rounded down.
+post photo proof, and get one peer approval or one challenge to verify. One
+approval from someone else verifies a proof.
 
 ## Stack
 

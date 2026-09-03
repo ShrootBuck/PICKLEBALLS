@@ -69,7 +69,7 @@ test("owner creates a task and posts proof", async ({ browser }) => {
 test("a peer reviews pending proof and owner tools stay role-gated", async ({
   browser,
 }) => {
-  // First approval — still needs one more (2 required)
+  // Single approval verifies (1 required)
   const miaContext = await browser.newContext({
     storageState: authState("mia"),
   });
@@ -82,22 +82,16 @@ test("a peer reviews pending proof and owner tools stay role-gated", async ({
   await miaPage.getByRole("button", { name: /Review proof/ }).click();
   await miaPage.getByText("Approve", { exact: true }).click();
   await miaPage.getByRole("button", { name: "Submit verdict" }).click();
-  await expect(miaPage.getByText("1/2 approvals")).toBeVisible();
+  await expect(miaPage.getByText("Nothing to judge")).toBeVisible();
   await miaContext.close();
 
-  // Second approval — now verified and queue empty
+  // Owner tools stay role-gated
   const leoContext = await browser.newContext({
     storageState: authState("leo"),
   });
   const leoPage = await leoContext.newPage();
   await leoPage.goto("/squad");
-  await expect(
-    leoPage.getByRole("button", { name: /Review proof/ }),
-  ).toBeVisible();
-  await leoPage.getByRole("button", { name: /Review proof/ }).click();
-  await leoPage.getByText("Approve", { exact: true }).click();
-  await leoPage.getByRole("button", { name: "Submit verdict" }).click();
-  await expect(leoPage.getByText("No proof waiting")).toBeVisible();
+  await expect(leoPage.getByText("Nothing to judge")).toBeVisible();
 
   await leoPage.goto("/admin");
   await expect(leoPage).toHaveURL(/\/$/);

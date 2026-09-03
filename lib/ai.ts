@@ -16,7 +16,7 @@ import {
 } from "@/lib/ai-config";
 import { getPrisma } from "@/lib/prisma";
 
-const APP_CONTEXT = `Pickle Balls is a tiny accountability app for a small private circle. Each day every member locks in 1-10 promises before midnight. Proof is a photo. Photo or it did not happen. Two friend approvals verify a proof. One challenge sends it back to open. You are an adviser, never the judge. Friends decide. Be blunt, short, and fair. No fluff, no therapy talk, no detective act.`;
+const APP_CONTEXT = `Pickle Balls is a tiny accountability app for a small private circle. Each day every member locks in 1-10 promises before midnight. Proof is a photo. Photo or it did not happen. One friend approval verifies a proof. One challenge sends it back to open. You are an adviser, never the judge. Friends decide. Be blunt, short, and fair. No fluff, no therapy talk, no detective act.`;
 
 export const proofAssessmentSchema = z.object({
   visibleEvidence: z.string().min(1).max(600),

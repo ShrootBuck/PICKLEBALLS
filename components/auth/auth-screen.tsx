@@ -19,7 +19,7 @@ const points = [
   {
     icon: Users,
     title: "Friends verify",
-    body: "Two approvals pass. One challenge sends it back.",
+    body: "One approval passes. One challenge sends it back.",
   },
   {
     icon: Clock3,
