@@ -5,15 +5,11 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useId, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 
 type ReplyTargetType = "COMMITMENT" | "CHECK_IN";
 
@@ -39,24 +35,28 @@ const replyTimeFormatter = new Intl.DateTimeFormat("en-US", {
 
 function ReplyItem({ reply }: { reply: SocialReply }) {
   return (
-    <div className="flex gap-2">
-      <Avatar className="size-6 shrink-0">
+    <div className="flex gap-2.5">
+      <Avatar className="size-7 shrink-0">
         <AvatarImage src={reply.author.image ?? undefined} alt="" />
-        <AvatarFallback>{reply.author.initials}</AvatarFallback>
+        <AvatarFallback className="text-[11px]">
+          {reply.author.initials}
+        </AvatarFallback>
       </Avatar>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 rounded-xl bg-background/70 px-3 py-2">
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="truncate text-sm font-medium">
+          <span className="text-[13px] font-semibold">
             {reply.author.name}
           </span>
           <time
             dateTime={reply.createdAt}
-            className="shrink-0 text-xs text-muted-foreground tabular-nums"
+            className="shrink-0 text-[11px] text-muted-foreground tabular-nums"
           >
             {replyTimeFormatter.format(new Date(reply.createdAt))}
           </time>
         </div>
-        <p className="whitespace-pre-wrap break-words text-sm">{reply.body}</p>
+        <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-snug">
+          {reply.body}
+        </p>
       </div>
     </div>
   );
@@ -66,16 +66,17 @@ export function SocialReplyThread({
   targetType,
   targetId,
   initialReplies,
+  compact = false,
 }: {
   targetType: ReplyTargetType;
   targetId: string;
   initialReplies: SocialReply[];
+  compact?: boolean;
 }) {
   const router = useRouter();
   const generatedId = useId();
   const threadId = `reply-thread-${generatedId.replaceAll(":", "")}`;
   const inputId = `${threadId}-input`;
-  const [open, setOpen] = useState(false);
   const [replies, setReplies] = useState(initialReplies);
   const [body, setBody] = useState("");
   const [pending, setPending] = useState(false);
@@ -99,99 +100,100 @@ export function SocialReplyThread({
         error?: string;
       };
       if (!response.ok || !result.reply) {
-        setError(result.error ?? "Reply failed.");
+        setError(result.error ?? "Reply flopped. Try again.");
         return;
       }
 
       setReplies((current) => [...current, result.reply as SocialReply]);
       setBody("");
-      toast.add({ title: "Reply posted.", type: "success" });
       router.refresh();
     } catch {
-      setError("Could not post the reply. Try again.");
+      setError("Could not post. Check your wifi and try again.");
     } finally {
       setPending(false);
     }
   }
 
-  const latestReply = replies.at(-1);
-  const replyLabel =
-    replies.length === 0
-      ? "Reply"
-      : `${replies.length} ${replies.length === 1 ? "reply" : "replies"}`;
-
   return (
-    <div className="flex w-full flex-col items-start gap-2">
-      <Button
-        type="button"
-        variant="ghost"
-        size="xs"
-        aria-expanded={open}
-        aria-controls={threadId}
-        onClick={() => setOpen((current) => !current)}
-      >
-        <MessageCircle data-icon="inline-start" />
-        {replyLabel}
-      </Button>
+    <div className="flex w-full flex-col gap-2.5 rounded-xl bg-muted/60 p-3">
+      <div className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground">
+        <MessageCircle className="size-3.5" />
+        {replies.length === 0
+          ? "No replies yet. Start the roast."
+          : `${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}
+      </div>
 
-      {!open && latestReply ? <ReplyItem reply={latestReply} /> : null}
-
-      {open ? (
+      {replies.length > 0 ? (
         <div
-          id={threadId}
-          className="flex w-full flex-col gap-3 rounded-lg bg-muted/50 p-3"
+          className={cn(
+            "flex flex-col gap-2",
+            compact && replies.length > 3
+              ? "max-h-56 overflow-y-auto pr-1"
+              : "",
+          )}
+          aria-live="polite"
         >
-          {replies.length > 0 ? (
-            <div className="flex flex-col gap-3" aria-live="polite">
-              {replies.map((reply) => (
-                <ReplyItem key={reply.id} reply={reply} />
-              ))}
-            </div>
+          {(compact ? replies.slice(-3) : replies).map((reply) => (
+            <ReplyItem key={reply.id} reply={reply} />
+          ))}
+          {compact && replies.length > 3 ? (
+            <p className="text-xs text-muted-foreground">
+              Showing the last 3 of {replies.length}. Talk more below.
+            </p>
           ) : null}
-          <form onSubmit={submit} className="w-full">
-            <FieldGroup className="gap-2">
-              <Field data-invalid={Boolean(error)}>
-                <FieldLabel htmlFor={inputId} className="sr-only">
-                  Write a reply
-                </FieldLabel>
-                <Textarea
-                  id={inputId}
-                  value={body}
-                  onChange={(event) => setBody(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (
-                      event.key === "Enter" &&
-                      (event.metaKey || event.ctrlKey)
-                    ) {
-                      event.currentTarget.form?.requestSubmit();
-                    }
-                  }}
-                  maxLength={500}
-                  placeholder="Say something useful (or at least funny)"
-                  aria-invalid={Boolean(error)}
-                  disabled={pending}
-                  className="min-h-16"
-                />
-                <FieldError>{error}</FieldError>
-              </Field>
-              <Field orientation="horizontal" className="justify-end">
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={pending || body.trim().length === 0}
-                >
-                  {pending ? (
-                    <Spinner data-icon="inline-start" />
-                  ) : (
-                    <Send data-icon="inline-start" />
-                  )}
-                  Post reply
-                </Button>
-              </Field>
-            </FieldGroup>
-          </form>
         </div>
       ) : null}
+
+      <form onSubmit={submit} className="w-full">
+        <FieldGroup className="gap-2">
+          <Field data-invalid={Boolean(error)}>
+            <FieldLabel htmlFor={inputId} className="sr-only">
+              Write a reply
+            </FieldLabel>
+            <Textarea
+              id={inputId}
+              value={body}
+              onChange={(event) => setBody(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  (event.metaKey || event.ctrlKey)
+                ) {
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+              maxLength={500}
+              placeholder={
+                replies.length === 0
+                  ? "Say something useful (or at least funny)"
+                  : "Keep it going…"
+              }
+              aria-invalid={Boolean(error)}
+              disabled={pending}
+              className="min-h-11 resize-none bg-background py-2.5 text-sm"
+              rows={1}
+            />
+            <FieldError>{error}</FieldError>
+          </Field>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {body.trim().length}/500
+            </span>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={pending || body.trim().length === 0}
+            >
+              {pending ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <Send data-icon="inline-start" />
+              )}
+              Reply
+            </Button>
+          </div>
+        </FieldGroup>
+      </form>
     </div>
   );
 }

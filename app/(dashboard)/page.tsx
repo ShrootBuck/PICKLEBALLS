@@ -15,7 +15,7 @@ export default async function TodayPage() {
   after(() => {
     reconcileMissedTasks(membership.circleId).catch(() => undefined);
   });
-  const [tasks, checkIn] = await Promise.all([
+  const [tasks, checkIn, history] = await Promise.all([
     getPrisma().commitment.findMany({
       where: { userId: session.user.id, circleId: membership.circleId, day },
       orderBy: { dueAt: "asc" },
@@ -36,7 +36,33 @@ export default async function TodayPage() {
         },
       },
     }),
+    getPrisma().checkInUpdate.findMany({
+      where: {
+        userId: session.user.id,
+        circleId: membership.circleId,
+        day,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
   ]);
+  // Old check-ins from before history existed still show up once.
+  const historyItems =
+    history.length === 0 && checkIn
+      ? [
+          {
+            id: checkIn.id,
+            signal: checkIn.signal,
+            blocker: checkIn.blocker,
+            createdAt: checkIn.updatedAt.toISOString(),
+          },
+        ]
+      : history.map((item) => ({
+          id: item.id,
+          signal: item.signal,
+          blocker: item.blocker,
+          createdAt: item.createdAt.toISOString(),
+        }));
   return (
     <TodayDashboard
       day={dayKey}
@@ -59,6 +85,7 @@ export default async function TodayPage() {
       checkIn={
         checkIn ? { signal: checkIn.signal, blocker: checkIn.blocker } : null
       }
+      checkInHistory={historyItems}
     />
   );
 }

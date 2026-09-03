@@ -84,3 +84,34 @@ export function formatPhoenixDate(
     ...options,
   }).format(value);
 }
+
+const phoenixNoon = "T12:00:00-07:00";
+
+function dayKeyToDate(dayKey: string) {
+  return new Date(`${dayKey}${phoenixNoon}`);
+}
+
+export function formatDayLong(dayKey: string) {
+  if (!parseDateKey(dayKey)) return dayKey;
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: appTimeZone,
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(dayKeyToDate(dayKey));
+}
+
+export function formatDayShort(dayKey: string) {
+  if (!parseDateKey(dayKey)) return dayKey;
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: appTimeZone,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(dayKeyToDate(dayKey));
+}
+
+export function isTodayKey(dayKey: string, now = new Date()) {
+  return dayKey === phoenixDateKey(now);
+}

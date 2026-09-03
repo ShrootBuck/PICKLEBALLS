@@ -52,7 +52,11 @@ export async function POST(
         const assessment = await assessTaskProof(
           auth.session.user.id,
           auth.membership.circleId,
-          proofWithTask.commitment,
+          {
+            title: proofWithTask.commitment.title,
+            definitionOfDone: proofWithTask.commitment.definitionOfDone,
+            ownerNote: proofWithTask.ownerNote,
+          },
           {
             data: proofWithTask.image.data,
             mimeType: proofWithTask.image.mimeType,
@@ -65,6 +69,8 @@ export async function POST(
             aiVisibleEvidence: assessment.visibleEvidence,
             aiUncertainty: assessment.uncertainty,
             aiReviewerQuestion: assessment.reviewerQuestion,
+            aiTaskMatch: assessment.taskMatch,
+            aiOneLiner: assessment.oneLiner,
           },
         });
       } catch {

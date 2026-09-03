@@ -29,11 +29,17 @@ import {
 } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
+import { formatDayShort, phoenixDateKey } from "@/lib/time";
 
 const links = [
-  { href: "/", label: "Today", icon: ClipboardCheck },
-  { href: "/squad", label: "Squad", icon: Users },
-  { href: "/screen-time", label: "Screen Time", icon: Clock3 },
+  { href: "/", label: "Today", hint: "Your board", icon: ClipboardCheck },
+  { href: "/squad", label: "Squad", hint: "Talk + verdicts", icon: Users },
+  {
+    href: "/screen-time",
+    label: "Screen Time",
+    hint: "Receipts",
+    icon: Clock3,
+  },
 ];
 
 export function AppSidebar({
@@ -55,6 +61,7 @@ export function AppSidebar({
   const handle = user.discordUsername
     ? `@${user.discordUsername}`
     : "Discord member";
+  const todayLabel = formatDayShort(phoenixDateKey());
 
   return (
     <Sidebar collapsible="icon" variant="inset">
@@ -74,27 +81,35 @@ export function AppSidebar({
                   Pickle Balls
                 </span>
                 <span className="truncate text-xs font-normal text-sidebar-accent-foreground/70">
-                  School first
+                  Proof or bullshit
                 </span>
               </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+        <div className="rounded-lg bg-sidebar-accent px-3 py-2 group-data-[collapsible=icon]:hidden">
+          <p className="truncate text-xs font-medium text-sidebar-accent-foreground">
+            {todayLabel}
+          </p>
+          <p className="truncate text-[11px] text-sidebar-accent-foreground/70">
+            Deadline at midnight. No mercy.
+          </p>
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Day</SidebarGroupLabel>
+          <SidebarGroupLabel>Daily grind</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {links.map(({ href, label, icon: Icon }) => (
+              {links.map(({ href, label, hint, icon: Icon }) => (
                 <SidebarMenuItem key={href}>
                   <SidebarMenuButton
                     render={<Link href={href} prefetch />}
                     isActive={pathname === href}
-                    tooltip={label}
+                    tooltip={`${label} — ${hint}`}
                   >
                     <Icon />
-                    <span>{label}</span>
+                    <span className="font-medium">{label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -103,7 +118,7 @@ export function AppSidebar({
         </SidebarGroup>
         {isOwner ? (
           <SidebarGroup>
-            <SidebarGroupLabel>Owner</SidebarGroupLabel>
+            <SidebarGroupLabel>Owner zone</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>

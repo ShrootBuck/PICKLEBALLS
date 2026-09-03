@@ -55,3 +55,13 @@ export const receiptConfirmationSchema = z.object({
   originalAIExtraction: z.unknown().nullable(),
   hasUserCorrections: z.boolean(),
 });
+
+export const aiSharpenSchema = z.object({
+  title: z.string().trim().min(3).max(100),
+  definitionOfDone: z.string().trim().max(500).optional().default(""),
+});
+
+export const aiUnblockSchema = z.object({
+  signal: z.enum(["WORKING", "CLEAR", "AT_RISK"]),
+  blocker: z.string().trim().max(500).optional().default(""),
+});

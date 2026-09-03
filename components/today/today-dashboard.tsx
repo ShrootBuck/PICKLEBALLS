@@ -6,10 +6,13 @@ import {
   Camera,
   CheckCircle2,
   CircleDashed,
+  History,
   Pencil,
   Plus,
+  Sparkles,
   TriangleAlert,
   Upload,
+  Wand2,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -58,6 +61,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { dailyTaskLimit } from "@/lib/task-policy";
+import { formatDayLong } from "@/lib/time";
 
 type Task = {
   id: string;
@@ -79,15 +83,22 @@ type CheckIn = {
   blocker: string | null;
 } | null;
 
+type CheckInHistoryItem = {
+  id: string;
+  signal: NonNullable<CheckIn>["signal"];
+  blocker: string | null;
+  createdAt: string;
+};
+
 async function readError(response: Response) {
   const body = (await response.json().catch(() => ({}))) as { error?: string };
-  return body.error ?? "The server dropped the ball.";
+  return body.error ?? "Server fumbled it. Try again.";
 }
 
 function statusBadge(status: Task["status"]) {
   const labels = {
     OPEN: "Open",
-    AWAITING_REVIEW: "Awaiting review",
+    AWAITING_REVIEW: "Needs verdict",
     VERIFIED: "Verified",
     MISSED: "Missed",
     RENEGOTIATED: "Renegotiated",
@@ -116,15 +127,27 @@ function statusBadge(status: Task["status"]) {
   return <Badge variant="secondary">{labels[status]}</Badge>;
 }
 
+function signalBadge(signal: CheckInHistoryItem["signal"]) {
+  if (signal === "AT_RISK") return <Badge variant="destructive">At risk</Badge>;
+  if (signal === "CLEAR") return <Badge variant="default">Clear</Badge>;
+  return <Badge variant="secondary">Working</Badge>;
+}
+
+const historyTime = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Phoenix",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
 function TaskDialog({ task }: { day: string; task?: Task }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const [sharpening, setSharpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState(task?.title ?? "");
   const [definition, setDefinition] = useState(task?.definitionOfDone ?? "");
 
-  // Reset form when dialog opens/closes or task identity changes (fixes stale "new task" data)
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (next) {
@@ -132,7 +155,6 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
       setDefinition(task?.definitionOfDone ?? "");
       setError(null);
     } else {
-      // Clear stale state when closing so next "Add task" starts blank
       if (!task) {
         setTitle("");
         setDefinition("");
@@ -141,6 +163,41 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
       setPending(false);
     }
   };
+
+  async function sharpen() {
+    if (!title.trim() || sharpening) return;
+    setSharpening(true);
+    try {
+      const response = await fetch("/api/ai/sharpen", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          definitionOfDone: definition.trim(),
+        }),
+      });
+      const result = (await response.json()) as {
+        title?: string;
+        definitionOfDone?: string;
+        steps?: string[];
+        error?: string;
+      };
+      if (!response.ok) {
+        toast.add({
+          title: result.error ?? "AI flopped. Keep it manual.",
+          type: "error",
+        });
+        return;
+      }
+      if (result.title) setTitle(result.title);
+      if (result.definitionOfDone) setDefinition(result.definitionOfDone);
+      toast.add({ title: "Sharpened. Less vague now.", type: "success" });
+    } catch {
+      toast.add({ title: "AI is down. You write it.", type: "error" });
+    } finally {
+      setSharpening(false);
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -167,7 +224,7 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
       return;
     }
     toast.add({
-      title: task ? "Task renegotiated." : "Task locked in.",
+      title: task ? "Renegotiated. No excuses now." : "Locked in. No bullshit.",
       type: "success",
     });
     setOpen(false);
@@ -196,11 +253,12 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
       <DialogContent className="max-h-[90dvh] overflow-hidden p-0 sm:max-w-lg">
         <div className="flex max-h-[90dvh] flex-col">
           <DialogHeader className="shrink-0 p-6 pb-0">
-            <DialogTitle>
-              {task ? "Renegotiate before the deadline" : "Make a real promise"}
+            <DialogTitle className="text-xl tracking-tight">
+              {task ? "Renegotiate before midnight" : "Make a real promise"}
             </DialogTitle>
-            <DialogDescription>
-              Specific enough that your friends can verify it from a photo.
+            <DialogDescription className="text-sm leading-relaxed">
+              Specific enough that your boys can verify it from one photo. No
+              vague bullshit.
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="flex-1">
@@ -211,15 +269,31 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
             >
               <FieldGroup>
                 <Field>
-                  <FieldLabel htmlFor={`title-${task?.id ?? "new"}`}>
-                    Task
-                  </FieldLabel>
+                  <div className="flex items-center justify-between gap-2">
+                    <FieldLabel htmlFor={`title-${task?.id ?? "new"}`}>
+                      What are you actually doing?
+                    </FieldLabel>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={sharpen}
+                      disabled={sharpening || title.trim().length < 3}
+                    >
+                      {sharpening ? (
+                        <Spinner data-icon="inline-start" />
+                      ) : (
+                        <Wand2 data-icon="inline-start" />
+                      )}
+                      Sharpen
+                    </Button>
+                  </div>
                   <Input
                     id={`title-${task?.id ?? "new"}`}
                     name="title"
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
-                    placeholder="Finish calculus problem set"
+                    placeholder="Finish calc problem set, all 18, checked"
                     required
                     maxLength={100}
                     className="h-11"
@@ -227,28 +301,27 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
                 </Field>
                 <Field>
                   <FieldLabel htmlFor={`definition-${task?.id ?? "new"}`}>
-                    Definition of done
+                    How do we know you did it?
                   </FieldLabel>
                   <Textarea
                     id={`definition-${task?.id ?? "new"}`}
                     name="definitionOfDone"
                     value={definition}
                     onChange={(event) => setDefinition(event.target.value)}
-                    placeholder="All 18 problems solved and checked"
+                    placeholder="Photo of every solved page. No crop tricks."
                     required
                     maxLength={500}
                     className="min-h-24"
                   />
                   <FieldDescription>
-                    “Study math” is not evidence. Name the finish line.
+                    “Study math” proves nothing. Name the finish line.
                   </FieldDescription>
                 </Field>
                 <Alert>
                   <CalendarClock />
                   <AlertTitle>Due tonight at midnight</AlertTitle>
                   <AlertDescription>
-                    Phoenix time. Everyone shares the same deadline, refreshed
-                    daily.
+                    Same deadline for everyone. No extensions.
                   </AlertDescription>
                 </Alert>
                 {task && (
@@ -260,7 +333,7 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
                       id={`note-${task.id}`}
                       name="revisionNote"
                       maxLength={240}
-                      placeholder="Schedule changed; scope is still honest"
+                      placeholder="Schedule changed, scope still honest"
                       className="h-11"
                     />
                   </Field>
@@ -268,7 +341,7 @@ function TaskDialog({ task }: { day: string; task?: Task }) {
               </FieldGroup>
               {error && (
                 <Alert variant="destructive">
-                  <AlertTitle>That did not work.</AlertTitle>
+                  <AlertTitle>Nope.</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
@@ -303,7 +376,7 @@ function ProofDialog({ task }: { task: Task }) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!fileRef.current?.files?.[0]) {
-      setError("Attach a photo first.");
+      setError("Attach a photo first. Words are cheap.");
       return;
     }
     setPending(true);
@@ -318,8 +391,7 @@ function ProofDialog({ task }: { task: Task }) {
       return;
     }
     toast.add({
-      title: "Proof posted.",
-      description: "The AI read is advisory. Your friends still decide.",
+      title: "Proof posted. Friends decide now.",
       type: "success",
     });
     setOpen(false);
@@ -351,10 +423,11 @@ function ProofDialog({ task }: { task: Task }) {
       <DialogContent className="max-h-[90dvh] overflow-hidden p-0 sm:max-w-lg">
         <div className="flex max-h-[90dvh] flex-col">
           <DialogHeader className="shrink-0 p-6 pb-0">
-            <DialogTitle>Photo receipt for “{task.title}”</DialogTitle>
+            <DialogTitle className="text-xl tracking-tight">
+              Prove it: {task.title}
+            </DialogTitle>
             <DialogDescription>
-              Metadata gets stripped. The sanitized photo is visible only to
-              this squad.
+              Photo or it did not happen. Blurry pics get challenged.
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="flex-1">
@@ -370,7 +443,7 @@ function ProofDialog({ task }: { task: Task }) {
                   </FieldLabel>
                   {/* biome-ignore lint/a11y/useSemanticElements: dropzone uses div to avoid nested button with clear action */}
                   <div
-                    className="relative flex flex-col gap-2 rounded-xl border border-dashed bg-muted/40 p-4 transition-colors hover:border-primary/40 hover:bg-muted/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 cursor-pointer"
+                    className="relative flex cursor-pointer flex-col gap-2 rounded-xl border border-dashed bg-muted/40 p-4 transition-colors hover:border-primary/40 hover:bg-muted/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50"
                     onClick={() => fileRef.current?.click()}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
@@ -425,18 +498,18 @@ function ProofDialog({ task }: { task: Task }) {
                     />
                   </div>
                   <FieldDescription>
-                    Your location data is removed automatically.
+                    Location data gets stripped automatically.
                   </FieldDescription>
                 </Field>
                 <Field>
                   <FieldLabel htmlFor={`proof-note-${task.id}`}>
-                    Note to the squad
+                    What are we looking at?
                   </FieldLabel>
                   <Textarea
                     id={`proof-note-${task.id}`}
                     name="note"
                     maxLength={500}
-                    placeholder="What the photo shows, if it is not obvious"
+                    placeholder="Page numbers, scores, whatever makes it obvious"
                     className="min-h-24"
                   />
                 </Field>
@@ -463,7 +536,7 @@ function ProofDialog({ task }: { task: Task }) {
               ) : (
                 <Camera data-icon="inline-start" />
               )}
-              {pending ? "Sanitizing and reading…" : "Post proof"}
+              {pending ? "Reading it…" : "Post proof"}
             </Button>
           </DialogFooter>
         </div>
@@ -472,25 +545,88 @@ function ProofDialog({ task }: { task: Task }) {
   );
 }
 
-function CheckInCard({ initial }: { initial: CheckIn }) {
+function CheckInCard({
+  initial,
+  history,
+}: {
+  initial: CheckIn;
+  history: CheckInHistoryItem[];
+}) {
   const router = useRouter();
   const [signal, setSignal] = useState<NonNullable<CheckIn>["signal"]>(
     initial?.signal ?? "WORKING",
   );
-  const [blocker, setBlocker] = useState(initial?.blocker ?? "");
+  const [blocker, setBlocker] = useState("");
   const [pending, setPending] = useState(false);
+  const [coach, setCoach] = useState<string | null>(null);
+  const [coachSteps, setCoachSteps] = useState<string[]>([]);
+  const [coachPending, setCoachPending] = useState(false);
+
+  async function post() {
+    setPending(true);
+    setCoach(null);
+    const response = await fetch("/api/check-in", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ signal, blocker }),
+    });
+    toast.add({
+      title: response.ok ? "Posted. No take-backs." : await readError(response),
+      type: response.ok ? "success" : "error",
+    });
+    if (response.ok) setBlocker("");
+    setPending(false);
+    router.refresh();
+  }
+
+  async function getUnblocked() {
+    if (coachPending) return;
+    setCoachPending(true);
+    setCoach(null);
+    setCoachSteps([]);
+    try {
+      const response = await fetch("/api/ai/unblock", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ signal, blocker }),
+      });
+      const result = (await response.json()) as {
+        plan?: string;
+        steps?: string[];
+        error?: string;
+      };
+      if (!response.ok) {
+        toast.add({
+          title: result.error ?? "AI flopped. Figure it out yourself.",
+          type: "error",
+        });
+        return;
+      }
+      setCoach(result.plan ?? null);
+      setCoachSteps(result.steps ?? []);
+    } catch {
+      toast.add({ title: "AI is down right now.", type: "error" });
+    } finally {
+      setCoachPending(false);
+    }
+  }
+
   return (
     <Card size="sm" className="lg:sticky lg:top-20">
       <CardHeader>
-        <CardTitle>Check-in</CardTitle>
-        <CardDescription>Where the day actually stands.</CardDescription>
+        <CardTitle className="text-lg tracking-tight">
+          How is today really going?
+        </CardTitle>
+        <CardDescription>
+          Post it. Old posts stay below. No rewriting history.
+        </CardDescription>
         {initial ? (
           <CardAction>
-            <Badge variant="outline">Saved</Badge>
+            <Badge variant="outline">Posted</Badge>
           </CardAction>
         ) : null}
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-4">
         <FieldGroup>
           <Field>
             <FieldTitle id="check-in-signal">Status</FieldTitle>
@@ -517,39 +653,88 @@ function CheckInCard({ initial }: { initial: CheckIn }) {
             </ToggleGroup>
           </Field>
           <Field>
-            <FieldLabel htmlFor="blocker">Blocker</FieldLabel>
+            <FieldLabel htmlFor="blocker">What is in the way?</FieldLabel>
             <Textarea
               id="blocker"
               value={blocker}
               onChange={(event) => setBlocker(event.target.value)}
-              placeholder="Optional. What is getting in the way?"
+              placeholder="Be honest. Phone? Nikita? Laziness?"
               maxLength={500}
               className="min-h-20"
             />
           </Field>
         </FieldGroup>
+        {(coach || coachSteps.length > 0) && (
+          <Alert>
+            <Sparkles />
+            <AlertTitle>Unfuck plan</AlertTitle>
+            <AlertDescription className="flex flex-col gap-1.5">
+              {coach ? <span>{coach}</span> : null}
+              {coachSteps.length > 0 ? (
+                <ol className="flex list-decimal flex-col gap-1 pl-4">
+                  {coachSteps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              ) : null}
+            </AlertDescription>
+          </Alert>
+        )}
+        {history.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <p className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              <History className="size-3.5" />
+              Today ({history.length})
+            </p>
+            <div className="flex max-h-64 flex-col gap-2 overflow-y-auto pr-0.5">
+              {history.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex flex-col gap-1.5 rounded-xl bg-muted/60 px-3 py-2.5"
+                >
+                  <div className="flex items-center gap-2">
+                    {signalBadge(item.signal)}
+                    <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
+                      {historyTime.format(new Date(item.createdAt))}
+                    </span>
+                  </div>
+                  {item.blocker ? (
+                    <p className="text-sm leading-snug text-pretty">
+                      {item.blocker}
+                    </p>
+                  ) : (
+                    <p className="text-[13px] text-muted-foreground italic">
+                      No note. Just vibes.
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex-col gap-2">
         <Button
           disabled={pending}
           className="w-full touch-manipulation"
-          onClick={async () => {
-            setPending(true);
-            const response = await fetch("/api/check-in", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ signal, blocker }),
-            });
-            toast.add({
-              title: response.ok ? "Squad updated." : await readError(response),
-              type: response.ok ? "success" : "error",
-            });
-            setPending(false);
-            router.refresh();
-          }}
+          onClick={post}
         >
           {pending ? <Spinner data-icon="inline-start" /> : null}
-          Save check-in
+          Post check-in
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full"
+          onClick={getUnblocked}
+          disabled={coachPending}
+        >
+          {coachPending ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <Bot data-icon="inline-start" />
+          )}
+          Get unblocked by AI
         </Button>
       </CardFooter>
     </Card>
@@ -560,15 +745,18 @@ export function TodayDashboard({
   day,
   tasks,
   checkIn,
+  checkInHistory,
 }: {
   day: string;
   tasks: Task[];
   checkIn: CheckIn;
+  checkInHistory: CheckInHistoryItem[];
 }) {
   const verified = tasks.filter((task) => task.status === "VERIFIED").length;
   const awaiting = tasks.filter(
     (task) => task.status === "AWAITING_REVIEW",
   ).length;
+  const missed = tasks.filter((task) => task.status === "MISSED").length;
   const percent = tasks.length
     ? Math.round((verified / tasks.length) * 100)
     : 0;
@@ -577,32 +765,46 @@ export function TodayDashboard({
     task.status === "RENEGOTIATED" ||
     !task.proof ||
     task.proof.reviewStatus === "CHALLENGED";
+  const friendlyDay = formatDayLong(day);
+
+  const headline =
+    tasks.length === 0
+      ? "Nothing locked in yet"
+      : verified === tasks.length
+        ? "Clean sweep. Touch grass."
+        : missed > 0
+          ? `${missed} missed. Yikes.`
+          : `${tasks.length - verified} left to prove`;
 
   return (
     <>
       <PageHeader
         title="Today"
-        description={`${tasks.length}/${dailyTaskLimit} locked in · ${verified} verified. Photo or it did not happen.`}
+        description={`Did you get shit done or just bullshit? ${tasks.length}/${dailyTaskLimit} locked, ${verified} verified.`}
         actions={
           tasks.length < dailyTaskLimit ? <TaskDialog day={day} /> : null
         }
       >
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">Phoenix · {day}</Badge>
+          <Badge variant="secondary" className="text-[13px]">
+            {friendlyDay}
+          </Badge>
           {awaiting > 0 ? (
-            <Badge variant="outline">{awaiting} in review</Badge>
+            <Badge variant="outline">{awaiting} need a verdict</Badge>
           ) : null}
         </div>
       </PageHeader>
 
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-2 text-sm">
-              <span className="text-muted-foreground">
-                {verified} of {tasks.length} verified
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-sm font-medium tracking-tight">
+                {headline}
               </span>
-              <span className="tabular-nums">{percent}%</span>
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {verified} of {tasks.length} verified, {percent}%
+              </span>
             </div>
             <Progress
               value={percent}
@@ -616,10 +818,10 @@ export function TodayDashboard({
                 <EmptyMedia variant="icon">
                   <Bot />
                 </EmptyMedia>
-                <EmptyTitle>No promises yet</EmptyTitle>
+                <EmptyTitle>Blank board, zero excuses</EmptyTitle>
                 <EmptyDescription>
-                  A blank board does not count as being “flexible.” Add the work
-                  that earns your free time.
+                  A blank board is just procrastination with extra steps. Add
+                  the work that earns your free time.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -628,8 +830,10 @@ export function TodayDashboard({
               {tasks.map((task) => (
                 <Card key={task.id} size="sm">
                   <CardHeader>
-                    <CardTitle>{task.title}</CardTitle>
-                    <CardDescription className="line-clamp-2">
+                    <CardTitle className="text-[15px] leading-snug tracking-tight text-balance">
+                      {task.title}
+                    </CardTitle>
+                    <CardDescription className="line-clamp-2 text-sm leading-relaxed">
                       {task.definitionOfDone}
                     </CardDescription>
                     <CardAction className="flex flex-col items-end gap-1">
@@ -656,7 +860,7 @@ export function TodayDashboard({
             </div>
           )}
         </div>
-        <CheckInCard initial={checkIn} />
+        <CheckInCard initial={checkIn} history={checkInHistory} />
       </div>
     </>
   );

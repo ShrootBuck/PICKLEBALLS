@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   CircleDashed,
   ClockAlert,
+  Flame,
   History,
   PencilLine,
   TriangleAlert,
@@ -41,7 +42,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
-import { phoenixDateKey, requireDateKey } from "@/lib/time";
+import { formatDayLong, phoenixDateKey, requireDateKey } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Squad" };
 
@@ -77,6 +78,9 @@ function toProofCard(
     aiStatus: "PENDING" | "SUCCEEDED" | "FAILED" | "SKIPPED";
     aiVisibleEvidence: string | null;
     aiReviewerQuestion: string | null;
+    aiUncertainty: string | null;
+    aiTaskMatch: string | null;
+    aiOneLiner: string | null;
     ownerId: string;
     owner: { name: string };
     commitment: { title: string };
@@ -101,6 +105,9 @@ function toProofCard(
     aiStatus: proof.aiStatus,
     aiVisibleEvidence: proof.aiVisibleEvidence,
     aiReviewerQuestion: proof.aiReviewerQuestion,
+    aiUncertainty: proof.aiUncertainty,
+    aiTaskMatch: proof.aiTaskMatch,
+    aiOneLiner: proof.aiOneLiner,
   };
 }
 
@@ -111,10 +118,17 @@ function taskStatusVariant(status: string) {
   return "outline" as const;
 }
 
+function signalVariant(signal: string) {
+  if (signal === "AT_RISK") return "destructive" as const;
+  if (signal === "CLEAR") return "default" as const;
+  return "secondary" as const;
+}
+
 export default async function SquadPage() {
   const { session, membership } = await requirePageMembership();
   const dayKey = phoenixDateKey();
   const day = requireDateKey(dayKey);
+  const friendlyDay = formatDayLong(dayKey);
   const [members, proofs, todayHistory, events] = await Promise.all([
     getPrisma().membership.findMany({
       where: { circleId: membership.circleId },
@@ -127,7 +141,7 @@ export default async function SquadPage() {
               orderBy: { dueAt: "asc" },
               include: {
                 replies: {
-                  orderBy: { createdAt: "desc" },
+                  orderBy: { createdAt: "asc" },
                   take: 50,
                   include: {
                     author: {
@@ -147,7 +161,7 @@ export default async function SquadPage() {
               take: 1,
               include: {
                 replies: {
-                  orderBy: { createdAt: "desc" },
+                  orderBy: { createdAt: "asc" },
                   take: 50,
                   include: {
                     author: {
@@ -159,6 +173,10 @@ export default async function SquadPage() {
                       },
                     },
                   },
+                },
+                updates: {
+                  orderBy: { createdAt: "desc" },
+                  take: 10,
                 },
               },
             },
@@ -205,11 +223,15 @@ export default async function SquadPage() {
     <>
       <PageHeader
         title="Squad"
-        description="Call the proofs. Talk on the work. Help first, roast second."
+        description="See the work. Talk shit. Help first, roast second."
       >
-        <Badge variant="secondary" className="w-fit">
-          {members.length} friends · {dayKey}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">{friendlyDay}</Badge>
+          <Badge variant="outline">
+            {members.length}{" "}
+            {members.length === 1 ? "degenerate" : "degenerates"}
+          </Badge>
+        </div>
       </PageHeader>
 
       <PageSection
@@ -222,9 +244,9 @@ export default async function SquadPage() {
               <EmptyMedia variant="icon">
                 <ClockAlert />
               </EmptyMedia>
-              <EmptyTitle>No proof waiting</EmptyTitle>
+              <EmptyTitle>Nothing to judge</EmptyTitle>
               <EmptyDescription>
-                Either everyone is working or nobody has posted. Those are very
+                Either everyone is grinding or nobody posted shit. Very
                 different situations.
               </EmptyDescription>
             </EmptyHeader>
@@ -243,35 +265,54 @@ export default async function SquadPage() {
         )}
       </PageSection>
 
-      <PageSection title="Board">
+      <PageSection title="Today's board">
         <div className="grid items-start gap-3 sm:grid-cols-2">
           {members.map(({ user, role }) => {
             const checkIn = user.checkIns[0];
             const verified = user.commitments.filter(
               (task) => task.status === "VERIFIED",
             ).length;
+            const total = user.commitments.length;
+            const atRisk = checkIn?.signal === "AT_RISK";
             return (
-              <Card key={user.id} size="sm">
+              <Card
+                key={user.id}
+                size="sm"
+                className={atRisk ? "border-destructive/40" : ""}
+              >
                 <CardHeader>
                   <div className="flex min-w-0 items-center gap-3">
-                    <Avatar className="size-9">
+                    <Avatar className="size-10">
                       <AvatarImage src={user.image ?? undefined} alt="" />
                       <AvatarFallback>{user.initials}</AvatarFallback>
                     </Avatar>
                     <div className="flex min-w-0 flex-1 flex-col">
-                      <CardTitle className="truncate">{user.name}</CardTitle>
-                      <CardDescription className="truncate">
-                        {user.discordUsername
-                          ? `@${user.discordUsername}`
-                          : "Discord member"}
+                      <CardTitle className="truncate text-[15px] tracking-tight">
+                        {user.name}
+                        {user.id === session.user.id ? " (you)" : ""}
+                      </CardTitle>
+                      <CardDescription className="truncate text-[13px]">
+                        {total === 0
+                          ? "No promises. Suspicious."
+                          : `${verified}/${total} verified`}
+                        {checkIn?.signal === "AT_RISK"
+                          ? ", needs backup"
+                          : checkIn?.signal === "CLEAR"
+                            ? ", chilling"
+                            : ""}
                       </CardDescription>
                     </div>
                   </div>
                   <CardAction>
                     <Badge variant={role === "OWNER" ? "default" : "secondary"}>
-                      {role === "OWNER"
-                        ? "Owner"
-                        : `${verified}/${user.commitments.length} done`}
+                      {role === "OWNER" ? (
+                        <>
+                          <Flame data-icon="inline-start" />
+                          Owner
+                        </>
+                      ) : (
+                        `${verified}/${total}`
+                      )}
                     </Badge>
                   </CardAction>
                 </CardHeader>
@@ -282,10 +323,10 @@ export default async function SquadPage() {
                         key={task.id}
                         size="sm"
                         variant="muted"
-                        className="flex-col items-stretch"
+                        className="flex-col items-stretch gap-2"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <ItemTitle className="min-w-0 flex-1">
+                          <ItemTitle className="min-w-0 flex-1 text-sm leading-snug">
                             {task.title}
                           </ItemTitle>
                           <Badge variant={taskStatusVariant(task.status)}>
@@ -295,53 +336,82 @@ export default async function SquadPage() {
                         <SocialReplyThread
                           targetType="COMMITMENT"
                           targetId={task.id}
-                          initialReplies={task.replies
-                            .toReversed()
-                            .map((reply) => ({
-                              ...reply,
-                              createdAt: reply.createdAt.toISOString(),
-                            }))}
+                          initialReplies={task.replies.map((reply) => ({
+                            ...reply,
+                            createdAt: reply.createdAt.toISOString(),
+                          }))}
+                          compact
                         />
                       </Item>
                     ))}
                     {user.commitments.length === 0 ? (
-                      <p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
-                        No tasks. Suspiciously peaceful.
+                      <p className="rounded-xl border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
+                        No tasks. Either done or bullshitting.
                       </p>
                     ) : null}
                   </ItemGroup>
                   {checkIn ? (
                     <>
                       <Separator />
-                      <div className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3">
+                      <div className="flex flex-col gap-2 rounded-xl bg-muted/50 p-3">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge
-                            variant={
-                              checkIn.signal === "AT_RISK"
-                                ? "destructive"
-                                : checkIn.signal === "CLEAR"
-                                  ? "default"
-                                  : "secondary"
-                            }
+                            variant={signalVariant(checkIn.signal)}
                             className="capitalize"
                           >
                             {checkIn.signal.toLowerCase().replaceAll("_", " ")}
                           </Badge>
+                          {checkIn.updates.length > 1 ? (
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                              {checkIn.updates.length} posts today
+                            </span>
+                          ) : null}
                         </div>
-                        {checkIn.blocker ? <p>{checkIn.blocker}</p> : null}
+                        {checkIn.blocker ? (
+                          <p className="text-sm leading-relaxed text-pretty">
+                            {checkIn.blocker}
+                          </p>
+                        ) : (
+                          <p className="text-[13px] text-muted-foreground italic">
+                            No blocker posted. Fingers crossed.
+                          </p>
+                        )}
+                        {checkIn.updates.length > 1 ? (
+                          <div className="flex flex-col gap-1.5 border-l-2 pl-3">
+                            {checkIn.updates.slice(1, 4).map((older) => (
+                              <p
+                                key={older.id}
+                                className="text-[13px] leading-snug text-muted-foreground"
+                              >
+                                <span className="font-medium capitalize">
+                                  {older.signal
+                                    .toLowerCase()
+                                    .replaceAll("_", " ")}
+                                </span>
+                                {older.blocker ? ` — ${older.blocker}` : ""}
+                              </p>
+                            ))}
+                          </div>
+                        ) : null}
                         <SocialReplyThread
                           targetType="CHECK_IN"
                           targetId={checkIn.id}
-                          initialReplies={checkIn.replies
-                            .toReversed()
-                            .map((reply) => ({
-                              ...reply,
-                              createdAt: reply.createdAt.toISOString(),
-                            }))}
+                          initialReplies={checkIn.replies.map((reply) => ({
+                            ...reply,
+                            createdAt: reply.createdAt.toISOString(),
+                          }))}
+                          compact
                         />
                       </div>
                     </>
-                  ) : null}
+                  ) : (
+                    <>
+                      <Separator />
+                      <p className="rounded-xl bg-muted/50 px-3 py-2.5 text-center text-[13px] text-muted-foreground">
+                        No check-in yet. Probably bullshitting.
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -350,7 +420,7 @@ export default async function SquadPage() {
       </PageSection>
 
       <PageSection
-        title="Today's proofs"
+        title="Today's proof"
         action={<Badge variant="secondary">{todayHistory.length} posted</Badge>}
       >
         {todayHistory.length === 0 ? (
@@ -359,9 +429,9 @@ export default async function SquadPage() {
               <EmptyMedia variant="icon">
                 <Camera />
               </EmptyMedia>
-              <EmptyTitle>No proofs today yet</EmptyTitle>
+              <EmptyTitle>No proof yet</EmptyTitle>
               <EmptyDescription>
-                When someone posts, the photo shows up here. No FOMO.
+                Nobody proved shit today. Be the first so you can talk.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -380,7 +450,7 @@ export default async function SquadPage() {
       </PageSection>
 
       <PageSection
-        title="Log"
+        title="Squad log"
         action={<Badge variant="secondary">{events.length}</Badge>}
       >
         <Card size="sm">
@@ -394,14 +464,16 @@ export default async function SquadPage() {
                       <Icon />
                     </ItemMedia>
                     <ItemContent>
-                      <ItemTitle>
+                      <ItemTitle className="text-sm">
                         {event.actor.name} {event.summary}
                       </ItemTitle>
                       <ItemDescription className="tabular-nums">
                         {new Intl.DateTimeFormat("en-US", {
                           timeZone: "America/Phoenix",
-                          dateStyle: "medium",
-                          timeStyle: "short",
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
                         }).format(event.createdAt)}
                       </ItemDescription>
                     </ItemContent>
@@ -409,7 +481,7 @@ export default async function SquadPage() {
                 );
               })}
               {events.length === 0 ? (
-                <p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
+                <p className="rounded-xl border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
                   Nothing yet. Do something worth logging.
                 </p>
               ) : null}

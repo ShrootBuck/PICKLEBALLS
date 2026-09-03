@@ -27,6 +27,9 @@ export type ProofCardData = {
   aiStatus: "PENDING" | "SUCCEEDED" | "FAILED" | "SKIPPED";
   aiVisibleEvidence: string | null;
   aiReviewerQuestion: string | null;
+  aiUncertainty: string | null;
+  aiTaskMatch: string | null;
+  aiOneLiner: string | null;
 };
 
 const timeFormatter = new Intl.DateTimeFormat("en-US", {
@@ -35,11 +38,19 @@ const timeFormatter = new Intl.DateTimeFormat("en-US", {
   timeStyle: "short",
 });
 
+function matchBadge(match: string | null) {
+  if (match === "STRONG") return <Badge variant="default">Looks solid</Badge>;
+  if (match === "PARTIAL") return <Badge variant="secondary">Partial</Badge>;
+  if (match === "WEAK") return <Badge variant="destructive">Weak</Badge>;
+  if (match === "UNREADABLE")
+    return <Badge variant="outline">Cannot tell</Badge>;
+  return null;
+}
 function statusBadge(status: ProofCardData["reviewStatus"]) {
   if (status === "APPROVED") return <Badge>Verified</Badge>;
   if (status === "CHALLENGED")
-    return <Badge variant="destructive">Challenged</Badge>;
-  return <Badge variant="secondary">Pending</Badge>;
+    return <Badge variant="destructive">Called out</Badge>;
+  return <Badge variant="secondary">Needs verdict</Badge>;
 }
 
 export function ProofCard({
@@ -54,11 +65,11 @@ export function ProofCard({
   const compact = mode === "history";
   const meta = [
     proof.ownerName,
-    proof.isLate ? "late" : "on time",
+    proof.isLate ? "late as hell" : "on time",
     `${proof.approvals}/2 approvals`,
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join(" — ");
 
   return (
     <Card size="sm" className="gap-0 py-0">
@@ -110,23 +121,43 @@ export function ProofCard({
             {mode === "review" && proof.aiStatus === "SUCCEEDED" ? (
               <Alert>
                 <Bot />
-                <AlertTitle>AI read</AlertTitle>
-                <AlertDescription>
-                  {proof.aiVisibleEvidence}
-                  {proof.aiReviewerQuestion
-                    ? ` Question: ${proof.aiReviewerQuestion}`
-                    : ""}
+                <AlertTitle className="flex flex-wrap items-center gap-2">
+                  AI read
+                  {matchBadge(proof.aiTaskMatch)}
+                </AlertTitle>
+                <AlertDescription className="flex flex-col gap-1.5">
+                  {proof.aiOneLiner ? (
+                    <span className="font-medium text-foreground">
+                      {proof.aiOneLiner}
+                    </span>
+                  ) : null}
+                  {proof.aiVisibleEvidence ? (
+                    <span>{proof.aiVisibleEvidence}</span>
+                  ) : null}
+                  {proof.aiUncertainty ? (
+                    <span className="text-muted-foreground">
+                      Cannot verify: {proof.aiUncertainty}
+                    </span>
+                  ) : null}
+                  {proof.aiReviewerQuestion ? (
+                    <span className="font-medium">
+                      Worth asking: {proof.aiReviewerQuestion}
+                    </span>
+                  ) : null}
+                  <span className="text-xs text-muted-foreground">
+                    Advisory only. Friends decide.
+                  </span>
                 </AlertDescription>
               </Alert>
             ) : null}
             {mode === "review" ? (
               proof.ownerId === viewerId ? (
                 <Badge variant="secondary" className="w-fit">
-                  You cannot review your own proof
+                  Your proof — friends decide
                 </Badge>
               ) : proof.alreadyReviewed ? (
                 <Badge variant="outline" className="w-fit">
-                  You already reviewed
+                  You already voted
                 </Badge>
               ) : (
                 <ReviewProof proofId={proof.id} taskTitle={proof.title} />

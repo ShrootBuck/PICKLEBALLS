@@ -358,19 +358,71 @@ export async function setCheckIn(
   now = new Date(),
 ) {
   const day = requireDateKey(phoenixDateKey(now));
-  const checkIn = await getPrisma().checkIn.upsert({
-    where: { userId_circleId_day: { userId, circleId, day } },
-    update: { signal, blocker: blocker || null },
-    create: { userId, circleId, day, signal, blocker: blocker || null },
+  const cleanBlocker = blocker?.trim() ? blocker.trim().slice(0, 500) : null;
+  const result = await getPrisma().$transaction(async (transaction) => {
+    const checkIn = await transaction.checkIn.upsert({
+      where: { userId_circleId_day: { userId, circleId, day } },
+      update: { signal, blocker: cleanBlocker },
+      create: { userId, circleId, day, signal, blocker: cleanBlocker },
+    });
+    // Append-only log. Old posts stay. Current row stays the single source for replies.
+    const update = await transaction.checkInUpdate.create({
+      data: {
+        checkInId: checkIn.id,
+        userId,
+        circleId,
+        day,
+        signal,
+        blocker: cleanBlocker,
+      },
+    });
+    await transaction.activityEvent.create({
+      data: {
+        circleId,
+        actorId: userId,
+        kind: "CHECK_IN_SET",
+        entityId: checkIn.id,
+        summary: `checked in ${signal.toLowerCase().replaceAll("_", " ")}`,
+        metadata: { updateId: update.id, signal },
+      },
+    });
+    return { checkIn, update };
   });
-  await getPrisma().activityEvent.create({
-    data: {
-      circleId,
-      actorId: userId,
-      kind: "CHECK_IN_SET",
-      entityId: checkIn.id,
-      summary: `checked in ${signal.toLowerCase().replaceAll("_", " ")}`,
-    },
-  });
-  return checkIn;
+  return result.checkIn;
+}
+
+export async function getCheckInHistory(
+  userId: string,
+  circleId: string,
+  dayKey: string,
+  limit = 20,
+) {
+  const day = requireDateKey(dayKey);
+  const [checkIn, updates] = await Promise.all([
+    getPrisma().checkIn.findUnique({
+      where: { userId_circleId_day: { userId, circleId, day } },
+    }),
+    getPrisma().checkInUpdate.findMany({
+      where: { userId, circleId, day },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    }),
+  ]);
+  // Smooth backfill for display: old check-ins from before history existed still show.
+  if (updates.length === 0 && checkIn) {
+    return [
+      {
+        id: checkIn.id,
+        signal: checkIn.signal,
+        blocker: checkIn.blocker,
+        createdAt: checkIn.updatedAt,
+      },
+    ];
+  }
+  return updates.map((update) => ({
+    id: update.id,
+    signal: update.signal,
+    blocker: update.blocker,
+    createdAt: update.createdAt,
+  }));
 }

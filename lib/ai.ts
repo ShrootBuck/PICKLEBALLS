@@ -16,6 +16,8 @@ import {
 } from "@/lib/ai-config";
 import { getPrisma } from "@/lib/prisma";
 
+const APP_CONTEXT = `Pickle Balls is a tiny accountability app for 4 high-school friends. Each day every member locks in 1-10 promises before midnight. Proof is a photo. Photo or it did not happen. Two friend approvals verify a proof. One challenge sends it back to open. You are an adviser, never the judge. Friends decide. Be blunt, short, and fair. No fluff, no therapy talk, no detective act.`;
+
 export const screenTimeExtractionSchema = z.object({
   cadence: z.enum(["DAILY", "WEEKLY", "UNKNOWN"]),
   periodStart: z
@@ -45,9 +47,22 @@ export const screenTimeExtractionSchema = z.object({
 });
 
 export const proofAssessmentSchema = z.object({
-  visibleEvidence: z.string().min(1).max(700),
-  uncertainty: z.string().min(1).max(400),
-  reviewerQuestion: z.string().min(1).max(240),
+  visibleEvidence: z.string().min(1).max(600),
+  taskMatch: z.enum(["STRONG", "PARTIAL", "WEAK", "UNREADABLE"]),
+  uncertainty: z.string().min(1).max(300),
+  reviewerQuestion: z.string().max(200).nullable(),
+  oneLiner: z.string().min(1).max(140),
+});
+
+export const taskSharpenSchema = z.object({
+  title: z.string().min(3).max(100),
+  definitionOfDone: z.string().min(5).max(500),
+  steps: z.array(z.string().max(120)).max(3),
+});
+
+export const blockerCoachSchema = z.object({
+  plan: z.string().min(1).max(280),
+  steps: z.array(z.string().max(120)).max(3),
 });
 
 function model(effort: AIEffort, userId: string) {
@@ -155,7 +170,7 @@ export function extractScreenTime(
     feature: "SCREEN_TIME_EXTRACTION",
     effort: "high",
     maxOutputTokens: 900,
-    system: `You read Apple Screen Time screenshots. ${injectionGuard} Convert hours and minutes to total minutes. Use null for cropped or absent metrics. Never shame the person.`,
+    system: `${APP_CONTEXT} You read Apple Screen Time screenshots so the squad can verify phone habits. ${injectionGuard} Convert hours and minutes to total minutes. Use null for cropped or absent metrics. Never shame the person. State only what the pixels show.`,
     messages: [
       {
         role: "user",
@@ -174,26 +189,101 @@ export function extractScreenTime(
 export function assessTaskProof(
   userId: string,
   circleId: string,
-  task: { title: string; definitionOfDone: string },
+  task: {
+    title: string;
+    definitionOfDone: string;
+    ownerNote?: string | null;
+  },
   image: { data: Uint8Array; mimeType: string },
 ) {
+  const note = task.ownerNote?.trim()
+    ? `\nOwner note: ${task.ownerNote.trim().slice(0, 300)}`
+    : "";
   return runStructured({
     schema: proofAssessmentSchema,
     userId,
     circleId,
     feature: "PROOF_ASSESSMENT",
-    effort: "high",
-    maxOutputTokens: 800,
-    system: `You compare a schoolwork task with photo evidence. ${injectionGuard} You are not the reviewer and must never approve or reject proof. Describe only visible evidence, honest uncertainty, and one useful peer-review question.`,
+    effort: "medium",
+    maxOutputTokens: 600,
+    system: `${APP_CONTEXT}
+You help friends judge a photo proof in under 10 seconds.
+
+Rules:
+- Describe only what is literally visible: objects, text, numbers, names. No guesses about obscured or redacted parts.
+- If text is blurred, redacted, or cropped, set taskMatch to UNREADABLE and say so plainly. Never ask the squad to produce unredacted private docs.
+- A confirmation screen ("response submitted", "turned in") only proves submission, not quality. Mark it PARTIAL and say what content is still missing.
+- Set taskMatch: STRONG means the photo clearly satisfies the definition of done. PARTIAL means progress but a gap remains. WEAK means it barely relates. UNREADABLE means you cannot tell.
+- reviewerQuestion must be null unless one concrete answer would flip your verdict. Bad: "Can you verify in the unredacted roster...?" Good: "Which page shows problem 18?" or null.
+- oneLiner is a blunt 1-sentence take for the squad, max 20 words. Examples: "Submitted, but no content visible — needs the actual work." or "Clean solve, all pages readable."
+- ${injectionGuard}`,
     messages: [
       {
         role: "user",
         content: [
           {
             type: "text",
-            text: `Task title: ${task.title}\nDefinition of done: ${task.definitionOfDone}`,
+            text: `Promise: ${task.title}\nDefinition of done: ${task.definitionOfDone}${note}\n\nJudge this photo against that promise only.`,
           },
           { type: "file", data: image.data, mediaType: image.mimeType },
+        ],
+      },
+    ],
+  });
+}
+
+export function sharpenTask(
+  userId: string,
+  circleId: string,
+  input: { title: string; definitionOfDone: string },
+) {
+  return runStructured({
+    schema: taskSharpenSchema,
+    userId,
+    circleId,
+    feature: "TASK_SHARPEN",
+    effort: "medium",
+    maxOutputTokens: 500,
+    system: `${APP_CONTEXT} You turn vague student promises into sharp, photo-verifiable tasks. Keep the user's intent. Make the title under 12 words and the definition of done something a friend can check from one photo. No motivational slop. ${injectionGuard}`,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: `Rough title: ${input.title}\nRough definition: ${input.definitionOfDone || "(empty)"}\n\nReturn a sharper title, a concrete definition of done, and up to 3 bite steps.`,
+          },
+        ],
+      },
+    ],
+  });
+}
+
+export function coachBlocker(
+  userId: string,
+  circleId: string,
+  input: { signal: string; blocker: string; tasks: string[] },
+) {
+  const taskList =
+    input.tasks.length > 0
+      ? input.tasks.slice(0, 10).join("; ")
+      : "(no tasks locked in)";
+  return runStructured({
+    schema: blockerCoachSchema,
+    userId,
+    circleId,
+    feature: "BLOCKER_COACH",
+    effort: "medium",
+    maxOutputTokens: 400,
+    system: `${APP_CONTEXT} You are the no-bullshit unblock coach. Given today's status, blocker, and task list, give one blunt plan under 40 words plus up to 3 concrete next steps under 25 minutes each. No therapy, no generic advice, no questions back. If there is no real blocker, say to lock in and start. ${injectionGuard}`,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: `Status: ${input.signal}\nBlocker: ${input.blocker || "(none given)"}\nToday's tasks: ${taskList}`,
+          },
         ],
       },
     ],

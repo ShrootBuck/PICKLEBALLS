@@ -73,9 +73,10 @@ export function ReviewProof({
       <DialogContent className="max-h-[90dvh] overflow-hidden p-0 sm:max-w-lg">
         <div className="flex max-h-[90dvh] flex-col">
           <DialogHeader className="shrink-0 p-6 pb-0">
-            <DialogTitle>Call the proof</DialogTitle>
+            <DialogTitle>Call it like it is</DialogTitle>
             <DialogDescription>
-              {taskTitle}. Two approvals verify — one challenge sends it back.
+              {taskTitle}. Two approvals verify it. One challenge sends it back
+              to the grind.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -115,13 +116,13 @@ export function ReviewProof({
                   required={decision === "CHALLENGED"}
                   placeholder={
                     decision === "CHALLENGED"
-                      ? "Say exactly what is missing or unclear"
-                      : "Optional useful context"
+                      ? "What is missing? Be specific, not just mean"
+                      : "Optional. Say why this counts."
                   }
                   className="min-h-24"
                 />
                 <FieldDescription>
-                  A challenge without a reason is just being annoying.
+                  A challenge with no reason is just hating.
                 </FieldDescription>
               </Field>
             </FieldGroup>
