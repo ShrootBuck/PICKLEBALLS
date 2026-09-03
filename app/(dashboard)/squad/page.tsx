@@ -287,7 +287,11 @@ export default async function SquadPage() {
 
       <PageSection title="Today's board">
         <div className="grid items-start gap-3 sm:grid-cols-2">
-          {members.map(({ user, role }) => {
+          {[0, 1].map((col) => (
+            <div key={col} className="flex min-w-0 flex-col gap-3">
+              {members
+                .filter((_, i) => i % 2 === col)
+                .map(({ user, role }) => {
             const checkIn = user.checkIns[0];
             const verified = user.commitments.filter(
               (task) => task.status === "VERIFIED",
@@ -434,8 +438,10 @@ export default async function SquadPage() {
                   )}
                 </CardContent>
               </Card>
-            );
-          })}
+                );
+              })}
+            </div>
+          ))}
         </div>
       </PageSection>
 
