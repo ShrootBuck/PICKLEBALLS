@@ -1,5 +1,6 @@
 import { ScrollText } from "lucide-react";
 import type { Metadata } from "next";
+import { ChangelogMarkdown } from "@/components/changelog-markdown";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -111,9 +112,7 @@ export default function ChangelogPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm leading-relaxed text-muted-foreground">
-                        {entry.description}
-                      </p>
+                      <ChangelogMarkdown value={entry.description} />
                     </CardContent>
                   </Card>
                 ))}
