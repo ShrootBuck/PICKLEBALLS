@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 
 const PREF_META = [
   { key: "replies", label: "Replies to my stuff", hint: "Someone talks back" },
@@ -81,12 +82,13 @@ export function NotificationPreferences() {
         const on = prefs[meta.key];
         return (
           <li key={meta.key}>
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => toggle(meta.key)}
               aria-pressed={on}
               disabled={saving !== null}
-              className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted"
+              className="h-auto w-full justify-between gap-2 whitespace-normal rounded-md px-2 py-1.5 text-left hover:bg-muted"
             >
               <span className="min-w-0">
                 <span className="block text-[13px] font-medium">
@@ -108,7 +110,7 @@ export function NotificationPreferences() {
                   }`}
                 />
               </span>
-            </button>
+            </Button>
           </li>
         );
       })}

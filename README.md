@@ -34,6 +34,11 @@ The `Pickle Balls` circle is created automatically on first owner sign-in.
 - **Prod** is the hosted Prisma Postgres database. Its URL lives **only** in
   Vercel's environment variables and in `.env.production.local` (gitignored
   backup, never committed). Never put the prod URL in `.env`.
+- **Migrations need the direct URL.** Vercel must also have
+  `DIRECT_DATABASE_URL` set to the direct (non-pooled) Postgres URL. `prisma
+  migrate deploy` takes a Postgres advisory lock that the pooled
+  `DATABASE_URL` cannot grant, so the build fails with a P1002 timeout
+  without it. Runtime traffic keeps using the pooled `DATABASE_URL`.
 - **Browser tests** use a second Prisma Postgres instance on database port
   `51221` (shadow port `51222`). The test setup rejects the dev port before it
   can reset anything.

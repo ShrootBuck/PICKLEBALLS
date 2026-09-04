@@ -150,20 +150,21 @@ export function NotificationBell({
                 { id: "settings", label: "Settings" },
               ] as Array<{ id: Tab; label: string }>
             ).map((item) => (
-              <button
+              <Button
                 key={item.id}
                 role="tab"
                 aria-selected={tab === item.id}
                 type="button"
+                variant="ghost"
                 onClick={() => setTab(item.id)}
-                className={`flex-1 rounded-md px-2 py-1 text-xs font-semibold ${
+                className={`h-auto flex-1 rounded-md px-2 py-1 text-xs font-semibold ${
                   tab === item.id
                     ? "bg-muted text-foreground"
                     : "text-muted-foreground hover:bg-muted/60"
                 }`}
               >
                 {item.label}
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -174,13 +175,15 @@ export function NotificationBell({
                   For you
                 </DropdownMenuLabel>
                 {unread > 0 ? (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="xs"
                     onClick={markAllRead}
-                    className="text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                    className="h-auto text-[11px] font-semibold text-muted-foreground hover:bg-transparent hover:text-foreground"
                   >
                     Mark all read
-                  </button>
+                  </Button>
                 ) : null}
               </div>
               {inbox.length === 0 ? (

@@ -12,7 +12,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 - Every user-facing change MUST add an entry to `lib/changelog.ts`
   (newest first). No exceptions, no "too small to log".
-- Entry shape: `{ date: "YYYY-MM-DD", title: "...", description: "..." }`.
+- Entry shape: `{ timestamp: 1756948800000, title: "...", description: "..." }`
+  where `timestamp` is milliseconds since the Unix epoch — run
+  `bun -e "console.log(Date.now())"` for "now". Never store display strings;
+  the page derives day grouping and labels at render time.
 - The `/changelog` page renders that file for all users, so keep titles
   short and descriptions plain-language (one or two sentences).
 
@@ -24,6 +27,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - `.env` must ALWAYS point at local. Prod URL lives only in Vercel env vars
   and `.env.production.local` (gitignored backup). If `.env` contains
   `pooled.db.prisma.io`, stop and fix it before running any prisma/db command.
+- Vercel also needs `DIRECT_DATABASE_URL` = the direct (non-pooled) Postgres
+  URL. `migrate deploy` takes a Postgres advisory lock the pooled
+  `DATABASE_URL` cannot grant (P1002 timeout). Runtime keeps the pooled URL.
 - Schema changes: `bunx prisma migrate dev --name x` (local) → commit SQL →
   push → Vercel `migrate deploy` applies it. Never `db push`. Never
   `migrate dev` against prod.

@@ -72,8 +72,9 @@ export function MidnightCountdown({ compact = false }: { compact?: boolean }) {
     <Badge
       variant={isCritical ? "destructive" : isUrgent ? "default" : "secondary"}
       className="gap-1.5 tabular-nums"
-      aria-live="polite"
-      aria-label={`${label} until midnight`}
+      // role="timer" has implicit aria-live="off": screen readers can read
+      // the countdown on demand instead of announcing every second.
+      role="timer"
     >
       <Clock3 />
       {label}

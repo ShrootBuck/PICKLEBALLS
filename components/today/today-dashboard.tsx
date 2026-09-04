@@ -444,7 +444,9 @@ function ProofDialog({
     try {
       const response = await fetch(`/api/commitments/${task.id}/proof`, {
         method: "POST",
-        body: new FormData(event.currentTarget),
+        // Reuse the FormData captured above: the React synthetic event's
+        // currentTarget can be detached after the setPending re-render.
+        body: formData,
       });
       if (!response.ok) {
         setError(await readError(response));
