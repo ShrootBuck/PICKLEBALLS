@@ -1,8 +1,10 @@
+import { headers } from "next/headers";
 import { Suspense } from "react";
 import { BellSlot } from "@/components/layout/bell-slot";
 import { SidebarSlot } from "@/components/layout/sidebar-slot";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { auth } from "@/lib/auth";
 import { listMyCircles } from "@/lib/circles";
 import { requirePageMembership } from "@/lib/request";
 
@@ -11,7 +13,13 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { session, membership } = await requirePageMembership();
+  // Logged-out visitors only ever see the public landing page (at `/`);
+  // every other dashboard route still requires a membership below.
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    return <div className="min-h-svh bg-background">{children}</div>;
+  }
+  const { membership } = await requirePageMembership();
   const memberships = await listMyCircles(session.user.id);
   return (
     <SidebarProvider className="h-svh overflow-hidden">

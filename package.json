@@ -19,7 +19,6 @@
     "db:validate": "prisma validate",
     "db:reset": "prisma migrate reset --force && prisma generate",
     "test": "bun test tests/unit",
-    "test:browser": "playwright test",
     "audit:ui": "tsx scripts/audit-ui.ts",
     "postinstall": "prisma generate"
   },
@@ -51,7 +50,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.2",
-    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/bun": "^1.4.0",
     "@types/node": "^20",

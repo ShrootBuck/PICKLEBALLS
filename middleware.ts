@@ -10,6 +10,9 @@ const SESSION_COOKIES = [
 ];
 
 export function middleware(request: NextRequest) {
+  // `/` is the public landing page for logged-out visitors; the dashboard
+  // layout and Today page branch on the session themselves.
+  if (request.nextUrl.pathname === "/") return NextResponse.next();
   const hasSession = SESSION_COOKIES.some((name) => request.cookies.has(name));
   if (hasSession) return NextResponse.next();
 

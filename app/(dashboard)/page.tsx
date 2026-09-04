@@ -1,13 +1,24 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { LandingPage } from "@/components/landing/landing-page";
 import { TodayDashboard } from "@/components/today/today-dashboard";
+import { auth } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
 import { phoenixDateKey, requireDateKey } from "@/lib/time";
 
-export const metadata: Metadata = { title: "Today" };
+export async function generateMetadata(): Promise<Metadata> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    return { title: { absolute: "Pickle Balls · Do the homework" } };
+  }
+  return { title: "Today" };
+}
 
 export default async function TodayPage() {
-  const { session, membership } = await requirePageMembership();
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return <LandingPage />;
+  const { membership } = await requirePageMembership();
   const dayKey = phoenixDateKey();
   const day = requireDateKey(dayKey);
   // Overdue marking is owned by the daily cron (`/api/cron/reconcile`), not

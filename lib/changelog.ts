@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788495464329,
+    title: "Simple landing page",
+    description:
+      "The homepage now shows a short intro with a link to the open-source repo instead of bouncing you straight to sign-in.",
+  },
+  {
     timestamp: 1788495235599,
     title: "Open source on GitHub",
     description:
