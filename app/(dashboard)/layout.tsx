@@ -35,7 +35,10 @@ export default async function DashboardLayout({
         <SiteHeader
           bell={
             <Suspense fallback={null}>
-              <BellSlot circleId={membership.circleId} />
+              <BellSlot
+                circleId={membership.circleId}
+                userId={session.user.id}
+              />
             </Suspense>
           }
         />

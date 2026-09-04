@@ -96,6 +96,10 @@ model User {
   invitesCreated      Invite[]             @relation("InvitesCreated")
   invitesUsed         Invite[]             @relation("InvitesUsed")
   socialReplies       SocialReply[]
+  pushSubscriptions   PushSubscription[]
+  notifications       Notification[]       @relation("NotificationsReceived")
+  notificationsSent   Notification[]       @relation("NotificationsSent")
+  notificationPrefs   NotificationPreference?
 }
 
 model Session {
@@ -173,6 +177,7 @@ model Circle {
   invites       Invite[]
   aiRuns        AIRun[]
   socialReplies SocialReply[]
+  notifications Notification[]
 }
 
 model Membership {
@@ -401,4 +406,57 @@ model AIRun {
   @@index([userId, feature, createdAt])
   @@index([circleId, createdAt])
   @@index([createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique @db.Text
+  p256dh    String   @db.Text
+  auth      String   @db.Text
+  userAgent String?  @db.VarChar(500)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model Notification {
+  id          String       @id @default(cuid())
+  recipientId String
+  actorId     String
+  circleId    String
+  kind        ActivityKind
+  entityId    String?
+  title       String       @db.VarChar(120)
+  body        String       @db.VarChar(500)
+  data        Json?
+  readAt      DateTime?
+  createdAt   DateTime     @default(now())
+
+  recipient User   @relation("NotificationsReceived", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     User   @relation("NotificationsSent", fields: [actorId], references: [id], onDelete: Cascade)
+  circle    Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, createdAt])
+  @@index([recipientId, readAt, createdAt])
+  @@index([circleId, createdAt])
+}
+
+model NotificationPreference {
+  userId String @id
+
+  replies         Boolean @default(true)
+  proofsSubmitted Boolean @default(true)
+  proofReviews    Boolean @default(true)
+  taskMissed      Boolean @default(true)
+  taskCreated     Boolean @default(false)
+  checkIns        Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

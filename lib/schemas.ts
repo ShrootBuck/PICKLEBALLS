@@ -20,6 +20,23 @@ export const replyEditSchema = z.object({
   body: z.string().trim().min(1).max(500),
 });
 
+export const pushSubscriptionSchema = z.object({
+  endpoint: z.string().trim().min(1).max(2000).url(),
+  keys: z.object({
+    p256dh: z.string().trim().min(1).max(500),
+    auth: z.string().trim().min(1).max(500),
+  }),
+  userAgent: z.string().trim().max(500).optional(),
+});
+
+export const notificationPreferencesSchema = z.object({
+  replies: z.boolean(),
+  proofsSubmitted: z.boolean(),
+  proofReviews: z.boolean(),
+  taskMissed: z.boolean(),
+  taskCreated: z.boolean(),
+  checkIns: z.boolean(),
+});
 export const proofReviewSchema = z
   .object({
     decision: z.enum(["APPROVED", "CHALLENGED"]),

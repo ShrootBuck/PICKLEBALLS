@@ -25,9 +25,14 @@ export async function reconcileMissedTasks(circleId: string, now = new Date()) {
     },
     select: { id: true, userId: true, title: true, status: true, dueAt: true },
   });
-  if (candidates.length === 0) return { count: 0 };
+  if (candidates.length === 0)
+    return {
+      count: 0,
+      missed: [] as Array<{ id: string; userId: string; title: string }>,
+    };
   return getPrisma().$transaction(async (transaction) => {
     let count = 0;
+    const missed: Array<{ id: string; userId: string; title: string }> = [];
     for (const task of candidates) {
       // Single source of truth for the miss rule (also unit-tested).
       if (!shouldMarkMissed(task.status, task.dueAt, 0, now)) continue;
@@ -41,6 +46,7 @@ export async function reconcileMissedTasks(circleId: string, now = new Date()) {
       });
       if (updated.count === 0) continue;
       count += 1;
+      missed.push({ id: task.id, userId: task.userId, title: task.title });
       await transaction.activityEvent.create({
         data: {
           circleId,
@@ -51,7 +57,7 @@ export async function reconcileMissedTasks(circleId: string, now = new Date()) {
         },
       });
     }
-    return { count };
+    return { count, missed };
   });
 }
 

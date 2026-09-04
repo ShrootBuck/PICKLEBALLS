@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { RegisterSw } from "@/components/pwa/register-sw";
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
@@ -21,7 +22,6 @@ export const viewport: Viewport = {
   maximumScale: 5,
   minimumScale: 1,
   viewportFit: "cover",
-  // Light-only theme. Single theme color, no PWA tricks.
   themeColor: "#23412e",
   colorScheme: "light",
   interactiveWidget: "resizes-visual",
@@ -32,6 +32,12 @@ export const metadata: Metadata = {
   description:
     "Schoolwork promises. Photo receipts. Friends who call the bluff.",
   applicationName: "Pickle Balls",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Pickle Balls",
+    statusBarStyle: "default",
+  },
   formatDetection: {
     telephone: false,
     date: false,
@@ -78,6 +84,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-icon" />
       </head>
       <body className="touch-manipulation antialiased">
+        <RegisterSw />
         <TooltipProvider>
           <Toaster>{children}</Toaster>
         </TooltipProvider>

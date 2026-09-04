@@ -1,6 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { assessTaskProof } from "@/lib/ai";
 import { jsonError } from "@/lib/api";
+import { notifyProofSubmitted } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { submitProof } from "@/lib/tasks";
@@ -50,6 +51,22 @@ export async function POST(
     // Uses Next.js `after()` to keep work alive after response.
     const uploaderId = auth.session.user.id;
     const circleId = auth.membership.circleId;
+    const submittedProofId = proof.id;
+    after(async () => {
+      try {
+        await notifyProofSubmitted({
+          proofId: submittedProofId,
+          actorId: uploaderId,
+          circleId,
+        });
+      } catch (error) {
+        console.warn("Proof notification fan-out failed", {
+          proofId: submittedProofId,
+          circleId,
+          error,
+        });
+      }
+    });
     after(async () => {
       try {
         const proofWithTask = await getPrisma().taskProof.findUnique({
