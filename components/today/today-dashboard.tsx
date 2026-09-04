@@ -61,7 +61,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { formatDayLong, formatHistoryTime } from "@/lib/time";
+import {
+  formatDayLong,
+  formatHistoryTime,
+  phoenixLocalDateTimeValue,
+} from "@/lib/time";
 
 type ProofReview = {
   id: string;
@@ -422,6 +426,12 @@ function ProofDialog({
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [confirmEmpty, setConfirmEmpty] = useState(false);
+  const [startedAt, setStartedAt] = useState(() =>
+    phoenixLocalDateTimeValue(new Date(Date.now() - 30 * 60 * 1000)),
+  );
+  const [completedAt, setCompletedAt] = useState(() =>
+    phoenixLocalDateTimeValue(),
+  );
   const isReplace = task.proof?.reviewStatus === "CHALLENGED";
   const isLate = task.status === "MISSED";
   const [formKey, setFormKey] = useState(0);
@@ -494,7 +504,13 @@ function ProofDialog({
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
-    if (!next) {
+    if (next) {
+      const now = new Date();
+      setStartedAt(
+        phoenixLocalDateTimeValue(new Date(now.getTime() - 30 * 60 * 1000)),
+      );
+      setCompletedAt(phoenixLocalDateTimeValue(now));
+    } else {
       setError(null);
       setPending(false);
       setNote("");
@@ -539,6 +555,40 @@ function ProofDialog({
                   description="PNG, JPEG, WebP, HEIC, or HEIF. Max 6 MB. Location data gets stripped automatically."
                   required
                 />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor={`proof-started-${task.id}`}>
+                      Started
+                    </FieldLabel>
+                    <Input
+                      id={`proof-started-${task.id}`}
+                      name="startedAt"
+                      type="datetime-local"
+                      value={startedAt}
+                      max={phoenixLocalDateTimeValue()}
+                      onChange={(event) => setStartedAt(event.target.value)}
+                      required
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`proof-completed-${task.id}`}>
+                      Finished
+                    </FieldLabel>
+                    <Input
+                      id={`proof-completed-${task.id}`}
+                      name="completedAt"
+                      type="datetime-local"
+                      value={completedAt}
+                      max={phoenixLocalDateTimeValue()}
+                      onChange={(event) => setCompletedAt(event.target.value)}
+                      required
+                    />
+                  </Field>
+                </div>
+                <FieldDescription>
+                  Prefilled as the last 30 minutes. Fix it now so Monday&apos;s
+                  timeblock writes itself.
+                </FieldDescription>
                 <Field>
                   <FieldLabel htmlFor={`proof-note-${task.id}`}>
                     What are we looking at?

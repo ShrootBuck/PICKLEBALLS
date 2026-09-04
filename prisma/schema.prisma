@@ -248,6 +248,8 @@ model TaskProof {
   circleId         String
   ownerNote        String?          @db.VarChar(500)
   submittedAt        DateTime           @default(now())
+  startedAt          DateTime
+  completedAt        DateTime
   isLate             Boolean
   aiStatus           AIAssessmentStatus @default(PENDING)
   aiVisibleEvidence  String?
@@ -270,6 +272,7 @@ model TaskProof {
   @@index([commitmentId, submittedAt])
   @@index([circleId, submittedAt])
   @@index([ownerId, submittedAt])
+  @@index([ownerId, completedAt])
 }
 
 model TaskProofImage {

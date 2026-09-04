@@ -4,6 +4,7 @@ import {
   proofReviewSchema,
   replyEditSchema,
   socialReplySchema,
+  timeblockPdfSchema,
 } from "@/lib/schemas";
 import { canEditReply } from "@/lib/task-policy";
 
@@ -14,6 +15,51 @@ describe("daily status validation", () => {
     ).toBe(true);
     expect(checkInSchema.safeParse({ signal: "NAY" }).success).toBe(true);
     expect(checkInSchema.safeParse({ signal: "AT_RISK" }).success).toBe(false);
+  });
+});
+
+describe("timeblock PDF validation", () => {
+  test("accepts a bounded task block", () => {
+    expect(
+      timeblockPdfSchema.safeParse({
+        dueMonday: "2026-09-07",
+        tasks: [
+          {
+            id: "task-1",
+            title: "Reading log",
+            startedAt: "2026-09-02T16:00",
+            completedAt: "2026-09-02T16:30",
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  test("rejects malformed local times and oversized task lists", () => {
+    expect(
+      timeblockPdfSchema.safeParse({
+        dueMonday: "2026-09-07",
+        tasks: [
+          {
+            id: "task-1",
+            title: "Reading log",
+            startedAt: "yesterday",
+            completedAt: "2026-09-02T16:30",
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      timeblockPdfSchema.safeParse({
+        dueMonday: "2026-09-07",
+        tasks: Array.from({ length: 57 }, (_, index) => ({
+          id: `task-${index}`,
+          title: "Task",
+          startedAt: "2026-09-02T16:00",
+          completedAt: "2026-09-02T16:30",
+        })),
+      }).success,
+    ).toBe(false);
   });
 });
 

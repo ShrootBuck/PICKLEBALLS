@@ -51,3 +51,19 @@ export const proofReviewSchema = z
       });
     }
   });
+
+const localDateTimeSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+
+export const timeblockPdfSchema = z.object({
+  dueMonday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  tasks: z
+    .array(
+      z.object({
+        id: z.string().trim().min(1).max(100),
+        title: z.string().trim().min(1).max(160),
+        startedAt: localDateTimeSchema,
+        completedAt: localDateTimeSchema,
+      }),
+    )
+    .max(56),
+});

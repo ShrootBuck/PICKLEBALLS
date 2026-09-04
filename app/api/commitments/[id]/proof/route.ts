@@ -5,6 +5,7 @@ import { notifyProofSubmitted } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { submitProof } from "@/lib/tasks";
+import { parsePhoenixLocalDateTime } from "@/lib/time";
 
 export const runtime = "nodejs";
 
@@ -39,12 +40,26 @@ export async function POST(
       String(form.get("note") ?? "")
         .slice(0, 5000)
         .trim() || null;
+    const startedAt = parsePhoenixLocalDateTime(
+      String(form.get("startedAt") ?? "").slice(0, 40),
+    );
+    const completedAt = parsePhoenixLocalDateTime(
+      String(form.get("completedAt") ?? "").slice(0, 40),
+    );
+    if (!startedAt || !completedAt) {
+      return NextResponse.json(
+        { error: "Add a valid start and finish time." },
+        { status: 400 },
+      );
+    }
     const proof = await submitProof(
       id,
       auth.session.user.id,
       auth.membership.circleId,
       file,
       note,
+      startedAt,
+      completedAt,
     );
 
     // Run AI assessment in the background so upload feels instant.

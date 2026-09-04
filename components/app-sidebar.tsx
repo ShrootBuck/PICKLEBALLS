@@ -2,6 +2,7 @@
 
 import {
   ArrowUpRight,
+  CalendarRange,
   Check,
   ClipboardCheck,
   History,
@@ -45,6 +46,12 @@ const links = [
   { href: "/", label: "Today", hint: "Your board", icon: ClipboardCheck },
   { href: "/squad", label: "Squad", hint: "Talk + verdicts", icon: Users },
   { href: "/history", label: "History", hint: "Past boards", icon: History },
+  {
+    href: "/timeblock",
+    label: "Timeblock",
+    hint: "Weekly PDF",
+    icon: CalendarRange,
+  },
   {
     href: "/changelog",
     label: "Changelog",

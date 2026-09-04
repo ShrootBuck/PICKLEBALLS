@@ -160,10 +160,25 @@ export async function submitProof(
   circleId: string,
   file: File,
   ownerNote: string | null,
+  startedAt: Date,
+  completedAt: Date,
   now = new Date(),
 ) {
   if (ownerNote && ownerNote.length > 500)
     throw new DomainError("Keep the proof note under 500 characters.");
+  if (
+    Number.isNaN(startedAt.getTime()) ||
+    Number.isNaN(completedAt.getTime()) ||
+    startedAt >= completedAt
+  ) {
+    throw new DomainError("The finish time must be after the start time.");
+  }
+  if (completedAt.getTime() > now.getTime() + 5 * 60 * 1000) {
+    throw new DomainError("The finish time cannot be in the future.");
+  }
+  if (completedAt.getTime() - startedAt.getTime() > 24 * 60 * 60 * 1000) {
+    throw new DomainError("Keep one task block under 24 hours.");
+  }
   const image = await sanitizeImage(file);
 
   return getPrisma().$transaction(async (transaction) => {
@@ -193,6 +208,8 @@ export async function submitProof(
         circleId,
         ownerNote: ownerNote || null,
         submittedAt: now,
+        startedAt,
+        completedAt,
         isLate: isLateProof(task.dueAt, now),
         image: { create: image },
       },

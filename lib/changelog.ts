@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788540444539,
+    title: "Weekly timeblock PDFs",
+    description:
+      "Proof uploads now record start and finish times, then automatically build a two-page weekly report with a numbered task list and a Monday-through-Sunday schedule for duplex printing.",
+  },
+  {
     timestamp: 1788536713347,
     title: "Layout rebuilt for every screen",
     description:
