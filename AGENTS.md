@@ -10,9 +10,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Dev vs prod databases
 
-- Local dev uses `prisma dev` (instance `pickleballs`, `localhost:51218`,
-  databases `pickle_balls` + `pickle_balls_test`). Start it with
-  `bun run db:dev` (after a reboot: `bunx prisma dev start pickleballs`).
+- Local dev uses two isolated `prisma dev` instances. `pickleballs` listens on
+  database port 51218 with shadow port 51219; `pickleballs-test` listens on
+  database port 51221 with shadow port 51222. Start both with `bun run db:dev`.
 - `.env` must ALWAYS point at local. Prod URL lives only in Vercel env vars
   and `.env.production.local` (gitignored backup). If `.env` contains
   `pooled.db.prisma.io`, stop and fix it before running any prisma/db command.
@@ -21,4 +21,4 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   `migrate dev` against prod.
 - Browser tests need `TEST_DATABASE_URL` pointing at a database with `test`
   in its name (guarded): disposable local URL is
-  `postgres://postgres:postgres@localhost:51218/pickle_balls_test?sslmode=disable`.
+  `postgres://postgres:postgres@localhost:51221/pickle_balls_test?sslmode=disable`.

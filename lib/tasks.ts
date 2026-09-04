@@ -358,7 +358,7 @@ export async function reviewProof(
 export async function setCheckIn(
   userId: string,
   circleId: string,
-  signal: "WORKING" | "CLEAR" | "AT_RISK",
+  signal: "YAY" | "NAY",
   blocker?: string,
   now = new Date(),
 ) {

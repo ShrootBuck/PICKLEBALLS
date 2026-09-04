@@ -5,6 +5,7 @@ import { activityIcon } from "@/components/layout/activity-icons";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProofCard } from "@/components/squad/proof-card";
 import {
+  signalLabel,
   signalVariant,
   taskStatusLabel,
   taskStatusVariant,
@@ -45,6 +46,7 @@ import { requirePageMembership } from "@/lib/request";
 import { requiredApprovalsForCircle } from "@/lib/task-policy";
 import {
   formatDayLong,
+  formatHistoryTime,
   formatReplyTime,
   phoenixDateKey,
   requireDateKey,
@@ -110,7 +112,7 @@ export default async function SquadPage({
                 },
                 updates: {
                   orderBy: { createdAt: "desc" },
-                  take: 10,
+                  take: 20,
                 },
               },
             },
@@ -250,7 +252,23 @@ export default async function SquadPage({
                 (task) => task.status === "VERIFIED",
               ).length;
               const total = user.commitments.length;
-              const atRisk = checkIn?.signal === "AT_RISK";
+              const isNay =
+                checkIn?.signal === "NAY" || checkIn?.signal === "AT_RISK";
+              // Full post history, newest first. Old check-ins from before
+              // per-post history still show up once via the check-in row.
+              const posts =
+                checkIn && checkIn.updates.length > 0
+                  ? checkIn.updates
+                  : checkIn?.blocker
+                    ? [
+                        {
+                          id: checkIn.id,
+                          signal: checkIn.signal,
+                          blocker: checkIn.blocker,
+                          createdAt: checkIn.updatedAt,
+                        },
+                      ]
+                    : [];
               return (
                 <Card
                   key={user.id}
@@ -261,7 +279,7 @@ export default async function SquadPage({
                       "--board-row": Math.floor(index / 2) + 1,
                     } as CSSProperties
                   }
-                  className={`${atRisk ? "border-destructive/40 " : ""}sm:[grid-column-start:var(--board-col)] sm:[grid-row-start:var(--board-row)]`}
+                  className={`${isNay ? "border-destructive/40 " : ""}sm:[grid-column-start:var(--board-col)] sm:[grid-row-start:var(--board-row)]`}
                 >
                   <CardHeader>
                     <div className="flex min-w-0 items-center gap-3">
@@ -278,9 +296,10 @@ export default async function SquadPage({
                           {total === 0
                             ? "No promises. Suspicious."
                             : `${verified}/${total} verified`}
-                          {checkIn?.signal === "AT_RISK"
+                          {checkIn?.signal === "NAY" ||
+                          checkIn?.signal === "AT_RISK"
                             ? ", needs backup"
-                            : checkIn?.signal === "CLEAR"
+                            : checkIn
                               ? ", chilling"
                               : ""}
                         </CardDescription>
@@ -343,42 +362,49 @@ export default async function SquadPage({
                               variant={signalVariant(checkIn.signal)}
                               className="capitalize"
                             >
-                              {checkIn.signal
-                                .toLowerCase()
-                                .replaceAll("_", " ")}
+                              {signalLabel(checkIn.signal)}
                             </Badge>
-                            {checkIn.updates.length > 1 ? (
+                            {posts.length > 1 ? (
                               <span className="text-xs text-muted-foreground tabular-nums">
-                                {checkIn.updates.length} posts today
+                                {posts.length} posts today
                               </span>
                             ) : null}
                           </div>
-                          {checkIn.blocker ? (
-                            <p className="text-sm leading-relaxed text-pretty">
-                              {checkIn.blocker}
-                            </p>
+                          {posts.length > 0 ? (
+                            <div className="flex max-h-64 flex-col gap-2 overflow-y-auto pr-0.5">
+                              {posts.map((post) => (
+                                <div
+                                  key={post.id}
+                                  className="flex flex-col gap-1.5 rounded-lg bg-background/60 px-2.5 py-2"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Badge
+                                      variant={signalVariant(post.signal)}
+                                      className="text-[11px] capitalize"
+                                    >
+                                      {signalLabel(post.signal)}
+                                    </Badge>
+                                    <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
+                                      {formatHistoryTime(post.createdAt)}
+                                    </span>
+                                  </div>
+                                  {post.blocker ? (
+                                    <p className="text-[13px] leading-snug text-pretty">
+                                      {post.blocker}
+                                    </p>
+                                  ) : (
+                                    <p className="text-[13px] text-muted-foreground italic">
+                                      No note. Just vibes.
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           ) : (
                             <p className="text-[13px] text-muted-foreground italic">
                               No blocker posted. Fingers crossed.
                             </p>
                           )}
-                          {checkIn.updates.length > 1 ? (
-                            <div className="flex flex-col gap-1.5 border-l-2 pl-3">
-                              {checkIn.updates.slice(1, 4).map((older) => (
-                                <p
-                                  key={older.id}
-                                  className="text-[13px] leading-snug text-muted-foreground"
-                                >
-                                  <span className="font-medium capitalize">
-                                    {older.signal
-                                      .toLowerCase()
-                                      .replaceAll("_", " ")}
-                                  </span>
-                                  {older.blocker ? ` — ${older.blocker}` : ""}
-                                </p>
-                              ))}
-                            </div>
-                          ) : null}
                           <SocialReplyThread
                             targetType="CHECK_IN"
                             targetId={checkIn.id}

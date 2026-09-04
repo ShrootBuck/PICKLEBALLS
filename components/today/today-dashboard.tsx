@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Bot,
   CalendarClock,
   Camera,
   CheckCircle2,
@@ -9,7 +8,6 @@ import {
   History,
   Pencil,
   Plus,
-  Sparkles,
   TriangleAlert,
 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
@@ -92,8 +90,11 @@ type Task = {
   };
 };
 
+type DailySignal = "YAY" | "NAY" | "WORKING" | "CLEAR" | "AT_RISK";
+type CurrentSignal = "YAY" | "NAY";
+
 type CheckIn = {
-  signal: "WORKING" | "CLEAR" | "AT_RISK";
+  signal: DailySignal;
   blocker: string | null;
 } | null;
 
@@ -142,9 +143,13 @@ function statusBadge(status: Task["status"]) {
 }
 
 function signalBadge(signal: CheckInHistoryItem["signal"]) {
-  if (signal === "AT_RISK") return <Badge variant="destructive">At risk</Badge>;
-  if (signal === "CLEAR") return <Badge variant="default">Clear</Badge>;
-  return <Badge variant="secondary">Working</Badge>;
+  if (signal === "NAY" || signal === "AT_RISK")
+    return <Badge variant="destructive">Nay</Badge>;
+  return <Badge variant="default">Yay</Badge>;
+}
+
+function currentSignal(signal?: DailySignal): CurrentSignal {
+  return signal === "NAY" || signal === "AT_RISK" ? "NAY" : "YAY";
 }
 
 function ProofFeedback({
@@ -632,24 +637,19 @@ function CheckInCard({
     historyItem: CheckInHistoryItem,
   ) => void;
 }) {
-  const [signal, setSignal] = useState<NonNullable<CheckIn>["signal"]>(
-    initial?.signal ?? "WORKING",
+  const [signal, setSignal] = useState<CurrentSignal>(() =>
+    currentSignal(initial?.signal),
   );
   const [blocker, setBlocker] = useState("");
   const [pending, setPending] = useState(false);
   // Latest post wins; the parent feeds the new check-in back as `initial`.
   const initialSignal = initial?.signal;
   useEffect(() => {
-    if (initialSignal) setSignal(initialSignal);
+    if (initialSignal) setSignal(currentSignal(initialSignal));
   }, [initialSignal]);
-  const [coach, setCoach] = useState<string | null>(null);
-  const [coachSteps, setCoachSteps] = useState<string[]>([]);
-  const [coachPending, setCoachPending] = useState(false);
-  const [coachCooldown, setCoachCooldown] = useState(false);
 
   async function post() {
     setPending(true);
-    setCoach(null);
     try {
       const response = await fetch("/api/check-in", {
         method: "POST",
@@ -664,7 +664,7 @@ function CheckInCard({
       const body = (await response.json()) as {
         checkIn: {
           id: string;
-          signal: NonNullable<CheckIn>["signal"];
+          signal: CurrentSignal;
           blocker: string | null;
           updatedAt: string;
         };
@@ -692,42 +692,6 @@ function CheckInCard({
     }
   }
 
-  async function getUnblocked() {
-    if (coachPending || coachCooldown) return;
-    setCoachPending(true);
-    setCoach(null);
-    setCoachSteps([]);
-    try {
-      const response = await fetch("/api/ai/unblock", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ signal, blocker }),
-      });
-      const result = (await response.json()) as {
-        plan?: string;
-        steps?: string[];
-        error?: string;
-      };
-      if (!response.ok) {
-        toast.add({
-          title: result.error ?? "AI flopped. Figure it out yourself.",
-          type: "error",
-        });
-        return;
-      }
-      setCoach(result.plan ?? null);
-      setCoachSteps(result.steps ?? []);
-      // One high-effort run per minute per client. No server cap — trusted
-      // circle — just stops double-clicks burning money.
-      setCoachCooldown(true);
-      window.setTimeout(() => setCoachCooldown(false), 60_000);
-    } catch {
-      toast.add({ title: "AI is down right now.", type: "error" });
-    } finally {
-      setCoachPending(false);
-    }
-  }
-
   return (
     <Card size="sm" className="lg:sticky lg:top-20">
       <CardHeader>
@@ -748,24 +712,20 @@ function CheckInCard({
           <Field>
             <FieldTitle id="check-in-signal">Status</FieldTitle>
             <ToggleGroup
-              value={[signal ?? "WORKING"]}
+              value={[signal ?? "YAY"]}
               onValueChange={(value) =>
-                value[0] &&
-                setSignal(value[0] as NonNullable<CheckIn>["signal"])
+                value[0] && setSignal(value[0] as CurrentSignal)
               }
               aria-labelledby="check-in-signal"
               variant="outline"
               spacing={2}
               className="w-full"
             >
-              <ToggleGroupItem value="WORKING" className="flex-1">
-                Working
+              <ToggleGroupItem value="YAY" className="flex-1">
+                Yay
               </ToggleGroupItem>
-              <ToggleGroupItem value="CLEAR" className="flex-1">
-                Clear
-              </ToggleGroupItem>
-              <ToggleGroupItem value="AT_RISK" className="flex-1">
-                At risk
+              <ToggleGroupItem value="NAY" className="flex-1">
+                Nay
               </ToggleGroupItem>
             </ToggleGroup>
           </Field>
@@ -781,22 +741,6 @@ function CheckInCard({
             />
           </Field>
         </FieldGroup>
-        {(coach || coachSteps.length > 0) && (
-          <Alert>
-            <Sparkles />
-            <AlertTitle>Unfuck plan</AlertTitle>
-            <AlertDescription className="flex flex-col gap-1.5">
-              {coach ? <span>{coach}</span> : null}
-              {coachSteps.length > 0 ? (
-                <ol className="flex list-decimal flex-col gap-1 pl-4">
-                  {coachSteps.map((step) => (
-                    <li key={step}>{step}</li>
-                  ))}
-                </ol>
-              ) : null}
-            </AlertDescription>
-          </Alert>
-        )}
         {history.length > 0 && (
           <div className="flex flex-col gap-2.5">
             <p className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -838,20 +782,6 @@ function CheckInCard({
         >
           {pending ? <Spinner data-icon="inline-start" /> : null}
           Post check-in
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full"
-          onClick={getUnblocked}
-          disabled={coachPending || coachCooldown}
-        >
-          {coachPending ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <Bot data-icon="inline-start" />
-          )}
-          {coachCooldown ? "Chill — one run per minute" : "Get unblocked by AI"}
         </Button>
       </CardFooter>
     </Card>

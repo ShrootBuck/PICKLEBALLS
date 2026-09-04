@@ -4,6 +4,7 @@ import { HistoryNav } from "@/components/history/history-nav";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProofCard } from "@/components/squad/proof-card";
 import {
+  signalLabel,
   signalVariant,
   taskStatusLabel,
   taskStatusVariant,
@@ -308,7 +309,7 @@ export default async function HistoryPage({
                         >
                           <div className="flex items-center gap-2">
                             <Badge variant={signalVariant(item.signal)}>
-                              {item.signal.toLowerCase().replaceAll("_", " ")}
+                              {signalLabel(item.signal)}
                             </Badge>
                             <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
                               {formatHistoryTime(item.createdAt)}

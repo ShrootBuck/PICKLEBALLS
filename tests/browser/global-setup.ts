@@ -13,8 +13,13 @@ function signedSessionCookie(token: string, secret: string) {
 
 export default async function globalSetup(_config: FullConfig) {
   const databaseUrl = process.env.TEST_DATABASE_URL;
-  if (!databaseUrl || !/test/i.test(new URL(databaseUrl).pathname)) {
-    throw new Error("Refusing to reset a database without 'test' in its name.");
+  const parsedDatabaseUrl = databaseUrl ? new URL(databaseUrl) : null;
+  if (
+    !parsedDatabaseUrl ||
+    !/test/i.test(parsedDatabaseUrl.pathname) ||
+    parsedDatabaseUrl.port === "51218"
+  ) {
+    throw new Error("Refusing to reset the development database.");
   }
   const secret =
     process.env.TEST_BETTER_AUTH_SECRET ??
@@ -24,7 +29,7 @@ export default async function globalSetup(_config: FullConfig) {
 
   const reset = spawnSync(
     "bun",
-    ["x", "prisma", "migrate", "reset", "--force"],
+    ["x", "--bun", "prisma", "migrate", "reset", "--force"],
     { env: process.env, stdio: "inherit" },
   );
   if (reset.status !== 0)

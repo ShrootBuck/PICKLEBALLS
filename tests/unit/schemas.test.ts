@@ -1,10 +1,21 @@
 import { describe, expect, test } from "bun:test";
 import {
+  checkInSchema,
   proofReviewSchema,
   replyEditSchema,
   socialReplySchema,
 } from "@/lib/schemas";
 import { canEditReply } from "@/lib/task-policy";
+
+describe("daily status validation", () => {
+  test("accepts Yay/Nay and rejects legacy statuses", () => {
+    expect(
+      checkInSchema.safeParse({ signal: "YAY", blocker: "good" }).success,
+    ).toBe(true);
+    expect(checkInSchema.safeParse({ signal: "NAY" }).success).toBe(true);
+    expect(checkInSchema.safeParse({ signal: "AT_RISK" }).success).toBe(false);
+  });
+});
 
 describe("proof review validation", () => {
   test("allows approval without performative paperwork", () => {

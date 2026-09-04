@@ -26,11 +26,6 @@ export const proofAssessmentSchema = z.object({
   oneLiner: z.string().min(1).max(140),
 });
 
-export const blockerCoachSchema = z.object({
-  plan: z.string().min(1).max(280),
-  steps: z.array(z.string().max(120)).max(3),
-});
-
 function model(effort: AIEffort, userId: string) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error("OPENROUTER_API_KEY_MISSING");
@@ -171,36 +166,6 @@ Rules:
             text: `Promise: ${task.title}\nDefinition of done: ${task.definitionOfDone}${note}\n\nJudge this photo against that promise only.`,
           },
           { type: "file", data: image.data, mediaType: image.mimeType },
-        ],
-      },
-    ],
-  });
-}
-
-export function coachBlocker(
-  userId: string,
-  circleId: string,
-  input: { signal: string; blocker: string; tasks: string[] },
-) {
-  const taskList =
-    input.tasks.length > 0
-      ? input.tasks.slice(0, 30).join("; ")
-      : "(no tasks locked in)";
-  return runStructured({
-    schema: blockerCoachSchema,
-    userId,
-    circleId,
-    feature: "BLOCKER_COACH",
-    effort: "high",
-    system: `${APP_CONTEXT} You are the no-bullshit unblock coach. Given today's status, blocker, and task list, give one blunt plan under 40 words plus up to 3 concrete next steps under 25 minutes each. No therapy, no generic advice, no questions back. If there is no real blocker, say to lock in and start. ${injectionGuard}`,
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: `Status: ${input.signal}\nBlocker: ${input.blocker || "(none given)"}\nToday's tasks: ${taskList}`,
-          },
         ],
       },
     ],

@@ -118,7 +118,10 @@ export function taskStatusVariant(status: string) {
 }
 
 export function signalVariant(signal: string) {
-  if (signal === "AT_RISK") return "destructive" as const;
-  if (signal === "CLEAR") return "default" as const;
-  return "secondary" as const;
+  if (signal === "NAY" || signal === "AT_RISK") return "destructive" as const;
+  return "default" as const;
+}
+
+export function signalLabel(signal: string) {
+  return signal === "NAY" || signal === "AT_RISK" ? "Nay" : "Yay";
 }

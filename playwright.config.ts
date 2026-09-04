@@ -1,9 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const testDatabaseUrl = process.env.TEST_DATABASE_URL;
-if (!testDatabaseUrl || !/test/i.test(new URL(testDatabaseUrl).pathname)) {
+const testDatabaseUrl = process.env.TEST_DATABASE_URL ?? "";
+const parsedTestDatabaseUrl = testDatabaseUrl ? new URL(testDatabaseUrl) : null;
+if (
+  !parsedTestDatabaseUrl ||
+  !/test/i.test(parsedTestDatabaseUrl.pathname) ||
+  parsedTestDatabaseUrl.port === "51218"
+) {
   throw new Error(
-    "TEST_DATABASE_URL must point to a disposable database whose name contains 'test'.",
+    "TEST_DATABASE_URL must point to the dedicated test instance, never the dev instance.",
   );
 }
 

@@ -2,6 +2,7 @@ import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
 const databaseUrl = process.env.DATABASE_URL;
+const shadowDatabaseUrl = process.env.SHADOW_DATABASE_URL;
 if (!databaseUrl) {
   if (process.env.NODE_ENV === "production") {
     throw new Error("DATABASE_URL is not configured");
@@ -19,5 +20,6 @@ export default defineConfig({
     url:
       databaseUrl ??
       "postgresql://pickle_balls:pickle_balls@localhost:5432/pickle_balls",
+    ...(shadowDatabaseUrl ? { shadowDatabaseUrl } : {}),
   },
 });

@@ -121,7 +121,7 @@ test("squad members can reply to tasks and check-ins", async ({ browser }) => {
   await page.getByRole("button", { name: "Lock it in" }).click();
   await expect(page.getByText(taskTitle)).toBeVisible();
 
-  await page.getByText("At risk", { exact: true }).click();
+  await page.getByText("Nay", { exact: true }).click();
   await page.getByLabel("What is in the way?").fill(blocker);
   await page.getByRole("button", { name: "Post check-in" }).click();
   await expect(page.getByText("Posted. No take-backs.")).toBeVisible();

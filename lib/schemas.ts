@@ -6,7 +6,7 @@ export const commitmentInputSchema = z.object({
 });
 
 export const checkInSchema = z.object({
-  signal: z.enum(["WORKING", "CLEAR", "AT_RISK"]),
+  signal: z.enum(["YAY", "NAY"]),
   blocker: z.string().trim().max(500).optional(),
 });
 
@@ -34,8 +34,3 @@ export const proofReviewSchema = z
       });
     }
   });
-
-export const aiUnblockSchema = z.object({
-  signal: z.enum(["WORKING", "CLEAR", "AT_RISK"]),
-  blocker: z.string().trim().max(500).optional().default(""),
-});

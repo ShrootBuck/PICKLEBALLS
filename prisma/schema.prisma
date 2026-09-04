@@ -21,6 +21,10 @@ enum CommitmentStatus {
 }
 
 enum DailySignal {
+  YAY
+  NAY
+  // Kept for zero-downtime compatibility with the previous deployment.
+  // New code never writes these values.
   WORKING
   CLEAR
   AT_RISK

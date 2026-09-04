@@ -19,9 +19,9 @@ approval from someone else verifies a proof.
 ```bash
 bun install
 cp .env.example .env
-bun run db:dev        # start the local Postgres (once per reboot: bunx prisma dev start pickleballs)
+bun run db:dev        # start isolated dev + test Prisma Postgres instances
 bun run db:generate
-bun run db:migrate    # create all tables in the local database
+bun run db:migrate    # apply all migrations to the local database
 bun run dev
 ```
 
@@ -29,14 +29,19 @@ The `Pickle Balls` circle is created automatically on first owner sign-in.
 
 ## Dev vs prod databases
 
-- **Local dev** uses a Postgres running on your own machine (`prisma dev`,
-  `localhost:51218`). `.env` points there. Break it freely.
+- **Local dev** uses Prisma Postgres instance `pickleballs`: database port
+  `51218`, dedicated migration shadow port `51219`. `.env` points there.
 - **Prod** is the hosted Prisma Postgres database. Its URL lives **only** in
   Vercel's environment variables and in `.env.production.local` (gitignored
   backup, never committed). Never put the prod URL in `.env`.
-- **Browser tests** use a separate disposable database:
-  `TEST_DATABASE_URL="postgres://postgres:postgres@localhost:51218/pickle_balls_test?sslmode=disable"`.
-  The test setup refuses any database without `test` in its name.
+- **Browser tests** use a second Prisma Postgres instance on database port
+  `51221` (shadow port `51222`). The test setup rejects the dev port before it
+  can reset anything.
+
+Prisma dev's TCP endpoint always routes to its one internal `template1`
+database, regardless of the path in the URL. A different URL path is therefore
+not isolation. Separate ports provide the isolation; `SHADOW_DATABASE_URL`
+also prevents `migrate dev` from replaying migrations against the dev data.
 
 Rule of thumb: if `.env` ever contains `pooled.db.prisma.io`, stop and fix
 it before running any `prisma` or `db:` command.
@@ -51,7 +56,7 @@ bun run db:migrate                                   # prod/CI: applies pending 
 ```
 
 `bun run vercel-build` runs `prisma migrate deploy`, so Vercel applies
-pending migrations on every deploy with full history and rollback. `bun run
+pending migrations on every deploy and stops the build if one fails. `bun run
 db:reset` destroys all current database data and re-applies migrations.
 Run it only when a reset is intentional.
 
@@ -81,10 +86,8 @@ placeholder email because the auth user table requires a unique email.
 
 ## AI behavior
 
-The app uses AI SDK 7 `generateText` with bounded `Output.object` schemas for:
-
-- advisory task-proof comparison
-- unblock coaching for check-ins
+The app uses AI SDK 7 `generateText` with a bounded `Output.object` schema for
+advisory task-proof comparison.
 
 Every request uses `meta/muse-spark-1.3-contributor`, disables fallbacks, requires supported parameters, times out after 60 seconds, and retries
 once. AI never resolves proof. A friend does. Metadata-only run logs are stored;
@@ -120,7 +123,7 @@ Browser tests require a disposable Postgres database whose database name
 contains `test`:
 
 ```bash
-TEST_DATABASE_URL="postgresql://.../pickle_balls_test" bun run test:browser
+TEST_DATABASE_URL="postgres://postgres:postgres@localhost:51221/pickle_balls_test?sslmode=disable" bun run test:browser
 ```
 
 The browser-test setup force-resets only that guarded test database and seeds
