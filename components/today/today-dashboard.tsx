@@ -536,7 +536,7 @@ function ProofDialog({
                 <FileUpload
                   id={`proof-${task.id}`}
                   label="Proof photo"
-                  description="PNG, JPEG, WebP, or HEIC. Max 6 MB. Location data gets stripped automatically."
+                  description="PNG, JPEG, WebP, HEIC, or HEIF. Max 6 MB. Location data gets stripped automatically."
                   required
                 />
                 <Field>

@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788497429615,
+    title: "Fixed proof upload validation",
+    description:
+      "Submitting proof without a photo now shows the friendly error message instead of silently failing. HEIF photos are also accepted in the file picker.",
+  },
+  {
     timestamp: 1788497160603,
     title: "Rich changelog entries",
     description:

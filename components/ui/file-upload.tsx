@@ -9,11 +9,11 @@ import { cn } from "@/lib/utils";
 
 export function FileUpload({
   id,
-  accept = "image/png,image/jpeg,image/webp,image/heic",
+  accept = "image/png,image/jpeg,image/webp,image/heic,image/heif",
   required,
   onFileChange,
   label = "Proof photo",
-  description = "PNG, JPEG, WebP, or HEIC. Maximum 6 MB.",
+  description = "PNG, JPEG, WebP, HEIC, or HEIF. Maximum 6 MB.",
   className,
 }: {
   id?: string;
@@ -126,13 +126,17 @@ export function FileUpload({
             </Button>
           )}
         </div>
+        {/* Hidden from tab order: the "Choose file" button above is the
+            keyboard path. Never mark this input required: native validation
+            cannot focus an sr-only + tabIndex={-1} control, which blocks
+            submit and makes the form's custom empty-file error unreachable.
+            Callers validate the FormData instead. */}
         <Input
           ref={ref}
           id={inputId}
           name="image"
           type="file"
           accept={accept}
-          required={required}
           className="sr-only"
           tabIndex={-1}
           onChange={handleChange}
