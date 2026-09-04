@@ -51,6 +51,7 @@ import {
   phoenixDateKey,
   requireDateKey,
 } from "@/lib/time";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Squad" };
 
@@ -245,7 +246,7 @@ export default async function SquadPage({
           />
         }
         board={
-          <div className="grid items-start gap-3 sm:grid-cols-2">
+          <div className="grid items-start gap-4 xl:grid-cols-2">
             {members.map(({ user, role }, index) => {
               const checkIn = user.checkIns[0];
               const verified = user.commitments.filter(
@@ -279,7 +280,10 @@ export default async function SquadPage({
                       "--board-row": Math.floor(index / 2) + 1,
                     } as CSSProperties
                   }
-                  className={`${isNay ? "border-destructive/40 " : ""}sm:[grid-column-start:var(--board-col)] sm:[grid-row-start:var(--board-row)]`}
+                  className={cn(
+                    isNay && "border-destructive/40",
+                    "xl:[grid-column-start:var(--board-col)] xl:[grid-row-start:var(--board-row)]",
+                  )}
                 >
                   <CardHeader>
                     <div className="flex min-w-0 items-center gap-3">

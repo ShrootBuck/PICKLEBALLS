@@ -71,7 +71,7 @@ export function FileUpload({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: drop target only */}
       <div
         className={cn(
-          "group relative flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/30 px-6 py-8 text-center transition-colors hover:bg-muted/50 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
+          "group relative flex min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/30 px-4 py-6 text-center transition-colors hover:bg-muted/50 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 sm:px-6 sm:py-8",
           fileName && "border-solid bg-card hover:bg-card",
           dragging && "border-solid border-ring bg-muted/60",
         )}

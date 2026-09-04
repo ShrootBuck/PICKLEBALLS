@@ -12,7 +12,7 @@ export default function ErrorPage({
   reset: () => void;
 }) {
   return (
-    <div className="flex min-h-svh items-center justify-center p-6">
+    <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
       <div className="flex w-full max-w-md flex-col gap-4">
         <Alert variant="destructive">
           <TriangleAlert />

@@ -10,7 +10,7 @@ export default function Loading() {
         <Skeleton className="h-4 w-80 max-w-full" />
       </div>
       <Skeleton className="h-36 w-full rounded-xl" />
-      <div className="grid items-start gap-3 sm:grid-cols-2">
+      <div className="grid items-start gap-4 xl:grid-cols-2">
         {[0, 1].map((i) => (
           <Card key={i} size="sm">
             <CardHeader>

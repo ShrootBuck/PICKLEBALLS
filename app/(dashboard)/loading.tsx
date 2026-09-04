@@ -9,7 +9,7 @@ export default function Loading() {
         <Skeleton className="h-8 w-40" />
         <Skeleton className="h-4 w-72 max-w-full" />
       </div>
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="flex flex-col gap-3">
           <Skeleton className="h-2 w-full" />
           <Card size="sm">

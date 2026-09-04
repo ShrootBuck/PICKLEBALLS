@@ -310,9 +310,9 @@ function TaskDialog({
         )}
         {task ? "Edit" : "Add task"}
       </DialogTrigger>
-      <DialogContent className="max-h-[90dvh] overflow-hidden p-0 sm:max-w-lg">
-        <div className="flex max-h-[90dvh] flex-col">
-          <DialogHeader className="shrink-0 p-6 pb-0">
+      <DialogContent className="max-h-[calc(100dvh-1.5rem)] overflow-hidden p-0 sm:max-w-lg">
+        <div className="flex max-h-[calc(100dvh-1.5rem)] flex-col">
+          <DialogHeader className="shrink-0 p-4 pb-0 sm:p-6 sm:pb-0">
             <DialogTitle className="text-xl tracking-tight">
               {task ? "Renegotiate before midnight" : "Make a real promise"}
             </DialogTitle>
@@ -325,7 +325,7 @@ function TaskDialog({
             <form
               onSubmit={submit}
               id={`task-form-${task?.id ?? "new"}`}
-              className="flex flex-col gap-4 p-6"
+              className="flex flex-col gap-4 p-4 sm:p-6"
             >
               <FieldGroup>
                 <Field>
@@ -515,9 +515,9 @@ function ProofDialog({
             ? "Upload late proof"
             : "Upload proof"}
       </DialogTrigger>
-      <DialogContent className="max-h-[90dvh] overflow-hidden p-0 sm:max-w-lg">
-        <div className="flex max-h-[90dvh] flex-col">
-          <DialogHeader className="shrink-0 p-6 pb-0">
+      <DialogContent className="max-h-[calc(100dvh-1.5rem)] overflow-hidden p-0 sm:max-w-lg">
+        <div className="flex max-h-[calc(100dvh-1.5rem)] flex-col">
+          <DialogHeader className="shrink-0 p-4 pb-0 sm:p-6 sm:pb-0">
             <DialogTitle className="text-xl tracking-tight">
               Prove it: {task.title}
             </DialogTitle>
@@ -530,7 +530,7 @@ function ProofDialog({
               onSubmit={submit}
               key={formKey}
               id={`proof-form-${task.id}`}
-              className="flex flex-col gap-4 p-6"
+              className="flex flex-col gap-4 p-4 sm:p-6"
             >
               <FieldGroup>
                 <FileUpload
@@ -695,7 +695,7 @@ function CheckInCard({
   }
 
   return (
-    <Card size="sm" className="lg:sticky lg:top-20">
+    <Card size="sm" className="xl:sticky xl:top-6">
       <CardHeader>
         <CardTitle className="text-lg tracking-tight">
           How is today really going?
@@ -887,10 +887,10 @@ export function TodayDashboard({
         </div>
       </PageHeader>
 
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <div className="flex items-baseline justify-between gap-2">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
               <span className="text-sm font-medium tracking-tight">
                 {headline}
               </span>
@@ -939,7 +939,7 @@ export function TodayDashboard({
                     </CardContent>
                   ) : null}
                   {hasActions(task) ? (
-                    <CardFooter className="justify-end gap-2">
+                    <CardFooter className="justify-stretch gap-2 sm:justify-end [&_[data-slot=button]]:flex-1 sm:[&_[data-slot=button]]:flex-none">
                       {(task.status === "OPEN" ||
                         task.status === "RENEGOTIATED") && (
                         <TaskDialog task={task} onSaved={handleTaskSaved} />

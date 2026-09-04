@@ -100,9 +100,9 @@ export function ReviewProof({
       >
         <Gavel data-icon="inline-start" /> Review proof
       </DialogTrigger>
-      <DialogContent className="max-h-[90dvh] overflow-hidden p-0 sm:max-w-lg">
-        <div className="flex max-h-[90dvh] flex-col">
-          <DialogHeader className="shrink-0 p-6 pb-0">
+      <DialogContent className="max-h-[calc(100dvh-1.5rem)] overflow-hidden p-0 sm:max-w-lg">
+        <div className="flex max-h-[calc(100dvh-1.5rem)] flex-col">
+          <DialogHeader className="shrink-0 p-4 pb-0 sm:p-6 sm:pb-0">
             <DialogTitle>Call it like it is</DialogTitle>
             <DialogDescription>
               {taskTitle}. {requiredApprovals}{" "}
@@ -115,7 +115,7 @@ export function ReviewProof({
           <form
             onSubmit={submit}
             id={`review-form-${proofId}`}
-            className="flex flex-1 flex-col gap-4 overflow-auto p-6"
+            className="flex flex-1 flex-col gap-4 overflow-auto p-4 sm:p-6"
           >
             <FieldGroup>
               <Field orientation="responsive">

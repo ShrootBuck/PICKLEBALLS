@@ -17,12 +17,12 @@ export default async function DashboardLayout({
   // every other dashboard route still requires a membership below.
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
-    return <div className="min-h-svh bg-background">{children}</div>;
+    return <div className="min-h-full bg-background">{children}</div>;
   }
   const { membership } = await requirePageMembership();
   const memberships = await listMyCircles(session.user.id);
   return (
-    <SidebarProvider className="h-svh overflow-hidden">
+    <SidebarProvider className="relative h-full min-h-0 overflow-hidden">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium"
@@ -46,7 +46,7 @@ export default async function DashboardLayout({
           }))}
         />
       </Suspense>
-      <SidebarInset className="flex h-svh flex-col overflow-hidden">
+      <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
         <SiteHeader
           bell={
             <Suspense fallback={null}>
@@ -57,10 +57,10 @@ export default async function DashboardLayout({
             </Suspense>
           }
         />
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <main
             id="main"
-            className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:p-6 md:pb-8"
+            className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-5 sm:gap-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8"
           >
             {children}
           </main>

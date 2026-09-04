@@ -99,7 +99,9 @@ export function ProofCard({
       <div
         className={cn(
           "flex",
-          compact ? "flex-row items-stretch" : "flex-col md:flex-row",
+          compact
+            ? "flex-col items-stretch sm:flex-row"
+            : "flex-col md:flex-row",
         )}
       >
         <ProofImageViewer
@@ -108,7 +110,7 @@ export function ProofCard({
           compact={compact}
         />
         <div className="flex min-w-0 flex-1 flex-col">
-          <CardHeader className={cn("py-3", compact && "pr-3")}>
+          <CardHeader className={cn("py-3", compact && "sm:pr-3")}>
             <CardTitle className="truncate">{proof.title}</CardTitle>
             <CardDescription className="truncate">{meta}</CardDescription>
             <CardAction className="flex flex-col items-end gap-1">

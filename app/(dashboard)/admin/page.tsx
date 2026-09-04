@@ -61,7 +61,7 @@ export default async function AdminPage() {
           usedBy: invite.usedBy?.name ?? null,
         }))}
       />
-      <div className="grid items-start gap-4 lg:grid-cols-2">
+      <div className="grid items-start gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>

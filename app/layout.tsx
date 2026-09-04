@@ -85,11 +85,18 @@ export default function RootLayout({
       <head>
         <link rel="apple-touch-icon" href="/apple-icon" />
       </head>
-      <body className="touch-manipulation antialiased">
+      <body className="flex h-dvh min-h-0 flex-col overflow-hidden touch-manipulation antialiased">
         <RegisterSw />
         <AnnouncementBanner />
         <TooltipProvider>
-          <Toaster>{children}</Toaster>
+          <Toaster>
+            <div
+              data-slot="app-frame"
+              className="min-h-0 min-w-0 flex-1 overflow-x-clip overflow-y-auto"
+            >
+              {children}
+            </div>
+          </Toaster>
         </TooltipProvider>
       </body>
     </html>

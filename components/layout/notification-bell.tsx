@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatReplyTime } from "@/lib/time";
+import { cn } from "@/lib/utils";
 
 export type BellEvent = {
   id: string;
@@ -133,7 +134,10 @@ export function NotificationBell({
           />
         ) : null}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
+      <DropdownMenuContent
+        align="end"
+        className="w-[min(22rem,calc(100vw-1rem))]"
+      >
         <DropdownMenuGroup>
           <div
             role="tablist"
@@ -157,11 +161,12 @@ export function NotificationBell({
                 type="button"
                 variant="ghost"
                 onClick={() => setTab(item.id)}
-                className={`h-auto flex-1 rounded-md px-2 py-1 text-xs font-semibold ${
+                className={cn(
+                  "h-auto min-h-9 flex-1 rounded-lg px-2 py-1 text-xs font-semibold",
                   tab === item.id
                     ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted/60"
-                }`}
+                    : "text-muted-foreground hover:bg-muted/60",
+                )}
               >
                 {item.label}
               </Button>
@@ -201,9 +206,10 @@ export function NotificationBell({
                           onClick={() => {
                             if (!item.readAt) void markRead(item.id);
                           }}
-                          className={`flex min-w-0 items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted ${
-                            item.readAt ? "opacity-70" : ""
-                          }`}
+                          className={cn(
+                            "flex min-h-12 min-w-0 items-start gap-2 rounded-lg px-2 py-2 hover:bg-muted",
+                            item.readAt && "opacity-70",
+                          )}
                         >
                           <Icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                           <span className="min-w-0 flex-1">
@@ -218,7 +224,7 @@ export function NotificationBell({
                                 {item.title}
                               </span>
                             </span>
-                            <span className="block truncate text-[12px] text-muted-foreground">
+                            <span className="block line-clamp-2 text-[12px] leading-relaxed text-muted-foreground">
                               {item.body}
                             </span>
                             <span className="block text-[11px] text-muted-foreground tabular-nums">

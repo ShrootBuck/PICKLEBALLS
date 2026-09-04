@@ -13,6 +13,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -118,14 +126,20 @@ export function CirclesManager({
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           {circles.length === 0 ? (
-            <p className="rounded-xl border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
-              No circles yet. Create one below — it takes ten seconds.
-            </p>
+            <Empty className="py-7">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">🎾</EmptyMedia>
+                <EmptyTitle>No circles yet</EmptyTitle>
+                <EmptyDescription>
+                  Create one below — it takes ten seconds.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             circles.map((circle) => (
               <div
                 key={circle.id}
-                className="flex items-center gap-3 rounded-xl border px-3 py-2.5"
+                className="flex min-w-0 flex-col items-stretch gap-3 rounded-xl border px-3 py-3 sm:flex-row sm:items-center"
               >
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-sm font-medium">
@@ -145,6 +159,7 @@ export function CirclesManager({
                     size="sm"
                     disabled={switchPending === circle.id}
                     onClick={() => switchTo(circle.id)}
+                    className="w-full sm:w-auto"
                   >
                     {switchPending === circle.id ? (
                       <Spinner data-icon="inline-start" />
@@ -166,13 +181,19 @@ export function CirclesManager({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Input
-              name="name"
-              placeholder="e.g. Calc study crew"
-              maxLength={40}
-              required
-              autoComplete="off"
-            />
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="circle-name">Circle name</FieldLabel>
+                <Input
+                  id="circle-name"
+                  name="name"
+                  placeholder="e.g. Calc study crew"
+                  maxLength={40}
+                  required
+                  autoComplete="off"
+                />
+              </Field>
+            </FieldGroup>
           </CardContent>
           <CardFooter className="flex-col items-stretch gap-3">
             <Button

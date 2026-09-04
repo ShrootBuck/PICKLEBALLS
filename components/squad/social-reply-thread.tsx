@@ -126,7 +126,7 @@ function ReplyItem({
             {edited ? " · edited" : ""}
           </time>
           {editable && !editing ? (
-            <span className="ml-auto flex shrink-0 items-center gap-1">
+            <span className="ml-auto flex basis-full items-center justify-end gap-1 sm:basis-auto">
               <Button
                 type="button"
                 variant="ghost"

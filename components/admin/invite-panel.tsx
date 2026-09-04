@@ -124,7 +124,7 @@ export function InvitePanel({ invites: initial }: { invites: Invite[] }) {
     }
   }
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
+    <div className="grid items-start gap-4 xl:grid-cols-2">
       <form onSubmit={submit} className="min-w-0">
         <Card>
           <CardHeader>
@@ -215,70 +215,66 @@ export function InvitePanel({ invites: initial }: { invites: Invite[] }) {
         </CardHeader>
         <CardContent>
           {invites.length ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>For</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Expires</TableHead>
-                    <TableHead>Used by</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invites.map((invite) => {
-                    const status = invite.usedAt
-                      ? "Used"
-                      : invite.revokedAt
-                        ? "Revoked"
-                        : new Date(invite.expiresAt) < new Date()
-                          ? "Expired"
-                          : "Ready";
-                    return (
-                      <TableRow key={invite.id}>
-                        <TableCell className="font-medium">
-                          {invite.label ?? "Friend"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              status === "Ready" ? "default" : "secondary"
-                            }
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>For</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Expires</TableHead>
+                  <TableHead>Used by</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invites.map((invite) => {
+                  const status = invite.usedAt
+                    ? "Used"
+                    : invite.revokedAt
+                      ? "Revoked"
+                      : new Date(invite.expiresAt) < new Date()
+                        ? "Expired"
+                        : "Ready";
+                  return (
+                    <TableRow key={invite.id}>
+                      <TableCell className="font-medium">
+                        {invite.label ?? "Friend"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={status === "Ready" ? "default" : "secondary"}
+                        >
+                          {status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {invite.expiresAt.slice(0, 10)}
+                      </TableCell>
+                      <TableCell>{invite.usedBy ?? "—"}</TableCell>
+                      <TableCell className="text-right">
+                        {status === "Ready" ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={revokingId === invite.id}
+                            onClick={() => revoke(invite.id)}
                           >
-                            {status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="tabular-nums">
-                          {invite.expiresAt.slice(0, 10)}
-                        </TableCell>
-                        <TableCell>{invite.usedBy ?? "—"}</TableCell>
-                        <TableCell className="text-right">
-                          {status === "Ready" ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={revokingId === invite.id}
-                              onClick={() => revoke(invite.id)}
-                            >
-                              {revokingId === invite.id ? (
-                                <Spinner data-icon="inline-start" />
-                              ) : null}
-                              Revoke
-                            </Button>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">
-                              —
-                            </span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                            {revokingId === invite.id ? (
+                              <Spinner data-icon="inline-start" />
+                            ) : null}
+                            Revoke
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           ) : (
             <Empty>
               <EmptyHeader>

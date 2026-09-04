@@ -23,7 +23,7 @@ export function SquadTabs({
 }) {
   return (
     <Tabs defaultValue={defaultTab} className="gap-4">
-      <TabsList className="w-full justify-start overflow-x-auto">
+      <TabsList className="scroll-fade-x w-full justify-start overflow-x-auto">
         <TabsTrigger value="verdicts" className="gap-1.5">
           Verdicts
           {verdictCount > 0 ? (

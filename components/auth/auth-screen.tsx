@@ -31,8 +31,8 @@ const points = [
 
 export function AuthScreen({ children }: { children: ReactNode }) {
   return (
-    <main className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
-      <section className="relative flex flex-col justify-between gap-10 overflow-hidden bg-primary p-6 text-primary-foreground sm:p-8 md:p-10 lg:p-14">
+    <main className="grid min-h-full lg:grid-cols-[1.1fr_1fr]">
+      <section className="relative flex flex-col gap-6 overflow-hidden bg-primary px-5 py-6 text-primary-foreground sm:px-8 sm:py-8 lg:justify-between lg:gap-10 lg:p-14">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 opacity-[0.12]"
@@ -51,19 +51,22 @@ export function AuthScreen({ children }: { children: ReactNode }) {
             Private circles
           </Badge>
         </div>
-        <div className="relative flex max-w-xl flex-col gap-4">
-          <Badge variant="secondary" className="w-fit uppercase">
+        <div className="relative flex max-w-xl flex-col gap-3 lg:gap-4">
+          <Badge
+            variant="secondary"
+            className="hidden w-fit uppercase sm:inline-flex"
+          >
             The deal
           </Badge>
-          <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl md:text-5xl">
+          <h1 className="text-2xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl lg:text-5xl">
             Do the homework. Earn the court.
           </h1>
-          <p className="max-w-md text-base text-pretty sm:text-lg">
+          <p className="hidden max-w-md text-sm leading-relaxed text-pretty opacity-85 sm:block sm:text-base lg:text-lg">
             Daily promises, photo receipts, and friends who call the bluff.
             Start your own private circle in seconds — or join your crew with an
             invite link.
           </p>
-          <div className="mt-2 grid gap-3 sm:grid-cols-3">
+          <div className="mt-2 hidden gap-3 lg:grid lg:grid-cols-3">
             {points.map(({ icon: Icon, title, body }) => (
               <div
                 key={title}
@@ -76,7 +79,7 @@ export function AuthScreen({ children }: { children: ReactNode }) {
             ))}
           </div>
         </div>
-        <div className="relative flex flex-col gap-3">
+        <div className="relative hidden flex-col gap-3 lg:flex">
           <Separator className="bg-primary-foreground/15" />
           <p className="text-sm opacity-75">
             Every circle is private. No audience, no feed, no productivity
@@ -93,7 +96,7 @@ export function AuthScreen({ children }: { children: ReactNode }) {
           </Link>
         </div>
       </section>
-      <section className="flex items-center justify-center bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6 md:p-12">
+      <section className="flex items-start justify-center bg-background px-4 py-6 sm:px-6 sm:py-8 lg:items-center lg:p-12">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-xl">Schoolwork accountability</CardTitle>

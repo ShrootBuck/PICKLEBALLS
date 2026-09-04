@@ -8,37 +8,37 @@
    prefers-color-scheme. Do not add a .dark block. */
 
 :root {
-  --background: oklch(0.965 0.012 112);
-  --foreground: oklch(0.21 0.027 144);
-  --card: oklch(0.995 0.004 112);
-  --card-foreground: oklch(0.21 0.027 144);
-  --popover: oklch(0.995 0.004 112);
-  --popover-foreground: oklch(0.21 0.027 144);
-  --primary: oklch(0.25 0.04 145);
-  --primary-foreground: oklch(0.91 0.19 114);
-  --secondary: oklch(0.92 0.018 115);
-  --secondary-foreground: oklch(0.25 0.04 145);
-  --muted: oklch(0.92 0.018 115);
-  --muted-foreground: oklch(0.49 0.025 145);
-  --accent: oklch(0.9 0.12 112);
-  --accent-foreground: oklch(0.25 0.04 145);
-  --destructive: oklch(0.58 0.22 29);
-  --border: oklch(0.85 0.021 124);
-  --input: oklch(0.8 0.025 124);
-  --ring: oklch(0.63 0.17 112);
+  --background: oklch(0.972 0.012 112);
+  --foreground: oklch(0.205 0.027 144);
+  --card: oklch(0.995 0.006 112);
+  --card-foreground: oklch(0.205 0.027 144);
+  --popover: oklch(0.998 0.004 112);
+  --popover-foreground: oklch(0.205 0.027 144);
+  --primary: oklch(0.245 0.052 145);
+  --primary-foreground: oklch(0.925 0.188 114);
+  --secondary: oklch(0.928 0.024 116);
+  --secondary-foreground: oklch(0.245 0.04 145);
+  --muted: oklch(0.938 0.016 116);
+  --muted-foreground: oklch(0.47 0.028 145);
+  --accent: oklch(0.91 0.105 112);
+  --accent-foreground: oklch(0.235 0.047 145);
+  --destructive: oklch(0.56 0.215 29);
+  --border: oklch(0.842 0.025 124);
+  --input: oklch(0.78 0.03 124);
+  --ring: oklch(0.6 0.17 112);
   --chart-1: oklch(0.67 0.18 112);
   --chart-2: oklch(0.55 0.13 145);
   --chart-3: oklch(0.7 0.14 70);
   --chart-4: oklch(0.63 0.12 250);
   --chart-5: oklch(0.69 0.15 20);
-  --radius: 0.75rem;
-  --sidebar: oklch(0.25 0.04 145);
+  --radius: 0.875rem;
+  --sidebar: oklch(0.225 0.045 145);
   --sidebar-foreground: oklch(0.96 0.012 112);
   --sidebar-primary: oklch(0.9 0.18 112);
   --sidebar-primary-foreground: oklch(0.22 0.04 145);
-  --sidebar-accent: oklch(0.32 0.04 145);
+  --sidebar-accent: oklch(0.295 0.045 145);
   --sidebar-accent-foreground: oklch(0.98 0.005 112);
-  --sidebar-border: oklch(0.37 0.035 145);
+  --sidebar-border: oklch(0.355 0.038 145);
   --sidebar-ring: oklch(0.78 0.16 112);
   --pickle-lime: oklch(0.9 0.19 114);
   --pickle-court: oklch(0.25 0.04 145);
@@ -93,10 +93,11 @@
   }
 
   html {
+    height: 100%;
     background: var(--background);
-    /* iOS PWA: prevent bounce, respect notch */
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
+    text-size-adjust: 100%;
   }
 
   button:not(:disabled):not([data-disabled]),
@@ -115,17 +116,39 @@
   }
 
   body {
-    @apply min-h-dvh bg-background text-foreground antialiased;
+    @apply bg-background text-foreground antialiased;
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
-    /* prevent horizontal overscroll bounce on iOS */
-    overscroll-behavior-y: contain;
-    /* smooth scrolling for mobile */
+    background-image:
+      radial-gradient(
+        circle at 8% -10%,
+        color-mix(in oklch, var(--accent) 24%, transparent),
+        transparent 30rem
+      ),
+      radial-gradient(
+        color-mix(in oklch, var(--foreground) 3.5%, transparent) 1px,
+        transparent 1px
+      );
+    background-size:
+      auto,
+      24px 24px;
+    overscroll-behavior: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+  }
+
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+  }
+
+  :where(h1, h2, h3, h4, p, li, dd, dt, blockquote) {
+    overflow-wrap: anywhere;
   }
 
   /* Ensure interactive targets meet 44px minimum where possible on coarse pointers */
@@ -147,12 +170,6 @@
     }
   }
 
-  /* Pull-to-refresh helper: allow native refresh only at top */
-  html,
-  body {
-    overscroll-behavior-inline: contain;
-  }
-
   ::selection {
     background: var(--pickle-lime);
     color: var(--pickle-court);
@@ -163,19 +180,28 @@
     outline-offset: 2px;
   }
 
-  /* Subtle court-line texture on the page background */
-  body {
-    background-image: radial-gradient(
-      color-mix(in oklch, var(--foreground) 4%, transparent) 1px,
-      transparent 1px
-    );
-    background-size: 22px 22px;
-  }
-
-  /* Thin, theme-aware scrollbars */
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
+  }
+
+  [data-slot="app-frame"],
+  [data-slot="sidebar-content"],
+  [data-slot="dialog-content"],
+  [data-slot="sheet-content"],
+  [data-slot="dropdown-menu-content"] {
+    overscroll-behavior: contain;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto;
+      animation-duration: 0.01ms;
+      animation-iteration-count: 1;
+      transition-duration: 0.01ms;
+    }
   }
 }
 

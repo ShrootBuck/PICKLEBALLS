@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const PREF_META = [
   { key: "replies", label: "Replies to my stuff", hint: "Someone talks back" },
@@ -100,14 +101,16 @@ export function NotificationPreferences() {
               </span>
               <span
                 aria-hidden="true"
-                className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-                  on ? "bg-primary" : "bg-muted-foreground/30"
-                }`}
+                className={cn(
+                  "relative h-5 w-9 shrink-0 rounded-full transition-colors",
+                  on ? "bg-primary" : "bg-muted-foreground/30",
+                )}
               >
                 <span
-                  className={`absolute top-0.5 size-4 rounded-full bg-white shadow transition-all ${
-                    on ? "left-[18px]" : "left-0.5"
-                  }`}
+                  className={cn(
+                    "absolute top-0.5 size-4 rounded-full bg-white shadow transition-all",
+                    on ? "left-[18px]" : "left-0.5",
+                  )}
                 />
               </span>
             </Button>

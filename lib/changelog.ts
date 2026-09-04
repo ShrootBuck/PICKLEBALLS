@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788536713347,
+    title: "Layout rebuilt for every screen",
+    description:
+      "Reworked the app shell and shared UI so announcements, navigation, cards, forms, dialogs, tables, and public pages fit cleanly from small phones through wide desktops.",
+  },
+  {
     timestamp: 1788536172006,
     title: "Announcement banner",
     description:

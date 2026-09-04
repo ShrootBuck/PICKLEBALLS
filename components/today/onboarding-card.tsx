@@ -53,7 +53,9 @@ export function OnboardingCard({ action }: { action: ReactNode }) {
             </li>
           ))}
         </ol>
-        <div>{action}</div>
+        <div className="[&_[data-slot=button]]:w-full sm:[&_[data-slot=button]]:w-auto">
+          {action}
+        </div>
       </CardContent>
     </Card>
   );

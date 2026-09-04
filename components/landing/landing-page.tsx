@@ -29,7 +29,7 @@ const steps = [
 
 export function LandingPage() {
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-2xl flex-col items-center gap-10 px-4 py-10 text-center sm:py-16">
+    <main className="mx-auto flex min-h-full w-full max-w-4xl flex-col items-center justify-center gap-8 px-4 py-8 text-center sm:gap-10 sm:px-6 sm:py-14">
       <div className="flex items-center gap-2.5 text-sm font-semibold">
         <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-base text-primary-foreground">
           <span aria-hidden="true">🎾</span>
@@ -41,7 +41,7 @@ export function LandingPage() {
       </div>
 
       <div className="flex flex-col items-center gap-4">
-        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+        <h1 className="text-4xl font-semibold tracking-[-0.045em] text-balance sm:text-6xl">
           Do the homework. Earn the court.
         </h1>
         <p className="max-w-md text-base text-pretty text-muted-foreground sm:text-lg">
@@ -49,11 +49,20 @@ export function LandingPage() {
           your own private circle in seconds — or join your crew with an invite
           link.
         </p>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-          <Button size="lg" render={<Link href="/sign-up" />}>
+        <div className="mt-2 flex w-full max-w-sm flex-col gap-2 sm:w-auto sm:max-w-none sm:flex-row">
+          <Button
+            size="lg"
+            className="w-full sm:w-auto"
+            render={<Link href="/sign-up" />}
+          >
             Start your circle
           </Button>
-          <Button size="lg" variant="outline" render={<Link href="/sign-in" />}>
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full sm:w-auto"
+            render={<Link href="/sign-in" />}
+          >
             Sign in
           </Button>
         </div>
@@ -63,7 +72,7 @@ export function LandingPage() {
         {points.map(({ icon: Icon, title, body }) => (
           <div
             key={title}
-            className="flex flex-col gap-1.5 rounded-xl border bg-card p-4"
+            className="flex min-w-0 flex-col gap-1.5 rounded-2xl border bg-card p-4 text-left shadow-sm sm:p-5"
           >
             <Icon aria-hidden="true" className="size-5" />
             <p className="text-sm font-medium">{title}</p>
@@ -78,7 +87,7 @@ export function LandingPage() {
         {steps.map((step) => (
           <li
             key={step.n}
-            className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3"
+            className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3 shadow-sm"
           >
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
               {step.n}

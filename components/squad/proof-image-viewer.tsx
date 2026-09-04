@@ -30,7 +30,7 @@ export function ProofImageViewer({
         className={cn(
           "flex shrink-0 flex-col items-center justify-center gap-1 bg-muted px-4 text-center text-xs text-muted-foreground",
           compact
-            ? "aspect-square size-40 sm:size-44"
+            ? "h-48 w-full sm:aspect-square sm:size-44"
             : "h-64 w-full sm:h-72 md:h-auto md:min-h-80 md:w-72 md:self-stretch",
         )}
       >
@@ -45,7 +45,7 @@ export function ProofImageViewer({
         className={cn(
           "relative block shrink-0 cursor-zoom-in overflow-hidden bg-muted",
           compact
-            ? "aspect-square size-40 sm:size-44"
+            ? "h-48 w-full sm:aspect-square sm:size-44"
             : "h-64 w-full sm:h-72 md:h-auto md:min-h-80 md:w-72 md:self-stretch",
         )}
         aria-label={`Expand proof for ${title}`}
@@ -55,7 +55,11 @@ export function ProofImageViewer({
           src={`/api/proofs/${proofId}/image`}
           alt={`Proof for ${title}`}
           fill
-          sizes={compact ? "176px" : "(max-width: 768px) 100vw, 288px"}
+          sizes={
+            compact
+              ? "(max-width: 639px) 100vw, 176px"
+              : "(max-width: 768px) 100vw, 288px"
+          }
           unoptimized
           onError={() => setFailed(true)}
         />
