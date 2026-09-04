@@ -8,6 +8,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+# Changelog — DOCUMENT EVERY CHANGE IN THE CHANGELOG!
+
+- Every user-facing change MUST add an entry to `lib/changelog.ts`
+  (newest first). No exceptions, no "too small to log".
+- Entry shape: `{ date: "YYYY-MM-DD", title: "...", description: "..." }`.
+- The `/changelog` page renders that file for all users, so keep titles
+  short and descriptions plain-language (one or two sentences).
+
 # Dev vs prod databases
 
 - Local dev uses two isolated `prisma dev` instances. `pickleballs` listens on

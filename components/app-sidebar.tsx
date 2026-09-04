@@ -1,6 +1,13 @@
 "use client";
 
-import { ClipboardCheck, History, LogOut, Shield, Users } from "lucide-react";
+import {
+  ClipboardCheck,
+  History,
+  LogOut,
+  ScrollText,
+  Shield,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -35,6 +42,12 @@ const links = [
   { href: "/", label: "Today", hint: "Your board", icon: ClipboardCheck },
   { href: "/squad", label: "Squad", hint: "Talk + verdicts", icon: Users },
   { href: "/history", label: "History", hint: "Past boards", icon: History },
+  {
+    href: "/changelog",
+    label: "Changelog",
+    hint: "What changed",
+    icon: ScrollText,
+  },
 ];
 
 export function AppSidebar({
