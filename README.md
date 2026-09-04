@@ -57,13 +57,30 @@ Schema changes go through Prisma Migrate, never `db push`:
 
 ```bash
 bunx prisma migrate dev --name describe_the_change  # local, applies + creates SQL
-bun run db:migrate                                   # prod/CI: applies pending SQL only
+bun run db:migrate                                   # local: applies committed pending SQL
 ```
 
-`bun run vercel-build` runs `prisma migrate deploy`, so Vercel applies
-pending migrations on every deploy and stops the build if one fails. `bun run
-db:reset` destroys all current database data and re-applies migrations.
-Run it only when a reset is intentional.
+`bun run vercel-build` runs Prisma's standard `migrate deploy` before building
+the app. Vercel therefore stops a deployment if its database migration fails,
+while the previous release remains live.
+
+`bun run db:reset` destroys all current database data and re-applies
+migrations. Run it only when a reset is intentional.
+
+Treat committed migrations as immutable. If an applied migration is wrong,
+add a corrective migration instead of editing the old SQL. Production changes
+must also work with the release currently serving traffic:
+
+1. **Expand:** add nullable columns, new tables, or new enum values without
+   removing anything the old release uses.
+2. **Backfill and switch:** migrate existing rows in bounded batches, then
+   deploy code that reads the new shape. Dual-write during transitions when
+   necessary.
+3. **Contract:** in a later deploy, remove old columns, constraints, or enum
+   values only after no live code uses them.
+
+Never combine a destructive rename, drop, or required-column change with the
+code switch in one deploy. Keep large data backfills out of the Vercel build.
 
 One-time note: databases created with the old `db push` flow have no
 migration history. Mark the baseline as applied once instead of replaying it:
@@ -71,6 +88,12 @@ migration history. Mark the baseline as applied once instead of replaying it:
 ```bash
 bunx prisma migrate resolve --applied 20260903000000_baseline
 ```
+
+If production reports P1002, do not blindly start several more deployments.
+Prisma's advisory lock waits for only ten seconds, so overlapping builds can
+make one fail safely. Let the active deployment finish, then retry once. If no
+deployment is active, inspect lock `72707369` in `pg_locks` joined to
+`pg_stat_activity`; an abandoned idle session may need to be terminated first.
 
 ## Discord authentication
 
