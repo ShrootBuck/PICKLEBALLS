@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788536172006,
+    title: "Announcement banner",
+    description:
+      "Added a dismissible banner at the top of the site for announcements.",
+  },
+  {
     timestamp: 1788497429615,
     title: "Fixed proof upload validation",
     description:

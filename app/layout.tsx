@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AnnouncementBanner } from "@/components/layout/announcement-banner";
 import { RegisterSw } from "@/components/pwa/register-sw";
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -86,6 +87,7 @@ export default function RootLayout({
       </head>
       <body className="touch-manipulation antialiased">
         <RegisterSw />
+        <AnnouncementBanner />
         <TooltipProvider>
           <Toaster>{children}</Toaster>
         </TooltipProvider>
