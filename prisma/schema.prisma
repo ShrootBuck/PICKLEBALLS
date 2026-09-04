@@ -162,8 +162,8 @@ model RateLimit {
 
 model Circle {
   id        String   @id @default(cuid())
-  slug      String   @unique @default("pickle-balls")
-  name      String   @default("Pickle Balls")
+  slug      String   @unique
+  name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -181,8 +181,8 @@ model Circle {
 }
 
 model Membership {
-  // Single-circle app forever: one membership per user, globally enforced.
-  userId    String         @unique
+  // Multi-circle: a user can belong to many circles, one row per circle.
+  userId    String
   circleId  String
   role      MembershipRole @default(MEMBER)
   createdAt DateTime       @default(now())
@@ -191,6 +191,7 @@ model Membership {
   circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
 
   @@id([userId, circleId])
+  @@index([userId])
   @@index([circleId])
 }
 

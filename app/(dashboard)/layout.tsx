@@ -3,6 +3,7 @@ import { BellSlot } from "@/components/layout/bell-slot";
 import { SidebarSlot } from "@/components/layout/sidebar-slot";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { listMyCircles } from "@/lib/circles";
 import { requirePageMembership } from "@/lib/request";
 
 export default async function DashboardLayout({
@@ -11,6 +12,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { session, membership } = await requirePageMembership();
+  const memberships = await listMyCircles(session.user.id);
   return (
     <SidebarProvider className="h-svh overflow-hidden">
       <a
@@ -29,6 +31,11 @@ export default async function DashboardLayout({
             image: membership.user.image,
             initials: membership.user.initials,
           }}
+          circles={memberships.map((item) => ({
+            id: item.circle.id,
+            name: item.circle.name,
+            role: item.role,
+          }))}
         />
       </Suspense>
       <SidebarInset className="flex h-svh flex-col overflow-hidden">

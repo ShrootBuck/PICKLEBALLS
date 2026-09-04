@@ -14,7 +14,10 @@ test("Discord-only entry and dead invite are clear", async ({ browser }) => {
   await expect(
     page.getByRole("button", { name: "Continue with Discord" }),
   ).toBeVisible();
-  await expect(page.getByText("private app for friends")).toBeVisible();
+  await expect(page.getByText("Every circle is private")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /ShrootBuck\/PICKLEBALLS/ }),
+  ).toBeVisible();
 
   await page.goto("/join/not-a-real-token");
   await expect(page.getByText("This invite is dead.")).toBeVisible();

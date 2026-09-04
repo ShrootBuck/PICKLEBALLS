@@ -1,9 +1,12 @@
 "use client";
 
 import {
+  ArrowUpRight,
+  Check,
   ClipboardCheck,
   History,
   LogOut,
+  Plus,
   ScrollText,
   Shield,
   Users,
@@ -54,6 +57,8 @@ export function AppSidebar({
   user,
   isOwner,
   pendingVerdicts,
+  activeCircleId,
+  circles,
 }: {
   user: {
     name: string;
@@ -62,35 +67,101 @@ export function AppSidebar({
   };
   isOwner: boolean;
   pendingVerdicts: number;
+  activeCircleId: string;
+  circles: { id: string; name: string; role: "OWNER" | "MEMBER" }[];
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isMobile } = useSidebar();
   const [signOutPending, setSignOutPending] = useState(false);
+  const [switchPending, setSwitchPending] = useState<string | null>(null);
   const todayLabel = formatDayShort(phoenixDateKey());
+  const activeCircle = circles.find((circle) => circle.id === activeCircleId);
+
+  async function switchCircle(circleId: string) {
+    if (circleId === activeCircleId) return;
+    setSwitchPending(circleId);
+    try {
+      const response = await fetch("/api/circles/active", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ circleId }),
+      });
+      if (response.ok) {
+        router.refresh();
+      }
+    } finally {
+      setSwitchPending(null);
+    }
+  }
 
   return (
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              render={<Link href="/" prefetch />}
-              isActive={pathname === "/"}
-            >
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-base text-sidebar-primary-foreground">
-                <span aria-hidden="true">🎾</span>
-              </span>
-              <span className="flex min-w-0 flex-col items-start">
-                <span className="truncate text-sm font-semibold tracking-tight">
-                  Pickle Balls
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <SidebarMenuButton
+                    size="lg"
+                    className="data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground"
+                  />
+                }
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-base text-sidebar-primary-foreground">
+                  <span aria-hidden="true">🎾</span>
                 </span>
-                <span className="truncate text-xs font-normal text-sidebar-accent-foreground/70">
-                  Proof or bullshit
+                <span className="flex min-w-0 flex-col items-start">
+                  <span className="truncate text-sm font-semibold tracking-tight">
+                    {activeCircle?.name ?? "Pickle Balls"}
+                  </span>
+                  <span className="truncate text-xs font-normal text-sidebar-accent-foreground/70">
+                    {circles.length > 1
+                      ? `${circles.length} circles · switch`
+                      : "Proof or bullshit"}
+                  </span>
                 </span>
-              </span>
-            </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="min-w-56"
+                side={isMobile ? "bottom" : "right"}
+                align="start"
+                sideOffset={8}
+              >
+                <DropdownMenuLabel className="font-normal">
+                  {circles.length > 1 ? "Switch circle" : "This circle"}
+                </DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  {circles.map((circle) => (
+                    <DropdownMenuItem
+                      key={circle.id}
+                      disabled={
+                        switchPending === circle.id ||
+                        circle.id === activeCircleId
+                      }
+                      onClick={() => switchCircle(circle.id)}
+                    >
+                      {circle.id === activeCircleId ? (
+                        <Check data-icon="inline-start" />
+                      ) : (
+                        <span className="size-4" data-icon="inline-start" />
+                      )}
+                      <span className="min-w-0 flex-1 truncate">
+                        {circle.name}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {circle.role === "OWNER" ? "Owner" : "Member"}
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuItem onClick={() => router.push("/circles")}>
+                    <Plus data-icon="inline-start" />
+                    All circles / new…
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
         <div className="rounded-lg bg-sidebar-accent px-3 py-2 group-data-[collapsible=icon]:hidden">
@@ -182,6 +253,22 @@ export function AppSidebar({
                   <DropdownMenuLabel className="font-normal">
                     {user.name}
                   </DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => router.push("/circles")}>
+                    <Users data-icon="inline-start" />
+                    All circles / new…
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      window.open(
+                        "https://github.com/ShrootBuck/PICKLEBALLS",
+                        "_blank",
+                        "noreferrer",
+                      )
+                    }
+                  >
+                    <ArrowUpRight data-icon="inline-start" />
+                    GitHub repo
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     variant="destructive"
                     disabled={signOutPending}

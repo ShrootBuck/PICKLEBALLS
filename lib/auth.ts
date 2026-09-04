@@ -8,11 +8,7 @@ import {
 } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { ensureBootstrapMembership } from "@/lib/bootstrap";
-import {
-  findReservedInvite,
-  redeemReservedInvite,
-  reserveInvite,
-} from "@/lib/invites";
+import { redeemReservedInvite, reserveInvite } from "@/lib/invites";
 import { getInitials as initials } from "@/lib/names";
 import { getPrisma } from "@/lib/prisma";
 
@@ -100,13 +96,9 @@ export const auth = betterAuth({
         return;
       }
 
-      const claim = oauthClaim(await getOAuthState());
-      if (
-        !claim ||
-        !(await findReservedInvite(claim.inviteId, claim.claimNonce))
-      ) {
-        return { error: "invite_required" };
-      }
+      // Open registration: any Discord user may sign up. An invite is only
+      // needed to join somebody else's circle; creating your own happens
+      // on /circles after sign-in.
     },
   },
   hooks: {

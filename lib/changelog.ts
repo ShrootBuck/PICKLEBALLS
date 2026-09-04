@@ -8,6 +8,18 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788495235599,
+    title: "Open source on GitHub",
+    description:
+      "The sign-in screen got a refresh and now links to the public repo at ShrootBuck/PICKLEBALLS. You can also jump to it from your profile menu.",
+  },
+  {
+    timestamp: 1788495235598,
+    title: "Multiple circles are here",
+    description:
+      "Anyone can sign up with Discord and start their own private circle, join several circles with invite links, and switch between them from the sidebar. Every circle stays fully private.",
+  },
+  {
     timestamp: 1788494751018,
     title: "More reliable proof uploads",
     description:

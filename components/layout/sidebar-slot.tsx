@@ -6,11 +6,13 @@ export async function SidebarSlot({
   circleId,
   isOwner,
   user,
+  circles,
 }: {
   userId: string;
   circleId: string;
   isOwner: boolean;
   user: { name: string; image: string | null; initials: string };
+  circles: { id: string; name: string; role: "OWNER" | "MEMBER" }[];
 }) {
   // Proofs waiting on this member's own vote: pending, not theirs,
   // and they have not voted yet.
@@ -28,6 +30,8 @@ export async function SidebarSlot({
       isOwner={isOwner}
       pendingVerdicts={pendingVerdicts}
       user={user}
+      activeCircleId={circleId}
+      circles={circles}
     />
   );
 }

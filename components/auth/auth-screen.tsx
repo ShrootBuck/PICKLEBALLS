@@ -1,4 +1,5 @@
-import { Camera, Clock3, Users } from "lucide-react";
+import { ArrowUpRight, Camera, Clock3, Users } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -47,7 +48,7 @@ export function AuthScreen({ children }: { children: ReactNode }) {
           </span>
           <strong className="tracking-tight">Pickle Balls</strong>
           <Badge variant="secondary" className="ml-1">
-            Private squad
+            Private circles
           </Badge>
         </div>
         <div className="relative flex max-w-xl flex-col gap-4">
@@ -58,8 +59,9 @@ export function AuthScreen({ children }: { children: ReactNode }) {
             Do the homework. Earn the court.
           </h1>
           <p className="max-w-md text-base text-pretty sm:text-lg">
-            Daily promises, photo receipts, and friends who can approve the work
-            or call it out.
+            Daily promises, photo receipts, and friends who call the bluff.
+            Start your own private circle in seconds — or join your crew with an
+            invite link.
           </p>
           <div className="mt-2 grid gap-3 sm:grid-cols-3">
             {points.map(({ icon: Icon, title, body }) => (
@@ -77,9 +79,18 @@ export function AuthScreen({ children }: { children: ReactNode }) {
         <div className="relative flex flex-col gap-3">
           <Separator className="bg-primary-foreground/15" />
           <p className="text-sm opacity-75">
-            Private app for friends. No audience, no funnel, no productivity
+            Every circle is private. No audience, no feed, no productivity
             influencer.
           </p>
+          <Link
+            href="https://github.com/ShrootBuck/PICKLEBALLS"
+            target="_blank"
+            rel="noreferrer"
+            className="flex w-fit items-center gap-1 text-sm font-medium underline-offset-4 hover:underline"
+          >
+            Open source · ShrootBuck/PICKLEBALLS
+            <ArrowUpRight className="size-4" aria-hidden="true" />
+          </Link>
         </div>
       </section>
       <section className="flex items-center justify-center bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6 md:p-12">

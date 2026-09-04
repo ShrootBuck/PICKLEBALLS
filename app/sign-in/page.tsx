@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthScreen } from "@/components/auth/auth-screen";
 import { DiscordButton } from "@/components/auth/discord-button";
@@ -19,15 +20,16 @@ export default async function SignInPage({
         <div className="flex flex-col gap-1">
           <h2 className="text-xl font-semibold">Get back to work.</h2>
           <p className="text-sm text-muted-foreground">
-            Returning friends sign in here. New friends need a one-time invite.
+            New here? Just continue — you can start your own circle after.
+            Joining a friend? Open their invite link instead.
           </p>
         </div>
         {query.invite === "required" && (
           <Alert>
             <AlertTitle>New here?</AlertTitle>
             <AlertDescription>
-              Sign-up is invite-only. Use the one-time link from the owner, or
-              sign in below if you already joined.
+              Accounts are free. Continue with Discord, then start your own
+              circle — or open a friend&apos;s invite link to join theirs.
             </AlertDescription>
           </Alert>
         )}
@@ -35,12 +37,21 @@ export default async function SignInPage({
           <Alert variant="destructive">
             <AlertTitle>Access denied.</AlertTitle>
             <AlertDescription>
-              Your Discord account is not in this squad. Use your invite link or
-              ask Zayd.
+              That Discord sign-in did not work. Try again or use your invite
+              link.
             </AlertDescription>
           </Alert>
         )}
         <DiscordButton />
+        <p className="text-center text-sm text-muted-foreground">
+          Starting fresh?{" "}
+          <Link
+            href="/sign-up"
+            className="font-medium underline-offset-4 hover:underline"
+          >
+            Sign up and launch your circle
+          </Link>
+        </p>
       </div>
     </AuthScreen>
   );
