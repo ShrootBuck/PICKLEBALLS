@@ -1,10 +1,11 @@
 "use client";
 
 import { FileImage, Trash2, Upload } from "lucide-react";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { maxPhotoBytes } from "@/lib/proof-upload";
 import { cn } from "@/lib/utils";
 
 export function FileUpload({
@@ -30,15 +31,39 @@ export function FileUpload({
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileSize, setFileSize] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(
+    () => () => {
+      if (preview) URL.revokeObjectURL(preview);
+    },
+    [preview],
+  );
 
   const handleChange = () => {
     const file = ref.current?.files?.[0] ?? null;
+    setError(null);
+    if (
+      file &&
+      (file.size > maxPhotoBytes ||
+        !accept.split(",").includes(file.type.toLowerCase()))
+    ) {
+      setError(
+        file.size > maxPhotoBytes
+          ? "Choose a photo under 20 MB."
+          : "Choose a JPEG, PNG, WebP, HEIC, or HEIF photo.",
+      );
+      clear();
+      return;
+    }
     if (file) {
+      setPreview(URL.createObjectURL(file));
       setFileName(file.name);
       setFileSize(`${(file.size / 1024 / 1024).toFixed(2)} MB`);
       onFileChange?.(file);
     } else {
       setFileName(null);
+      setPreview(null);
       setFileSize(null);
       onFileChange?.(null);
     }
@@ -47,6 +72,7 @@ export function FileUpload({
   const clear = () => {
     if (ref.current) {
       ref.current.value = "";
+      setPreview(null);
       setFileName(null);
       setFileSize(null);
       onFileChange?.(null);
@@ -102,6 +128,15 @@ export function FileUpload({
           <p className="text-xs text-muted-foreground">{description}</p>
           {fileSize && <p className="text-xs font-medium">{fileSize}</p>}
         </div>
+        {preview ? (
+          // biome-ignore lint/performance/noImgElement: local object URL, never sent to an image optimizer
+          <img
+            src={preview}
+            alt="Selected proof preview"
+            className="max-h-44 max-w-full rounded-lg object-contain"
+            onError={() => setPreview(null)}
+          />
+        ) : null}
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Button
             type="button"
@@ -142,6 +177,11 @@ export function FileUpload({
           onChange={handleChange}
         />
       </div>
+      {error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

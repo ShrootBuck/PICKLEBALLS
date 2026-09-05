@@ -23,6 +23,7 @@ function safeText(value: string) {
     .replace(/[\u2013\u2014]/g, "-")
     .replace(/\u2026/g, "...")
     .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
     .replace(/[^\x20-\x7E]/g, "?");
 }
 
@@ -32,6 +33,8 @@ function ellipsize(
   font: { widthOfTextAtSize(text: string, size: number): number },
   size: number,
 ) {
+  if (maxWidth <= 0 || font.widthOfTextAtSize("...", size) > maxWidth)
+    return "";
   const clean = safeText(text);
   if (font.widthOfTextAtSize(clean, size) <= maxWidth) return clean;
   let output = clean;
@@ -122,7 +125,7 @@ export async function createTimeblockPdf(input: {
     font: bold,
     color: INK,
   });
-  front.drawText(safeText(input.studentName), {
+  front.drawText(ellipsize(input.studentName, PAGE_WIDTH - 84, bold, 12), {
     x: 42,
     y: 522,
     size: 12,
@@ -190,7 +193,12 @@ export async function createTimeblockPdf(input: {
         font: regular,
         color: INK,
       });
-      const schedule = `${dayFormatter.format(task.completedAt)} | ${timeFormatter.format(task.startedAt)}-${timeFormatter.format(task.completedAt)}`;
+      const startDay = dayFormatter.format(task.startedAt);
+      const endDay = dayFormatter.format(task.completedAt);
+      const schedule =
+        startDay === endDay
+          ? `${startDay} | ${timeFormatter.format(task.startedAt)}-${timeFormatter.format(task.completedAt)}`
+          : `${startDay.split(",")[0]} ${timeFormatter.format(task.startedAt)} - ${endDay.split(",")[0]} ${timeFormatter.format(task.completedAt)}`;
       front.drawText(ellipsize(schedule, columnWidth - 25, regular, 7.2), {
         x: x + 20,
         y: y - 11,
@@ -324,9 +332,9 @@ export async function createTimeblockPdf(input: {
     for (const segment of segments) {
       const blockTop = gridTop - (segment.start / 1440) * gridHeight;
       const blockBottom = gridTop - (segment.end / 1440) * gridHeight;
-      const height = Math.max(4.5, blockTop - blockBottom);
+      const height = Math.max(0.3, blockTop - blockBottom);
       const x = gridLeft + day * dayWidth + 1 + segment.lane * laneWidth;
-      const width = Math.max(4, laneWidth - 1);
+      const width = Math.max(0.3, laneWidth - Math.min(1, laneWidth / 4));
       back.drawRectangle({
         x,
         y: blockBottom,
@@ -340,18 +348,19 @@ export async function createTimeblockPdf(input: {
         height >= 11 && width >= 30
           ? `#${segment.number} ${segment.task.title}`
           : `#${segment.number}`;
-      back.drawText(ellipsize(label, width - 4, bold, 6.2), {
-        x: x + 2,
-        y: blockBottom + Math.max(1.5, height - 7.4),
-        size: 6.2,
-        font: bold,
-        color: INK,
-      });
+      if (height >= 8)
+        back.drawText(ellipsize(label, width - 4, bold, 6.2), {
+          x: x + 2,
+          y: blockBottom + Math.max(1.5, height - 7.4),
+          size: 6.2,
+          font: bold,
+          color: INK,
+        });
     }
   });
 
   back.drawText(
-    `Due ${dateFormatter.format(week.endAtExclusive)} | Task numbers match page 1`,
+    `Due ${dateFormatter.format(week.endAtExclusive)} | Task numbers match page 1; short or crowded blocks may be unlabeled`,
     { x: 42, y: 18, size: 7, font: regular, color: MUTED },
   );
   drawPageFooter(back, regular, 2);

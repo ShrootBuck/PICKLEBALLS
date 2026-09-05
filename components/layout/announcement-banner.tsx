@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 
 // Edit these two lines to post a new announcement. Bumping the id makes the
 // banner reappear for everyone who dismissed the previous one.
-export const ANNOUNCEMENT_ID = "pause-gpt6-2026-09-04";
-export const ANNOUNCEMENT_MESSAGE =
-  "Pausing new updates until I get GPT-6 access tomorrow.";
+export const ANNOUNCEMENT_ID = "2026-09-audit";
+export const ANNOUNCEMENT_MESSAGE = "";
 
 function storageKey(id: string) {
   return `announcement-dismissed:${id}`;

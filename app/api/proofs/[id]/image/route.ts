@@ -17,15 +17,11 @@ export async function GET(
   });
   if (!image)
     return NextResponse.json({ error: "Not found." }, { status: 404 });
-  // Proof images are immutable: a proofId maps to exactly one byte blob for
-  // its whole life (re-submits create a new proof row, never mutate).
-  // So the browser can cache this permanently without ever revalidating.
-  // The hash covers the bytes, so same-size different-image collisions
-  // are impossible in practice.
+  // Revalidate membership before serving cached images, including after sign-out.
   const etag = `"proof-${id}-${createHash("sha256").update(image.data).digest("hex").slice(0, 32)}"`;
   const headers: Record<string, string> = {
     "content-type": image.mimeType,
-    "cache-control": "private, max-age=31536000, immutable",
+    "cache-control": "private, no-cache",
     etag,
     "last-modified": image.createdAt.toUTCString(),
     "content-length": String(image.sizeBytes),

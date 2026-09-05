@@ -11,7 +11,10 @@ const rules = [
     label: "raw interactive HTML",
     pattern: /<(button|input|select|textarea)\b/g,
   },
-  { label: "hand-rolled dialog", pattern: /role=["']dialog["']/gi },
+  {
+    label: "hand-rolled dialog",
+    pattern: /<[A-Za-z][^>]*\brole=["']dialog["']/gi,
+  },
   { label: "Radix asChild in a Base UI project", pattern: /\basChild\b/g },
   {
     label: "raw status color",

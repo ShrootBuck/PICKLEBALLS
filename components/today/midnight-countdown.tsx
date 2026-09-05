@@ -34,17 +34,21 @@ export function MidnightCountdown({ compact = false }: { compact?: boolean }) {
       const key = phoenixDateKey(now);
       const ms = getDueMs(now);
       setRemaining(ms);
-      if (ms <= 0 && rolledDay.current !== key) {
+      if (rolledDay.current !== null && rolledDay.current !== key) {
         // At midnight Phoenix time the board rolls. Soft-refresh so drafts
         // and scroll survive instead of a hard reload.
-        rolledDay.current = key;
         router.refresh();
         toast.add({ title: "New day — board rolled.", type: "success" });
       }
+      rolledDay.current = key;
     };
     tick();
     const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, [router]);
 
   const label =
@@ -75,6 +79,8 @@ export function MidnightCountdown({ compact = false }: { compact?: boolean }) {
       // role="timer" has implicit aria-live="off": screen readers can read
       // the countdown on demand instead of announcing every second.
       role="timer"
+      aria-label={`${label} until midnight in Phoenix`}
+      title="Daily deadline · midnight in Phoenix"
     >
       <Clock3 />
       {label}

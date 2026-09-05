@@ -1,17 +1,8 @@
 import "server-only";
 
 import webpush from "web-push";
-import { z } from "zod";
 import { getPrisma } from "@/lib/prisma";
-
-export const pushSubscriptionSchema = z.object({
-  endpoint: z.string().trim().min(1).max(2000).url(),
-  keys: z.object({
-    p256dh: z.string().trim().min(1).max(500),
-    auth: z.string().trim().min(1).max(500),
-  }),
-  userAgent: z.string().trim().max(500).optional(),
-});
+import { isPushEndpoint } from "@/lib/push-endpoint";
 
 export type PushPayload = {
   title: string;
@@ -60,6 +51,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
   const stale: string[] = [];
   await Promise.all(
     subs.map(async (sub) => {
+      if (!isPushEndpoint(sub.endpoint)) return;
       try {
         await webpush.sendNotification(
           {
@@ -67,7 +59,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
             keys: { p256dh: sub.p256dh, auth: sub.auth },
           },
           body,
-          { TTL: 60 * 60 * 24 * 7, urgency: "normal" },
+          { TTL: 60 * 60 * 24 * 7, urgency: "normal", timeout: 10_000 },
         );
         sent += 1;
       } catch (error) {

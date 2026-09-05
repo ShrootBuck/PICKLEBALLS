@@ -32,7 +32,7 @@ export async function ensureBootstrapMembership(
   return prisma.$transaction(async (transaction) => {
     const circle = await transaction.circle.upsert({
       where: { slug: "pickle-balls" },
-      update: { name: "Pickle Balls" },
+      update: {},
       create: { slug: "pickle-balls", name: "Pickle Balls" },
     });
     await transaction.user.updateMany({

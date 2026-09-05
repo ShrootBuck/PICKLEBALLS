@@ -2,19 +2,21 @@
 
 import { Bell } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { activityIcon as eventIcon } from "@/components/layout/activity-icons";
+import { useEffect, useState } from "react";
+import { activityIcon } from "@/components/layout/activity-icons";
 import { NotificationPreferences } from "@/components/notifications/notification-preferences";
 import { PushToggle } from "@/components/notifications/push-toggle";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/components/ui/toast";
+import { squadHref } from "@/lib/navigation";
 import { formatReplyTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +28,6 @@ export type BellEvent = {
   entityId?: string | null;
   createdAt: string;
 };
-
 export type InboxNotification = {
   id: string;
   kind: string;
@@ -39,271 +40,268 @@ export type InboxNotification = {
   actor: { name: string };
 };
 
-type Tab = "for-you" | "squad" | "settings";
-
-function notificationUrl(item: InboxNotification) {
-  const url = item.data?.url;
-  if (typeof url === "string" && url.startsWith("/")) return url;
-  if (item.entityId) return `/squad?focus=${item.entityId}`;
-  return "/squad";
-}
-
 export function NotificationBell({
+  circleId,
   events,
   initialInbox,
   initialUnreadCount,
 }: {
+  circleId: string;
   events: BellEvent[];
   initialInbox: InboxNotification[];
   initialUnreadCount: number;
 }) {
-  const [tab, setTab] = useState<Tab>("for-you");
+  const [open, setOpen] = useState(false);
   const [inbox, setInbox] = useState(initialInbox);
   const [unread, setUnread] = useState(initialUnreadCount);
-
-  const fresh = events.filter(
-    (event) =>
-      Date.now() - new Date(event.createdAt).getTime() < 24 * 60 * 60 * 1000,
-  );
-
-  async function markRead(id: string) {
-    setInbox((items) =>
-      items.map((item) =>
-        item.id === id ? { ...item, readAt: new Date().toISOString() } : item,
-      ),
-    );
-    setUnread((count) => Math.max(0, count - 1));
-    try {
-      await fetch(`/api/notifications/${id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ read: true }),
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    setInbox(initialInbox);
+    setUnread(initialUnreadCount);
+  }, [initialInbox, initialUnreadCount]);
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    setError(null);
+    fetch("/api/notifications", { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load notifications.");
+        const data = await response.json();
+        if (!controller.signal.aborted) {
+          setInbox(data.notifications);
+          setUnread(data.unreadCount);
+          setNextCursor(data.nextCursor);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted)
+          setError(
+            "Could not refresh notifications. Close and reopen to retry.",
+          );
       });
-    } catch {
-      // Optimistic update stands; next open re-syncs from server.
-    }
-  }
+    return () => controller.abort();
+  }, [open]);
 
-  async function markAllRead() {
-    setInbox((items) =>
-      items.map((item) => ({
-        ...item,
-        readAt: item.readAt ?? new Date().toISOString(),
-      })),
-    );
-    setUnread(0);
+  async function markRead(id?: string) {
+    if (busy) return;
+    setBusy(true);
     try {
-      await fetch("/api/notifications/mark-all-read", { method: "POST" });
+      const response = await fetch(
+        id ? `/api/notifications/${id}` : "/api/notifications/mark-all-read",
+        {
+          method: id ? "PATCH" : "POST",
+          headers: { "content-type": "application/json" },
+          ...(id ? { body: JSON.stringify({ read: true }) } : {}),
+        },
+      );
+      if (!response.ok) throw new Error("Could not mark notifications read.");
+      setInbox((items) =>
+        items.map((item) =>
+          !id || item.id === id
+            ? { ...item, readAt: item.readAt ?? new Date().toISOString() }
+            : item,
+        ),
+      );
+      setUnread((count) => (id ? Math.max(0, count - 1) : 0));
     } catch {
-      // Optimistic update stands.
+      toast.add({
+        title: "Could not mark notifications read. Try again.",
+        type: "error",
+      });
+    } finally {
+      setBusy(false);
     }
   }
 
-  const badge = unread > 0 ? unread : 0;
+  async function loadMore() {
+    if (!nextCursor || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/notifications?cursor=${encodeURIComponent(nextCursor)}`,
+      );
+      if (!response.ok) throw new Error("Could not load more.");
+      const data = await response.json();
+      setInbox((items) => [
+        ...items,
+        ...data.notifications.filter(
+          (item: InboxNotification) =>
+            !items.some((existing) => existing.id === item.id),
+        ),
+      ]);
+      setNextCursor(data.nextCursor);
+      setUnread(data.unreadCount);
+    } catch {
+      setError("Could not load older notifications. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
         render={
           <Button
             variant="ghost"
             size="icon-sm"
             aria-label={
-              badge > 0
-                ? `${badge} unread notifications`
-                : fresh.length > 0
-                  ? `${fresh.length} recent squad events`
-                  : "Notifications"
+              unread > 0 ? `${unread} unread notifications` : "Notifications"
             }
-            className="relative shrink-0 touch-manipulation"
+            className="relative shrink-0"
           />
         }
       >
         <Bell />
-        {badge > 0 ? (
+        {unread > 0 ? (
           <span
             aria-hidden="true"
             className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white tabular-nums"
           >
-            {badge > 9 ? "9+" : badge}
+            {unread > 9 ? "9+" : unread}
           </span>
-        ) : fresh.length > 0 ? (
-          <span
-            aria-hidden="true"
-            className="absolute top-1 right-1 size-2 rounded-full bg-destructive"
-          />
         ) : null}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
+      </PopoverTrigger>
+      <PopoverContent
         align="end"
-        className="w-[min(22rem,calc(100vw-1rem))]"
+        className="max-h-[min(42rem,calc(100dvh-5rem))] w-[min(24rem,calc(100vw-1rem))] overflow-y-auto"
       >
-        <DropdownMenuGroup>
-          <div
-            role="tablist"
-            aria-label="Notifications"
-            className="flex gap-1 p-1"
-          >
-            {(
-              [
-                {
-                  id: "for-you",
-                  label: `For you${badge > 0 ? ` (${badge > 9 ? "9+" : badge})` : ""}`,
-                },
-                { id: "squad", label: "Squad" },
-                { id: "settings", label: "Settings" },
-              ] as Array<{ id: Tab; label: string }>
-            ).map((item) => (
+        <PopoverTitle>Notifications</PopoverTitle>
+        <Tabs defaultValue="for-you">
+          <TabsList className="w-full" aria-label="Notifications">
+            <TabsTrigger value="for-you">
+              For you{unread > 0 ? ` (${unread})` : ""}
+            </TabsTrigger>
+            <TabsTrigger value="squad">Squad</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
+          <TabsContent value="for-you" className="flex flex-col gap-2">
+            {unread > 0 ? (
               <Button
-                key={item.id}
-                role="tab"
-                aria-selected={tab === item.id}
-                type="button"
                 variant="ghost"
-                onClick={() => setTab(item.id)}
-                className={cn(
-                  "h-auto min-h-9 flex-1 rounded-lg px-2 py-1 text-xs font-semibold",
-                  tab === item.id
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted/60",
-                )}
+                size="sm"
+                disabled={busy}
+                onClick={() => markRead()}
+                className="self-end"
               >
-                {item.label}
+                Mark all read
               </Button>
-            ))}
-          </div>
-
-          {tab === "for-you" ? (
-            <>
-              <div className="flex items-center justify-between px-2 py-1">
-                <DropdownMenuLabel className="px-0 font-semibold">
-                  For you
-                </DropdownMenuLabel>
-                {unread > 0 ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    onClick={markAllRead}
-                    className="h-auto text-[11px] font-semibold text-muted-foreground hover:bg-transparent hover:text-foreground"
-                  >
-                    Mark all read
-                  </Button>
-                ) : null}
-              </div>
-              {inbox.length === 0 ? (
-                <p className="px-2 py-3 text-center text-sm text-muted-foreground">
-                  Nothing for you yet. Replies, verdicts, and misses land here.
-                </p>
-              ) : (
-                <ul className="flex max-h-80 flex-col gap-0.5 overflow-y-auto p-1">
-                  {inbox.map((item) => {
-                    const Icon = eventIcon(item.kind);
-                    return (
-                      <li key={item.id}>
-                        <Link
-                          href={notificationUrl(item)}
-                          onClick={() => {
-                            if (!item.readAt) void markRead(item.id);
-                          }}
-                          className={cn(
-                            "flex min-h-12 min-w-0 items-start gap-2 rounded-lg px-2 py-2 hover:bg-muted",
-                            item.readAt && "opacity-70",
-                          )}
-                        >
-                          <Icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-[13px]">
-                              {!item.readAt ? (
-                                <span
-                                  aria-hidden="true"
-                                  className="mr-1.5 inline-block size-1.5 rounded-full bg-destructive align-middle"
-                                />
-                              ) : null}
-                              <span className="font-semibold">
-                                {item.title}
-                              </span>
-                            </span>
-                            <span className="block line-clamp-2 text-[12px] leading-relaxed text-muted-foreground">
-                              {item.body}
-                            </span>
-                            <span className="block text-[11px] text-muted-foreground tabular-nums">
-                              {formatReplyTime(item.createdAt)}
-                            </span>
-                          </span>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </>
-          ) : null}
-
-          {tab === "squad" ? (
-            <>
-              <DropdownMenuLabel className="font-semibold">
-                Squad activity
-              </DropdownMenuLabel>
-              {events.length === 0 ? (
-                <p className="px-2 py-3 text-center text-sm text-muted-foreground">
-                  Nothing yet. Do something worth logging.
-                </p>
-              ) : (
-                <ul className="flex max-h-80 flex-col gap-0.5 overflow-y-auto p-1">
-                  {events.map((event) => {
-                    const Icon = eventIcon(event.kind);
-                    const content = (
-                      <>
-                        <Icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0">
-                          <span className="block truncate text-[13px]">
-                            <span className="font-semibold">
-                              {event.actorName}
-                            </span>{" "}
-                            {event.summary}
-                          </span>
-                          <span className="block text-[11px] text-muted-foreground tabular-nums">
-                            {formatReplyTime(event.createdAt)}
-                          </span>
-                        </span>
-                      </>
-                    );
-                    return (
-                      <li
-                        key={event.id}
-                        className="flex items-start gap-2 rounded-md px-2 py-1.5"
-                      >
-                        {event.entityId ? (
-                          <Link
-                            href={`/squad?focus=${event.entityId}`}
-                            className="flex min-w-0 items-start gap-2 rounded-md hover:bg-muted"
-                          >
-                            {content}
-                          </Link>
-                        ) : (
-                          content
+            ) : null}
+            {inbox.length === 0 ? (
+              <p className="px-2 py-4 text-sm text-muted-foreground">
+                You’re caught up. Replies and verdicts will appear here.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {inbox.map((item) => {
+                  const Icon = activityIcon(item.kind);
+                  return (
+                    <li key={item.id}>
+                      <Link
+                        href={squadHref(circleId, item.entityId)}
+                        onClick={() => {
+                          if (!item.readAt) void markRead(item.id);
+                          setOpen(false);
+                        }}
+                        className={cn(
+                          "flex min-w-0 items-start gap-2 rounded-lg p-2 hover:bg-muted",
+                          item.readAt && "opacity-75",
                         )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </>
-          ) : null}
-
-          {tab === "settings" ? (
-            <>
-              <DropdownMenuLabel className="font-semibold">
-                Notification settings
-              </DropdownMenuLabel>
-              <PushToggle />
-              <DropdownMenuSeparator />
-              <NotificationPreferences />
-            </>
-          ) : null}
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+                      >
+                        <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold">
+                            {item.title}
+                          </span>
+                          <span className="block whitespace-pre-wrap text-xs text-muted-foreground">
+                            {item.body}
+                          </span>
+                          <time
+                            dateTime={item.createdAt}
+                            className="block text-xs text-muted-foreground"
+                          >
+                            {formatReplyTime(item.createdAt)}
+                          </time>
+                        </span>
+                        {!item.readAt ? (
+                          <span
+                            className="mt-1.5 size-1.5 shrink-0 rounded-full bg-destructive"
+                            role="img"
+                            aria-label="Unread"
+                          />
+                        ) : null}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {nextCursor ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={loadMore}
+              >
+                Older notifications
+              </Button>
+            ) : null}
+            {error ? (
+              <p role="alert" className="text-xs text-destructive">
+                {error}
+              </p>
+            ) : null}
+          </TabsContent>
+          <TabsContent value="squad">
+            {events.length === 0 ? (
+              <p className="p-2 text-sm text-muted-foreground">
+                No activity yet.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {events.map((event) => {
+                  const Icon = activityIcon(event.kind);
+                  const isInvite = event.kind.startsWith("INVITE_");
+                  return (
+                    <li key={event.id}>
+                      <Link
+                        href={
+                          isInvite
+                            ? "/admin"
+                            : squadHref(circleId, event.entityId)
+                        }
+                        onClick={() => setOpen(false)}
+                        className="flex min-w-0 items-start gap-2 rounded-lg p-2 hover:bg-muted"
+                      >
+                        <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm">
+                            <strong>{event.actorName}</strong> {event.summary}
+                          </span>
+                          <time
+                            dateTime={event.createdAt}
+                            className="text-xs text-muted-foreground"
+                          >
+                            {formatReplyTime(event.createdAt)}
+                          </time>
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </TabsContent>
+          <TabsContent value="settings" className="flex flex-col gap-3">
+            <PushToggle />
+            <Separator />
+            <NotificationPreferences />
+          </TabsContent>
+        </Tabs>
+      </PopoverContent>
+    </Popover>
   );
 }

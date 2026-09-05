@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { jsonError, readJson } from "@/lib/api";
 import { DomainError } from "@/lib/errors";
+import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { timeblockPdfSchema } from "@/lib/schemas";
 import { parsePhoenixLocalDateTime } from "@/lib/time";
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
   try {
+    await limitAction(auth.session.user.id, "pdf", 20, 60_000);
     const parsed = timeblockPdfSchema.safeParse(await readJson(request));
     if (!parsed.success || !isMondayDateKey(parsed.data?.dueMonday ?? "")) {
       throw new DomainError("Fix the timeblock fields.");

@@ -14,7 +14,10 @@ export async function BellSlot({
   const prisma = getPrisma();
   const [events, inbox, unreadCount] = await Promise.all([
     prisma.activityEvent.findMany({
-      where: { circleId },
+      where: {
+        circleId,
+        kind: { notIn: ["INVITE_CREATED", "INVITE_REVOKED"] },
+      },
       orderBy: { createdAt: "desc" },
       take: 12,
       select: {
@@ -62,6 +65,7 @@ export async function BellSlot({
   }));
   return (
     <NotificationBell
+      circleId={circleId}
       events={events.map((event) => ({
         id: event.id,
         kind: event.kind,

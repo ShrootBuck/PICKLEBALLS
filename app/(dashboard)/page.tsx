@@ -25,8 +25,12 @@ export default async function TodayPage() {
   // by page views — scanning on every visit just slows down Today.
   const [tasks, checkIn, history] = await Promise.all([
     getPrisma().commitment.findMany({
-      where: { userId: session.user.id, circleId: membership.circleId, day },
-      orderBy: { dueAt: "asc" },
+      where: {
+        userId: session.user.id,
+        circleId: membership.circleId,
+        OR: [{ day }, { day: { lt: day }, status: { not: "VERIFIED" } }],
+      },
+      orderBy: [{ day: "desc" }, { createdAt: "asc" }],
       include: {
         proofs: {
           where: { replacedById: null },
@@ -38,7 +42,7 @@ export default async function TodayPage() {
               include: {
                 reviewer: { select: { id: true, name: true } },
                 replies: {
-                  orderBy: { createdAt: "asc" },
+                  orderBy: [{ createdAt: "desc" }, { id: "desc" }],
                   take: 50,
                   include: {
                     author: {
@@ -95,7 +99,7 @@ export default async function TodayPage() {
         }));
   return (
     <TodayDashboard
-      key={dayKey}
+      key={`${membership.circleId}:${dayKey}`}
       day={dayKey}
       currentUserId={session.user.id}
       tasks={tasks.map((task) => ({
@@ -104,7 +108,12 @@ export default async function TodayPage() {
         title: task.title,
         definitionOfDone: task.definitionOfDone,
         dueAt: task.dueAt.toISOString(),
-        status: task.status,
+        status:
+          task.proofs.length === 0 &&
+          task.dueAt < new Date() &&
+          (task.status === "OPEN" || task.status === "RENEGOTIATED")
+            ? "MISSED"
+            : task.status,
         proof: task.proofs[0]
           ? {
               id: task.proofs[0].id,

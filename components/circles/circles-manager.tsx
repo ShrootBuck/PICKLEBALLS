@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -150,23 +149,21 @@ export function CirclesManager({
                     {current === circle.id ? " · current" : ""}
                   </span>
                 </div>
-                {current === circle.id ? (
-                  <Badge variant="default">Current</Badge>
-                ) : (
+                {
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={switchPending === circle.id}
+                    disabled={switchPending !== null || createPending}
                     onClick={() => switchTo(circle.id)}
                     className="w-full sm:w-auto"
                   >
                     {switchPending === circle.id ? (
                       <Spinner data-icon="inline-start" />
                     ) : null}
-                    Switch
+                    {current === circle.id ? "Open circle" : "Switch"}
                   </Button>
-                )}
+                }
               </div>
             ))
           )}

@@ -31,6 +31,7 @@ export default async function JoinPage({
             OR: [{ claimExpiresAt: null }, { claimExpiresAt: { lt: now } }],
           },
           select: {
+            circleId: true,
             label: true,
             circle: {
               select: {
@@ -70,7 +71,7 @@ export default async function JoinPage({
     const already = await getPrisma().membership.findFirst({
       where: {
         userId: session.user.id,
-        circle: { name: invite.circle.name },
+        circleId: invite.circleId,
       },
       select: { circleId: true },
     });

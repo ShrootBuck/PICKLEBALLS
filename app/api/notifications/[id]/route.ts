@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { jsonError, readJson } from "@/lib/api";
 import { getPrisma } from "@/lib/prisma";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
@@ -18,8 +19,15 @@ export async function PATCH(
   }
   try {
     const { id } = await params;
-    const body = (await readJson(request)) as { read?: unknown };
-    const read = body.read !== false;
+    const body = z
+      .object({ read: z.boolean() })
+      .safeParse(await readJson(request));
+    if (!body.success)
+      return NextResponse.json(
+        { error: "Choose a read state." },
+        { status: 400 },
+      );
+    const read = body.data.read;
     const existing = await getPrisma().notification.findFirst({
       where: {
         id,

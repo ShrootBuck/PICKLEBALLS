@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  distDir: process.env.PB_TEST_BUILD === "1" ? ".next-browser" : ".next",
   reactCompiler: true,
   async headers() {
     return [

@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 
 export default function ErrorPage({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   return (
     <div className="flex flex-col gap-4 py-8">
@@ -20,7 +20,7 @@ export default function ErrorPage({
           {error.message || "The server dropped the ball. Try again."}
         </AlertDescription>
       </Alert>
-      <Button onClick={reset} variant="outline" className="self-start">
+      <Button onClick={retry} variant="outline" className="self-start">
         Try again
       </Button>
     </div>

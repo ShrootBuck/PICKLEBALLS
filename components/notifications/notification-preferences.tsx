@@ -2,14 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 
 const PREF_META = [
-  { key: "replies", label: "Replies to my stuff", hint: "Someone talks back" },
+  {
+    key: "replies",
+    label: "Replies to my stuff",
+    hint: "Replies to tasks, photos, and reviews",
+  },
   {
     key: "proofsSubmitted",
     label: "Proofs need review",
-    hint: "Squadmate posted a receipt",
+    hint: "A friend posted a photo",
   },
   {
     key: "proofReviews",
@@ -19,17 +30,17 @@ const PREF_META = [
   {
     key: "taskMissed",
     label: "Missed tasks",
-    hint: "Deadline passed, no proof",
+    hint: "Deadline passed with no proof",
   },
   {
     key: "taskCreated",
-    label: "New tasks",
-    hint: "Usually noise — off by default",
+    label: "New and edited tasks",
+    hint: "Optional updates from the squad",
   },
   {
     key: "checkIns",
     label: "Check-ins",
-    hint: "Usually noise — off by default",
+    hint: "Optional status updates from friends",
   },
 ] as const;
 
@@ -37,86 +48,89 @@ type Prefs = Record<(typeof PREF_META)[number]["key"], boolean>;
 
 export function NotificationPreferences() {
   const [prefs, setPrefs] = useState<Prefs | null>(null);
-  const [saving, setSaving] = useState<string | null>(null);
-
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt explicitly retries a failed request
   useEffect(() => {
-    fetch("/api/notifications/preferences")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.preferences) setPrefs(data.preferences as Prefs);
+    const controller = new AbortController();
+    setError(null);
+    fetch("/api/notifications/preferences", { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load preferences.");
+        const data = await response.json();
+        if (!controller.signal.aborted) setPrefs(data.preferences);
       })
-      .catch(() => undefined);
-  }, []);
+      .catch(() => {
+        if (!controller.signal.aborted)
+          setError("Could not load your preferences.");
+      });
+    return () => controller.abort();
+  }, [attempt]);
 
-  async function toggle(key: keyof Prefs) {
-    if (!prefs) return;
-    const next = { ...prefs, [key]: !prefs[key] };
+  async function toggle(key: keyof Prefs, checked: boolean) {
+    if (!prefs || saving) return;
+    const previous = prefs;
+    const next = { ...prefs, [key]: checked };
     setPrefs(next);
-    setSaving(key);
+    setSaving(true);
+    setError(null);
     try {
       const response = await fetch("/api/notifications/preferences", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(next),
       });
-      if (!response.ok) throw new Error("save failed");
-      const data = (await response.json()) as { preferences: Prefs };
-      setPrefs(data.preferences);
+      if (!response.ok) throw new Error("Could not save.");
     } catch {
-      setPrefs(prefs);
+      setPrefs(previous);
+      setError("That preference was not saved. Try again.");
     } finally {
-      setSaving(null);
+      setSaving(false);
     }
   }
-
-  if (!prefs) {
-    return (
-      <p className="px-2 py-1.5 text-xs text-muted-foreground">
-        Loading preferences…
-      </p>
-    );
-  }
-
   return (
-    <ul className="flex flex-col">
-      {PREF_META.map((meta) => {
-        const on = prefs[meta.key];
-        return (
-          <li key={meta.key}>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => toggle(meta.key)}
-              aria-pressed={on}
-              disabled={saving !== null}
-              className="h-auto w-full justify-between gap-2 whitespace-normal rounded-md px-2 py-1.5 text-left hover:bg-muted"
+    <div className="flex flex-col gap-3">
+      {prefs ? (
+        <FieldGroup className="gap-3">
+          {PREF_META.map((meta) => (
+            <Field
+              key={meta.key}
+              orientation="horizontal"
+              data-disabled={saving}
             >
-              <span className="min-w-0">
-                <span className="block text-[13px] font-medium">
+              <FieldContent>
+                <FieldLabel htmlFor={`pref-${meta.key}`}>
                   {meta.label}
-                </span>
-                <span className="block text-[11px] text-muted-foreground">
-                  {meta.hint}
-                </span>
-              </span>
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "relative h-5 w-9 shrink-0 rounded-full transition-colors",
-                  on ? "bg-primary" : "bg-muted-foreground/30",
-                )}
-              >
-                <span
-                  className={cn(
-                    "absolute top-0.5 size-4 rounded-full bg-white shadow transition-all",
-                    on ? "left-[18px]" : "left-0.5",
-                  )}
-                />
-              </span>
-            </Button>
-          </li>
-        );
-      })}
-    </ul>
+                </FieldLabel>
+                <FieldDescription>{meta.hint}</FieldDescription>
+              </FieldContent>
+              <Checkbox
+                id={`pref-${meta.key}`}
+                checked={prefs[meta.key]}
+                disabled={saving}
+                onCheckedChange={(checked) => toggle(meta.key, checked)}
+              />
+            </Field>
+          ))}
+        </FieldGroup>
+      ) : !error ? (
+        <p className="text-sm text-muted-foreground">Loading preferences…</p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+      {!prefs && error ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setAttempt((value) => value + 1)}
+        >
+          Try again
+        </Button>
+      ) : null}
+    </div>
   );
 }

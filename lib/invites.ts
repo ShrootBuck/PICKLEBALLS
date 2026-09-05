@@ -88,7 +88,14 @@ export async function redeemReservedInvite(
     if (!invite) throw new Error("Invite claim expired before redemption.");
 
     const redeemed = await transaction.invite.updateMany({
-      where: { id: inviteId, claimNonce, usedAt: null },
+      where: {
+        id: inviteId,
+        claimNonce,
+        usedAt: null,
+        revokedAt: null,
+        expiresAt: { gt: now },
+        claimExpiresAt: { gt: now },
+      },
       data: {
         claimNonce: null,
         claimExpiresAt: null,
@@ -114,7 +121,7 @@ export async function redeemReservedInvite(
 
     await transaction.membership.upsert({
       where: { userId_circleId: { userId, circleId: invite.circleId } },
-      update: { role: invite.role },
+      update: {},
       create: {
         userId,
         circleId: invite.circleId,

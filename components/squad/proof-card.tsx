@@ -39,6 +39,7 @@ export type ProofReview = {
 export type ProofCardData = {
   id: string;
   title: string;
+  definitionOfDone: string;
   ownerName: string;
   ownerId: string;
   ownerNote: string | null;
@@ -88,10 +89,15 @@ export function ProofCard({
   focusId?: string;
 }) {
   const compact = mode === "history";
+  const aiStalled =
+    proof.aiStatus === "PENDING" &&
+    Date.now() - new Date(proof.submittedAt).getTime() > 120_000;
   const meta = [
     proof.ownerName,
-    proof.isLate ? "late as hell" : "on time",
-    `${proof.approvals}/${proof.requiredApprovals} approvals`,
+    proof.isLate ? "late" : "on time",
+    proof.requiredApprovals === 0
+      ? "Solo circle"
+      : `${proof.approvals}/${proof.requiredApprovals} approvals`,
   ].join(" — ");
 
   return (
@@ -111,22 +117,26 @@ export function ProofCard({
         />
         <div className="flex min-w-0 flex-1 flex-col">
           <CardHeader className={cn("py-3", compact && "sm:pr-3")}>
-            <CardTitle className="truncate">{proof.title}</CardTitle>
-            <CardDescription className="truncate">{meta}</CardDescription>
+            <CardTitle className="leading-snug">{proof.title}</CardTitle>
+            <CardDescription>{meta}</CardDescription>
             <CardAction className="flex flex-col items-end gap-1">
               {statusBadge(proof.reviewStatus)}
               {mode === "history" && proof.aiStatus === "SUCCEEDED"
                 ? matchBadge(proof.aiTaskMatch)
                 : null}
-              {proof.aiStatus === "PENDING" ? (
+              {proof.aiStatus === "PENDING" && !aiStalled ? (
                 <Badge variant="outline">AI reading…</Badge>
               ) : null}
-              {proof.aiStatus === "FAILED" ? (
+              {proof.aiStatus === "FAILED" || aiStalled ? (
                 <AiRetryButton proofId={proof.id} />
               ) : null}
             </CardAction>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 pb-3">
+            <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Done means: </span>
+              {proof.definitionOfDone}
+            </p>
             {proof.ownerNote ? (
               <p
                 className={cn(
@@ -174,7 +184,7 @@ export function ProofCard({
                 </AlertDescription>
               </Alert>
             ) : null}
-            {mode === "review" ? (
+            {proof.reviewStatus === "PENDING" ? (
               proof.ownerId === viewerId ? (
                 <Badge variant="secondary" className="w-fit">
                   Your proof — friends decide
@@ -196,7 +206,12 @@ export function ProofCard({
             {proof.reviews.length > 0 ? (
               <ItemGroup className="gap-2">
                 {proof.reviews.map((review) => (
-                  <Item key={review.id} size="sm" variant="muted">
+                  <Item
+                    role="listitem"
+                    key={review.id}
+                    size="sm"
+                    variant="muted"
+                  >
                     <ItemContent>
                       <ItemHeader>
                         <ItemTitle className="text-[13px]">

@@ -12,6 +12,7 @@ import {
   shouldMarkMissed,
 } from "@/lib/task-policy";
 import { phoenixDateKey, phoenixDayDueAt, requireDateKey } from "@/lib/time";
+import { serializable } from "@/lib/transaction";
 
 export { DomainError };
 
@@ -23,6 +24,8 @@ export async function reconcileMissedTasks(circleId: string, now = new Date()) {
       status: { in: ["OPEN", "RENEGOTIATED"] },
       proofs: { none: {} },
     },
+    orderBy: { dueAt: "asc" },
+    take: 25,
     select: { id: true, userId: true, title: true, status: true, dueAt: true },
   });
   if (candidates.length === 0)
@@ -30,7 +33,7 @@ export async function reconcileMissedTasks(circleId: string, now = new Date()) {
       count: 0,
       missed: [] as Array<{ id: string; userId: string; title: string }>,
     };
-  return getPrisma().$transaction(async (transaction) => {
+  return serializable(async (transaction) => {
     let count = 0;
     const missed: Array<{ id: string; userId: string; title: string }> = [];
     for (const task of candidates) {
@@ -77,31 +80,28 @@ export async function createCommitment(
     throw new DomainError("Too late — today's board is locked at midnight.");
   }
 
-  return getPrisma().$transaction(
-    async (transaction) => {
-      const task = await transaction.commitment.create({
-        data: {
-          userId,
-          circleId,
-          day,
-          title: parsed.data.title,
-          definitionOfDone: parsed.data.definitionOfDone,
-          dueAt,
-        },
-      });
-      await transaction.activityEvent.create({
-        data: {
-          circleId,
-          actorId: userId,
-          kind: "TASK_CREATED",
-          entityId: task.id,
-          summary: `set “${task.title}” for ${dayKey}`,
-        },
-      });
-      return task;
-    },
-    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-  );
+  return serializable(async (transaction) => {
+    const task = await transaction.commitment.create({
+      data: {
+        userId,
+        circleId,
+        day,
+        title: parsed.data.title,
+        definitionOfDone: parsed.data.definitionOfDone,
+        dueAt,
+      },
+    });
+    await transaction.activityEvent.create({
+      data: {
+        circleId,
+        actorId: userId,
+        kind: "TASK_CREATED",
+        entityId: task.id,
+        summary: `set “${task.title}” for ${dayKey}`,
+      },
+    });
+    return task;
+  });
 }
 
 export async function updateCommitment(
@@ -114,9 +114,10 @@ export async function updateCommitment(
   const parsed = commitmentInputSchema.safeParse(input);
   if (!parsed.success) throw new DomainError("Fix the task fields.");
 
-  return getPrisma().$transaction(async (transaction) => {
+  return serializable(async (transaction) => {
     const current = await transaction.commitment.findFirst({
       where: { id: taskId, userId, circleId },
+      include: { _count: { select: { proofs: true } } },
     });
     if (!current) throw new DomainError("Task not found.", 404);
     if (!canEditTask(current.dueAt, now)) {
@@ -130,7 +131,14 @@ export async function updateCommitment(
       current.title === parsed.data.title &&
       current.definitionOfDone === parsed.data.definitionOfDone
     ) {
-      return current;
+      return { task: current, changed: false };
+    }
+
+    if (current._count.proofs > 0) {
+      throw new DomainError(
+        "This task already has proof. Its promise stays fixed so reviews remain honest.",
+        409,
+      );
     }
 
     const task = await transaction.commitment.update({
@@ -150,7 +158,7 @@ export async function updateCommitment(
         summary: `renegotiated “${task.title}” before midnight`,
       },
     });
-    return task;
+    return { task, changed: true };
   });
 }
 
@@ -181,7 +189,7 @@ export async function submitProof(
   }
   const image = await sanitizeImage(file);
 
-  return getPrisma().$transaction(async (transaction) => {
+  return serializable(async (transaction) => {
     const task = await transaction.commitment.findFirst({
       where: { id: taskId, userId, circleId },
       include: {
@@ -274,99 +282,96 @@ export async function reviewProof(
   if (!parsed.success) throw new DomainError("Challenges need a useful note.");
 
   try {
-    return await getPrisma().$transaction(
-      async (transaction) => {
-        const proof = await transaction.taskProof.findFirst({
-          where: { id: proofId, circleId, replacedById: null },
-          include: { commitment: true, reviews: true },
-        });
-        if (!proof) throw new DomainError("Proof not found.", 404);
-        if (proof.ownerId === reviewerId)
-          throw new DomainError(
-            "You cannot review your own homework. Nice try.",
-            403,
-          );
-        if (proof.reviewStatus !== "PENDING") {
-          throw new DomainError("This proof already has a verdict.", 409);
-        }
-        if (proof.reviews.some((r) => r.reviewerId === reviewerId)) {
-          throw new DomainError("You already reviewed this proof.", 409);
-        }
-        const isChallenge = parsed.data.decision === "CHALLENGED";
+    return await serializable(async (transaction) => {
+      const proof = await transaction.taskProof.findFirst({
+        where: { id: proofId, circleId, replacedById: null },
+        include: { commitment: true, reviews: true },
+      });
+      if (!proof) throw new DomainError("Proof not found.", 404);
+      if (proof.ownerId === reviewerId)
+        throw new DomainError(
+          "You cannot review your own homework. Nice try.",
+          403,
+        );
+      if (proof.reviewStatus !== "PENDING") {
+        throw new DomainError("This proof already has a verdict.", 409);
+      }
+      if (proof.reviews.some((r) => r.reviewerId === reviewerId)) {
+        throw new DomainError("You already reviewed this proof.", 409);
+      }
+      const isChallenge = parsed.data.decision === "CHALLENGED";
 
-        const review = await transaction.taskProofReview.create({
+      const review = await transaction.taskProofReview.create({
+        data: {
+          proofId,
+          reviewerId,
+          circleId,
+          decision: parsed.data.decision,
+          note: parsed.data.note || null,
+          createdAt: now,
+        },
+      });
+
+      if (isChallenge) {
+        await transaction.taskProof.update({
+          where: { id: proofId },
+          data: { reviewStatus: "CHALLENGED" },
+        });
+        await transaction.commitment.update({
+          where: { id: proof.commitmentId },
+          data: { status: "OPEN" },
+        });
+        await transaction.activityEvent.create({
           data: {
-            proofId,
-            reviewerId,
             circleId,
-            decision: parsed.data.decision,
-            note: parsed.data.note || null,
-            createdAt: now,
+            actorId: reviewerId,
+            kind: "PROOF_CHALLENGED",
+            entityId: proofId,
+            summary: `challenged proof for “${proof.commitment.title}”`,
           },
         });
-
-        if (isChallenge) {
-          await transaction.taskProof.update({
-            where: { id: proofId },
-            data: { reviewStatus: "CHALLENGED" },
-          });
-          await transaction.commitment.update({
-            where: { id: proof.commitmentId },
-            data: { status: "OPEN" },
-          });
-          await transaction.activityEvent.create({
-            data: {
-              circleId,
-              actorId: reviewerId,
-              kind: "PROOF_CHALLENGED",
-              entityId: proofId,
-              summary: `challenged proof for “${proof.commitment.title}”`,
-            },
-          });
-          return review;
-        }
-
-        const approvals =
-          proof.reviews.filter((r) => r.decision === "APPROVED").length + 1;
-        const memberCount = await transaction.membership.count({
-          where: { circleId },
-        });
-        const needed = requiredApprovalsForCircle(memberCount);
-
-        if (approvals >= needed) {
-          await transaction.taskProof.update({
-            where: { id: proofId },
-            data: { reviewStatus: "APPROVED" },
-          });
-          await transaction.commitment.update({
-            where: { id: proof.commitmentId },
-            data: { status: "VERIFIED" },
-          });
-          await transaction.activityEvent.create({
-            data: {
-              circleId,
-              actorId: reviewerId,
-              kind: "PROOF_APPROVED",
-              entityId: proofId,
-              summary: `approved proof for “${proof.commitment.title}” (${approvals}/${needed})`,
-            },
-          });
-        } else {
-          // Keep pending, still needs more approvals
-          await transaction.activityEvent.create({
-            data: {
-              circleId,
-              actorId: reviewerId,
-              kind: "PROOF_APPROVED",
-              entityId: proofId,
-              summary: `approved proof for “${proof.commitment.title}” (${approvals}/${needed}) — needs ${needed - approvals} more`,
-            },
-          });
-        }
         return review;
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+      }
+
+      const approvals =
+        proof.reviews.filter((r) => r.decision === "APPROVED").length + 1;
+      const memberCount = await transaction.membership.count({
+        where: { circleId },
+      });
+      const needed = requiredApprovalsForCircle(memberCount);
+
+      if (approvals >= needed) {
+        await transaction.taskProof.update({
+          where: { id: proofId },
+          data: { reviewStatus: "APPROVED" },
+        });
+        await transaction.commitment.update({
+          where: { id: proof.commitmentId },
+          data: { status: "VERIFIED" },
+        });
+        await transaction.activityEvent.create({
+          data: {
+            circleId,
+            actorId: reviewerId,
+            kind: "PROOF_APPROVED",
+            entityId: proofId,
+            summary: `approved proof for “${proof.commitment.title}” (${approvals}/${needed})`,
+          },
+        });
+      } else {
+        // Keep pending, still needs more approvals
+        await transaction.activityEvent.create({
+          data: {
+            circleId,
+            actorId: reviewerId,
+            kind: "PROOF_APPROVED",
+            entityId: proofId,
+            summary: `approved proof for “${proof.commitment.title}” (${approvals}/${needed}) — needs ${needed - approvals} more`,
+          },
+        });
+      }
+      return review;
+    });
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -387,7 +392,7 @@ export async function setCheckIn(
 ) {
   const day = requireDateKey(phoenixDateKey(now));
   const cleanBlocker = blocker?.trim() ? blocker.trim().slice(0, 500) : null;
-  const result = await getPrisma().$transaction(async (transaction) => {
+  const result = await serializable(async (transaction) => {
     const checkIn = await transaction.checkIn.upsert({
       where: { userId_circleId_day: { userId, circleId, day } },
       update: { signal, blocker: cleanBlocker },

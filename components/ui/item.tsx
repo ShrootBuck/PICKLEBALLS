@@ -66,6 +66,7 @@ function Item({
     defaultTagName: "div",
     props: mergeProps<"div">(
       {
+        role: "listitem",
         className: cn(itemVariants({ variant, size, className })),
       },
       props,
@@ -129,7 +130,7 @@ function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="item-title"
       className={cn(
-        "line-clamp-1 flex w-fit items-center gap-2 text-sm leading-snug font-medium underline-offset-4",
+        "flex min-w-0 w-fit items-center gap-2 text-sm leading-snug font-medium underline-offset-4",
         className,
       )}
       {...props}
@@ -142,7 +143,7 @@ function ItemDescription({ className, ...props }: React.ComponentProps<"p">) {
     <p
       data-slot="item-description"
       className={cn(
-        "line-clamp-2 text-left text-sm leading-normal font-normal text-muted-foreground group-data-[size=xs]/item:text-xs [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
+        "text-left text-sm leading-normal font-normal text-muted-foreground group-data-[size=xs]/item:text-xs [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
         className,
       )}
       {...props}

@@ -8,6 +8,8 @@ import {
   listMyCircles,
   MAX_CIRCLE_NAME_LENGTH,
 } from "@/lib/circles";
+import { limitAction } from "@/lib/rate-limit";
+import { hasSameOrigin } from "@/lib/request";
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(MAX_CIRCLE_NAME_LENGTH),
@@ -31,6 +33,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!hasSameOrigin(request))
+    return NextResponse.json({ error: "Bad origin." }, { status: 403 });
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
@@ -45,6 +49,7 @@ export async function POST(request: Request) {
     );
   }
   try {
+    await limitAction(session.user.id, "circles", 10, 3_600_000);
     const { circle, membership } = await createCircle(
       session.user.id,
       parsed.data.name,

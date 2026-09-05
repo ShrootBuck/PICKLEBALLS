@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { jsonError, readJson } from "@/lib/api";
 import { getPrisma } from "@/lib/prisma";
+import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { pushSubscriptionSchema } from "@/lib/schemas";
 
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
   try {
+    await limitAction(auth.session.user.id, "push", 30, 60_000);
     const parsed = pushSubscriptionSchema.safeParse(await readJson(request));
     if (!parsed.success) {
       return NextResponse.json(

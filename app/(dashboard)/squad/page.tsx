@@ -1,6 +1,9 @@
 import { Camera, Flame } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import type { CSSProperties } from "react";
+import { CircleDestination } from "@/components/circles/circle-destination";
 import { activityIcon } from "@/components/layout/activity-icons";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProofCard } from "@/components/squad/proof-card";
@@ -17,6 +20,7 @@ import { SquadTabs } from "@/components/squad/squad-tabs";
 import { VerdictList } from "@/components/squad/verdict-list";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardAction,
@@ -58,12 +62,55 @@ export const metadata: Metadata = { title: "Squad" };
 export default async function SquadPage({
   searchParams,
 }: {
-  searchParams: Promise<{ focus?: string }>;
+  searchParams: Promise<{ focus?: string; circle?: string }>;
 }) {
   const { session, membership } = await requirePageMembership();
   const params = await searchParams;
-  const focusId = params.focus;
-  const dayKey = phoenixDateKey();
+  const focusId =
+    typeof params.focus === "string" && params.focus.length <= 100
+      ? params.focus
+      : undefined;
+  if (
+    typeof params.circle === "string" &&
+    params.circle !== membership.circleId
+  ) {
+    const destination = await getPrisma().membership.findUnique({
+      where: {
+        userId_circleId: { userId: session.user.id, circleId: params.circle },
+      },
+      select: { circleId: true },
+    });
+    if (!destination) notFound();
+    return (
+      <CircleDestination circleId={destination.circleId} focusId={focusId} />
+    );
+  }
+  const [focusedTask, focusedCheckIn, focusedProof] = focusId
+    ? await Promise.all([
+        getPrisma().commitment.findFirst({
+          where: { id: focusId, circleId: membership.circleId },
+          select: { day: true },
+        }),
+        getPrisma().checkIn.findFirst({
+          where: { id: focusId, circleId: membership.circleId },
+          select: { day: true },
+        }),
+        getPrisma().taskProof.findFirst({
+          where: {
+            circleId: membership.circleId,
+            OR: [{ id: focusId }, { reviews: { some: { id: focusId } } }],
+          },
+          select: {
+            id: true,
+            reviewStatus: true,
+            commitment: { select: { day: true } },
+          },
+        }),
+      ])
+    : [null, null, null];
+  const focusedDay =
+    focusedTask?.day ?? focusedCheckIn?.day ?? focusedProof?.commitment.day;
+  const dayKey = focusedDay?.toISOString().slice(0, 10) ?? phoenixDateKey();
   const day = requireDateKey(dayKey);
   const friendlyDay = formatDayLong(dayKey);
   const [members, proofs, todayHistory, events] = await Promise.all([
@@ -78,7 +125,7 @@ export default async function SquadPage({
               orderBy: { dueAt: "asc" },
               include: {
                 replies: {
-                  orderBy: { createdAt: "asc" },
+                  orderBy: [{ createdAt: "desc" }, { id: "desc" }],
                   take: 50,
                   include: {
                     author: {
@@ -98,7 +145,7 @@ export default async function SquadPage({
               take: 1,
               include: {
                 replies: {
-                  orderBy: { createdAt: "asc" },
+                  orderBy: [{ createdAt: "desc" }, { id: "desc" }],
                   take: 50,
                   include: {
                     author: {
@@ -125,15 +172,21 @@ export default async function SquadPage({
       where: {
         circleId: membership.circleId,
         reviewStatus: "PENDING",
-        replacedById: null,
+        ...(focusedProof?.reviewStatus === "PENDING"
+          ? { id: focusedProof.id }
+          : {
+              replacedById: null,
+              ownerId: { not: session.user.id },
+              reviews: { none: { reviewerId: session.user.id } },
+            }),
       },
       orderBy: { submittedAt: "asc" },
       take: 20,
       include: {
         owner: { select: { name: true } },
-        commitment: { select: { title: true } },
+        commitment: { select: { title: true, definitionOfDone: true } },
         replies: {
-          orderBy: { createdAt: "asc" },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: 50,
           include: {
             author: {
@@ -146,7 +199,7 @@ export default async function SquadPage({
           include: {
             reviewer: { select: { name: true } },
             replies: {
-              orderBy: { createdAt: "asc" },
+              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
               take: 50,
               include: {
                 author: {
@@ -161,17 +214,27 @@ export default async function SquadPage({
     getPrisma().taskProof.findMany({
       where: {
         circleId: membership.circleId,
-        replacedById: null,
-        reviewStatus: { not: "PENDING" },
-        commitment: { day },
+        ...(focusedProof && focusedProof.reviewStatus !== "PENDING"
+          ? { id: focusedProof.id }
+          : {}),
+        OR: [
+          {
+            replacedById: null,
+            reviewStatus: { not: "PENDING" },
+            commitment: { day },
+          },
+          ...(focusedProof && focusedProof.reviewStatus !== "PENDING"
+            ? [{ id: focusedProof.id }]
+            : []),
+        ],
       },
       orderBy: { submittedAt: "desc" },
       take: 20,
       include: {
         owner: { select: { name: true } },
-        commitment: { select: { title: true } },
+        commitment: { select: { title: true, definitionOfDone: true } },
         replies: {
-          orderBy: { createdAt: "asc" },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: 50,
           include: {
             author: {
@@ -184,7 +247,7 @@ export default async function SquadPage({
           include: {
             reviewer: { select: { name: true } },
             replies: {
-              orderBy: { createdAt: "asc" },
+              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
               take: 50,
               include: {
                 author: {
@@ -221,19 +284,39 @@ export default async function SquadPage({
     <>
       <PageHeader
         title="Squad"
-        description="See the work. Talk shit. Help first, roast second."
+        description="See the work, help each other out, and call it fairly."
       >
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{friendlyDay}</Badge>
           <Badge variant="outline">
-            {members.length}{" "}
-            {members.length === 1 ? "degenerate" : "degenerates"}
+            {members.length} {members.length === 1 ? "friend" : "friends"}
           </Badge>
+          {focusId ? (
+            <Link
+              href="/squad"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              {dayKey !== phoenixDateKey()
+                ? "Back to today"
+                : "Show all activity"}
+            </Link>
+          ) : null}
         </div>
       </PageHeader>
 
       <SquadTabs
-        defaultTab={proofs.length > 0 ? "verdicts" : "board"}
+        focusId={focusId}
+        defaultTab={
+          focusedTask || focusedCheckIn
+            ? "board"
+            : focusedProof
+              ? focusedProof.reviewStatus === "PENDING"
+                ? "verdicts"
+                : "proof"
+              : proofs.some((proof) => proof.ownerId !== session.user.id)
+                ? "verdicts"
+                : "board"
+        }
         verdictCount={proofs.length}
         proofCount={todayHistory.length}
         verdicts={
@@ -298,7 +381,7 @@ export default async function SquadPage({
                         </CardTitle>
                         <CardDescription className="truncate text-[13px]">
                           {total === 0
-                            ? "No promises. Suspicious."
+                            ? "No tasks today."
                             : `${verified}/${total} verified`}
                           {checkIn?.signal === "NAY" ||
                           checkIn?.signal === "AT_RISK"
@@ -325,7 +408,10 @@ export default async function SquadPage({
                     </CardAction>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-3">
-                    <ItemGroup className="gap-2">
+                    <ItemGroup
+                      role={user.commitments.length ? "list" : "presentation"}
+                      className="gap-2"
+                    >
                       {user.commitments.map((task) => (
                         <Item
                           key={task.id}
@@ -341,6 +427,9 @@ export default async function SquadPage({
                               {taskStatusLabel(task.status)}
                             </Badge>
                           </div>
+                          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                            {task.definitionOfDone}
+                          </p>
                           <SocialReplyThread
                             targetType="COMMITMENT"
                             targetId={task.id}
@@ -353,7 +442,7 @@ export default async function SquadPage({
                       ))}
                       {user.commitments.length === 0 ? (
                         <p className="rounded-xl border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
-                          No tasks. Either done or bullshitting.
+                          No tasks added yet.
                         </p>
                       ) : null}
                     </ItemGroup>
@@ -423,7 +512,7 @@ export default async function SquadPage({
                       <>
                         <Separator />
                         <p className="rounded-xl bg-muted/50 px-3 py-2.5 text-center text-[13px] text-muted-foreground">
-                          No check-in yet. Probably bullshitting.
+                          No check-in yet.
                         </p>
                       </>
                     )}
@@ -442,7 +531,8 @@ export default async function SquadPage({
                 </EmptyMedia>
                 <EmptyTitle>No proof yet</EmptyTitle>
                 <EmptyDescription>
-                  Nobody proved shit today. Be the first so you can talk.
+                  Reviewed photos for this day will appear here. Pending photos
+                  are in Verdicts.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -463,7 +553,10 @@ export default async function SquadPage({
         log={
           <Card size="sm">
             <CardContent>
-              <ItemGroup className="gap-1">
+              <ItemGroup
+                role={events.length ? "list" : "presentation"}
+                className="gap-1"
+              >
                 {events.map((event) => {
                   const Icon = activityIcon(event.kind);
                   return (

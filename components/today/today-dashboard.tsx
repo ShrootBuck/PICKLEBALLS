@@ -10,6 +10,8 @@ import {
   Plus,
   TriangleAlert,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
@@ -19,7 +21,7 @@ import {
 import { OnboardingCard } from "@/components/today/onboarding-card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardAction,
@@ -61,8 +63,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { prepareProofPhoto } from "@/lib/proof-upload";
 import {
   formatDayLong,
+  formatDayShort,
   formatHistoryTime,
   phoenixLocalDateTimeValue,
 } from "@/lib/time";
@@ -167,7 +171,7 @@ function ProofFeedback({
   return (
     <ItemGroup className="gap-2">
       {proof.reviews.map((review) => (
-        <Item key={review.id} size="sm" variant="muted">
+        <Item role="listitem" key={review.id} size="sm" variant="muted">
           <ItemContent>
             <ItemHeader>
               <ItemTitle className="text-[13px]">
@@ -226,6 +230,7 @@ function TaskDialog({
   const [definition, setDefinition] = useState(task?.definitionOfDone ?? "");
 
   const handleOpenChange = (next: boolean) => {
+    if (pending) return;
     setOpen(next);
     if (next) {
       setTitle(task?.title ?? "");
@@ -243,6 +248,7 @@ function TaskDialog({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending) return;
     setPending(true);
     setError(null);
     const data = {
@@ -325,7 +331,7 @@ function TaskDialog({
               vague bullshit.
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="flex-1">
+          <ScrollArea className="min-h-0 flex-1">
             <form
               onSubmit={submit}
               id={`task-form-${task?.id ?? "new"}`}
@@ -433,11 +439,12 @@ function ProofDialog({
     phoenixLocalDateTimeValue(),
   );
   const isReplace = task.proof?.reviewStatus === "CHALLENGED";
-  const isLate = task.status === "MISSED";
+  const isLate = new Date(task.dueAt).getTime() < Date.now();
   const [formKey, setFormKey] = useState(0);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending) return;
     const formData = new FormData(event.currentTarget);
     const file = formData.get("image");
     if (!(file instanceof File) || file.size === 0) {
@@ -452,6 +459,7 @@ function ProofDialog({
     setPending(true);
     setError(null);
     try {
+      formData.set("image", await prepareProofPhoto(file));
       const response = await fetch(`/api/commitments/${task.id}/proof`, {
         method: "POST",
         // Reuse the FormData captured above: the React synthetic event's
@@ -496,13 +504,18 @@ function ProofDialog({
       setNote("");
       setConfirmEmpty(false);
       setFormKey((key) => key + 1);
-    } catch {
-      setError("Could not reach the server. Check your wifi and try again.");
+    } catch (error) {
+      setError(
+        error instanceof Error && error.name !== "TypeError"
+          ? error.message
+          : "Could not reach the server. Check your connection and try again.",
+      );
       setPending(false);
     }
   }
 
   const handleOpenChange = (next: boolean) => {
+    if (pending) return;
     setOpen(next);
     if (next) {
       const now = new Date();
@@ -541,7 +554,7 @@ function ProofDialog({
               Photo or it did not happen. Blurry pics get challenged.
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="flex-1">
+          <ScrollArea className="min-h-0 flex-1">
             <form
               onSubmit={submit}
               key={formKey}
@@ -552,7 +565,7 @@ function ProofDialog({
                 <FileUpload
                   id={`proof-${task.id}`}
                   label="Proof photo"
-                  description="PNG, JPEG, WebP, HEIC, or HEIF. Max 6 MB. Location data gets stripped automatically."
+                  description="Photos up to 20 MB are resized before upload. JPEG, PNG, WebP, or supported HEIC. Location data is removed."
                   required
                 />
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -651,7 +664,7 @@ function ProofDialog({
                   ) : (
                     <Camera data-icon="inline-start" />
                   )}
-                  {pending ? "Reading it…" : "Submit without it"}
+                  {pending ? "Uploading…" : "Submit without it"}
                 </Button>
               </>
             ) : (
@@ -667,7 +680,7 @@ function ProofDialog({
                 ) : (
                   <Camera data-icon="inline-start" />
                 )}
-                {pending ? "Reading it…" : "Post proof"}
+                {pending ? "Uploading…" : "Post proof"}
               </Button>
             )}
           </DialogFooter>
@@ -701,6 +714,7 @@ function CheckInCard({
   }, [initialSignal]);
 
   async function post() {
+    if (pending) return;
     setPending(true);
     try {
       const response = await fetch("/api/check-in", {
@@ -840,6 +854,70 @@ function CheckInCard({
   );
 }
 
+function TaskCard({
+  task,
+  day,
+  currentUserId,
+  onSaved,
+  onProof,
+}: {
+  task: Task;
+  day: string;
+  currentUserId: string;
+  onSaved: NonNullable<Parameters<typeof TaskDialog>[0]["onSaved"]>;
+  onProof: NonNullable<Parameters<typeof ProofDialog>[0]["onProof"]>;
+}) {
+  return (
+    <Card id={`task-${task.id}`} size="sm">
+      <CardHeader>
+        <CardTitle className="text-[15px] leading-snug tracking-tight text-balance">
+          {task.title}
+        </CardTitle>
+        <CardDescription className="whitespace-pre-wrap text-sm leading-relaxed">
+          {task.definitionOfDone}
+        </CardDescription>
+        <CardAction className="flex flex-col items-end gap-1">
+          {task.day !== day ? (
+            <Badge variant="outline">{formatDayShort(task.day)}</Badge>
+          ) : null}
+          {statusBadge(task.status)}
+          {task.proof?.isLate ? (
+            <Badge variant="destructive">Late proof</Badge>
+          ) : null}
+        </CardAction>
+      </CardHeader>
+      {task.proof && (task.proof.ownerNote || task.proof.reviews.length > 0) ? (
+        <CardContent className="flex flex-col gap-3">
+          {task.proof.ownerNote ? (
+            <p className="text-sm text-pretty text-muted-foreground">
+              “{task.proof.ownerNote}”
+            </p>
+          ) : null}
+          <ProofFeedback proof={task.proof} currentUserId={currentUserId} />
+        </CardContent>
+      ) : null}
+      {
+        <CardFooter className="justify-stretch gap-2 sm:justify-end [&_[data-slot=button]]:flex-1 sm:[&_[data-slot=button]]:flex-none">
+          {!task.proof && new Date(task.dueAt).getTime() > Date.now() && (
+            <TaskDialog task={task} onSaved={onSaved} />
+          )}
+          {task.proof ? (
+            <Link
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+              href={`/squad?focus=${task.proof.id}`}
+            >
+              View proof
+            </Link>
+          ) : null}
+          {(!task.proof || task.proof.reviewStatus === "CHALLENGED") && (
+            <ProofDialog task={task} onProof={onProof} />
+          )}
+        </CardFooter>
+      }
+    </Card>
+  );
+}
+
 export function TodayDashboard({
   day,
   currentUserId,
@@ -853,10 +931,21 @@ export function TodayDashboard({
   checkIn: CheckIn;
   checkInHistory: CheckInHistoryItem[];
 }) {
-  // Local-first board: mutations update state directly instead of a full
-  // router.refresh(). The page keys this component by day, so state
-  // re-seeds automatically when the day rolls over.
-  const [tasks, setTasks] = useState(initialTasks);
+  // Show successful mutations immediately, then reconcile server props.
+  // Circle/day keys prevent carrying another board’s state into this one.
+  const router = useRouter();
+  const [allTasks, setTasks] = useState(initialTasks);
+  const tasks = allTasks.filter((task) => task.day === day);
+  const earlierTasks = allTasks.filter((task) => task.day !== day);
+  useEffect(() => {
+    setTasks(initialTasks);
+  }, [initialTasks]);
+  useEffect(() => {
+    setCheckIn(initialCheckIn);
+  }, [initialCheckIn]);
+  useEffect(() => {
+    setCheckInHistory(initialHistory);
+  }, [initialHistory]);
   const [checkIn, setCheckIn] = useState(initialCheckIn);
   const [checkInHistory, setCheckInHistory] = useState(initialHistory);
   const verified = tasks.filter((task) => task.status === "VERIFIED").length;
@@ -867,11 +956,6 @@ export function TodayDashboard({
   const percent = tasks.length
     ? Math.round((verified / tasks.length) * 100)
     : 0;
-  const hasActions = (task: Task) =>
-    task.status === "OPEN" ||
-    task.status === "RENEGOTIATED" ||
-    !task.proof ||
-    task.proof.reviewStatus === "CHALLENGED";
   const friendlyDay = formatDayLong(day);
 
   const headline =
@@ -898,6 +982,7 @@ export function TodayDashboard({
           )
         : [...prev, { ...saved, proof: null }],
     );
+    router.refresh();
   }
 
   function handleProof(
@@ -910,6 +995,7 @@ export function TodayDashboard({
         item.id === taskId ? { ...item, proof, status } : item,
       ),
     );
+    router.refresh();
   }
 
   function handleCheckInPosted(
@@ -918,13 +1004,14 @@ export function TodayDashboard({
   ) {
     setCheckIn(next);
     setCheckInHistory((prev) => [item, ...prev]);
+    router.refresh();
   }
 
   return (
     <>
       <PageHeader
         title="Today"
-        description={`Did you get shit done or just bullshit? ${tasks.length} locked, ${verified} verified.`}
+        description="Make a promise, show the work, and get a friend’s verdict. All deadlines use Phoenix time."
         actions={<TaskDialog onSaved={handleTaskSaved} />}
       >
         <div className="flex flex-wrap items-center gap-2">
@@ -959,51 +1046,43 @@ export function TodayDashboard({
           ) : (
             <div className="flex flex-col gap-3">
               {tasks.map((task) => (
-                <Card key={task.id} size="sm">
-                  <CardHeader>
-                    <CardTitle className="text-[15px] leading-snug tracking-tight text-balance">
-                      {task.title}
-                    </CardTitle>
-                    <CardDescription className="line-clamp-2 text-sm leading-relaxed">
-                      {task.definitionOfDone}
-                    </CardDescription>
-                    <CardAction className="flex flex-col items-end gap-1">
-                      {statusBadge(task.status)}
-                      {task.proof?.isLate ? (
-                        <Badge variant="destructive">Late proof</Badge>
-                      ) : null}
-                    </CardAction>
-                  </CardHeader>
-                  {task.proof &&
-                  (task.proof.ownerNote || task.proof.reviews.length > 0) ? (
-                    <CardContent className="flex flex-col gap-3">
-                      {task.proof.ownerNote ? (
-                        <p className="text-sm text-pretty text-muted-foreground">
-                          “{task.proof.ownerNote}”
-                        </p>
-                      ) : null}
-                      <ProofFeedback
-                        proof={task.proof}
-                        currentUserId={currentUserId}
-                      />
-                    </CardContent>
-                  ) : null}
-                  {hasActions(task) ? (
-                    <CardFooter className="justify-stretch gap-2 sm:justify-end [&_[data-slot=button]]:flex-1 sm:[&_[data-slot=button]]:flex-none">
-                      {(task.status === "OPEN" ||
-                        task.status === "RENEGOTIATED") && (
-                        <TaskDialog task={task} onSaved={handleTaskSaved} />
-                      )}
-                      {(!task.proof ||
-                        task.proof.reviewStatus === "CHALLENGED") && (
-                        <ProofDialog task={task} onProof={handleProof} />
-                      )}
-                    </CardFooter>
-                  ) : null}
-                </Card>
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  day={day}
+                  currentUserId={currentUserId}
+                  onSaved={handleTaskSaved}
+                  onProof={handleProof}
+                />
               ))}
             </div>
           )}
+          {earlierTasks.length > 0 ? (
+            <section
+              className="flex flex-col gap-3"
+              aria-labelledby="earlier-tasks-title"
+            >
+              <div className="flex flex-col gap-1">
+                <h2 id="earlier-tasks-title" className="text-lg font-semibold">
+                  Unfinished from earlier
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  The deadline stays put. You can still post late proof or
+                  replace a challenged photo.
+                </p>
+              </div>
+              {earlierTasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  day={day}
+                  currentUserId={currentUserId}
+                  onSaved={handleTaskSaved}
+                  onProof={handleProof}
+                />
+              ))}
+            </section>
+          ) : null}
         </div>
         <CheckInCard
           initial={checkIn}

@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  devicePushRegistration,
+  disconnectDevicePush,
+} from "@/lib/device-push";
 
 type PushState =
   | "unsupported"
@@ -43,10 +47,19 @@ export function PushToggle() {
       setState("denied");
       return;
     }
-    navigator.serviceWorker.ready
+    devicePushRegistration()
       .then((registration) => registration.pushManager.getSubscription())
-      .then((subscription) => {
-        setState(subscription ? "subscribed" : "unsubscribed");
+      .then(async (subscription) => {
+        if (!subscription) {
+          setState("unsubscribed");
+          return;
+        }
+        const response = await fetch(
+          `/api/push/subscriptions?endpoint=${encodeURIComponent(subscription.endpoint)}`,
+        );
+        if (!response.ok) throw new Error("Could not check subscription.");
+        const data = await response.json();
+        setState(data.subscribed ? "subscribed" : "unsubscribed");
       })
       .catch(() => setState("unsubscribed"));
   }, []);
@@ -60,7 +73,7 @@ export function PushToggle() {
         setState(permission === "denied" ? "denied" : "unsubscribed");
         return;
       }
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await devicePushRegistration();
       const { publicKey } = (await fetch("/api/push/public-key").then((r) =>
         r.json(),
       )) as { publicKey?: string };
@@ -87,17 +100,7 @@ export function PushToggle() {
     setState("loading");
     setError(null);
     try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      const endpoint = subscription?.endpoint;
-      if (subscription) await subscription.unsubscribe();
-      if (endpoint) {
-        await fetch("/api/push/subscriptions", {
-          method: "DELETE",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ endpoint }),
-        });
-      }
+      await disconnectDevicePush();
       setState("unsubscribed");
     } catch (err) {
       console.warn("Disabling push failed", err);

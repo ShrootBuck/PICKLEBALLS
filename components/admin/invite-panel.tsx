@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Copy, Link2, Plus } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,9 @@ type Invite = {
 
 export function InvitePanel({ invites: initial }: { invites: Invite[] }) {
   const [invites, setInvites] = useState(initial);
+  useEffect(() => {
+    setInvites(initial);
+  }, [initial]);
   const [pending, setPending] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

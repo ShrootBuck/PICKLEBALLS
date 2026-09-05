@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
-import { assessTaskProof } from "@/lib/ai";
+import { after, NextResponse } from "next/server";
 import { jsonError } from "@/lib/api";
 import { getPrisma } from "@/lib/prisma";
+import { runProofAssessment } from "@/lib/proof-assessment";
+import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
-// Retry a flopped AI assessment. Only FAILED proofs — fresh uploads already
-// trigger a background run, so this never double-fires a PENDING one.
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
@@ -19,59 +19,29 @@ export async function POST(
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   try {
     const { id } = await context.params;
+    const circleId = auth.membership.circleId;
     const proof = await getPrisma().taskProof.findFirst({
-      where: { id, circleId: auth.membership.circleId },
-      include: { image: true, commitment: true },
+      where: { id, circleId, replacedById: null },
+      select: { id: true, aiStatus: true, submittedAt: true },
     });
-    if (!proof?.image)
+    if (!proof)
       return NextResponse.json({ error: "Not found." }, { status: 404 });
-    if (proof.aiStatus !== "FAILED") {
+    const stale =
+      proof.aiStatus === "PENDING" &&
+      Date.now() - proof.submittedAt.getTime() > 120_000;
+    if (proof.aiStatus !== "FAILED" && !stale)
       return NextResponse.json(
-        { error: "AI already read this one." },
+        { error: "AI is already reading this, or has finished." },
         { status: 409 },
       );
-    }
+    await limitAction(id, "proof-assessment", 1, 90_000);
     await getPrisma().taskProof.update({
       where: { id },
       data: { aiStatus: "PENDING" },
     });
-    try {
-      const assessment = await assessTaskProof(
-        auth.session.user.id,
-        auth.membership.circleId,
-        {
-          title: proof.commitment.title,
-          definitionOfDone: proof.commitment.definitionOfDone,
-          ownerNote: proof.ownerNote,
-        },
-        {
-          data: proof.image.data,
-          mimeType: proof.image.mimeType,
-        },
-      );
-      await getPrisma().taskProof.update({
-        where: { id },
-        data: {
-          aiStatus: "SUCCEEDED",
-          aiVisibleEvidence: assessment.visibleEvidence,
-          aiUncertainty: assessment.uncertainty,
-          aiReviewerQuestion: assessment.reviewerQuestion,
-          aiTaskMatch: assessment.taskMatch,
-          aiOneLiner: assessment.oneLiner,
-        },
-      });
-    } catch (error) {
-      console.warn("AI assessment retry failed", {
-        proofId: id,
-        circleId: auth.membership.circleId,
-        error,
-      });
-      await getPrisma()
-        .taskProof.update({ where: { id }, data: { aiStatus: "FAILED" } })
-        .catch(() => undefined);
-      throw error;
-    }
-    return NextResponse.json({ ok: true });
+    const userId = auth.session.user.id;
+    after(() => runProofAssessment(id, userId, circleId));
+    return NextResponse.json({ ok: true }, { status: 202 });
   } catch (error) {
     return jsonError(error);
   }

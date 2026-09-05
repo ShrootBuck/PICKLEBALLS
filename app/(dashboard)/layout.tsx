@@ -22,30 +22,31 @@ export default async function DashboardLayout({
   const { membership } = await requirePageMembership();
   const memberships = await listMyCircles(session.user.id);
   return (
-    <SidebarProvider className="relative h-full min-h-0 overflow-hidden">
+    <SidebarProvider
+      key={membership.circleId}
+      className="relative h-full min-h-0 overflow-hidden"
+    >
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium"
       >
         Skip to content
       </a>
-      <Suspense fallback={null}>
-        <SidebarSlot
-          userId={session.user.id}
-          circleId={membership.circleId}
-          isOwner={membership.role === "OWNER"}
-          user={{
-            name: membership.user.name,
-            image: membership.user.image,
-            initials: membership.user.initials,
-          }}
-          circles={memberships.map((item) => ({
-            id: item.circle.id,
-            name: item.circle.name,
-            role: item.role,
-          }))}
-        />
-      </Suspense>
+      <SidebarSlot
+        userId={session.user.id}
+        circleId={membership.circleId}
+        isOwner={membership.role === "OWNER"}
+        user={{
+          name: membership.user.name,
+          image: membership.user.image,
+          initials: membership.user.initials,
+        }}
+        circles={memberships.map((item) => ({
+          id: item.circle.id,
+          name: item.circle.name,
+          role: item.role,
+        }))}
+      />
       <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
         <SiteHeader
           bell={
@@ -60,6 +61,7 @@ export default async function DashboardLayout({
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <main
             id="main"
+            tabIndex={-1}
             className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-5 sm:gap-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8"
           >
             {children}

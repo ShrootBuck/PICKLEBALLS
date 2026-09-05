@@ -24,10 +24,15 @@ export function AiRetryButton({ proofId }: { proofId: string }) {
         setPending(false);
         return;
       }
-      toast.add({ title: "AI read it. Fresh take below.", type: "success" });
+      toast.add({
+        title:
+          "AI is reading it again. The board will update when it finishes.",
+        type: "success",
+      });
       router.refresh();
     } catch {
       setError(true);
+    } finally {
       setPending(false);
     }
   }

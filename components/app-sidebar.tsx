@@ -39,7 +39,9 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
+import { toast } from "@/components/ui/toast";
 import { authClient } from "@/lib/auth-client";
+import { disconnectDevicePush } from "@/lib/device-push";
 import { formatDayShort, phoenixDateKey } from "@/lib/time";
 
 const links = [
@@ -79,14 +81,14 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isMobile } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
   const [signOutPending, setSignOutPending] = useState(false);
   const [switchPending, setSwitchPending] = useState<string | null>(null);
   const todayLabel = formatDayShort(phoenixDateKey());
   const activeCircle = circles.find((circle) => circle.id === activeCircleId);
 
   async function switchCircle(circleId: string) {
-    if (circleId === activeCircleId) return;
+    if (circleId === activeCircleId || switchPending) return;
     setSwitchPending(circleId);
     try {
       const response = await fetch("/api/circles/active", {
@@ -94,9 +96,15 @@ export function AppSidebar({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ circleId }),
       });
-      if (response.ok) {
-        router.refresh();
-      }
+      if (!response.ok) throw new Error("Could not switch circles.");
+      setOpenMobile(false);
+      router.push("/");
+      router.refresh();
+    } catch {
+      toast.add({
+        title: "Could not switch circles. Try again.",
+        type: "error",
+      });
     } finally {
       setSwitchPending(null);
     }
@@ -144,8 +152,7 @@ export function AppSidebar({
                     <DropdownMenuItem
                       key={circle.id}
                       disabled={
-                        switchPending === circle.id ||
-                        circle.id === activeCircleId
+                        switchPending !== null || circle.id === activeCircleId
                       }
                       onClick={() => switchCircle(circle.id)}
                     >
@@ -162,7 +169,12 @@ export function AppSidebar({
                       </span>
                     </DropdownMenuItem>
                   ))}
-                  <DropdownMenuItem onClick={() => router.push("/circles")}>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setOpenMobile(false);
+                      router.push("/circles");
+                    }}
+                  >
                     <Plus data-icon="inline-start" />
                     All circles / new…
                   </DropdownMenuItem>
@@ -189,6 +201,8 @@ export function AppSidebar({
                 <SidebarMenuItem key={href}>
                   <SidebarMenuButton
                     render={<Link href={href} prefetch />}
+                    onClick={() => setOpenMobile(false)}
+                    aria-current={pathname === href ? "page" : undefined}
                     isActive={pathname === href}
                     tooltip={`${label} — ${hint}`}
                   >
@@ -213,6 +227,8 @@ export function AppSidebar({
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     render={<Link href="/admin" prefetch />}
+                    onClick={() => setOpenMobile(false)}
+                    aria-current={pathname === "/admin" ? "page" : undefined}
                     isActive={pathname === "/admin"}
                     tooltip="Owner tools"
                   >
@@ -260,7 +276,12 @@ export function AppSidebar({
                   <DropdownMenuLabel className="font-normal">
                     {user.name}
                   </DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => router.push("/circles")}>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setOpenMobile(false);
+                      router.push("/circles");
+                    }}
+                  >
                     <Users data-icon="inline-start" />
                     All circles / new…
                   </DropdownMenuItem>
@@ -282,13 +303,20 @@ export function AppSidebar({
                     onClick={async () => {
                       setSignOutPending(true);
                       try {
-                        await authClient.signOut({
+                        await disconnectDevicePush();
+                        const result = await authClient.signOut({
                           fetchOptions: {
                             onSuccess: () => {
                               router.replace("/sign-in");
                               router.refresh();
                             },
                           },
+                        });
+                        if (result.error) throw new Error("Sign out failed.");
+                      } catch {
+                        toast.add({
+                          title: "Could not sign out. Try again.",
+                          type: "error",
                         });
                       } finally {
                         setSignOutPending(false);

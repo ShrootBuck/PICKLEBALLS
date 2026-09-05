@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ActivityKind } from "@/generated/prisma/client";
+import { safeAppPath, squadHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
 import { sendPushToUser } from "@/lib/push";
 
@@ -91,13 +92,11 @@ export async function createNotificationAndPush(input: {
   if (!isKindEnabled(prefs, input.kind)) return null;
 
   const prisma = getPrisma();
-  const fallbackUrl = input.entityId
-    ? `/squad?focus=${input.entityId}`
-    : "/squad";
-  const url =
-    typeof input.data?.url === "string" && input.data.url.startsWith("/")
-      ? input.data.url
-      : fallbackUrl;
+  const fallbackUrl = squadHref(input.circleId, input.entityId);
+  const path = safeAppPath(input.data?.url, fallbackUrl);
+  const destination = new URL(path, "https://app.invalid");
+  destination.searchParams.set("circle", input.circleId);
+  const url = `${destination.pathname}${destination.search}${destination.hash}`;
 
   const notification = await prisma.notification.create({
     data: {
@@ -335,8 +334,43 @@ export async function notifyTaskMissed(input: {
     kind: "TASK_MISSED",
     entityId: input.taskId,
     title: `You missed “${input.title}” with no proof`,
-    body: "The squad saw it. Post something or renegotiate before midnight next time.",
+    body: "You can still upload late proof from Today. The original deadline stays on the record.",
     data: { url: `/squad?focus=${input.taskId}`, taskId: input.taskId },
     allowSelf: true,
   });
+}
+
+export async function notifySquadUpdate(input: {
+  actorId: string;
+  circleId: string;
+  entityId: string;
+  kind: "TASK_CREATED" | "TASK_RENEGOTIATED" | "CHECK_IN_SET";
+  description: string;
+}) {
+  const prisma = getPrisma();
+  const [actor, members] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: input.actorId },
+      select: { name: true },
+    }),
+    prisma.membership.findMany({
+      where: { circleId: input.circleId, userId: { not: input.actorId } },
+      select: { userId: true },
+    }),
+  ]);
+  if (!actor) return;
+  await Promise.all(
+    members.map((member) =>
+      createNotificationAndPush({
+        ...input,
+        recipientId: member.userId,
+        title:
+          input.kind === "CHECK_IN_SET"
+            ? `${actor.name} checked in`
+            : `${actor.name} ${input.kind === "TASK_CREATED" ? "added" : "edited"} a task`,
+        body: input.description,
+        data: { url: squadHref(input.circleId, input.entityId) },
+      }),
+    ),
+  );
 }

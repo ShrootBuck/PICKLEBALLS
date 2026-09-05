@@ -1,3 +1,4 @@
+import "katex/dist/katex.min.css";
 import { ScrollText } from "lucide-react";
 import type { Metadata } from "next";
 import { ChangelogMarkdown } from "@/components/changelog-markdown";

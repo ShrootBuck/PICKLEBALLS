@@ -22,7 +22,7 @@
   --muted-foreground: oklch(0.47 0.028 145);
   --accent: oklch(0.91 0.105 112);
   --accent-foreground: oklch(0.235 0.047 145);
-  --destructive: oklch(0.56 0.215 29);
+  --destructive: oklch(0.5 0.19 29);
   --border: oklch(0.842 0.025 124);
   --input: oklch(0.78 0.03 124);
   --ring: oklch(0.6 0.17 112);
@@ -96,7 +96,6 @@
     height: 100%;
     background: var(--background);
     -webkit-tap-highlight-color: transparent;
-    -webkit-touch-callout: none;
     text-size-adjust: 100%;
   }
 
@@ -202,6 +201,14 @@
       animation-iteration-count: 1;
       transition-duration: 0.01ms;
     }
+  }
+}
+
+/* Avoid iOS focus zoom, even where a compact form adds text-sm. */
+@media (pointer: coarse) {
+  [data-slot="input"],
+  [data-slot="textarea"] {
+    font-size: 16px;
   }
 }
 

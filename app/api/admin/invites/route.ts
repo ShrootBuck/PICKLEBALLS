@@ -7,6 +7,7 @@ import {
   inviteLifetimeMs,
 } from "@/lib/invites";
 import { getPrisma } from "@/lib/prisma";
+import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 
 const schema = z.object({ label: z.string().trim().min(1).max(80) });
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
     );
 
   try {
+    await limitAction(auth.session.user.id, "invites", 30, 3_600_000);
     const token = createInviteToken();
     const invite = await getPrisma().invite.create({
       data: {

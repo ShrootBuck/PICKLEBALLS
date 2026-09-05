@@ -3,7 +3,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { getPrisma } from "@/lib/prisma";
 
-export const ACTIVE_CIRCLE_COOKIE = "pb_active_circle";
+export { ACTIVE_CIRCLE_COOKIE, parseActiveCircleId } from "@/lib/circle-cookie";
 export const MAX_CIRCLE_NAME_LENGTH = 40;
 
 export function slugifyCircleName(name: string) {
@@ -54,17 +54,4 @@ export async function listMyCircles(userId: string) {
     orderBy: { createdAt: "asc" },
     include: { circle: true },
   });
-}
-
-export function parseActiveCircleId(cookieHeader: string | null) {
-  if (!cookieHeader) return null;
-  for (const part of cookieHeader.split(";")) {
-    const index = part.indexOf("=");
-    if (index === -1) continue;
-    const key = part.slice(0, index).trim();
-    if (key !== ACTIVE_CIRCLE_COOKIE) continue;
-    const value = decodeURIComponent(part.slice(index + 1).trim());
-    if (value) return value;
-  }
-  return null;
 }

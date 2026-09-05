@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { jsonError } from "@/lib/api";
+import { DomainError } from "@/lib/errors";
 import { getPrisma } from "@/lib/prisma";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 
@@ -19,6 +20,8 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const unreadOnly = url.searchParams.get("unread") === "1";
     const cursor = url.searchParams.get("cursor");
+    if (cursor && (cursor.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(cursor)))
+      throw new DomainError("Invalid notification cursor.");
     const prisma = getPrisma();
     const userId = auth.session.user.id;
     const notifications = await prisma.notification.findMany({
@@ -26,9 +29,9 @@ export async function GET(request: Request) {
         recipientId: userId,
         circleId: auth.membership.circleId,
         ...(unreadOnly ? { readAt: null } : {}),
-        ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}),
       },
-      orderBy: { createdAt: "desc" },
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: pageSize + 1,
       select: {
         id: true,
@@ -60,7 +63,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       notifications: items,
       unreadCount,
-      nextCursor: hasMore ? (items[items.length - 1]?.createdAt ?? null) : null,
+      nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
     });
   } catch (error) {
     return jsonError(error);

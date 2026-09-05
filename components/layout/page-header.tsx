@@ -25,7 +25,7 @@ export function PageHeader({
         ) : null}
       </div>
       {actions ? (
-        <div className="flex w-full shrink-0 flex-wrap [&_[data-slot=button]]:w-full sm:w-auto sm:justify-end sm:[&_[data-slot=button]]:w-auto">
+        <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto sm:justify-end">
           {actions}
         </div>
       ) : null}

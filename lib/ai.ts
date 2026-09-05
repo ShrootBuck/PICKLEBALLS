@@ -15,6 +15,7 @@ import {
   openRouterModelSettings,
 } from "@/lib/ai-config";
 import { getPrisma } from "@/lib/prisma";
+import { limitAction } from "@/lib/rate-limit";
 
 const APP_CONTEXT = `Pickle Balls is a tiny accountability app for a small private circle. Each day every member locks in their promises before midnight. Proof is a photo. Photo or it did not happen. One friend approval verifies a proof. One challenge sends it back to open. You are an adviser, never the judge. Friends decide. Be blunt, short, and fair. No fluff, no therapy talk, no detective act.`;
 
@@ -41,11 +42,13 @@ function model(effort: AIEffort, userId: string) {
 }
 
 async function reserveAICall(userId: string) {
-  const since = new Date(Date.now() - 60 * 60 * 1000);
-  const count = await getPrisma().aIRun.count({
-    where: { userId, createdAt: { gte: since } },
-  });
-  if (count >= aiHourlyLimit) throw new Error("AI_RATE_LIMIT");
+  try {
+    await limitAction(userId, "ai", aiHourlyLimit, 3_600_000);
+  } catch (error) {
+    if (error instanceof Error && "status" in error && error.status === 429)
+      throw new Error("AI_RATE_LIMIT");
+    throw error;
+  }
 }
 
 async function runStructured<S extends z.ZodType>({
@@ -98,7 +101,7 @@ async function runStructured<S extends z.ZodType>({
     if (error instanceof Error) {
       if (error.message === "AI_RATE_LIMIT") {
         code = "AI_RATE_LIMIT";
-      } else if (error.name === "AbortError") {
+      } else if (error.name === "AbortError" || error.name === "TimeoutError") {
         code = "TIMEOUT";
       } else if (
         error.message.includes("429") ||

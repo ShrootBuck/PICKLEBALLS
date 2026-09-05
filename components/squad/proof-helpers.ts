@@ -38,7 +38,7 @@ export type ProofRow = {
   aiOneLiner: string | null;
   ownerId: string;
   owner: { name: string };
-  commitment: { title: string };
+  commitment: { title: string; definitionOfDone: string };
   replies: ReplyRow[];
   reviews: Array<{
     id: string;
@@ -74,6 +74,7 @@ export function toProofCard(
   return {
     id: proof.id,
     title: proof.commitment.title,
+    definitionOfDone: proof.commitment.definitionOfDone,
     ownerName: proof.owner.name,
     ownerId: proof.ownerId,
     ownerNote: proof.ownerNote,

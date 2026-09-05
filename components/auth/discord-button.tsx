@@ -19,15 +19,22 @@ export function DiscordButton({ inviteToken }: { inviteToken?: string }) {
         onClick={async () => {
           setPending(true);
           setError(null);
-          const result = await authClient.signIn.social({
-            provider: "discord",
-            callbackURL: "/",
-            errorCallbackURL: "/sign-in?error=oauth",
-            requestSignUp: true,
-            ...(inviteToken ? { additionalData: { inviteToken } } : {}),
-          });
-          if (result.error) {
-            setError(result.error.message ?? "Discord sign-in failed.");
+          try {
+            const result = await authClient.signIn.social({
+              provider: "discord",
+              callbackURL: "/",
+              errorCallbackURL: "/sign-in?error=oauth",
+              requestSignUp: true,
+              ...(inviteToken ? { additionalData: { inviteToken } } : {}),
+            });
+            if (result.error) {
+              setError(result.error.message ?? "Discord sign-in failed.");
+              setPending(false);
+            }
+          } catch {
+            setError(
+              "Could not reach Discord. Check your connection and try again.",
+            );
             setPending(false);
           }
         }}

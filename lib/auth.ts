@@ -8,7 +8,12 @@ import {
 } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { ensureBootstrapMembership } from "@/lib/bootstrap";
-import { redeemReservedInvite, reserveInvite } from "@/lib/invites";
+import { ACTIVE_CIRCLE_COOKIE } from "@/lib/circle-cookie";
+import {
+  findReservedInvite,
+  redeemReservedInvite,
+  reserveInvite,
+} from "@/lib/invites";
 import { getInitials as initials } from "@/lib/names";
 import { getPrisma } from "@/lib/prisma";
 
@@ -24,7 +29,7 @@ function oauthClaim(state: Awaited<ReturnType<typeof getOAuthState>>) {
 }
 
 const configuredOrigins = [
-  "http://localhost:3000",
+  ...(process.env.NODE_ENV === "production" ? [] : ["http://localhost:3000"]),
   process.env.BETTER_AUTH_URL,
   process.env.NEXT_PUBLIC_APP_URL,
 ].filter((value): value is string => Boolean(value));
@@ -125,6 +130,32 @@ export const auth = betterAuth({
         claimNonce: reservation.claimNonce,
       });
     }),
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/callback/discord" || !ctx.context.newSession) return;
+      const claim = oauthClaim(await getOAuthState());
+      if (!claim) return;
+      const invite = await findReservedInvite(claim.inviteId, claim.claimNonce);
+      if (!invite) throw ctx.redirect("/circles?invite=expired");
+      const userId = ctx.context.newSession.user.id;
+      const existing = await getPrisma().membership.findUnique({
+        where: { userId_circleId: { userId, circleId: invite.circleId } },
+      });
+      if (existing) {
+        await getPrisma().invite.updateMany({
+          where: { id: invite.id, claimNonce: claim.claimNonce, usedAt: null },
+          data: { claimNonce: null, claimExpiresAt: null },
+        });
+      } else {
+        await redeemReservedInvite(claim.inviteId, claim.claimNonce, userId);
+      }
+      ctx.setCookie(ACTIVE_CIRCLE_COOKIE, invite.circleId, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+        sameSite: "lax",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+      });
+    }),
   },
   databaseHooks: {
     user: {
@@ -147,16 +178,7 @@ export const auth = betterAuth({
         after: async (user) => {
           const discordId =
             typeof user.discordId === "string" ? user.discordId : null;
-          if (await ensureBootstrapMembership(user.id, discordId)) return;
-
-          const claim = oauthClaim(await getOAuthState());
-          if (claim) {
-            await redeemReservedInvite(
-              claim.inviteId,
-              claim.claimNonce,
-              user.id,
-            );
-          }
+          await ensureBootstrapMembership(user.id, discordId);
         },
       },
     },

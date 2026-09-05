@@ -46,7 +46,8 @@ export default async function TimeblockPage({
       ownerId: session.user.id,
       circleId: membership.circleId,
       replacedById: null,
-      completedAt: { gte: week.startAt, lt: week.endAtExclusive },
+      startedAt: { lt: week.endAtExclusive },
+      completedAt: { gt: week.startAt },
     },
     orderBy: { completedAt: "asc" },
     take: 56,
@@ -56,7 +57,7 @@ export default async function TimeblockPage({
   });
 
   const rows: TimeblockBuilderRow[] = proofs.map((proof) => ({
-    id: proof.id,
+    id: proof.commitmentId,
     title: proof.commitment.title,
     startedAt: phoenixLocalDateTimeValue(proof.startedAt),
     completedAt: phoenixLocalDateTimeValue(proof.completedAt),
@@ -82,8 +83,9 @@ export default async function TimeblockPage({
         </Badge>
       </PageHeader>
       <TimeblockBuilder
-        key={dueMonday}
+        key={`${membership.circleId}:${dueMonday}`}
         dueMonday={dueMonday}
+        draftKey={`pb-timeblock:${session.user.id}:${membership.circleId}:${dueMonday}`}
         weekEnd={week.endKey}
         initialRows={rows}
       />

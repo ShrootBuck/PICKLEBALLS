@@ -5,10 +5,13 @@ import { auth } from "@/lib/auth";
 import { ACTIVE_CIRCLE_COOKIE } from "@/lib/circles";
 import { hashInviteToken, redeemReservedInvite } from "@/lib/invites";
 import { getPrisma } from "@/lib/prisma";
+import { hasSameOrigin } from "@/lib/request";
 
 const schema = z.object({ token: z.string().min(32).max(200) });
 
 export async function POST(request: Request) {
+  if (!hasSameOrigin(request))
+    return NextResponse.json({ error: "Bad origin." }, { status: 403 });
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });

@@ -8,6 +8,102 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788583391054,
+    title: "Boards stay up to date",
+    description:
+      "Today, Squad, check-ins, replies, and notifications now refresh while you use the app, with a manual refresh button and an offline indicator. Typed drafts stay put, and switching circles clears the previous circle’s view.",
+  },
+  {
+    timestamp: 1788583391053,
+    title: "Late work stays reachable",
+    description:
+      "Unfinished tasks from earlier days now appear on Today with a late-proof button. The midnight countdown refreshes the board when the Phoenix day changes, and deadlines are clearly labeled.",
+  },
+  {
+    timestamp: 1788583391052,
+    title: "Promises stay honest",
+    description:
+      "Tasks with submitted proof can no longer be rewritten. Competing uploads, edits, and verdicts are handled consistently, and saving unchanged wording no longer notifies your friends.",
+  },
+  {
+    timestamp: 1788583391051,
+    title: "Clearer proof review",
+    description:
+      "Proof cards show the full task and definition of done, including in history. The verdict queue focuses on work needing your vote; historical proof stays reviewable, and proof links open the right tab.",
+  },
+  {
+    timestamp: 1788583391050,
+    title: "Phone photos upload more reliably",
+    description:
+      "Photos up to 20 MB are resized on your device before upload, with a preview and clearer file errors. Upload and review dialogs stay open while saving, and image requests recheck access after sign-out.",
+  },
+  {
+    timestamp: 1788583391049,
+    title: "AI reads recover from interruptions",
+    description:
+      "Photo analysis runs in the background and can be retried if it fails or gets stuck. Retry buttons recover properly, duplicate retries are limited, and the AI still leaves every verdict to friends.",
+  },
+  {
+    timestamp: 1788583391048,
+    title: "Invites work across circles",
+    description:
+      "Discord invites now work for returning users as well as new accounts. Circles with the same name are kept distinct, expired sign-in invites show a useful message, and the current circle has an Open button.",
+  },
+  {
+    timestamp: 1788583391047,
+    title: "Notifications that go somewhere",
+    description:
+      "Notification links open the correct circle, day, tab, and reply thread. The bell has accessible tabs, older notifications can be loaded reliably, and private invitation activity stays out of the shared feed.",
+  },
+  {
+    timestamp: 1788583391046,
+    title: "Notification settings do what they say",
+    description:
+      "Optional notifications for new or edited tasks and check-ins are now delivered. Settings show save errors and retry controls, and read actions only update after the server confirms them.",
+  },
+  {
+    timestamp: 1788583391045,
+    title: "Push follows this device’s account",
+    description:
+      "Push settings check whether this device is connected to your account, and sign-out disconnects its notifications. Failed service-worker setup no longer leaves the button waiting forever, and push destinations are restricted to browser push services.",
+  },
+  {
+    timestamp: 1788583391044,
+    title: "A timeblock editor for phones",
+    description:
+      "The weekly report now uses readable task cards instead of a wide editing table. Drafts save on this device separately for each account, circle, and week; report edits leave original tasks and proof alone.",
+  },
+  {
+    timestamp: 1788583391043,
+    title: "More dependable weekly reports",
+    description:
+      "Work crossing the week’s boundary is included, replacement proof keeps one report row, and status badges refresh. Blank task names are caught before downloading, and short or crowded PDF blocks no longer spill labels into neighboring cells.",
+  },
+  {
+    timestamp: 1788583391042,
+    title: "Long conversations stay usable",
+    description:
+      "Threads show the newest replies and offer a button to load earlier messages. Reply links open their thread, and refreshed activity keeps the conversation current.",
+  },
+  {
+    timestamp: 1788583391041,
+    title: "Mobile navigation and accessible controls",
+    description:
+      "Fixed a mobile startup error, close the sidebar after navigation, and improved phone touch targets, form sizing, card alignment, and dialog spacing. Screen readers get one main content region and proper review lists; tabs and warning badges have clearer contrast.",
+  },
+  {
+    timestamp: 1788583391040,
+    title: "Small-screen polish and recovery",
+    description:
+      "Date navigation stays compact, long task descriptions wrap, and app errors have working retry controls. Removed the old announcement, enabled landscape use and text selection, and kept changelog math styling on its own page.",
+  },
+  {
+    timestamp: 1788583391039,
+    title: "Safer requests and dependable deadlines",
+    description:
+      "Malformed dates, cookies, and payloads now fail cleanly. Circle changes check request origin, expensive actions have shared rate limits, and overdue-task reconciliation works in small batches and reports failures.",
+  },
+  {
     timestamp: 1788540444539,
     title: "Weekly timeblock PDFs",
     description:

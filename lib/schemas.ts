@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isPushEndpoint } from "@/lib/push-endpoint";
 
 export const commitmentInputSchema = z.object({
   title: z.string().trim().min(1).max(100),
@@ -21,7 +22,7 @@ export const replyEditSchema = z.object({
 });
 
 export const pushSubscriptionSchema = z.object({
-  endpoint: z.string().trim().min(1).max(2000).url(),
+  endpoint: z.string().trim().min(1).max(2000).url().refine(isPushEndpoint),
   keys: z.object({
     p256dh: z.string().trim().min(1).max(500),
     auth: z.string().trim().min(1).max(500),

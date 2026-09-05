@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 
 export default function ErrorPage({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   return (
     <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
@@ -21,7 +21,7 @@ export default function ErrorPage({
             {error.message || "Unexpected error. Try again."}
           </AlertDescription>
         </Alert>
-        <Button onClick={reset}>Try again</Button>
+        <Button onClick={retry}>Try again</Button>
       </div>
     </div>
   );

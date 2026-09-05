@@ -1,7 +1,7 @@
 "use client";
 
 import { ClockAlert } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ProofCard, type ProofCardData } from "@/components/squad/proof-card";
 import {
   Empty,
@@ -23,6 +23,9 @@ export function VerdictList({
   // Local-first verdicts: a submitted review drops the card instantly
   // instead of a full-page refresh.
   const [proofs, setProofs] = useState(initial);
+  useEffect(() => {
+    setProofs(initial);
+  }, [initial]);
   if (proofs.length === 0) {
     return (
       <Empty>

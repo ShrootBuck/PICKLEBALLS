@@ -2,14 +2,14 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 // Defense in depth: per-route `requirePageMembership` / `getRequestMembership`
-// is still the source of truth. This just fails closed at the edge when a
+// is still the source of truth. This just fails closed before routing when a
 // future route forgets its check — no session cookie, no dashboard.
 const SESSION_COOKIES = [
   "__Secure-pickle-balls.session_token",
   "pickle-balls.session_token",
 ];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // `/` is the public landing page for logged-out visitors; the dashboard
   // layout and Today page branch on the session themselves.
   if (request.nextUrl.pathname === "/") return NextResponse.next();

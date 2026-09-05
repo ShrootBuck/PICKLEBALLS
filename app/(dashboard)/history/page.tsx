@@ -72,9 +72,9 @@ export default async function HistoryPage({
           take: 1,
           include: {
             owner: { select: { name: true } },
-            commitment: { select: { title: true } },
+            commitment: { select: { title: true, definitionOfDone: true } },
             replies: {
-              orderBy: { createdAt: "asc" },
+              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
               take: 50,
               include: {
                 author: {
@@ -87,7 +87,7 @@ export default async function HistoryPage({
               include: {
                 reviewer: { select: { name: true } },
                 replies: {
-                  orderBy: { createdAt: "asc" },
+                  orderBy: [{ createdAt: "desc" }, { id: "desc" }],
                   take: 50,
                   include: {
                     author: {

@@ -3,26 +3,18 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AuthScreen } from "@/components/auth/auth-screen";
 import { CirclesManager } from "@/components/circles/circles-manager";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { auth } from "@/lib/auth";
-import { ACTIVE_CIRCLE_COOKIE } from "@/lib/circles";
+import { parseActiveCircleId } from "@/lib/circle-cookie";
 import { getPrisma } from "@/lib/prisma";
 
 export const metadata: Metadata = { title: "Circles" };
 
-function activeIdFromHeaders(value: Headers) {
-  const cookie = value.get("cookie");
-  if (!cookie) return null;
-  for (const part of cookie.split(";")) {
-    const index = part.indexOf("=");
-    if (index === -1) continue;
-    if (part.slice(0, index).trim() !== ACTIVE_CIRCLE_COOKIE) continue;
-    const decoded = decodeURIComponent(part.slice(index + 1).trim());
-    if (decoded) return decoded;
-  }
-  return null;
-}
-
-export default async function CirclesPage() {
+export default async function CirclesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ invite?: string }>;
+}) {
   const headerStore = await headers();
   const session = await auth.api.getSession({ headers: headerStore });
   if (!session) redirect("/sign-in");
@@ -32,10 +24,20 @@ export default async function CirclesPage() {
     orderBy: { createdAt: "asc" },
     include: { circle: true },
   });
-  const activeId = activeIdFromHeaders(headerStore);
+  const activeId = parseActiveCircleId(headerStore.get("cookie"));
   const activeIsMember = memberships.some((m) => m.circleId === activeId);
+  const params = await searchParams;
   return (
     <AuthScreen>
+      {params.invite === "expired" ? (
+        <Alert variant="destructive">
+          <AlertTitle>Your invite expired during sign-in</AlertTitle>
+          <AlertDescription>
+            You are signed in. Ask your friend for a fresh invite link to join
+            their circle.
+          </AlertDescription>
+        </Alert>
+      ) : null}
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-semibold">
           {memberships.length === 0 ? "Start your circle." : "Pick a circle."}

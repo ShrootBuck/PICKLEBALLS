@@ -1,6 +1,7 @@
 "use client";
 
 import { MessageCircle, Pencil, Send, Trash2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,14 @@ type ReplyTargetType = "COMMITMENT" | "CHECK_IN" | "PROOF" | "REVIEW";
 
 type SocialReply = ThreadReply;
 
+function chronological(replies: SocialReply[]) {
+  return [...replies].sort(
+    (a, b) =>
+      a.createdAt.localeCompare(b.createdAt) ||
+      (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+  );
+}
+
 const EDIT_WINDOW_MS = 10 * 60 * 1000;
 
 function withinEditWindow(createdAt: string) {
@@ -59,7 +68,11 @@ function ReplyItem({
 
   async function saveEdit() {
     const trimmed = draft.trim();
-    if (!trimmed || trimmed === reply.body || busy) return;
+    if (!trimmed || busy) return;
+    if (trimmed === reply.body) {
+      setEditing(false);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -170,6 +183,7 @@ function ReplyItem({
         {editing ? (
           <div className="mt-1.5 flex flex-col gap-1.5">
             <Textarea
+              aria-label="Edit reply"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               maxLength={500}
@@ -234,10 +248,29 @@ export function SocialReplyThread({
   currentUserId?: string;
   defaultExpanded?: boolean;
 }) {
+  const router = useRouter();
   const generatedId = useId();
   const threadId = `reply-thread-${generatedId.replaceAll(":", "")}`;
   const inputId = `${threadId}-input`;
-  const [replies, setReplies] = useState(initialReplies);
+  const [replies, setReplies] = useState(() => chronological(initialReplies));
+  const [hasMore, setHasMore] = useState(initialReplies.length === 50);
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
+  useEffect(() => {
+    const fresh = chronological(initialReplies);
+    setReplies((current) => {
+      const oldest = fresh[0];
+      const older =
+        fresh.length === 50 && oldest
+          ? current.filter(
+              (row) =>
+                row.createdAt < oldest.createdAt ||
+                (row.createdAt === oldest.createdAt && row.id < oldest.id),
+            )
+          : [];
+      return [...older, ...fresh];
+    });
+    if (fresh.length < 50) setHasMore(false);
+  }, [initialReplies]);
   const [body, setBody] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -247,12 +280,45 @@ export function SocialReplyThread({
   // Deep-linked threads (from the activity bell) open and scroll into view.
   useEffect(() => {
     if (defaultExpanded) {
+      setExpanded(true);
       anchorRef.current?.scrollIntoView({
-        behavior: "smooth",
+        behavior: "instant",
         block: "center",
       });
     }
   }, [defaultExpanded]);
+
+  async function loadEarlier() {
+    if (loadingEarlier || !replies[0]) return;
+    setLoadingEarlier(true);
+    setError(null);
+    try {
+      const query = new URLSearchParams({
+        targetType,
+        targetId,
+        before: replies[0].id,
+      });
+      const response = await fetch(`/api/replies?${query}`);
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error ?? "Could not load replies.");
+      setReplies((current) =>
+        chronological([
+          ...new Map(
+            [...result.replies, ...current].map((row: SocialReply) => [
+              row.id,
+              row,
+            ]),
+          ).values(),
+        ]),
+      );
+      setHasMore(result.hasMore);
+    } catch {
+      setError("Could not load earlier replies. Try again.");
+    } finally {
+      setLoadingEarlier(false);
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -276,10 +342,9 @@ export function SocialReplyThread({
         return;
       }
 
-      // Optimistic enough: server is source of truth for this thread, no
-      // full-page refresh. Keeps the page from flickering on every reply.
       setReplies((current) => [...current, result.reply as SocialReply]);
       setBody("");
+      router.refresh();
     } catch {
       setError("Could not post. Check your wifi and try again.");
     } finally {
@@ -297,7 +362,7 @@ export function SocialReplyThread({
         <MessageCircle className="size-3.5 shrink-0" />
         {replies.length === 0
           ? "No replies yet. Talk shit."
-          : `${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}
+          : `${replies.length}${hasMore ? "+" : ""} ${replies.length === 1 ? "reply" : "replies"}`}
         <Button
           type="button"
           variant="ghost"
@@ -312,6 +377,17 @@ export function SocialReplyThread({
 
       {expanded ? (
         <>
+          {hasMore ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={loadingEarlier}
+              onClick={loadEarlier}
+            >
+              {loadingEarlier ? "Loading…" : "Load earlier replies"}
+            </Button>
+          ) : null}
           {replies.length > 0 ? (
             <div
               className={cn(

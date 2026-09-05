@@ -1,6 +1,24 @@
 /* Pickle Balls push service worker. Push-only: no caching, so the app
    never serves stale HTML. */
 
+function localDestination(value) {
+  if (
+    typeof value !== "string" ||
+    !value.startsWith("/") ||
+    value.startsWith("//") ||
+    value.includes("\\")
+  )
+    return "/squad";
+  try {
+    const url = new URL(value, self.location.origin);
+    return url.origin === self.location.origin
+      ? `${url.pathname}${url.search}${url.hash}`
+      : "/squad";
+  } catch {
+    return "/squad";
+  }
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
 });
@@ -28,10 +46,7 @@ self.addEventListener("push", (event) => {
   }
   const title =
     typeof payload.title === "string" ? payload.title : "Pickle Balls";
-  const url =
-    typeof payload.url === "string" && payload.url.startsWith("/")
-      ? payload.url
-      : "/squad";
+  const url = localDestination(payload.url);
   const options = {
     body:
       typeof payload.body === "string" ? payload.body : "Something happened.",
@@ -46,7 +61,7 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const raw = event.notification.data?.url;
-  const url = typeof raw === "string" && raw.startsWith("/") ? raw : "/squad";
+  const url = localDestination(raw);
   event.waitUntil(
     (async () => {
       const windows = await self.clients.matchAll({

@@ -1,13 +1,15 @@
 import { after, NextResponse } from "next/server";
-import { assessTaskProof } from "@/lib/ai";
 import { jsonError } from "@/lib/api";
 import { notifyProofSubmitted } from "@/lib/notifications";
-import { getPrisma } from "@/lib/prisma";
+import { runProofAssessment } from "@/lib/proof-assessment";
+import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
+import { readBoundedBody } from "@/lib/request-body";
 import { submitProof } from "@/lib/tasks";
 import { parsePhoenixLocalDateTime } from "@/lib/time";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 export async function POST(
   request: Request,
@@ -19,15 +21,20 @@ export async function POST(
   if (!auth)
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   try {
+    await limitAction(auth.session.user.id, "uploads", 30, 600_000);
     const { id } = await context.params;
-    const contentLength = request.headers.get("content-length");
-    if (contentLength && Number(contentLength) > 7 * 1024 * 1024) {
+    const bytes = await readBoundedBody(request, 4 * 1024 * 1024 + 64 * 1024);
+    let form: FormData;
+    try {
+      form = await new Response(bytes, {
+        headers: { "content-type": request.headers.get("content-type") ?? "" },
+      }).formData();
+    } catch {
       return NextResponse.json(
-        { error: "Image payload too large." },
-        { status: 413 },
+        { error: "Invalid photo upload. Try choosing the file again." },
+        { status: 400 },
       );
     }
-    const form = await request.formData();
     const file = form.get("image");
     if (!(file instanceof File))
       return NextResponse.json(
@@ -82,57 +89,7 @@ export async function POST(
         });
       }
     });
-    after(async () => {
-      try {
-        const proofWithTask = await getPrisma().taskProof.findUnique({
-          where: { id: proof.id },
-          include: { image: true, commitment: true },
-        });
-        if (!proofWithTask?.image) {
-          await getPrisma().taskProof.update({
-            where: { id: proof.id },
-            data: { aiStatus: "FAILED" },
-          });
-          return;
-        }
-        const assessment = await assessTaskProof(
-          uploaderId,
-          circleId,
-          {
-            title: proofWithTask.commitment.title,
-            definitionOfDone: proofWithTask.commitment.definitionOfDone,
-            ownerNote: proofWithTask.ownerNote,
-          },
-          {
-            data: proofWithTask.image.data,
-            mimeType: proofWithTask.image.mimeType,
-          },
-        );
-        await getPrisma().taskProof.update({
-          where: { id: proof.id },
-          data: {
-            aiStatus: "SUCCEEDED",
-            aiVisibleEvidence: assessment.visibleEvidence,
-            aiUncertainty: assessment.uncertainty,
-            aiReviewerQuestion: assessment.reviewerQuestion,
-            aiTaskMatch: assessment.taskMatch,
-            aiOneLiner: assessment.oneLiner,
-          },
-        });
-      } catch (error) {
-        console.warn("AI assessment failed", {
-          proofId: proof.id,
-          circleId,
-          error,
-        });
-        await getPrisma()
-          .taskProof.update({
-            where: { id: proof.id },
-            data: { aiStatus: "FAILED" },
-          })
-          .catch(() => undefined);
-      }
-    });
+    after(() => runProofAssessment(proof.id, uploaderId, circleId));
 
     return NextResponse.json({ proof }, { status: 201 });
   } catch (error) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Gavel, MessageSquareWarning } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ export function ReviewProof({
   requiredApprovals: number;
   onReviewed?: (proofId: string) => void;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [decision, setDecision] = useState<"APPROVED" | "CHALLENGED">(
     "APPROVED",
@@ -45,6 +47,7 @@ export function ReviewProof({
   const [confirmChallenge, setConfirmChallenge] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending) return;
     // Challenging sends the proof back to open. Make it a deliberate
     // two-click act instead of a single fat-finger.
     if (decision === "CHALLENGED" && !confirmChallenge) {
@@ -78,6 +81,7 @@ export function ReviewProof({
       setConfirmChallenge(false);
       // Local update, no full-page refresh.
       onReviewed?.(proofId);
+      router.refresh();
     } catch {
       setError("Could not reach the server. Check your wifi and try again.");
       setPending(false);
@@ -87,6 +91,7 @@ export function ReviewProof({
     <Dialog
       open={open}
       onOpenChange={(next) => {
+        if (pending) return;
         setOpen(next);
         if (!next) {
           setError(null);

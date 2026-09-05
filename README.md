@@ -9,7 +9,7 @@ approval from someone else verifies a proof.
 
 - Next.js 16 and React 19
 - Prisma ORM 7 with PostgreSQL
-- Better Auth 1.7.2 with invite-gated Discord OAuth
+- Better Auth 1.7.2 with Discord OAuth and private, invite-only circles
 - AI SDK 7 with `meta/muse-spark-1.3-contributor` through OpenRouter
 - shadcn/ui Base Nova with Base UI primitives
 - Biome, TypeScript, Bun tests, Sharp image sanitization
@@ -39,14 +39,17 @@ The `Pickle Balls` circle is created automatically on first owner sign-in.
   migrate deploy` takes a Postgres advisory lock that the pooled
   `DATABASE_URL` cannot grant, so the build fails with a P1002 timeout
   without it. Runtime traffic keeps using the pooled `DATABASE_URL`.
-- **Browser tests** use a second Prisma Postgres instance on database port
-  `51221` (shadow port `51222`). The test setup rejects the dev port before it
-  can reset anything.
+- **Browser tests** start their own disposable Docker Postgres container and Next.js server on unused loopback ports. They never reset either Prisma dev instance or accept an existing database URL.
 
 Prisma dev's TCP endpoint always routes to its one internal `template1`
 database, regardless of the path in the URL. A different URL path is therefore
 not isolation. Separate ports provide the isolation; `SHADOW_DATABASE_URL`
 also prevents `migrate dev` from replaying migrations against the dev data.
+
+Local Prisma CLI commands read database settings directly from `.env`, even if
+Bun injects the production backup into the process environment. Outside Vercel,
+remote database and shadow targets are rejected. The disposable test runner passes
+its own loopback target explicitly.
 
 Rule of thumb: if `.env` ever contains `pooled.db.prisma.io`, stop and fix
 it before running any `prisma` or `db:` command.
@@ -104,12 +107,13 @@ Create a Discord application and configure these redirect URLs:
 
 Set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, and the first owner's immutable
 Discord ID as `BOOTSTRAP_DISCORD_USER_ID`. The bootstrap identity gets the OWNER
-membership. All other new identities need an unused `/join/[token]` link made by
-the owner. Returning members use `/sign-in`.
+membership. Anyone with Discord can register and create their own circle. Joining
+an existing circle requires an unused `/join/[token]` link from its owner; both new
+and returning users can follow that link. Returning members use `/sign-in`.
 
 Better Auth stores seven-day sessions, database rate limits, encrypted OAuth
-tokens, and Discord provider-account identity. Discord display names, usernames,
-and avatars refresh on sign-in. Phone-only Discord accounts get a non-routable
+tokens, and Discord provider-account identity. Discord usernames and avatars refresh on sign-in; an invite-assigned display
+name is preserved. Phone-only Discord accounts get a non-routable
 placeholder email because the auth user table requires a unique email.
 
 ## AI behavior
@@ -125,7 +129,9 @@ prompts and images are not logged.
 
 Proof images are decoded, auto-rotated, stripped of metadata,
 bounded to 2048 pixels, and re-encoded as WebP before Postgres storage. Image
-routes require circle membership and send private caching plus `nosniff`.
+routes require circle membership on every revalidation and send private caching
+plus `nosniff`. Browsers resize large photos before upload to stay within the
+host’s request limit; server-side decoding and metadata removal remain mandatory.
 
 App history is kept indefinitely. This includes tasks, proofs,
 check-ins, replies, activity, images, and AI run metadata.
@@ -147,12 +153,35 @@ bun run typecheck
 bun run build
 ```
 
-Browser tests require a disposable Postgres database whose database name
-contains `test`:
+Browser tests require Docker (OrbStack works) and Chromium:
 
 ```bash
-TEST_DATABASE_URL="postgres://postgres:postgres@localhost:51221/pickle_balls_test?sslmode=disable" bun run test:browser
+bunx playwright install chromium
+bun run test:browser
+bun run test:browser --grep "proof submission" # targeted regression
+bun run test:browser --build                   # production build against disposable data
 ```
 
-The browser-test setup force-resets only that guarded test database and seeds
-four Discord-style sessions. It never uses `DATABASE_URL` as the reset target.
+The runner starts a new `postgres:17-alpine` container, applies committed migrations,
+seeds fake friends and images, and removes only that container afterward. It overrides
+all database targets, auth secrets, and external-service keys. No existing database
+URL is accepted. Browser output lives in `playwright-report/` and `test-results/`.
+`bun run test:browser --serve` keeps a fake-data app available for manual inspection
+until Ctrl-C. Test builds use `.next-browser/`, separate from normal development.
+
+The suite checks circle isolation, origin protection, concurrent proof/verdict writes,
+invites, late proof, notifications, draft persistence, replies, rate limits, cron,
+PDF responses, accessibility, and layouts from 320 to 1440 pixels. Real Discord
+callbacks, paid AI responses, and device push delivery still need live smoke tests.
+
+See [the September 2026 audit](docs/audit-2026-09-04.md) for changes, verification,
+and remaining limitations.
+
+### Temporary dependency overrides
+
+`deepmerge-ts` 8.0.2 and `mysql2` 3.24.3 override vulnerable transitive versions
+pinned by Prisma 7.10.0. Prisma config loading, client generation, schema validation,
+disposable migrations, and the production build are checked with these versions.
+The deepmerge v8 Map-merging change does not affect this plain-object Prisma config;
+this app uses PostgreSQL and does not use the MySQL driver. Remove the overrides
+when Prisma ships patched pins. Lodash was updated within its supported range.
