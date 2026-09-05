@@ -28,7 +28,7 @@ export default async function TodayPage() {
       where: {
         userId: session.user.id,
         circleId: membership.circleId,
-        OR: [{ day }, { day: { lt: day }, status: { not: "VERIFIED" } }],
+        day,
       },
       orderBy: [{ day: "desc" }, { createdAt: "asc" }],
       include: {

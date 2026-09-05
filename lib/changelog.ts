@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788634180194,
+    title: "Fresh days and tighter boards",
+    description:
+      "Removed unfinished tasks from Today and closed past days to new or replacement proof. The countdown ticks on clock-second boundaries, announcement banners are removed, and squad members stack independently in each column. Proof photos and avatars stay cached on your device without an expiry, subject to browser storage limits and clearing site data.",
+  },
+  {
     timestamp: 1788584997071,
     title: "Fixed the startup crash",
     description:

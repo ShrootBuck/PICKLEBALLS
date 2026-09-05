@@ -334,7 +334,7 @@ export async function notifyTaskMissed(input: {
     kind: "TASK_MISSED",
     entityId: input.taskId,
     title: `You missed “${input.title}” with no proof`,
-    body: "You can still upload late proof from Today. The original deadline stays on the record.",
+    body: "This day is closed. The missed task stays in history; start fresh today.",
     data: { url: `/squad?focus=${input.taskId}`, taskId: input.taskId },
     allowSelf: true,
   });

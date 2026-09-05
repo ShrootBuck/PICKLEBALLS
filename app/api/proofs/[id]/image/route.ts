@@ -17,11 +17,11 @@ export async function GET(
   });
   if (!image)
     return NextResponse.json({ error: "Not found." }, { status: 404 });
-  // Revalidate membership before serving cached images, including after sign-out.
+  // Each upload gets a new proof ID; bytes at this URL never change.
   const etag = `"proof-${id}-${createHash("sha256").update(image.data).digest("hex").slice(0, 32)}"`;
   const headers: Record<string, string> = {
     "content-type": image.mimeType,
-    "cache-control": "private, no-cache",
+    "cache-control": "private, max-age=31536000, immutable",
     etag,
     "last-modified": image.createdAt.toUTCString(),
     "content-length": String(image.sizeBytes),

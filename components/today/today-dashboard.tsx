@@ -439,7 +439,6 @@ function ProofDialog({
     phoenixLocalDateTimeValue(),
   );
   const isReplace = task.proof?.reviewStatus === "CHALLENGED";
-  const isLate = new Date(task.dueAt).getTime() < Date.now();
   const [formKey, setFormKey] = useState(0);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -538,11 +537,7 @@ function ProofDialog({
         render={<Button size="sm" className="touch-manipulation" />}
       >
         <Camera data-icon="inline-start" />
-        {isReplace
-          ? "Replace proof"
-          : isLate
-            ? "Upload late proof"
-            : "Upload proof"}
+        {isReplace ? "Replace proof" : "Upload proof"}
       </DialogTrigger>
       <DialogContent className="max-h-[calc(100dvh-1.5rem)] overflow-hidden p-0 sm:max-w-lg">
         <div className="flex max-h-[calc(100dvh-1.5rem)] flex-col">
@@ -909,9 +904,10 @@ function TaskCard({
               View proof
             </Link>
           ) : null}
-          {(!task.proof || task.proof.reviewStatus === "CHALLENGED") && (
-            <ProofDialog task={task} onProof={onProof} />
-          )}
+          {new Date(task.dueAt).getTime() > Date.now() &&
+            (!task.proof || task.proof.reviewStatus === "CHALLENGED") && (
+              <ProofDialog task={task} onProof={onProof} />
+            )}
         </CardFooter>
       }
     </Card>
@@ -936,7 +932,6 @@ export function TodayDashboard({
   const router = useRouter();
   const [allTasks, setTasks] = useState(initialTasks);
   const tasks = allTasks.filter((task) => task.day === day);
-  const earlierTasks = allTasks.filter((task) => task.day !== day);
   useEffect(() => {
     setTasks(initialTasks);
   }, [initialTasks]);
@@ -1057,32 +1052,6 @@ export function TodayDashboard({
               ))}
             </div>
           )}
-          {earlierTasks.length > 0 ? (
-            <section
-              className="flex flex-col gap-3"
-              aria-labelledby="earlier-tasks-title"
-            >
-              <div className="flex flex-col gap-1">
-                <h2 id="earlier-tasks-title" className="text-lg font-semibold">
-                  Unfinished from earlier
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  The deadline stays put. You can still post late proof or
-                  replace a challenged photo.
-                </p>
-              </div>
-              {earlierTasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  day={day}
-                  currentUserId={currentUserId}
-                  onSaved={handleTaskSaved}
-                  onProof={handleProof}
-                />
-              ))}
-            </section>
-          ) : null}
         </div>
         <CheckInCard
           initial={checkIn}

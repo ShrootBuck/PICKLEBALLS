@@ -1,5 +1,4 @@
-/* Pickle Balls push service worker. Push-only: no caching, so the app
-   never serves stale HTML. */
+/* Push notifications and immutable proof images. HTML is never cached. */
 
 function localDestination(value) {
   if (
@@ -80,6 +79,45 @@ self.addEventListener("notificationclick", (event) => {
         }
       }
       await self.clients.openWindow(url);
+    })(),
+  );
+});
+
+// Proof IDs are immutable. Cache Storage has no time-based expiry and survives
+// browser restarts; storage pressure or clearing site data can still evict it.
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  const isProof =
+    url.origin === self.location.origin &&
+    /^\/api\/proofs\/[^/]+\/image$/.test(url.pathname);
+  const isAvatar =
+    event.request.destination === "image" &&
+    ["cdn.discordapp.com", "fav.farm"].includes(url.hostname);
+  if (event.request.method !== "GET" || (!isProof && !isAvatar)) return;
+  event.respondWith(
+    (async () => {
+      let cache;
+      try {
+        cache = await caches.open("immutable-proof-images-v1");
+        const cached = await cache.match(event.request);
+        if (cached) return cached;
+      } catch {
+        // Storage may be unavailable; the network still works.
+      }
+      const response = await fetch(event.request);
+      if (
+        cache &&
+        (response.type === "opaque" ||
+          (response.ok &&
+            response.headers.get("content-type")?.startsWith("image/")))
+      ) {
+        try {
+          await cache.put(event.request, response.clone());
+        } catch {
+          // A full cache must not prevent displaying the photo.
+        }
+      }
+      return response;
     })(),
   );
 });

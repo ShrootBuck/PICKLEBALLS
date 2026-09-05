@@ -201,6 +201,15 @@ export async function submitProof(
       },
     });
     if (!task) throw new DomainError("Task not found.", 404);
+    if (
+      !canEditTask(task.dueAt, now) ||
+      task.day.toISOString().slice(0, 10) !== phoenixDateKey(now)
+    ) {
+      throw new DomainError(
+        "This day is closed. Missed tasks cannot receive new or replacement proof.",
+        409,
+      );
+    }
     const currentProof = task.proofs[0];
     if (currentProof && currentProof.reviewStatus !== "CHALLENGED") {
       throw new DomainError(

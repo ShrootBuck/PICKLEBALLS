@@ -407,7 +407,7 @@ test("proof submission and verdicts remain consistent under concurrent requests"
   await jules.close();
 });
 
-test("approved promises cannot be rewritten and late proof remains accessible", async ({
+test("approved promises cannot be rewritten and closed days reject proof", async ({
   browser,
 }) => {
   const context = await signedIn(browser);
@@ -423,16 +423,11 @@ test("approved promises cannot be rewritten and late proof remains accessible", 
   await page.goto("/");
   await expect(
     page.getByRole("heading", { name: "Unfinished from earlier" }),
-  ).toBeVisible();
-  await page
-    .locator("#task-old-task")
-    .getByRole("button", { name: "Upload late proof" })
-    .click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByRole("button", { name: "Close", exact: true }).click();
+  ).toHaveCount(0);
+  await expect(page.locator("#task-old-task")).toHaveCount(0);
   const response = await upload(context.request, "old-task");
-  expect(response.status()).toBe(201);
-  expect((await response.json()).proof.isLate).toBe(true);
+  expect(response.status()).toBe(409);
+  expect((await response.json()).error).toContain("This day is closed");
   await context.close();
 });
 
@@ -911,8 +906,10 @@ test("notification pagination does not skip simultaneous events and invalid read
       `/api/notifications${cursor ? `?cursor=${cursor}` : ""}`,
       { headers: origin() },
     );
-    const result: { notifications: { id: string }[]; nextCursor: string | null } =
-      await response.json();
+    const result: {
+      notifications: { id: string }[];
+      nextCursor: string | null;
+    } = await response.json();
     ids.push(...result.notifications.map((row: { id: string }) => row.id));
     cursor = result.nextCursor;
   } while (cursor);
@@ -926,5 +923,84 @@ test("notification pagination does not skip simultaneous events and invalid read
       })
     ).status(),
   ).toBe(400);
+  await context.close();
+});
+
+test("immutable proof images remain available offline", async ({ browser }) => {
+  const context = await signedIn(browser);
+  const page = await context.newPage();
+  await page.goto("/");
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+  const readImage = () =>
+    page.evaluate(async () => {
+      const response = await fetch("/api/proofs/pending-task-proof/image");
+      return {
+        status: response.status,
+        cache: response.headers.get("cache-control"),
+        size: (await response.blob()).size,
+      };
+    });
+  const first = await readImage();
+  expect(first.status).toBe(200);
+  expect(first.cache).toContain("immutable");
+  expect(first.size).toBeGreaterThan(0);
+  await context.setOffline(true);
+  expect(await readImage()).toEqual(first);
+  await context.close();
+});
+
+test("squad columns stack independently and keep mobile order", async ({
+  browser,
+}) => {
+  const context = await signedIn(browser);
+  const page = await context.newPage();
+  await page.goto("/squad");
+  await page.getByRole("tab", { name: "Board", exact: true }).click();
+  const board = page.getByRole("tabpanel", { name: "Board", exact: true });
+  const positions = () =>
+    board.locator('[data-slot="card"][style]').evaluateAll((cards) =>
+      cards
+        .map((card) => {
+          const rect = card.getBoundingClientRect();
+          return {
+            order: Number((card as HTMLElement).style.order),
+            x: rect.x,
+            y: rect.y,
+            bottom: rect.bottom,
+          };
+        })
+        .sort((a, b) => a.order - b.order),
+    );
+  const desktop = await positions();
+  expect(desktop.length).toBeGreaterThanOrEqual(3);
+  expect(desktop[2].x).toBe(desktop[0].x);
+  expect(desktop[2].y - desktop[0].bottom).toBeCloseTo(16, 0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobile = await positions();
+  for (let index = 1; index < mobile.length; index++) {
+    expect(mobile[index].y).toBeGreaterThanOrEqual(mobile[index - 1].bottom);
+  }
+  await context.close();
+});
+
+test("countdown changes on system second boundaries", async ({ browser }) => {
+  const context = await signedIn(browser);
+  const page = await context.newPage();
+  await page.goto("/");
+  const timer = page.getByRole("timer").first();
+  await expect(timer).toBeVisible();
+  const now = await page.evaluate(() => Date.now());
+  await page.clock.install({ time: now });
+  await page.clock.pauseAt(Math.ceil(now / 1000) * 1000 + 1350);
+  // Visibility resync also covers returning from a throttled background tab.
+  await page.evaluate(() =>
+    document.dispatchEvent(new Event("visibilitychange")),
+  );
+  const initial = await timer.innerText();
+  await page.clock.runFor(649);
+  await expect(timer).toHaveText(initial);
+  await page.clock.runFor(1);
+  await expect(timer).not.toHaveText(initial);
   await context.close();
 });

@@ -9,7 +9,7 @@ import { phoenixDateKey, phoenixDayDueAt } from "@/lib/time";
 
 function formatRemaining(ms: number) {
   if (ms <= 0) return "00:00:00";
-  const totalSeconds = Math.floor(ms / 1000);
+  const totalSeconds = Math.ceil(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
@@ -29,7 +29,9 @@ export function MidnightCountdown({ compact = false }: { compact?: boolean }) {
   const rolledDay = useRef<string | null>(null);
 
   useEffect(() => {
+    let id: number;
     const tick = () => {
+      window.clearTimeout(id);
       const now = new Date();
       const key = phoenixDateKey(now);
       const ms = getDueMs(now);
@@ -41,12 +43,13 @@ export function MidnightCountdown({ compact = false }: { compact?: boolean }) {
         toast.add({ title: "New day — board rolled.", type: "success" });
       }
       rolledDay.current = key;
+      // Re-align every tick so delayed callbacks never accumulate clock drift.
+      id = window.setTimeout(tick, 1000 - (Date.now() % 1000));
     };
     tick();
-    const id = window.setInterval(tick, 1000);
     document.addEventListener("visibilitychange", tick);
     return () => {
-      window.clearInterval(id);
+      window.clearTimeout(id);
       document.removeEventListener("visibilitychange", tick);
     };
   }, [router]);
