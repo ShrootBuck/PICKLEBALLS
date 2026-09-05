@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import {
   type APIRequestContext,
+  type APIResponse,
   type Browser,
   type BrowserContext,
   expect,
@@ -906,11 +907,12 @@ test("notification pagination does not skip simultaneous events and invalid read
   let cursor: string | null = null;
   const ids: string[] = [];
   do {
-    const response = await context.request.get(
+    const response: APIResponse = await context.request.get(
       `/api/notifications${cursor ? `?cursor=${cursor}` : ""}`,
       { headers: origin() },
     );
-    const result = await response.json();
+    const result: { notifications: { id: string }[]; nextCursor: string | null } =
+      await response.json();
     ids.push(...result.notifications.map((row: { id: string }) => row.id));
     cursor = result.nextCursor;
   } while (cursor);
