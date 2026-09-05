@@ -10,14 +10,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Changelog — DOCUMENT EVERY CHANGE IN THE CHANGELOG!
 
-- Every user-facing change MUST add an entry to `lib/changelog.ts`
-  (newest first). No exceptions, no "too small to log".
-- Entry shape: `{ timestamp: 1756948800000, title: "...", description: "..." }`
-  where `timestamp` is milliseconds since the Unix epoch — run
-  `bun -e "console.log(Date.now())"` for "now". Never store display strings;
-  the page derives day grouping and labels at render time.
-- The `/changelog` page renders that file for all users, so keep titles
-  short and descriptions plain-language (one or two sentences).
+Every user-facing change MUST add an entry to `lib/changelog.ts` (newest first).
+
+`timestamp` is milliseconds since the Unix epoch, run `bun -e "console.log(Date.now())"` for "now".
 
 # Dev vs prod databases
 
