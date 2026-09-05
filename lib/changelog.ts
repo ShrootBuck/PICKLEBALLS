@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788584997071,
+    title: "Fixed the startup crash",
+    description:
+      "The app was crashing on load because the production database was missing two notification categories the code asks about. A database update adds them, so pages load again.",
+  },
+  {
     timestamp: 1788583391054,
     title: "Boards stay up to date",
     description:
