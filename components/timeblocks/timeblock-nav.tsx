@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { parseDateKey } from "@/lib/time";
 import { nextOrSameMonday, shiftDateKey } from "@/lib/timeblocks";
 
 export function TimeblockNav({
@@ -28,7 +29,7 @@ export function TimeblockNav({
         }
       >
         <ChevronLeft data-icon="inline-start" />
-        Prev
+        Previous
       </Button>
       {dueMonday !== latestDueMonday ? (
         <Button
@@ -51,7 +52,7 @@ export function TimeblockNav({
           }
         >
           Next
-          <ChevronRight data-icon="inline-start" />
+          <ChevronRight data-icon="inline-end" />
         </Button>
       ) : null}
       <Input
@@ -60,8 +61,9 @@ export function TimeblockNav({
         value={dueMonday}
         max={latestDueMonday}
         onChange={(event) => {
-          if (!event.target.value) return;
+          if (!parseDateKey(event.target.value)) return;
           const monday = nextOrSameMonday(event.target.value);
+          if (monday > latestDueMonday || monday === dueMonday) return;
           router.push(
             monday === latestDueMonday
               ? "/timeblock"

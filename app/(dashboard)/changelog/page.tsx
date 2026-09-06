@@ -108,7 +108,7 @@ export default function ChangelogPage() {
                 {group.entries.map((entry) => (
                   <Card key={`${entry.timestamp}-${entry.title}`} size="sm">
                     <CardHeader>
-                      <CardTitle className="truncate text-[15px] tracking-tight">
+                      <CardTitle className="break-words">
                         {entry.title}
                       </CardTitle>
                     </CardHeader>

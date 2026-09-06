@@ -1178,6 +1178,16 @@ test("multiple photos and video post through the reply composer", async ({
   })
     .png()
     .toBuffer();
+  await thread.locator('input[type="file"]').setInputFiles({
+    name: "empty.png",
+    mimeType: "image/png",
+    buffer: Buffer.alloc(0),
+  });
+  await expect(
+    thread.getByText(
+      "That file is empty. Choose a photo or video with content.",
+    ),
+  ).toBeVisible();
   await thread.locator('input[type="file"]').setInputFiles([
     { name: "one.png", mimeType: "image/png", buffer: photo },
     { name: "two.png", mimeType: "image/png", buffer: photo },
@@ -1186,11 +1196,56 @@ test("multiple photos and video post through the reply composer", async ({
     .locator('input[type="file"]')
     .setInputFiles("tests/fixtures/proof.webm");
   await expect(thread.getByRole("button", { name: /Remove / })).toHaveCount(3);
+  await expect(thread.getByRole("status")).toHaveText(
+    "3 of 6 attachments selected",
+  );
+  await thread.locator('input[type="file"]').setInputFiles(
+    Array.from({ length: 4 }, (_, index) => ({
+      name: `extra-${index}.png`,
+      mimeType: "image/png",
+      buffer: photo,
+    })),
+  );
+  await expect(thread.getByText("Choose up to six files.")).toBeVisible();
+  await thread
+    .getByRole("button", { name: "Remove proof.webm", exact: true })
+    .click();
+  await expect(thread.getByText("Choose up to six files.")).toHaveCount(0);
+  await thread
+    .locator('input[type="file"]')
+    .setInputFiles("tests/fixtures/proof.webm");
   await thread
     .locator("form")
     .getByRole("button", { name: "Reply", exact: true })
     .click();
   await expect(thread.locator('img[src^="/api/media/"]')).toHaveCount(2);
+  await thread
+    .getByRole("button", { name: "Open photo 1", exact: true })
+    .click();
+  const viewer = page.getByRole("dialog");
+  await expect(
+    viewer.getByRole("heading", { name: "Photo 1 of 2" }),
+  ).toBeVisible();
+  await expect(
+    viewer.getByRole("button", { name: "Previous photo" }),
+  ).toBeDisabled();
+  await viewer.getByRole("button", { name: "Next photo" }).click();
+  await expect(
+    viewer.getByRole("heading", { name: "Photo 2 of 2" }),
+  ).toBeVisible();
+  await expect(
+    viewer.getByRole("button", { name: "Next photo" }),
+  ).toBeDisabled();
+  await page.keyboard.press("ArrowLeft");
+  await expect(
+    viewer.getByRole("heading", { name: "Photo 1 of 2" }),
+  ).toBeVisible();
+  await page.screenshot({ path: "test-results/photo-viewer-mobile.png" });
+  await page.keyboard.press("Escape");
+  await expect(viewer).toHaveCount(0);
+  await expect(
+    thread.getByRole("button", { name: "Open photo 1", exact: true }),
+  ).toBeFocused();
   const video = thread.locator('video[src^="/api/media/"]');
   await expect(video).toHaveCount(1);
   await expect

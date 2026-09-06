@@ -47,18 +47,24 @@ export function MediaPicker({
         onChange={(event) => {
           const added = Array.from(event.target.files ?? []);
           event.target.value = "";
+          if (added.length === 0) return;
           if (files.length + added.length > maxMediaCount) {
             setError("Choose up to six files.");
+            return;
+          }
+          if (added.some((file) => file.size === 0)) {
+            setError(
+              "That file is empty. Choose a photo or video with content.",
+            );
             return;
           }
           if (
             added.some(
               (file) =>
-                file.size === 0 ||
                 file.size >
-                  (file.type.startsWith("video/")
-                    ? maxVideoBytes
-                    : maxPhotoBytes),
+                (file.type.startsWith("video/")
+                  ? maxVideoBytes
+                  : maxPhotoBytes),
             )
           ) {
             setError("Photos: up to 100 MB. Videos: up to 50 MB.");
@@ -68,10 +74,13 @@ export function MediaPicker({
           onChange([...files, ...added]);
         }}
       />
-      <FieldDescription id={`${id}-help`}>
+      <FieldDescription id={`${id}-help`} aria-live="polite">
         {error ||
           "Up to 6 files. Photos: 100 MB, resized with location data removed. Videos: 50 MB (MP4, MOV, WebM)."}
       </FieldDescription>
+      <output className="text-xs text-muted-foreground">
+        {files.length} of {maxMediaCount} attachments selected
+      </output>
       {files.length > 0 && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {files.map((file, index) => (
@@ -98,13 +107,18 @@ export function MediaPicker({
                     className="h-24 w-full rounded-md bg-muted object-contain"
                   />
                 ))}
-              <span className="truncate text-xs">{file.name}</span>
+              <span className="truncate text-xs" title={file.name}>
+                {file.name}
+              </span>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 disabled={disabled}
-                onClick={() => onChange(files.filter((_, i) => i !== index))}
+                onClick={() => {
+                  setError("");
+                  onChange(files.filter((_, i) => i !== index));
+                }}
                 aria-label={`Remove ${file.name}`}
               >
                 Remove

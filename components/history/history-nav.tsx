@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { parseDateKey } from "@/lib/time";
 
 function shiftDay(dayKey: string, delta: number) {
   const [y, m, d] = dayKey.split("-").map(Number);
@@ -22,7 +23,7 @@ export function HistoryNav({ day, today }: { day: string; today: string }) {
         render={<Link href={`/history?day=${shiftDay(day, -1)}`} prefetch />}
       >
         <ChevronLeft data-icon="inline-start" />
-        Prev
+        Previous
       </Button>
       {day !== today ? (
         <Button
@@ -40,7 +41,7 @@ export function HistoryNav({ day, today }: { day: string; today: string }) {
           render={<Link href={`/history?day=${shiftDay(day, 1)}`} prefetch />}
         >
           Next
-          <ChevronRight data-icon="inline-start" />
+          <ChevronRight data-icon="inline-end" />
         </Button>
       ) : null}
       <Input
@@ -49,9 +50,8 @@ export function HistoryNav({ day, today }: { day: string; today: string }) {
         max={today}
         onChange={(event) => {
           const value = event.target.value;
-          router.push(
-            value && value !== today ? `/history?day=${value}` : "/history",
-          );
+          if (!parseDateKey(value) || value > today || value === day) return;
+          router.push(value !== today ? `/history?day=${value}` : "/history");
         }}
         className="h-8 w-auto text-sm"
         aria-label="Pick a day"

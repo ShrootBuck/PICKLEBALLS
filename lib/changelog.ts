@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788672025243,
+    title: "Smoother photos, uploads, and navigation",
+    description:
+      "Photo attachments now expand inside the app, with previous/next controls, arrow-key browsing, and a link to the original. Single attachments use the full gallery width. Uploads show an attachment count, explain empty files, and clear errors when a file is removed. Date navigation ignores incomplete, unchanged, and future selections, and long changelog titles wrap instead of being cut off.",
+  },
+  {
     timestamp: 1788671166953,
     title: "Full-size phone photo uploads",
     description:
