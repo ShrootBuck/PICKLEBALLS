@@ -144,10 +144,10 @@ export function AppSidebar({
                 align="start"
                 sideOffset={8}
               >
-                <DropdownMenuLabel className="font-normal">
-                  {circles.length > 1 ? "Switch circle" : "This circle"}
-                </DropdownMenuLabel>
                 <DropdownMenuGroup>
+                  <DropdownMenuLabel className="font-normal">
+                    {circles.length > 1 ? "Switch circle" : "This circle"}
+                  </DropdownMenuLabel>
                   {circles.map((circle) => (
                     <DropdownMenuItem
                       key={circle.id}

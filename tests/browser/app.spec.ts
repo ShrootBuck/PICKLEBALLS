@@ -103,6 +103,45 @@ async function assertNoOverflow(
   await page.close();
 }
 
+test("sidebar circle menu opens without crashing on desktop and mobile", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  for (const width of [1440, 390]) {
+    for (const userId of ["alex", "sam"]) {
+      const context = await signedIn(browser, userId, circleId, width < 768);
+      const page = await context.newPage();
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/");
+      if (width < 768) {
+        await page
+          .getByRole("button", { name: "Toggle Sidebar", exact: true })
+          .click();
+      }
+      await page.getByRole("button", { name: /The study crew/ }).click();
+      const menu = page.getByRole("menu");
+      await expect(menu).toBeVisible();
+      await expect(
+        menu.getByRole("group", {
+          name: userId === "alex" ? "Switch circle" : "This circle",
+        }),
+      ).toBeVisible();
+      await expect(
+        menu.getByRole("menuitem", { name: /The study crew/ }),
+      ).toHaveCount(userId === "alex" ? 2 : 1);
+      await menu.getByRole("menuitem", { name: "All circles / new…" }).click();
+      await expect(page).toHaveURL(/\/circles$/);
+      await expect(page.getByText("App crashed.", { exact: true })).toHaveCount(
+        0,
+      );
+      expect(errors).toEqual([]);
+      await context.close();
+    }
+  }
+});
+
 test("every page fits phone, tablet and desktop without runtime errors", async ({
   browser,
 }) => {

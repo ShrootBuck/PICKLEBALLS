@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788670348606,
+    title: "Circle menu opens without crashing",
+    description:
+      "Fixed a crash when clicking the circle name or tennis-ball logo in the sidebar. The circle switcher now opens normally.",
+  },
+  {
     timestamp: 1788669118688,
     title: "Profile pictures load reliably",
     description:
