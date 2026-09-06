@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788673781343,
+    title: "AI with a little more bite",
+    description:
+      "AI proof reviews now use a more direct, casual tone, with quick humor and natural swearing when appropriate. The AI is encouraged to challenge assumptions instead of automatically agreeing.",
+  },
+  {
     timestamp: 1788673334475,
     title: "After dark, with clearer choices",
     description:
