@@ -53,10 +53,12 @@ try {
   });
   while (true) {
     const rows = await db.taskProofImage.findMany({
-      where: { data: { not: null } },
+      where: {
+        data: { not: null },
+        ...(cursor ? { proofId: { gt: cursor } } : {}),
+      },
       orderBy: { proofId: "asc" },
       take: 20,
-      ...(cursor ? { cursor: { proofId: cursor }, skip: 1 } : {}),
     });
     if (!rows.length) break;
     for (const row of rows) {

@@ -1,5 +1,11 @@
 # R2 media rollout
 
+Production rollout completed September 5, 2026: all 51 legacy photos were copied,
+verified, and removed from database byte storage. A separate local backup is retained.
+Production and development credentials and CORS are configured. The remaining
+housekeeping step is the `staging/` one-day lifecycle rule below, in both
+`pickleballs-media` and `pickleballs-media-dev`; it has not yet been configured.
+
 Postgres remains the relational database. R2 stores photos and videos in a private bucket. Existing `TaskProofImage.data` bytes stay available during rollout. Discord avatar URLs remain managed by Discord; this migration covers all uploaded app images.
 
 ## Configure first
