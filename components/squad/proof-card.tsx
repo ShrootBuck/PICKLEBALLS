@@ -63,7 +63,7 @@ export type ProofCardData = {
 };
 
 function matchBadge(match: string | null) {
-  if (match === "STRONG") return <Badge variant="default">Looks solid</Badge>;
+  if (match === "STRONG") return <Badge variant="success">Looks solid</Badge>;
   if (match === "PARTIAL") return <Badge variant="secondary">Partial</Badge>;
   if (match === "WEAK") return <Badge variant="destructive">Weak</Badge>;
   if (match === "UNREADABLE")
@@ -71,7 +71,7 @@ function matchBadge(match: string | null) {
   return null;
 }
 function statusBadge(status: ProofCardData["reviewStatus"]) {
-  if (status === "APPROVED") return <Badge>Verified</Badge>;
+  if (status === "APPROVED") return <Badge variant="success">Verified</Badge>;
   if (status === "CHALLENGED")
     return <Badge variant="destructive">Challenged</Badge>;
   return <Badge variant="secondary">Needs verdict</Badge>;
@@ -229,7 +229,7 @@ export function ProofCard({
                           variant={
                             review.decision === "CHALLENGED"
                               ? "destructive"
-                              : "default"
+                              : "success"
                           }
                         >
                           {review.decision === "CHALLENGED"

@@ -1,19 +1,27 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { RegisterSw } from "@/components/pwa/register-sw";
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const commitMono = localFont({
+  src: [
+    {
+      path: "./fonts/CommitMono-VF.woff2",
+      weight: "200 700",
+      style: "normal",
+    },
+    {
+      path: "./fonts/CommitMono-VF.woff2",
+      weight: "200 700",
+      style: "italic",
+    },
+  ],
+  variable: "--font-commit-mono",
   display: "swap",
-});
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-  display: "swap",
+  fallback: ["monospace"],
+  adjustFontFallback: false,
 });
 
 export const viewport: Viewport = {
@@ -77,7 +85,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${geistSans.variable} ${geistMono.variable} antialiased`}
+      className={`dark ${commitMono.variable} antialiased`}
       suppressHydrationWarning
     >
       <head>

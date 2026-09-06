@@ -1,4 +1,4 @@
-/* Push notifications and immutable proof images. HTML is never cached. */
+/* Push notifications and immutable uploaded images. HTML is never cached. */
 
 function localDestination(value) {
   if (
@@ -83,7 +83,7 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-// Proof IDs are immutable. Cache Storage has no time-based expiry and survives
+// Finalized image upload and proof IDs are immutable. Cache Storage has no time-based expiry and survives
 // browser restarts; storage pressure or clearing site data can still evict it.
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
@@ -92,7 +92,15 @@ self.addEventListener("fetch", (event) => {
     /^\/api\/proofs\/[^/]+\/image$/.test(url.pathname);
   const isAvatar =
     url.origin === self.location.origin && url.pathname === "/api/avatar";
-  if (event.request.method !== "GET" || (!isProof && !isAvatar)) return;
+  const isMediaImage =
+    url.origin === self.location.origin &&
+    /^\/api\/media\/(?!v_)[^/]+$/.test(url.pathname);
+  if (
+    event.request.method !== "GET" ||
+    event.request.headers.has("range") ||
+    (!isProof && !isAvatar && !isMediaImage)
+  )
+    return;
   event.respondWith(
     (async () => {
       let cache;
@@ -106,9 +114,8 @@ self.addEventListener("fetch", (event) => {
       const response = await fetch(event.request);
       if (
         cache &&
-        (response.type === "opaque" ||
-          (response.ok &&
-            response.headers.get("content-type")?.startsWith("image/")))
+        response.status === 200 &&
+        response.headers.get("content-type")?.startsWith("image/")
       ) {
         try {
           await cache.put(event.request, response.clone());

@@ -76,3 +76,21 @@ export async function mediaDownloadUrl(key: string, mimeType: string) {
     { expiresIn: 3600 },
   );
 }
+
+// Call only after checking access. Finalized uploads have immutable object keys.
+export async function immutableImageResponse(key: string, mimeType: string) {
+  const { client, bucket } = r2();
+  const object = await client.send(
+    new GetObjectCommand({ Bucket: bucket, Key: key }),
+  );
+  if (!object.Body) throw new Error("Media object is missing.");
+  const headers = new Headers({
+    "content-type": mimeType,
+    "cache-control": "private, max-age=31536000, immutable",
+    "x-content-type-options": "nosniff",
+  });
+  if (object.ContentLength !== undefined)
+    headers.set("content-length", String(object.ContentLength));
+  if (object.ETag) headers.set("etag", object.ETag);
+  return new Response(object.Body.transformToWebStream(), { headers });
+}

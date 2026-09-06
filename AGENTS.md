@@ -8,9 +8,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# Changelog — DOCUMENT EVERY CHANGE IN THE CHANGELOG!
+# Changelog — feature changes only
 
-Every user-facing change MUST add an entry to `lib/changelog.ts` (newest first).
+Add an entry to `lib/changelog.ts` only for new features, removed features, or meaningful changes to what users can do. Keep entries newest first and combine related changes into one entry.
+
+Do not add entries for cosmetic changes (fonts, colors, borders, spacing), minor fixes, copy edits, refactors, dependency updates, or internal tooling and instructions. If a change does not meaningfully change a feature or workflow, skip the changelog.
 
 `timestamp` is milliseconds since the Unix epoch, run `bun -e "console.log(Date.now())"` for "now".
 

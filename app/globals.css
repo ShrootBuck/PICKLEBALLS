@@ -20,7 +20,9 @@
   --muted-foreground: #aaaab9;
   --accent: #402637;
   --accent-foreground: #ffa8d0;
-  --destructive: #ff929c;
+  --success: #4ade80;
+  --success-foreground: #082713;
+  --destructive: #f87171;
   --destructive-foreground: #32151b;
   --overlay: #050509;
   --border: #3a3a48;
@@ -45,9 +47,10 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans);
+  --font-sans: var(--font-commit-mono);
+  --font-mono: var(--font-commit-mono);
+  --font-serif: var(--font-commit-mono);
+  --font-heading: var(--font-commit-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -62,6 +65,8 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-overlay: var(--overlay);
@@ -117,7 +122,7 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background font-sans text-foreground antialiased;
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);

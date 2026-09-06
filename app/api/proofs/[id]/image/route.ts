@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
-import { mediaDownloadUrl } from "@/lib/r2";
+import { immutableImageResponse } from "@/lib/r2";
 import { getRequestMembership } from "@/lib/request";
 
 export const runtime = "nodejs";
@@ -19,13 +19,7 @@ export async function GET(
   if (!image)
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   if (image.objectKey)
-    return new Response(null, {
-      status: 307,
-      headers: {
-        location: await mediaDownloadUrl(image.objectKey, image.mimeType),
-        "cache-control": "private, no-store",
-      },
-    });
+    return immutableImageResponse(image.objectKey, image.mimeType);
   if (!image.data)
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   // Each upload gets a new proof ID; bytes at this URL never change.

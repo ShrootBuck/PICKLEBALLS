@@ -135,10 +135,18 @@ export function ReviewProof({
                   spacing={2}
                   className="w-full"
                 >
-                  <ToggleGroupItem value="APPROVED" className="flex-1">
+                  <ToggleGroupItem
+                    value="APPROVED"
+                    data-tone="success"
+                    className="flex-1"
+                  >
                     <Check /> Approve
                   </ToggleGroupItem>
-                  <ToggleGroupItem value="CHALLENGED" className="flex-1">
+                  <ToggleGroupItem
+                    value="CHALLENGED"
+                    data-tone="destructive"
+                    className="flex-1"
+                  >
                     <MessageSquareWarning /> Challenge
                   </ToggleGroupItem>
                 </ToggleGroup>

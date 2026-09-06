@@ -116,7 +116,7 @@ export function taskStatusLabel(status: string) {
 }
 
 export function taskStatusVariant(status: string) {
-  if (status === "VERIFIED") return "default" as const;
+  if (status === "VERIFIED") return "success" as const;
   if (status === "MISSED") return "destructive" as const;
   if (status === "AWAITING_REVIEW") return "secondary" as const;
   return "outline" as const;
@@ -124,7 +124,7 @@ export function taskStatusVariant(status: string) {
 
 export function signalVariant(signal: string) {
   if (signal === "NAY" || signal === "AT_RISK") return "destructive" as const;
-  return "default" as const;
+  return "success" as const;
 }
 
 export function signalLabel(signal: string) {

@@ -5,6 +5,7 @@ import {
   Camera,
   CheckCircle2,
   CircleDashed,
+  CircleX,
   History,
   Pencil,
   Plus,
@@ -134,7 +135,7 @@ function statusBadge(status: Task["status"]) {
     );
   if (status === "VERIFIED")
     return (
-      <Badge variant="default">
+      <Badge variant="success">
         <CheckCircle2 />
         {labels[status]}
       </Badge>
@@ -152,7 +153,7 @@ function statusBadge(status: Task["status"]) {
 function signalBadge(signal: CheckInHistoryItem["signal"]) {
   if (signal === "NAY" || signal === "AT_RISK")
     return <Badge variant="destructive">Nay</Badge>;
-  return <Badge variant="default">Yay</Badge>;
+  return <Badge variant="success">Yay</Badge>;
 }
 
 function currentSignal(signal?: DailySignal): CurrentSignal {
@@ -179,7 +180,7 @@ function ProofFeedback({
               </ItemTitle>
               <Badge
                 variant={
-                  review.decision === "CHALLENGED" ? "destructive" : "default"
+                  review.decision === "CHALLENGED" ? "destructive" : "success"
                 }
               >
                 {review.decision === "CHALLENGED" ? "Challenged" : "Approved"}
@@ -803,12 +804,20 @@ function CheckInCard({
               spacing={2}
               className="w-full"
             >
-              <ToggleGroupItem value="YAY" className="flex-1">
-                <CheckCircle2 className="hidden group-aria-pressed/toggle:block" />
+              <ToggleGroupItem
+                value="YAY"
+                data-tone="success"
+                className="flex-1"
+              >
+                <CheckCircle2 aria-hidden="true" />
                 Yay
               </ToggleGroupItem>
-              <ToggleGroupItem value="NAY" className="flex-1">
-                <CheckCircle2 className="hidden group-aria-pressed/toggle:block" />
+              <ToggleGroupItem
+                value="NAY"
+                data-tone="destructive"
+                className="flex-1"
+              >
+                <CircleX aria-hidden="true" />
                 Nay
               </ToggleGroupItem>
             </ToggleGroup>

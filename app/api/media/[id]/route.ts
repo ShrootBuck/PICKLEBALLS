@@ -5,7 +5,12 @@ import { DomainError } from "@/lib/errors";
 import { sanitizeImage } from "@/lib/image";
 import { matchesVideo } from "@/lib/media-policy";
 import { getPrisma } from "@/lib/prisma";
-import { mediaDownloadUrl, putMedia, r2 } from "@/lib/r2";
+import {
+  immutableImageResponse,
+  mediaDownloadUrl,
+  putMedia,
+  r2,
+} from "@/lib/r2";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { readBoundedBody } from "@/lib/request-body";
@@ -93,6 +98,8 @@ export async function GET(request: Request, context: Context) {
       : [null, null];
     if (!media || (!proof && !reply))
       return Response.json({ error: "Not found." }, { status: 404 });
+    if (media.mimeType.startsWith("image/"))
+      return await immutableImageResponse(media.objectKey, media.mimeType);
     return new Response(null, {
       status: 307,
       headers: {
