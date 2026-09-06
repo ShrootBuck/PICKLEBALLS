@@ -64,10 +64,33 @@ describe("timeblock PDF validation", () => {
 });
 
 describe("proof review validation", () => {
-  test("allows approval without performative paperwork", () => {
-    expect(proofReviewSchema.safeParse({ decision: "APPROVED" }).success).toBe(
-      true,
-    );
+  test("rejects approvals with missing, empty, or whitespace-only comments", () => {
+    for (const note of [undefined, null, "", "  \n\t "]) {
+      expect(
+        proofReviewSchema.safeParse({ decision: "APPROVED", note }).success,
+      ).toBe(false);
+    }
+  });
+
+  test("accepts and trims approval comments up to 500 characters", () => {
+    expect(
+      proofReviewSchema.parse({
+        decision: "APPROVED",
+        note: "  Looks complete.  ",
+      }).note,
+    ).toBe("Looks complete.");
+    expect(
+      proofReviewSchema.safeParse({
+        decision: "APPROVED",
+        note: "a".repeat(500),
+      }).success,
+    ).toBe(true);
+    expect(
+      proofReviewSchema.safeParse({
+        decision: "APPROVED",
+        note: "a".repeat(501),
+      }).success,
+    ).toBe(false);
   });
 
   test("requires a useful challenge note", () => {

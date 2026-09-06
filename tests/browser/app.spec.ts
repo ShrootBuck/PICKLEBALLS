@@ -340,7 +340,10 @@ test("private records and owner actions stay inside their circle", async ({
     (
       await api.post("/api/proofs/pending-task-proof/review", {
         headers: origin(),
-        data: { decision: "APPROVED" },
+        data: {
+          decision: "APPROVED",
+          note: "The proof meets the definition of done.",
+        },
       })
     ).status(),
   ).toBe(404);
@@ -472,7 +475,10 @@ test("proof submission and verdicts remain consistent under concurrent requests"
     (
       await owner.request.post(`/api/proofs/${proof.id}/review`, {
         headers: origin(),
-        data: { decision: "APPROVED" },
+        data: {
+          decision: "APPROVED",
+          note: "The proof meets the definition of done.",
+        },
       })
     ).status(),
   ).toBe(403);
@@ -481,7 +487,10 @@ test("proof submission and verdicts remain consistent under concurrent requests"
   const reviews = await Promise.all([
     sam.request.post(`/api/proofs/${proof.id}/review`, {
       headers: origin(),
-      data: { decision: "APPROVED" },
+      data: {
+        decision: "APPROVED",
+        note: "The proof meets the definition of done.",
+      },
     }),
     jules.request.post(`/api/proofs/${proof.id}/review`, {
       headers: origin(),

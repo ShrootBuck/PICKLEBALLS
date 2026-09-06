@@ -46,6 +46,12 @@ export function ReviewProof({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
+    const form = new FormData(event.currentTarget);
+    const note = String(form.get("note") ?? "").trim();
+    if (!note) {
+      setError("Every verdict needs a comment.");
+      return;
+    }
     // Challenging sends the proof back to open. Make it a deliberate
     // two-click act instead of a single fat-finger.
     if (decision === "CHALLENGED" && !confirmChallenge) {
@@ -55,11 +61,10 @@ export function ReviewProof({
     setPending(true);
     setError(null);
     try {
-      const form = new FormData(event.currentTarget);
       const response = await fetch(`/api/proofs/${proofId}/review`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ decision, note: form.get("note") }),
+        body: JSON.stringify({ decision, note }),
       });
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as {
@@ -153,17 +158,17 @@ export function ReviewProof({
               </Field>
               <Field data-invalid={Boolean(error)}>
                 <FieldLabel htmlFor={`review-note-${proofId}`}>
-                  Reviewer note
+                  Reviewer note (required)
                 </FieldLabel>
                 <Textarea
                   id={`review-note-${proofId}`}
                   name="note"
                   maxLength={500}
-                  required={decision === "CHALLENGED"}
+                  required
                   placeholder={
                     decision === "CHALLENGED"
                       ? "What is missing? Be specific, not just mean"
-                      : "Optional. Say why this counts."
+                      : "Say why this counts."
                   }
                   className="min-h-24"
                   aria-invalid={Boolean(error)}
@@ -172,7 +177,8 @@ export function ReviewProof({
                   }
                 />
                 <FieldDescription>
-                  A challenge with no reason is just hating.
+                  Every verdict needs a comment. Say why it counts or what is
+                  missing.
                 </FieldDescription>
               </Field>
             </FieldGroup>

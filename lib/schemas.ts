@@ -45,20 +45,10 @@ export const notificationPreferencesSchema = z.object({
   taskCreated: z.boolean(),
   checkIns: z.boolean(),
 });
-export const proofReviewSchema = z
-  .object({
-    decision: z.enum(["APPROVED", "CHALLENGED"]),
-    note: z.string().trim().max(500).optional(),
-  })
-  .superRefine((value, context) => {
-    if (value.decision === "CHALLENGED" && !value.note) {
-      context.addIssue({
-        code: "custom",
-        path: ["note"],
-        message: "A challenge needs a useful note.",
-      });
-    }
-  });
+export const proofReviewSchema = z.object({
+  decision: z.enum(["APPROVED", "CHALLENGED"]),
+  note: z.string().trim().min(1, "Every verdict needs a comment.").max(500),
+});
 
 const localDateTimeSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 

@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788735633031,
+    title: "Every approval needs a comment",
+    description:
+      "Proof approvals now require a comment explaining why the proof counts. Empty or whitespace-only comments cannot be submitted, just like challenges need a reason.",
+  },
+  {
     timestamp: 1788673781343,
     title: "AI with a little more bite",
     description:
