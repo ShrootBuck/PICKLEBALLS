@@ -111,7 +111,7 @@ export function AppSidebar({
   }
 
   return (
-    <Sidebar collapsible="icon" variant="inset">
+    <Sidebar collapsible="icon" variant="sidebar">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -131,7 +131,7 @@ export function AppSidebar({
                   <span className="truncate text-sm font-semibold tracking-tight">
                     {activeCircle?.name ?? "Pickle Balls"}
                   </span>
-                  <span className="truncate text-xs font-normal text-sidebar-accent-foreground/70">
+                  <span className="truncate text-xs font-normal text-muted-foreground">
                     {circles.length > 1
                       ? `${circles.length} circles · switch`
                       : "Proof or bullshit"}
@@ -183,18 +183,18 @@ export function AppSidebar({
             </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
-        <div className="rounded-lg bg-sidebar-accent px-3 py-2 group-data-[collapsible=icon]:hidden">
+        <div className="border-t border-sidebar-border px-2 pt-4 pb-1 group-data-[collapsible=icon]:hidden">
           <p className="truncate text-xs font-medium text-sidebar-accent-foreground">
             {todayLabel}
           </p>
-          <p className="truncate text-[11px] text-sidebar-accent-foreground/70">
+          <p className="truncate text-[11px] text-muted-foreground">
             Deadline at midnight. No mercy.
           </p>
         </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Daily grind</SidebarGroupLabel>
+          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {links.map(({ href, label, hint, icon: Icon }) => (
@@ -221,7 +221,7 @@ export function AppSidebar({
         </SidebarGroup>
         {isOwner ? (
           <SidebarGroup>
-            <SidebarGroupLabel>Owner zone</SidebarGroupLabel>
+            <SidebarGroupLabel>Manage</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>

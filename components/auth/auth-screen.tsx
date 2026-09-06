@@ -32,18 +32,9 @@ const points = [
 export function AuthScreen({ children }: { children: ReactNode }) {
   return (
     <main className="grid min-h-full lg:grid-cols-[1.1fr_1fr]">
-      <section className="relative flex flex-col gap-6 overflow-hidden bg-primary px-5 py-6 text-primary-foreground sm:px-8 sm:py-8 lg:justify-between lg:gap-10 lg:p-14">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.12]"
-          style={{
-            backgroundImage:
-              "radial-gradient(currentColor 1px, transparent 1px)",
-            backgroundSize: "22px 22px",
-          }}
-        />
+      <section className="relative flex flex-col gap-6 overflow-hidden bg-brand-panel px-5 py-6 text-brand-panel-foreground sm:px-8 sm:py-8 lg:justify-between lg:gap-10 lg:p-14">
         <div className="relative flex items-center gap-2.5 text-sm font-semibold">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary-foreground text-base text-primary">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-brand-panel-foreground text-base text-brand-panel">
             <span aria-hidden="true">🎾</span>
           </span>
           <strong className="tracking-tight">Pickle Balls</strong>
@@ -70,7 +61,7 @@ export function AuthScreen({ children }: { children: ReactNode }) {
             {points.map(({ icon: Icon, title, body }) => (
               <div
                 key={title}
-                className="flex flex-col gap-1.5 rounded-xl border border-primary-foreground/15 bg-primary-foreground/5 p-3"
+                className="flex flex-col gap-1.5 rounded-xl border border-brand-panel-foreground/15 bg-brand-panel-foreground/5 p-3"
               >
                 <Icon aria-hidden="true" />
                 <p className="text-sm font-medium">{title}</p>
@@ -80,7 +71,7 @@ export function AuthScreen({ children }: { children: ReactNode }) {
           </div>
         </div>
         <div className="relative hidden flex-col gap-3 lg:flex">
-          <Separator className="bg-primary-foreground/15" />
+          <Separator className="bg-brand-panel-foreground/15" />
           <p className="text-sm opacity-75">
             Every circle is private. No audience, no feed, no productivity
             influencer.

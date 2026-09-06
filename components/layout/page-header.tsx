@@ -15,11 +15,11 @@ export function PageHeader({
     <section className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         {children}
-        <h1 className="text-3xl font-semibold tracking-[-0.035em] text-balance sm:text-4xl">
+        <h1 className="text-2xl font-semibold tracking-[-0.035em] text-balance sm:text-3xl">
           {title}
         </h1>
         {description ? (
-          <p className="max-w-2xl text-sm leading-relaxed text-pretty text-muted-foreground sm:text-base">
+          <p className="max-w-2xl text-sm leading-relaxed text-pretty text-muted-foreground">
             {description}
           </p>
         ) : null}

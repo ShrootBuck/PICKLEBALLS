@@ -8,6 +8,18 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788672530735,
+    title: "Deep pink accents",
+    description:
+      "Buttons, focus rings, progress bars, and highlights now use a deep pink accent with soft pink selections, replacing indigo throughout the shared theme.",
+  },
+  {
+    timestamp: 1788672256763,
+    title: "A calmer workspace",
+    description:
+      "Replaced the all-green theme with neutral surfaces, charcoal text, and a restrained indigo accent. Navigation is lighter, headings and controls are tighter, and cards have quieter borders and shadows. The landing and sign-in screens share the new look, while the pickleball details and familiar workflows stay around.",
+  },
+  {
     timestamp: 1788672025243,
     title: "Smoother photos, uploads, and navigation",
     description:

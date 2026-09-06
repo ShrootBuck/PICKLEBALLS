@@ -2,6 +2,13 @@ import { ArrowUpRight, Camera, Clock3, Users } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 const points = [
   {
@@ -29,19 +36,19 @@ const steps = [
 
 export function LandingPage() {
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-4xl flex-col items-center justify-center gap-8 px-4 py-8 text-center sm:gap-10 sm:px-6 sm:py-14">
-      <div className="flex items-center gap-2.5 text-sm font-semibold">
+    <main className="mx-auto flex min-h-full w-full max-w-5xl flex-col items-center gap-10 px-5 py-6 text-center sm:gap-14 sm:px-8 sm:py-8">
+      <div className="flex w-full items-center gap-2.5 border-b pb-6 text-sm font-semibold">
         <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-base text-primary-foreground">
           <span aria-hidden="true">🎾</span>
         </span>
         <strong className="tracking-tight">Pickle Balls</strong>
-        <Badge variant="secondary" className="ml-1">
+        <Badge variant="secondary" className="ml-auto">
           Private circles
         </Badge>
       </div>
 
-      <div className="flex flex-col items-center gap-4">
-        <h1 className="text-4xl font-semibold tracking-[-0.045em] text-balance sm:text-6xl">
+      <div className="flex flex-col items-center gap-6 pt-6 sm:pt-12">
+        <h1 className="max-w-3xl text-5xl font-semibold leading-[1.05] tracking-[-0.055em] text-balance sm:text-7xl">
           Do the homework. Earn the court.
         </h1>
         <p className="max-w-md text-base text-pretty text-muted-foreground sm:text-lg">
@@ -53,6 +60,7 @@ export function LandingPage() {
           <Button
             size="lg"
             className="w-full sm:w-auto"
+            nativeButton={false}
             render={<Link href="/sign-up" />}
           >
             Start your circle
@@ -61,6 +69,7 @@ export function LandingPage() {
             size="lg"
             variant="outline"
             className="w-full sm:w-auto"
+            nativeButton={false}
             render={<Link href="/sign-in" />}
           >
             Sign in
@@ -70,34 +79,34 @@ export function LandingPage() {
 
       <div className="grid w-full gap-3 text-left sm:grid-cols-3">
         {points.map(({ icon: Icon, title, body }) => (
-          <div
-            key={title}
-            className="flex min-w-0 flex-col gap-1.5 rounded-2xl border bg-card p-4 text-left shadow-sm sm:p-5"
-          >
-            <Icon aria-hidden="true" className="size-5" />
-            <p className="text-sm font-medium">{title}</p>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              {body}
-            </p>
-          </div>
+          <Card key={title}>
+            <CardHeader className="gap-3">
+              <Icon
+                aria-hidden="true"
+                className="mb-2 size-5 text-muted-foreground"
+              />
+              <CardTitle>{title}</CardTitle>
+              <CardDescription>{body}</CardDescription>
+            </CardHeader>
+          </Card>
         ))}
       </div>
 
-      <ol className="flex w-full flex-col gap-2 text-left">
+      <ol className="grid w-full gap-5 text-left sm:grid-cols-3">
         {steps.map((step) => (
-          <li
-            key={step.n}
-            className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3 shadow-sm"
-          >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+          <li key={step.n} className="flex items-start gap-3">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-medium text-muted-foreground">
               {step.n}
             </span>
-            <span className="text-sm">{step.text}</span>
+            <span className="pt-1 text-sm text-muted-foreground">
+              {step.text}
+            </span>
           </li>
         ))}
       </ol>
 
-      <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
+      <Separator />
+      <div className="flex flex-col items-center gap-2 pb-4 text-sm text-muted-foreground">
         <p>Every circle is private. No audience, no feed.</p>
         <Link
           href="https://github.com/ShrootBuck/PICKLEBALLS"
