@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788671166953,
+    title: "Full-size phone photo uploads",
+    description:
+      "Photos up to 100 MB now upload directly without mandatory browser compression. HEIC conversion is best-effort, with the original uploaded if conversion fails. Full-resolution phone photos are accepted by server processing.",
+  },
+  {
     timestamp: 1788670348606,
     title: "Circle menu opens without crashing",
     description:

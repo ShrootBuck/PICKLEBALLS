@@ -36,7 +36,7 @@ describe("media validation", () => {
     expect(
       uploadTicketSchema.safeParse({
         mimeType: "image/webp",
-        sizeBytes: 4 * 1024 * 1024 + 1,
+        sizeBytes: 100 * 1024 * 1024 + 1,
       }).success,
     ).toBe(false);
     expect(

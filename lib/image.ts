@@ -2,6 +2,7 @@ import "server-only";
 
 import sharp from "sharp";
 import { DomainError } from "@/lib/errors";
+import { maxPhotoBytes } from "@/lib/media-policy";
 
 const allowedFormats = new Set(["jpeg", "png", "webp", "heif"]);
 const allowedMimeTypes = new Set([
@@ -11,11 +12,11 @@ const allowedMimeTypes = new Set([
   "image/heic",
   "image/heif",
 ]);
-export const maxUploadBytes = 6 * 1024 * 1024;
+export const maxUploadBytes = maxPhotoBytes;
 
 export async function sanitizeImage(file: File) {
   if (file.size <= 0 || file.size > maxUploadBytes) {
-    throw new DomainError("Image must be between 1 byte and 6 MB.");
+    throw new DomainError("Image must be between 1 byte and 100 MB.");
   }
   if (!allowedMimeTypes.has(file.type.toLowerCase())) {
     throw new DomainError("Use a PNG, JPEG, WebP, or HEIC image.");
@@ -26,7 +27,7 @@ export async function sanitizeImage(file: File) {
   try {
     metadata = await sharp(input, {
       failOn: "error",
-      limitInputPixels: 40_000_000,
+      limitInputPixels: 100_000_000,
     }).metadata();
   } catch {
     throw new DomainError("Could not read that image. Try another file.");
@@ -38,7 +39,7 @@ export async function sanitizeImage(file: File) {
   try {
     const { data, info } = await sharp(input, {
       failOn: "error",
-      limitInputPixels: 40_000_000,
+      limitInputPixels: 100_000_000,
     })
       .rotate()
       .resize({

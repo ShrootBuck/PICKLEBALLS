@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const maxMediaCount = 6;
+export const maxPhotoBytes = 100 * 1024 * 1024;
 export const maxVideoBytes = 50 * 1024 * 1024;
 export const mediaIdsSchema = z
   .array(z.string().regex(/^[iv]_[a-f0-9-]{36}$/))
@@ -23,8 +24,8 @@ export const uploadTicketSchema = z
   .refine(
     (v) =>
       v.sizeBytes <=
-      (v.mimeType.startsWith("video/") ? maxVideoBytes : 4 * 1024 * 1024),
-    "Photo must be under 4 MB after resizing; video must be under 50 MB.",
+      (v.mimeType.startsWith("video/") ? maxVideoBytes : maxPhotoBytes),
+    "Photo must be at most 100 MB; video must be at most 50 MB.",
   );
 
 export function matchesVideo(data: Uint8Array, mimeType: string) {

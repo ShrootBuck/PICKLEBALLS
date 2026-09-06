@@ -1,34 +1,32 @@
-export const maxPhotoBytes = 20 * 1024 * 1024;
-export const maxPreparedPhotoBytes = 4 * 1024 * 1024;
+import { maxPhotoBytes } from "@/lib/media-policy";
 
 export async function prepareProofPhoto(file: File): Promise<File> {
-  if (file.size > maxPhotoBytes) throw new Error("Choose a photo under 20 MB.");
-  let bitmap: ImageBitmap;
+  if (file.size > maxPhotoBytes)
+    throw new Error("Choose a photo up to 100 MB.");
+  // Upload ordinary photos unchanged directly to object storage. Browser canvas
+  // encoding must never impose a smaller limit than the upload service.
+  if (!["image/heic", "image/heif"].includes(file.type)) return file;
+
+  // Convert HEIC when the browser can decode it, for server codec compatibility.
+  // JPEG is supported by Safari's canvas encoder; WebP can silently become PNG.
+  let bitmap: ImageBitmap | undefined;
   try {
     bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-  } catch {
-    // Some browsers cannot decode HEIC; the server may be able to.
-    if (file.size <= maxPreparedPhotoBytes) return file;
-    throw new Error(
-      "This browser cannot resize that photo. Export it as JPEG or choose a smaller image.",
-    );
-  }
-  try {
     const scale = Math.min(1, 2048 / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(bitmap.width * scale));
     canvas.height = Math.max(1, Math.round(bitmap.height * scale));
     const context = canvas.getContext("2d");
-    if (!context)
-      throw new Error("Could not prepare the photo. Try another browser.");
+    if (!context) return file;
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/webp", 0.86),
+      canvas.toBlob(resolve, "image/jpeg", 0.92),
     );
-    if (!blob || blob.size > maxPreparedPhotoBytes)
-      throw new Error("The photo is still too large. Choose a smaller image.");
-    return new File([blob], "proof.webp", { type: blob.type });
+    if (!blob || blob.size === 0 || blob.size > maxPhotoBytes) return file;
+    return new File([blob], "proof.jpg", { type: blob.type });
+  } catch {
+    return file;
   } finally {
-    bitmap.close();
+    bitmap?.close();
   }
 }

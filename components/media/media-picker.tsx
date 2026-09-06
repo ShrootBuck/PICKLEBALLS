@@ -4,7 +4,11 @@ import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { maxMediaCount, maxVideoBytes } from "@/lib/media-policy";
+import {
+  maxMediaCount,
+  maxPhotoBytes,
+  maxVideoBytes,
+} from "@/lib/media-policy";
 
 export function MediaPicker({
   files,
@@ -54,10 +58,10 @@ export function MediaPicker({
                 file.size >
                   (file.type.startsWith("video/")
                     ? maxVideoBytes
-                    : 20 * 1024 * 1024),
+                    : maxPhotoBytes),
             )
           ) {
-            setError("Photos: up to 20 MB. Videos: up to 50 MB.");
+            setError("Photos: up to 100 MB. Videos: up to 50 MB.");
             return;
           }
           setError("");
@@ -66,7 +70,7 @@ export function MediaPicker({
       />
       <FieldDescription id={`${id}-help`}>
         {error ||
-          "Up to 6 files. Photos: 20 MB, resized with location data removed. Videos: 50 MB (MP4, MOV, WebM)."}
+          "Up to 6 files. Photos: 100 MB, resized with location data removed. Videos: 50 MB (MP4, MOV, WebM)."}
       </FieldDescription>
       {files.length > 0 && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

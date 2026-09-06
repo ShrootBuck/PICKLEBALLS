@@ -19,7 +19,7 @@ export async function uploadMedia(
     });
     if (!input.success)
       throw new Error(
-        "Use JPEG, PNG, WebP, HEIC, MP4, MOV, or WebM. Videos must be under 50 MB.",
+        "Use JPEG, PNG, WebP, HEIC, MP4, MOV, or WebM. Photos must be at most 100 MB; videos at most 50 MB.",
       );
     const ticketResponse = await fetch("/api/media", {
       method: "POST",

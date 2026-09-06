@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { maxPhotoBytes } from "@/lib/proof-upload";
+import { maxPhotoBytes } from "@/lib/media-policy";
 import { cn } from "@/lib/utils";
 
 export function FileUpload({
@@ -14,7 +14,7 @@ export function FileUpload({
   required,
   onFileChange,
   label = "Proof photo",
-  description = "PNG, JPEG, WebP, HEIC, or HEIF. Maximum 6 MB.",
+  description = "PNG, JPEG, WebP, HEIC, or HEIF. Maximum 100 MB.",
   className,
 }: {
   id?: string;
@@ -50,7 +50,7 @@ export function FileUpload({
     ) {
       setError(
         file.size > maxPhotoBytes
-          ? "Choose a photo under 20 MB."
+          ? "Choose a photo up to 100 MB."
           : "Choose a JPEG, PNG, WebP, HEIC, or HEIF photo.",
       );
       clear();
