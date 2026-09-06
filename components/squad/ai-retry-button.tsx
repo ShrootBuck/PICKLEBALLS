@@ -1,7 +1,6 @@
 "use client";
 
 import { Bot } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 
 export function AiRetryButton({ proofId }: { proofId: string }) {
-  const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
   async function retry() {
@@ -26,10 +24,9 @@ export function AiRetryButton({ proofId }: { proofId: string }) {
       }
       toast.add({
         title:
-          "AI is reading it again. The board will update when it finishes.",
+          "AI is reading it again. Refresh your browser later to see the result.",
         type: "success",
       });
-      router.refresh();
     } catch {
       setError(true);
     } finally {

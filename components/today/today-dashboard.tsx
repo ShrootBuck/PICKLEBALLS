@@ -11,7 +11,6 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { MediaPicker } from "@/components/media/media-picker";
@@ -951,7 +950,6 @@ export function TodayDashboard({
 }) {
   // Show successful mutations immediately, then reconcile server props.
   // Circle/day keys prevent carrying another board’s state into this one.
-  const router = useRouter();
   const [allTasks, setTasks] = useState(initialTasks);
   const tasks = allTasks.filter((task) => task.day === day);
   useEffect(() => {
@@ -999,7 +997,6 @@ export function TodayDashboard({
           )
         : [...prev, { ...saved, proof: null }],
     );
-    router.refresh();
   }
 
   function handleProof(
@@ -1012,7 +1009,6 @@ export function TodayDashboard({
         item.id === taskId ? { ...item, proof, status } : item,
       ),
     );
-    router.refresh();
   }
 
   function handleCheckInPosted(
@@ -1021,7 +1017,6 @@ export function TodayDashboard({
   ) {
     setCheckIn(next);
     setCheckInHistory((prev) => [item, ...prev]);
-    router.refresh();
   }
 
   return (

@@ -8,6 +8,18 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788672902612,
+    title: "Browser refresh only",
+    description:
+      "Removed the in-app refresh button and all app-triggered page refreshes, including after saves, tab focus, reconnecting, and midnight. Successful actions still update local state where supported; reload with your browser to fetch fresh data.",
+  },
+  {
+    timestamp: 1788672868911,
+    title: "No more timed board refreshes",
+    description:
+      "Removed the automatic 15-second refresh. Use the refresh button when you want fresh data; existing updates after saves, returning to the tab, reconnecting, and midnight still work.",
+  },
+  {
     timestamp: 1788672530735,
     title: "Deep pink accents",
     description:

@@ -78,7 +78,6 @@ export function CirclesManager({
         setCurrent(body.id);
         form.reset();
         router.push("/");
-        router.refresh();
       }
     } catch {
       setError("Could not reach the server. Check your wifi and try again.");
@@ -104,7 +103,6 @@ export function CirclesManager({
       } else {
         setCurrent(circleId);
         router.push("/");
-        router.refresh();
       }
     } catch {
       setError("Could not reach the server. Check your wifi and try again.");

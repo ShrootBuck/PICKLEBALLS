@@ -1,7 +1,6 @@
 "use client";
 
 import { MessageCircle, Pencil, Send, Trash2, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { MediaGallery } from "@/components/media/media-gallery";
 import { MediaPicker } from "@/components/media/media-picker";
@@ -253,7 +252,6 @@ export function SocialReplyThread({
   currentUserId?: string;
   defaultExpanded?: boolean;
 }) {
-  const router = useRouter();
   const generatedId = useId();
   const threadId = `reply-thread-${generatedId.replaceAll(":", "")}`;
   const inputId = `${threadId}-input`;
@@ -363,7 +361,6 @@ export function SocialReplyThread({
       setBody("");
       setFiles([]);
       uploadedIds.current = null;
-      router.refresh();
     } catch (error) {
       setError(
         error instanceof Error ? error.message : "Could not post. Try again.",

@@ -33,7 +33,6 @@ export function JoinCircleButton({ token }: { token: string }) {
               setPending(false);
             } else {
               router.push("/");
-              router.refresh();
             }
           } catch {
             setError("Could not reach the server. Check your wifi.");

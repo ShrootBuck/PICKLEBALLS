@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { BoardSync } from "@/components/layout/board-sync";
 import { MidnightCountdown } from "@/components/today/midnight-countdown";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
@@ -25,7 +24,6 @@ export function SiteHeader({ bell }: { bell: ReactNode }) {
         {title}
       </span>
       <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5">
-        <BoardSync />
         {bell}
         <MidnightCountdown compact />
       </div>

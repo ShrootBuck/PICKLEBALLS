@@ -99,7 +99,6 @@ export function AppSidebar({
       if (!response.ok) throw new Error("Could not switch circles.");
       setOpenMobile(false);
       router.push("/");
-      router.refresh();
     } catch {
       toast.add({
         title: "Could not switch circles. Try again.",
@@ -308,7 +307,6 @@ export function AppSidebar({
                           fetchOptions: {
                             onSuccess: () => {
                               router.replace("/sign-in");
-                              router.refresh();
                             },
                           },
                         });

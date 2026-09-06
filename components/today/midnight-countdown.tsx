@@ -1,10 +1,8 @@
 "use client";
 
 import { Clock3 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "@/components/ui/toast";
 import { phoenixDateKey, phoenixDayDueAt } from "@/lib/time";
 
 function formatRemaining(ms: number) {
@@ -24,25 +22,15 @@ function getDueMs(now: Date) {
 }
 
 export function MidnightCountdown({ compact = false }: { compact?: boolean }) {
-  const router = useRouter();
   const [remaining, setRemaining] = useState<number | null>(null);
-  const rolledDay = useRef<string | null>(null);
 
   useEffect(() => {
     let id: number;
     const tick = () => {
       window.clearTimeout(id);
       const now = new Date();
-      const key = phoenixDateKey(now);
       const ms = getDueMs(now);
       setRemaining(ms);
-      if (rolledDay.current !== null && rolledDay.current !== key) {
-        // At midnight Phoenix time the board rolls. Soft-refresh so drafts
-        // and scroll survive instead of a hard reload.
-        router.refresh();
-        toast.add({ title: "New day — board rolled.", type: "success" });
-      }
-      rolledDay.current = key;
       // Re-align every tick so delayed callbacks never accumulate clock drift.
       id = window.setTimeout(tick, 1000 - (Date.now() % 1000));
     };
@@ -52,7 +40,7 @@ export function MidnightCountdown({ compact = false }: { compact?: boolean }) {
       window.clearTimeout(id);
       document.removeEventListener("visibilitychange", tick);
     };
-  }, [router]);
+  }, []);
 
   const label =
     remaining === null
