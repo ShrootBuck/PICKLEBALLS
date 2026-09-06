@@ -3,7 +3,13 @@ import { ScrollText } from "lucide-react";
 import type { Metadata } from "next";
 import { ChangelogMarkdown } from "@/components/changelog-markdown";
 import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Empty,
   EmptyDescription,
@@ -19,6 +25,13 @@ export const metadata: Metadata = { title: "Changelog" };
 // America/Phoenix renders identically on server and client with no hydration
 // mismatch and no 24h-arithmetic edge cases.
 const TIME_ZONE = "America/Phoenix";
+
+const timeLabel = new Intl.DateTimeFormat("en-US", {
+  timeZone: TIME_ZONE,
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
 
 const dayParts = new Intl.DateTimeFormat("en-US", {
   timeZone: TIME_ZONE,
@@ -78,7 +91,7 @@ export default function ChangelogPage() {
     <>
       <PageHeader
         title="Changelog"
-        description="What changed and when. No surprises."
+        description="Every change, newest first. All times are Phoenix time (MST)."
       />
       {groups.length === 0 ? (
         <Empty>
@@ -93,8 +106,6 @@ export default function ChangelogPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        // Day groups breathe apart; entries within a day stack tight, so a
-        // burst of pushes reads as one busy day instead of scattered cards.
         <div className="flex flex-col gap-8">
           {groups.map((group) => (
             <section key={group.key} aria-label={group.label}>
@@ -104,10 +115,17 @@ export default function ChangelogPage() {
                 </h2>
                 <div aria-hidden="true" className="h-px flex-1 bg-border" />
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-4">
                 {group.entries.map((entry) => (
                   <Card key={`${entry.timestamp}-${entry.title}`} size="sm">
                     <CardHeader>
+                      <CardDescription>
+                        <time
+                          dateTime={new Date(entry.timestamp).toISOString()}
+                        >
+                          {timeLabel.format(entry.timestamp)}
+                        </time>
+                      </CardDescription>
                       <CardTitle className="break-words">
                         {entry.title}
                       </CardTitle>

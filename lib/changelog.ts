@@ -1,5 +1,5 @@
 export type ChangelogEntry = {
-  // Milliseconds since the Unix epoch (Date.now()). Day grouping and labels
+  // Milliseconds since the Unix epoch (Date.now()). Day grouping and time labels
   // are derived at render time, so entries never carry display strings.
   timestamp: number;
   title: string;
@@ -7,6 +7,12 @@ export type ChangelogEntry = {
 };
 
 export const changelogEntries: ChangelogEntry[] = [
+  {
+    timestamp: 1788672989474,
+    title: "A time for every change",
+    description:
+      "Every changelog entry now shows its own time in Phoenix time (MST), with more space between updates so changes made throughout the day are easy to distinguish.",
+  },
   {
     timestamp: 1788672902612,
     title: "Browser refresh only",
