@@ -2,6 +2,7 @@ import type { ProofCardData } from "@/components/squad/proof-card";
 import type { ThreadReply } from "@/components/squad/social-reply-thread";
 
 export type ReplyRow = {
+  mediaIds?: string[];
   id: string;
   body: string;
   createdAt: Date;
@@ -17,6 +18,7 @@ export type ReplyRow = {
 export function toThreadReply(reply: ReplyRow): ThreadReply {
   return {
     id: reply.id,
+    mediaIds: reply.mediaIds,
     body: reply.body,
     createdAt: reply.createdAt.toISOString(),
     updatedAt: reply.updatedAt.toISOString(),
@@ -25,6 +27,7 @@ export function toThreadReply(reply: ReplyRow): ThreadReply {
 }
 
 export type ProofRow = {
+  mediaIds?: string[];
   id: string;
   ownerNote: string | null;
   isLate: boolean;
@@ -73,6 +76,7 @@ export function toProofCard(
     ) ?? null;
   return {
     id: proof.id,
+    mediaIds: proof.mediaIds,
     title: proof.commitment.title,
     definitionOfDone: proof.commitment.definitionOfDone,
     ownerName: proof.owner.name,

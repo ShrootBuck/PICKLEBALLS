@@ -1,9 +1,13 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import { Prisma } from "@/generated/prisma/client";
 import { DomainError } from "@/lib/errors";
 import { sanitizeImage } from "@/lib/image";
+import { claimMedia } from "@/lib/media";
+import { mediaIdsSchema } from "@/lib/media-policy";
 import { getPrisma } from "@/lib/prisma";
+import { putMedia } from "@/lib/r2";
 import { commitmentInputSchema, proofReviewSchema } from "@/lib/schemas";
 import {
   canEditTask,
@@ -166,7 +170,7 @@ export async function submitProof(
   taskId: string,
   userId: string,
   circleId: string,
-  file: File,
+  file: File | string[],
   ownerNote: string | null,
   startedAt: Date,
   completedAt: Date,
@@ -187,7 +191,15 @@ export async function submitProof(
   if (completedAt.getTime() - startedAt.getTime() > 24 * 60 * 60 * 1000) {
     throw new DomainError("Keep one task block under 24 hours.");
   }
-  const image = await sanitizeImage(file);
+  const mediaIds = Array.isArray(file) ? file : [];
+  if (
+    Array.isArray(file) &&
+    (!file.length || !mediaIdsSchema.safeParse(file).success)
+  )
+    throw new DomainError("Attach a photo or video.");
+  const image = file instanceof File ? await sanitizeImage(file) : null;
+  const objectKey = image ? `proofs/${randomUUID()}` : null;
+  if (image && objectKey) await putMedia(objectKey, image.data, image.mimeType);
 
   return serializable(async (transaction) => {
     const task = await transaction.commitment.findFirst({
@@ -228,9 +240,13 @@ export async function submitProof(
         startedAt,
         completedAt,
         isLate: isLateProof(task.dueAt, now),
-        image: { create: image },
+        mediaIds,
+        ...(image && objectKey
+          ? { image: { create: { ...image, data: null, objectKey } } }
+          : {}),
       },
     });
+    await claimMedia(transaction, mediaIds, userId, circleId);
     if (currentProof) {
       await transaction.taskProof.update({
         where: { id: currentProof.id },

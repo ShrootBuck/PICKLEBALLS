@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { mediaIdsSchema } from "@/lib/media-policy";
 import { isPushEndpoint } from "@/lib/push-endpoint";
 
 export const commitmentInputSchema = z.object({
@@ -11,11 +12,17 @@ export const checkInSchema = z.object({
   blocker: z.string().trim().max(500).optional(),
 });
 
-export const socialReplySchema = z.object({
-  targetType: z.enum(["COMMITMENT", "CHECK_IN", "PROOF", "REVIEW"]),
-  targetId: z.string().trim().min(1).max(100),
-  body: z.string().trim().min(1).max(500),
-});
+export const socialReplySchema = z
+  .object({
+    targetType: z.enum(["COMMITMENT", "CHECK_IN", "PROOF", "REVIEW"]),
+    targetId: z.string().trim().min(1).max(100),
+    body: z.string().trim().max(500),
+    mediaIds: mediaIdsSchema.default([]),
+  })
+  .refine(
+    (v) => v.body.length > 0 || v.mediaIds.length > 0,
+    "Write a reply or attach media.",
+  );
 
 export const replyEditSchema = z.object({
   body: z.string().trim().min(1).max(500),

@@ -242,6 +242,7 @@ model Commitment {
 }
 
 model TaskProof {
+  mediaIds String[] @default([])
   id                 String             @id @default(cuid())
   commitmentId       String
   ownerId            String
@@ -277,7 +278,8 @@ model TaskProof {
 
 model TaskProofImage {
   proofId   String   @id
-  data      Bytes    @db.ByteA
+  data      Bytes?   @db.ByteA
+  objectKey String?
   mimeType  String
   sizeBytes Int
   width     Int
@@ -346,6 +348,7 @@ model CheckInUpdate {
 }
 
 model SocialReply {
+  mediaIds String[] @default([])
   id           String   @id @default(cuid())
   authorId     String
   circleId     String
@@ -463,4 +466,18 @@ model NotificationPreference {
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Upload tickets are private until finalized and claimed by a post.
+model MediaUpload {
+  id String @id
+  ownerId String
+  circleId String
+  mimeType String
+  sizeBytes Int
+  objectKey String @unique
+  ready Boolean @default(false)
+  claimed Boolean @default(false)
+  createdAt DateTime @default(now())
+  @@index([ownerId, circleId])
 }

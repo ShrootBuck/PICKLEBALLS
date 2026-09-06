@@ -91,8 +91,7 @@ self.addEventListener("fetch", (event) => {
     url.origin === self.location.origin &&
     /^\/api\/proofs\/[^/]+\/image$/.test(url.pathname);
   const isAvatar =
-    event.request.destination === "image" &&
-    ["cdn.discordapp.com", "fav.farm"].includes(url.hostname);
+    url.origin === self.location.origin && url.pathname === "/api/avatar";
   if (event.request.method !== "GET" || (!isProof && !isAvatar)) return;
   event.respondWith(
     (async () => {

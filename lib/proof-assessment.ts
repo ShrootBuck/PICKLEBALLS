@@ -2,6 +2,7 @@ import "server-only";
 
 import { assessTaskProof } from "@/lib/ai";
 import { getPrisma } from "@/lib/prisma";
+import { getMediaBytes } from "@/lib/r2";
 
 export async function runProofAssessment(
   proofId: string,
@@ -13,7 +14,29 @@ export async function runProofAssessment(
       where: { id: proofId, circleId },
       include: { image: true, commitment: true },
     });
-    if (!proof?.image) throw new Error("Proof image unavailable.");
+    if (!proof) throw new Error("Proof unavailable.");
+    // The image assessor cannot inspect video. Make that limitation explicit.
+    const firstImage = proof.mediaIds.find((id) => id.startsWith("i_"));
+    const media = firstImage
+      ? await getPrisma().mediaUpload.findUnique({ where: { id: firstImage } })
+      : null;
+    const data = media
+      ? await getMediaBytes(media.objectKey)
+      : proof.image?.objectKey
+        ? await getMediaBytes(proof.image.objectKey)
+        : proof.image?.data;
+    if (!data) {
+      await getPrisma().taskProof.update({
+        where: { id: proofId },
+        data: {
+          aiStatus: "SUCCEEDED",
+          aiUncertainty:
+            "Video proof needs human review; AI has not watched this video.",
+          aiOneLiner: "Video attached — ask a squad member to review.",
+        },
+      });
+      return;
+    }
     const assessment = await assessTaskProof(
       userId,
       circleId,
@@ -22,7 +45,10 @@ export async function runProofAssessment(
         definitionOfDone: proof.commitment.definitionOfDone,
         ownerNote: proof.ownerNote,
       },
-      { data: proof.image.data, mimeType: proof.image.mimeType },
+      {
+        data,
+        mimeType: media?.mimeType ?? proof.image?.mimeType ?? "image/webp",
+      },
     );
     await getPrisma().taskProof.update({
       where: { id: proofId },

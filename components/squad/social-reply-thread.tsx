@@ -3,6 +3,8 @@
 import { MessageCircle, Pencil, Send, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
+import { MediaGallery } from "@/components/media/media-gallery";
+import { MediaPicker } from "@/components/media/media-picker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,10 +15,12 @@ import {
 } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { uploadMedia } from "@/lib/media-upload";
 import { formatReplyTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 export type ThreadReply = {
+  mediaIds?: string[];
   id: string;
   body: string;
   createdAt: string;
@@ -225,6 +229,7 @@ function ReplyItem({
             {reply.body}
           </p>
         )}
+        {reply.mediaIds?.length ? <MediaGallery ids={reply.mediaIds} /> : null}
         {error && !editing ? (
           <p className="mt-1 text-xs text-destructive">{error}</p>
         ) : null}
@@ -272,6 +277,9 @@ export function SocialReplyThread({
     if (fresh.length < 50) setHasMore(false);
   }, [initialReplies]);
   const [body, setBody] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploadStatus, setUploadStatus] = useState("");
+  const uploadedIds = useRef<string[] | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -323,15 +331,24 @@ export function SocialReplyThread({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedBody = body.trim();
-    if (!trimmedBody || pending) return;
+    if ((!trimmedBody && !files.length) || pending) return;
 
     setPending(true);
     setError(null);
     try {
+      const mediaIds =
+        uploadedIds.current ??
+        (files.length ? await uploadMedia(files, setUploadStatus) : []);
+      uploadedIds.current = mediaIds;
       const response = await fetch("/api/replies", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ targetType, targetId, body: trimmedBody }),
+        body: JSON.stringify({
+          targetType,
+          targetId,
+          body: trimmedBody,
+          mediaIds,
+        }),
       });
       const result = (await response.json()) as {
         reply?: SocialReply;
@@ -344,9 +361,13 @@ export function SocialReplyThread({
 
       setReplies((current) => [...current, result.reply as SocialReply]);
       setBody("");
+      setFiles([]);
+      uploadedIds.current = null;
       router.refresh();
-    } catch {
-      setError("Could not post. Check your wifi and try again.");
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Could not post. Try again.",
+      );
     } finally {
       setPending(false);
     }
@@ -453,6 +474,19 @@ export function SocialReplyThread({
                 />
                 <FieldError>{error}</FieldError>
               </Field>
+              <MediaPicker
+                files={files}
+                onChange={(next) => {
+                  setFiles(next);
+                  uploadedIds.current = null;
+                }}
+                disabled={pending}
+              />
+              {pending && uploadStatus ? (
+                <output className="text-xs text-muted-foreground">
+                  {uploadStatus}
+                </output>
+              ) : null}
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] text-muted-foreground tabular-nums">
                   {body.trim().length}/500
@@ -460,7 +494,9 @@ export function SocialReplyThread({
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={pending || body.trim().length === 0}
+                  disabled={
+                    pending || (body.trim().length === 0 && files.length === 0)
+                  }
                 >
                   {pending ? (
                     <Spinner data-icon="inline-start" />

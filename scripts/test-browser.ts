@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:net";
 import { seedBrowserData, testSecret } from "../tests/browser/seed";
+import { startTestStorage } from "../tests/browser/storage";
 
 function command(cmd: string, args: string[]) {
   const result = spawnSync(cmd, args, { encoding: "utf8", env: process.env });
@@ -26,6 +27,7 @@ async function freePort() {
 // Never accepts an existing database URL. Each invocation owns exactly one
 // fresh Docker container; cleanup can only remove that container.
 const container = `pickleballs-browser-${randomUUID().slice(0, 8)}`;
+let storage: Awaited<ReturnType<typeof startTestStorage>> | undefined;
 let created = false;
 let server: ReturnType<typeof spawn> | undefined;
 let cleaned = false;
@@ -33,6 +35,7 @@ function cleanup() {
   if (cleaned) return;
   cleaned = true;
   server?.kill("SIGTERM");
+  storage?.close();
   if (created)
     spawnSync("docker", ["rm", "-f", "-v", container], { stdio: "ignore" });
 }
@@ -66,7 +69,13 @@ try {
     .at(-1);
   const appPort = await freePort();
   const baseURL = `http://localhost:${appPort}`;
+  storage = await startTestStorage();
   Object.assign(process.env, {
+    PB_TEST_R2_ENDPOINT: storage.endpoint,
+    R2_ACCOUNT_ID: "test-account",
+    R2_ACCESS_KEY_ID: "test-access",
+    R2_SECRET_ACCESS_KEY: "test-secret",
+    R2_BUCKET: "test-media",
     DATABASE_URL: `postgres://postgres:browser-fixtures-only@127.0.0.1:${dbPort}/pickleballs_audit_test?sslmode=disable`,
     DIRECT_DATABASE_URL: "",
     SHADOW_DATABASE_URL: "",

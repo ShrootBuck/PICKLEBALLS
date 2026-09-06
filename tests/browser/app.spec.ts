@@ -547,7 +547,7 @@ test("mobile navigation closes and upload errors keep the form usable", async ({
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Post proof" }).click();
   await expect(
-    dialog.getByText("Attach a photo first. Words are cheap."),
+    dialog.getByText("Attach a photo or video first."),
   ).toBeVisible();
   await dialog.screenshot({
     path: "test-results/audit/upload-dialog-mobile.png",
@@ -850,9 +850,17 @@ test("a phone photo uploads through the form and challenged proof can be replace
       where: { commitmentId: id },
       include: { image: true },
     });
-    expect(proof.image?.width).toBe(2048);
-    expect(proof.image?.height).toBe(1536);
-    expect(proof.image?.mimeType).toBe("image/webp");
+    expect(proof.image).toBeNull();
+    expect(proof.mediaIds).toHaveLength(1);
+    const media = await db.mediaUpload.findUniqueOrThrow({
+      where: { id: proof.mediaIds[0] },
+    });
+    expect(media.mimeType).toBe("image/webp");
+    const downloaded = await context.request.get(`/api/media/${media.id}`);
+    expect(downloaded.status()).toBe(200);
+    const metadata = await sharp(await downloaded.body()).metadata();
+    expect(metadata.width).toBe(2048);
+    expect(metadata.height).toBe(1536);
     const sam = await signedIn(browser, "sam");
     expect(
       (
@@ -1002,5 +1010,194 @@ test("countdown changes on system second boundaries", async ({ browser }) => {
   await expect(timer).toHaveText(initial);
   await page.clock.runFor(1);
   await expect(timer).not.toHaveText(initial);
+  await context.close();
+});
+
+test("media replies enforce ownership, survive refresh, and revoke deleted access", async ({
+  browser,
+}) => {
+  const alex = await signedIn(browser, "alex");
+  const sam = await signedIn(browser, "sam");
+  const outsider = await signedIn(browser, "outsider", otherCircleId);
+  const buffer = await sharp({
+    create: { width: 40, height: 30, channels: 3, background: "green" },
+  })
+    .png()
+    .toBuffer();
+  const start = await alex.request.post("/api/media", {
+    headers: origin(),
+    data: { mimeType: "image/png", sizeBytes: buffer.length },
+  });
+  expect(start.status()).toBe(200);
+  const ticket = await start.json();
+  expect(
+    (
+      await alex.request.put(ticket.url, {
+        data: buffer,
+        headers: { "content-type": "image/png" },
+      })
+    ).status(),
+  ).toBe(200);
+  expect(
+    (
+      await sam.request.post(`/api/media/${ticket.id}`, { headers: origin() })
+    ).status(),
+  ).toBe(404);
+  expect(
+    (
+      await alex.request.post(`/api/media/${ticket.id}`, { headers: origin() })
+    ).status(),
+  ).toBe(200);
+  expect((await alex.request.get(`/api/media/${ticket.id}`)).status()).toBe(
+    404,
+  );
+  const replyData = {
+    targetType: "COMMITMENT",
+    targetId: "open-task",
+    body: "",
+    mediaIds: [ticket.id],
+  };
+  expect(
+    (
+      await sam.request.post("/api/replies", {
+        headers: origin(),
+        data: replyData,
+      })
+    ).status(),
+  ).toBe(409);
+  // A target failure rolls attachment claims back, so a retry can succeed.
+  expect(
+    (
+      await alex.request.post("/api/replies", {
+        headers: origin(),
+        data: { ...replyData, targetId: "missing" },
+      })
+    ).status(),
+  ).toBe(404);
+  const posted = await alex.request.post("/api/replies", {
+    headers: origin(),
+    data: replyData,
+  });
+  expect(posted.status(), await posted.text()).toBe(201);
+  const { reply } = await posted.json();
+  expect((await sam.request.get(`/api/media/${ticket.id}`)).status()).toBe(200);
+  expect((await outsider.request.get(`/api/media/${ticket.id}`)).status()).toBe(
+    404,
+  );
+  expect(
+    (
+      await alex.request.post("/api/replies", {
+        headers: origin(),
+        data: replyData,
+      })
+    ).status(),
+  ).toBe(409);
+  const page = await alex.newPage();
+  await page.goto("/squad");
+  await page.getByRole("tab", { name: "Board", exact: true }).click();
+  const thread = page.locator("#thread-open-task");
+  await thread.getByRole("button", { name: "Reply", exact: true }).click();
+  await expect(
+    thread.locator(`img[src="/api/media/${ticket.id}"]`),
+  ).toBeVisible();
+  await page.reload();
+  await page.getByRole("tab", { name: "Board", exact: true }).click();
+  await page
+    .locator("#thread-open-task")
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  await expect(
+    page.locator(`img[src="/api/media/${ticket.id}"]`),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "test-results/media-reply.png",
+    fullPage: true,
+  });
+  expect(
+    (
+      await alex.request.delete(`/api/replies/${reply.id}`, {
+        headers: origin(),
+      })
+    ).status(),
+  ).toBe(200);
+  expect((await sam.request.get(`/api/media/${ticket.id}`)).status()).toBe(404);
+  await Promise.all([alex.close(), sam.close(), outsider.close()]);
+});
+
+test("multiple photos and video post through the reply composer", async ({
+  browser,
+}) => {
+  const context = await signedIn(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/squad");
+  await page.getByRole("tab", { name: "Board", exact: true }).click();
+  const thread = page.locator("#thread-open-task");
+  await thread.getByRole("button", { name: "Reply", exact: true }).click();
+  const photo = await sharp({
+    create: { width: 30, height: 40, channels: 3, background: "blue" },
+  })
+    .png()
+    .toBuffer();
+  await thread.locator('input[type="file"]').setInputFiles([
+    { name: "one.png", mimeType: "image/png", buffer: photo },
+    { name: "two.png", mimeType: "image/png", buffer: photo },
+  ]);
+  await thread
+    .locator('input[type="file"]')
+    .setInputFiles("tests/fixtures/proof.webm");
+  await expect(thread.getByRole("button", { name: /Remove / })).toHaveCount(3);
+  await thread
+    .locator("form")
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  await expect(thread.locator('img[src^="/api/media/"]')).toHaveCount(2);
+  const video = thread.locator('video[src^="/api/media/"]');
+  await expect(video).toHaveCount(1);
+  await expect
+    .poll(() =>
+      video.evaluate((element: HTMLVideoElement) => element.readyState),
+    )
+    .toBeGreaterThanOrEqual(1);
+  await page.screenshot({
+    path: "test-results/media-mobile.png",
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await context.close();
+});
+
+test("Discord avatars load through the app even when browser blocks Discord", async ({
+  browser,
+}) => {
+  const db = testPrisma();
+  await db.user.update({
+    where: { id: "sam" },
+    data: { image: "https://cdn.discordapp.com/embed/avatars/0.png" },
+  });
+  await db.$disconnect();
+  const context = await signedIn(browser);
+  await context.route("https://cdn.discordapp.com/**", (route) =>
+    route.abort(),
+  );
+  const page = await context.newPage();
+  await page.goto("/squad");
+  await page.getByRole("tab", { name: "Board", exact: true }).click();
+  const avatar = page
+    .locator('img[data-slot="avatar-image"][src^="/api/avatar?"]')
+    .first();
+  await expect(avatar).toBeVisible();
+  expect(
+    await avatar.evaluate((image: HTMLImageElement) => image.naturalWidth),
+  ).toBeGreaterThan(0);
+  expect(
+    (
+      await context.request.get("/api/avatar?src=http://127.0.0.1/private")
+    ).status(),
+  ).toBe(400);
   await context.close();
 });

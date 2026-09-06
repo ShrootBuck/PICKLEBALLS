@@ -8,6 +8,18 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788669118688,
+    title: "Profile pictures load reliably",
+    description:
+      "Discord profile pictures now load through the app, so browser privacy filters and background caching no longer need to contact Discord directly. Existing avatar URLs keep working without signing in again.",
+  },
+  {
+    timestamp: 1788650480818,
+    title: "Photos and videos in replies and proof",
+    description:
+      "Attach up to six photos or videos to replies and task proof, preview them before posting, and reply with just an image. Media storage now supports private Cloudflare R2 uploads, with a verified migration path for existing proof photos. Video proof goes to squad members for review; AI does not watch videos.",
+  },
+  {
     timestamp: 1788634180194,
     title: "Fresh days and tighter boards",
     description:

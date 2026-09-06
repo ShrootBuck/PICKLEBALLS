@@ -1,5 +1,5 @@
 import { after, NextResponse } from "next/server";
-import { jsonError } from "@/lib/api";
+import { jsonError, readJson } from "@/lib/api";
 import { notifyProofSubmitted } from "@/lib/notifications";
 import { runProofAssessment } from "@/lib/proof-assessment";
 import { limitAction } from "@/lib/rate-limit";
@@ -23,20 +23,43 @@ export async function POST(
   try {
     await limitAction(auth.session.user.id, "uploads", 30, 600_000);
     const { id } = await context.params;
-    const bytes = await readBoundedBody(request, 4 * 1024 * 1024 + 64 * 1024);
+    const isJson = request.headers
+      .get("content-type")
+      ?.includes("application/json");
+    let input: Record<string, unknown> = {};
+    if (isJson) {
+      const value = await readJson(request);
+      if (!value || typeof value !== "object" || Array.isArray(value))
+        return NextResponse.json({ error: "Invalid proof." }, { status: 400 });
+      input = value as Record<string, unknown>;
+    }
+    const bytes = isJson
+      ? new Uint8Array()
+      : await readBoundedBody(request, 4 * 1024 * 1024 + 64 * 1024);
     let form: FormData;
     try {
-      form = await new Response(bytes, {
-        headers: { "content-type": request.headers.get("content-type") ?? "" },
-      }).formData();
+      form = isJson
+        ? new FormData()
+        : await new Response(bytes, {
+            headers: {
+              "content-type": request.headers.get("content-type") ?? "",
+            },
+          }).formData();
     } catch {
       return NextResponse.json(
         { error: "Invalid photo upload. Try choosing the file again." },
         { status: 400 },
       );
     }
-    const file = form.get("image");
-    if (!(file instanceof File))
+    const file = isJson ? input.mediaIds : form.get("image");
+    if (
+      !(file instanceof File) &&
+      !(
+        Array.isArray(file) &&
+        file.length > 0 &&
+        file.every((id) => typeof id === "string")
+      )
+    )
       return NextResponse.json(
         { error: "Attach a proof photo." },
         { status: 400 },
@@ -44,14 +67,19 @@ export async function POST(
     // Cap before trim so a multi-MB note never gets fully materialized
     // into a string that Zod just rejects anyway.
     const note =
-      String(form.get("note") ?? "")
+      String((isJson ? input.note : form.get("note")) ?? "")
         .slice(0, 5000)
         .trim() || null;
     const startedAt = parsePhoenixLocalDateTime(
-      String(form.get("startedAt") ?? "").slice(0, 40),
+      String((isJson ? input.startedAt : form.get("startedAt")) ?? "").slice(
+        0,
+        40,
+      ),
     );
     const completedAt = parsePhoenixLocalDateTime(
-      String(form.get("completedAt") ?? "").slice(0, 40),
+      String(
+        (isJson ? input.completedAt : form.get("completedAt")) ?? "",
+      ).slice(0, 40),
     );
     if (!startedAt || !completedAt) {
       return NextResponse.json(
@@ -63,7 +91,7 @@ export async function POST(
       id,
       auth.session.user.id,
       auth.membership.circleId,
-      file,
+      file as File | string[],
       note,
       startedAt,
       completedAt,

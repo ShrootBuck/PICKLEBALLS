@@ -12,8 +12,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
+import { MediaPicker } from "@/components/media/media-picker";
 import {
   SocialReplyThread,
   type ThreadReply,
@@ -47,7 +48,6 @@ import {
   FieldLabel,
   FieldTitle,
 } from "@/components/ui/field";
-import { FileUpload } from "@/components/ui/file-upload";
 import { Input } from "@/components/ui/input";
 import {
   Item,
@@ -63,7 +63,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { prepareProofPhoto } from "@/lib/proof-upload";
+import { uploadMedia } from "@/lib/media-upload";
 import {
   formatDayLong,
   formatDayShort,
@@ -431,6 +431,9 @@ function ProofDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploadStatus, setUploadStatus] = useState("");
+  const uploadedIds = useRef<string[] | null>(null);
   const [confirmEmpty, setConfirmEmpty] = useState(false);
   const [startedAt, setStartedAt] = useState(() =>
     phoenixLocalDateTimeValue(new Date(Date.now() - 30 * 60 * 1000)),
@@ -445,9 +448,8 @@ function ProofDialog({
     event.preventDefault();
     if (pending) return;
     const formData = new FormData(event.currentTarget);
-    const file = formData.get("image");
-    if (!(file instanceof File) || file.size === 0) {
-      setError("Attach a photo first. Words are cheap.");
+    if (files.length === 0) {
+      setError("Attach a photo or video first.");
       return;
     }
     const description = formData.get("note")?.toString().trim();
@@ -458,12 +460,20 @@ function ProofDialog({
     setPending(true);
     setError(null);
     try {
-      formData.set("image", await prepareProofPhoto(file));
+      const mediaIds =
+        uploadedIds.current ?? (await uploadMedia(files, setUploadStatus));
+      uploadedIds.current = mediaIds;
       const response = await fetch(`/api/commitments/${task.id}/proof`, {
         method: "POST",
         // Reuse the FormData captured above: the React synthetic event's
         // currentTarget can be detached after the setPending re-render.
-        body: formData,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mediaIds,
+          note: formData.get("note"),
+          startedAt: formData.get("startedAt"),
+          completedAt: formData.get("completedAt"),
+        }),
       });
       if (!response.ok) {
         setError(await readError(response));
@@ -503,6 +513,8 @@ function ProofDialog({
       setNote("");
       setConfirmEmpty(false);
       setFormKey((key) => key + 1);
+      setFiles([]);
+      uploadedIds.current = null;
     } catch (error) {
       setError(
         error instanceof Error && error.name !== "TypeError"
@@ -528,6 +540,8 @@ function ProofDialog({
       setNote("");
       setConfirmEmpty(false);
       setFormKey((key) => key + 1);
+      setFiles([]);
+      uploadedIds.current = null;
     }
   };
 
@@ -546,7 +560,7 @@ function ProofDialog({
               Prove it: {task.title}
             </DialogTitle>
             <DialogDescription>
-              Photo or it did not happen. Blurry pics get challenged.
+              Show what you did. Add photos or a video for your squad to review.
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="min-h-0 flex-1">
@@ -557,12 +571,20 @@ function ProofDialog({
               className="flex flex-col gap-4 p-4 sm:p-6"
             >
               <FieldGroup>
-                <FileUpload
-                  id={`proof-${task.id}`}
-                  label="Proof photo"
-                  description="Photos up to 20 MB are resized before upload. JPEG, PNG, WebP, or supported HEIC. Location data is removed."
+                <MediaPicker
+                  files={files}
+                  onChange={(next) => {
+                    setFiles(next);
+                    uploadedIds.current = null;
+                  }}
+                  disabled={pending}
                   required
                 />
+                {pending && uploadStatus ? (
+                  <output className="text-sm text-muted-foreground">
+                    {uploadStatus}
+                  </output>
+                ) : null}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
                     <FieldLabel htmlFor={`proof-started-${task.id}`}>

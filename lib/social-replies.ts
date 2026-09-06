@@ -1,6 +1,7 @@
 import "server-only";
 
 import { DomainError } from "@/lib/errors";
+import { claimMedia } from "@/lib/media";
 import { getPrisma } from "@/lib/prisma";
 import { replyEditSchema, socialReplySchema } from "@/lib/schemas";
 import { canEditReply } from "@/lib/task-policy";
@@ -24,9 +25,10 @@ export async function createSocialReply(
     throw new DomainError("Write a reply between 1 and 500 characters.");
   }
 
-  const { targetType, targetId, body } = parsed.data;
+  const { targetType, targetId, body, mediaIds } = parsed.data;
 
   return getPrisma().$transaction(async (transaction) => {
+    await claimMedia(transaction, mediaIds, authorId, circleId);
     if (targetType === "COMMITMENT") {
       const task = await transaction.commitment.findFirst({
         where: { id: targetId, circleId },
@@ -40,6 +42,7 @@ export async function createSocialReply(
           circleId,
           commitmentId: task.id,
           body,
+          mediaIds,
         },
         include: { author: { select: authorSelect } },
       });
@@ -69,6 +72,7 @@ export async function createSocialReply(
           circleId,
           checkInId: checkIn.id,
           body,
+          mediaIds,
         },
         include: { author: { select: authorSelect } },
       });
@@ -102,6 +106,7 @@ export async function createSocialReply(
           circleId,
           proofId: proof.id,
           body,
+          mediaIds,
         },
         include: { author: { select: authorSelect } },
       });
@@ -137,6 +142,7 @@ export async function createSocialReply(
         circleId,
         reviewId: review.id,
         body,
+        mediaIds,
       },
       include: { author: { select: authorSelect } },
     });

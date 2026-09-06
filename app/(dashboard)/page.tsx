@@ -131,6 +131,7 @@ export default async function TodayPage() {
                 replies: review.replies.map((reply) => ({
                   id: reply.id,
                   body: reply.body,
+                  mediaIds: reply.mediaIds,
                   createdAt: reply.createdAt.toISOString(),
                   updatedAt: reply.updatedAt.toISOString(),
                   author: reply.author,

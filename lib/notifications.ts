@@ -172,7 +172,7 @@ export async function notifyReplyReceived(input: {
   if (!reply || reply.authorId !== input.authorId) return [];
 
   const authorName = reply.author.name;
-  const preview = snippet(reply.body);
+  const preview = snippet(reply.body || "Sent an attachment");
   const jobs: Array<{
     recipientId: string;
     context: string;

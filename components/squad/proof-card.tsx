@@ -1,4 +1,5 @@
 import { Bot } from "lucide-react";
+import { MediaGallery } from "@/components/media/media-gallery";
 import { AiRetryButton } from "@/components/squad/ai-retry-button";
 import { ProofImageViewer } from "@/components/squad/proof-image-viewer";
 import { ReviewProof } from "@/components/squad/review-proof";
@@ -37,6 +38,7 @@ export type ProofReview = {
 };
 
 export type ProofCardData = {
+  mediaIds?: string[];
   id: string;
   title: string;
   definitionOfDone: string;
@@ -110,11 +112,17 @@ export function ProofCard({
             : "flex-col md:flex-row",
         )}
       >
-        <ProofImageViewer
-          proofId={proof.id}
-          title={proof.title}
-          compact={compact}
-        />
+        {proof.mediaIds?.length ? (
+          <div className="w-full shrink-0 md:w-80">
+            <MediaGallery ids={proof.mediaIds} />
+          </div>
+        ) : (
+          <ProofImageViewer
+            proofId={proof.id}
+            title={proof.title}
+            compact={compact}
+          />
+        )}
         <div className="flex min-w-0 flex-1 flex-col">
           <CardHeader className={cn("py-3", compact && "sm:pr-3")}>
             <CardTitle className="leading-snug">{proof.title}</CardTitle>
