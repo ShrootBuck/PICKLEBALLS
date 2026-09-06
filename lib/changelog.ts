@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788673334475,
+    title: "After dark, with clearer choices",
+    description:
+      "A charcoal theme now covers every screen, menu, dialog, and installed-app launch, with brighter pink accents and more readable text, borders, and form fields. Selected status buttons have a solid pink fill and a checkmark; tabs, sidebar links, dropdown options, and calendar dates keep distinct selected and hover states. Notification counts have higher contrast, modal backdrops dim the page, and changelog code blocks use dark syntax colors.",
+  },
+  {
     timestamp: 1788672989474,
     title: "A time for every change",
     description:

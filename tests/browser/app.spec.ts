@@ -90,6 +90,7 @@ async function assertNoOverflow(
   const response = await page.goto(route);
   expect(response?.ok(), route).toBe(true);
   await expect(page.locator("main")).toBeVisible();
+  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: /Something broke|App crashed/ }),
   ).toHaveCount(0);
@@ -98,7 +99,10 @@ async function assertNoOverflow(
     width: innerWidth,
   }));
   expect(overflow.scroll, route).toBeLessThanOrEqual(overflow.width);
-  await page.screenshot({ path: `test-results/audit/${screenshot}.png` });
+  await page.screenshot({
+    path: `test-results/audit/${screenshot}.png`,
+    animations: "disabled",
+  });
   expect(errors, route).toEqual([]);
   await page.close();
 }
@@ -139,6 +143,64 @@ test("sidebar circle menu opens without crashing on desktop and mobile", async (
       expect(errors).toEqual([]);
       await context.close();
     }
+  }
+});
+
+test("dark theme keeps selected status choices distinct on desktop and touch", async ({
+  browser,
+}) => {
+  for (const width of [1440, 390]) {
+    const context = await signedIn(browser, "alex", circleId, width < 768);
+    const page = await context.newPage();
+    await page.setViewportSize({ width, height: 900 });
+    // The app should stay dark even when the operating system prefers light.
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveCSS("color-scheme", "dark");
+    const yay = page.getByRole("button", { name: "Yay", exact: true });
+    const nay = page.getByRole("button", { name: "Nay", exact: true });
+    for (const [selected, other] of [
+      [nay, yay],
+      [yay, nay],
+    ]) {
+      await selected.click();
+      await expect(selected).toHaveAttribute("aria-pressed", "true");
+      await expect(other).toHaveAttribute("aria-pressed", "false");
+      await expect(selected.locator("svg")).toBeVisible();
+      await expect(other.locator("svg")).toBeHidden();
+      // Hover must not make an unselected choice look selected.
+      await other.hover();
+      await expect
+        .poll(async () => {
+          const selectedFill = await selected.evaluate(
+            (el) => getComputedStyle(el).backgroundColor,
+          );
+          const otherFill = await other.evaluate(
+            (el) => getComputedStyle(el).backgroundColor,
+          );
+          return selectedFill !== otherFill;
+        })
+        .toBe(true);
+    }
+    await nay.focus();
+    await page.keyboard.press("Space");
+    await expect(nay).toHaveAttribute("aria-pressed", "true");
+    await expect(nay).toBeFocused();
+    await page.mouse.move(0, 0);
+    await page.screenshot({
+      path: `test-results/audit/status-dark-${width}.png`,
+      animations: "disabled",
+    });
+    const result = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+      .analyze();
+    expect(
+      result.violations.map((v) => ({
+        id: v.id,
+        nodes: v.nodes.map((n) => n.target),
+      })),
+    ).toEqual([]);
+    await context.close();
   }
 });
 

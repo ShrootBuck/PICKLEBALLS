@@ -22,8 +22,8 @@ export const viewport: Viewport = {
   maximumScale: 5,
   minimumScale: 1,
   viewportFit: "cover",
-  themeColor: "#f7f7f9",
-  colorScheme: "light",
+  themeColor: "#15151b",
+  colorScheme: "dark",
   interactiveWidget: "resizes-visual",
 };
 
@@ -77,7 +77,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      className={`dark ${geistSans.variable} ${geistMono.variable} antialiased`}
       suppressHydrationWarning
     >
       <head>

@@ -159,7 +159,7 @@ export function NotificationBell({
         {unread > 0 ? (
           <span
             aria-hidden="true"
-            className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white tabular-nums"
+            className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground tabular-nums"
           >
             {unread > 9 ? "9+" : unread}
           </span>

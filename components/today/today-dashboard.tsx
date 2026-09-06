@@ -804,9 +804,11 @@ function CheckInCard({
               className="w-full"
             >
               <ToggleGroupItem value="YAY" className="flex-1">
+                <CheckCircle2 className="hidden group-aria-pressed/toggle:block" />
                 Yay
               </ToggleGroupItem>
               <ToggleGroupItem value="NAY" className="flex-1">
+                <CheckCircle2 className="hidden group-aria-pressed/toggle:block" />
                 Nay
               </ToggleGroupItem>
             </ToggleGroup>

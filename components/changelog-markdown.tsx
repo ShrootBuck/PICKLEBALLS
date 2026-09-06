@@ -7,7 +7,6 @@ import punctuation from "@comark/react/plugins/punctuation";
 import security from "@comark/react/plugins/security";
 import shiki from "@comark/react/plugins/shiki";
 import githubDark from "@shikijs/themes/github-dark";
-import githubLight from "@shikijs/themes/github-light";
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { ChangelogMath } from "./changelog-math";
@@ -90,7 +89,7 @@ export const ChangelogMarkdown = defineMarkdownComponent({
     math(),
     mermaid(),
     punctuation(),
-    shiki({ themes: { light: githubLight, dark: githubDark } }),
+    shiki({ themes: { dark: githubDark } }),
     security(),
   ],
   components: {
