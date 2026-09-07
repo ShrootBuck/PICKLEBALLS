@@ -30,9 +30,12 @@ export async function runProofAssessment(
         where: { id: proofId },
         data: {
           aiStatus: "SUCCEEDED",
-          aiUncertainty:
-            "Video proof needs human review; AI has not watched this video.",
-          aiOneLiner: "Video attached; ask a squad member to review.",
+          aiOneLiner: "Video attached",
+          aiVisibleEvidence:
+            "AI has not watched this video. A squad member can review it.",
+          aiUncertainty: null,
+          aiReviewerQuestion: null,
+          aiTaskMatch: null,
         },
       });
       return;
@@ -54,11 +57,12 @@ export async function runProofAssessment(
       where: { id: proofId },
       data: {
         aiStatus: "SUCCEEDED",
-        aiVisibleEvidence: assessment.visibleEvidence,
-        aiUncertainty: assessment.uncertainty,
-        aiReviewerQuestion: assessment.reviewerQuestion,
-        aiTaskMatch: assessment.taskMatch,
-        aiOneLiner: assessment.oneLiner,
+        // Reuse the existing text columns for the title and description.
+        aiOneLiner: assessment.title,
+        aiVisibleEvidence: assessment.description,
+        aiUncertainty: null,
+        aiReviewerQuestion: null,
+        aiTaskMatch: null,
       },
     });
   } catch (error) {

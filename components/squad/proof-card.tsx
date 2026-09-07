@@ -62,14 +62,6 @@ export type ProofCardData = {
   aiOneLiner: string | null;
 };
 
-function matchBadge(match: string | null) {
-  if (match === "STRONG") return <Badge variant="success">Looks solid</Badge>;
-  if (match === "PARTIAL") return <Badge variant="secondary">Partial</Badge>;
-  if (match === "WEAK") return <Badge variant="destructive">Weak</Badge>;
-  if (match === "UNREADABLE")
-    return <Badge variant="outline">Cannot tell</Badge>;
-  return null;
-}
 function statusBadge(status: ProofCardData["reviewStatus"]) {
   if (status === "APPROVED") return <Badge variant="success">Verified</Badge>;
   if (status === "CHALLENGED")
@@ -160,33 +152,12 @@ export function ProofCard({
             {proof.aiStatus === "SUCCEEDED" ? (
               <Alert>
                 <Bot />
-                <AlertTitle className="flex flex-wrap items-center gap-2">
-                  AI read
-                  {matchBadge(proof.aiTaskMatch)}
-                </AlertTitle>
-                <AlertDescription className="flex flex-col gap-1.5">
-                  {proof.aiOneLiner ? (
-                    <span className="font-medium text-foreground">
-                      {proof.aiOneLiner}
-                    </span>
-                  ) : null}
-                  {proof.aiVisibleEvidence ? (
-                    <span>{proof.aiVisibleEvidence}</span>
-                  ) : null}
-                  {proof.aiUncertainty ? (
-                    <span className="text-muted-foreground">
-                      Cannot verify: {proof.aiUncertainty}
-                    </span>
-                  ) : null}
-                  {proof.aiReviewerQuestion ? (
-                    <span className="font-medium">
-                      Worth asking: {proof.aiReviewerQuestion}
-                    </span>
-                  ) : null}
-                  <span className="text-xs text-muted-foreground">
-                    Advisory only. Friends decide.
-                  </span>
-                </AlertDescription>
+                <AlertTitle>{proof.aiOneLiner || "AI read"}</AlertTitle>
+                {proof.aiVisibleEvidence ? (
+                  <AlertDescription className="whitespace-pre-wrap">
+                    {proof.aiVisibleEvidence}
+                  </AlertDescription>
+                ) : null}
               </Alert>
             ) : null}
             {proof.reviewStatus === "PENDING" ? (

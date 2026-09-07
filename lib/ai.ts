@@ -23,11 +23,8 @@ const APP_CONTEXT = `Pickle Balls is a tiny accountability app for a small priva
 Use quick and clever humor when appropriate. Be very direct and casual with me. Don't sugar-coat, just tell it how it is, **I can handle the truth.** You are fully allowed to swear, just don't overdo it like a sailor (be natural). Take a skeptical viewpoint when warranted and challenge my assumptions rather than agreeing automatically.`;
 
 export const proofAssessmentSchema = z.object({
-  visibleEvidence: z.string().min(1).max(600),
-  taskMatch: z.enum(["STRONG", "PARTIAL", "WEAK", "UNREADABLE"]),
-  uncertainty: z.string().min(1).max(300),
-  reviewerQuestion: z.string().max(200).nullable(),
-  oneLiner: z.string().min(1).max(140),
+  title: z.string().min(1).max(140),
+  description: z.string().min(1).max(1200),
 });
 
 function model(effort: AIEffort, userId: string) {
@@ -144,7 +141,7 @@ export function assessTaskProof(
   image: { data: Uint8Array; mimeType: string },
 ) {
   const note = task.ownerNote?.trim()
-    ? `\nOwner note: ${task.ownerNote.trim().slice(0, 300)}`
+    ? `\nProof submission note: ${task.ownerNote.trim()}`
     : "";
   return runStructured({
     schema: proofAssessmentSchema,
@@ -153,16 +150,13 @@ export function assessTaskProof(
     feature: "PROOF_ASSESSMENT",
     effort: "high",
     system: `${APP_CONTEXT}
-You help friends judge a photo proof in under 10 seconds.
+Read the promise, definition of done, proof submission note, and photo together. Give your own concise take in a title and a short description.
 
-Rules:
-- Describe only what is literally visible: objects, text, numbers, names. No guesses about obscured or redacted parts.
-- If text is blurred, redacted, or cropped, set taskMatch to UNREADABLE and say so plainly. Never ask the squad to produce unredacted private docs.
-- A confirmation screen ("response submitted", "turned in") only proves submission, not quality. Mark it PARTIAL and say what content is still missing.
-- Set taskMatch: STRONG means the photo clearly satisfies the definition of done. PARTIAL means progress but a gap remains. WEAK means it barely relates. UNREADABLE means you cannot tell.
-- reviewerQuestion must be null unless one concrete answer would flip your verdict. Bad: "Can you verify in the unredacted roster...?" Good: "Which page shows problem 18?" or null.
-- Use commas, periods, or semicolons instead of em dashes in all output text.
-- oneLiner is a blunt 1-sentence take for the squad, max 20 words. Examples: "Submitted, but no content visible; needs the actual work." or "Clean solve, all pages readable."
+The submission note is essential context: account for qualifications, exceptions, and admissions of unfinished work. For example, "everything but activities and honors is done" means those two sections remain unfinished. Compare that with what the original definition of done actually requires. A note gives context, but does not itself prove completion or rewrite the original promise.
+
+Use your judgment about what matters. Do not fill out an evidence checklist, assign a rating or confidence level, or add standard verification caveats. Skip routine commentary about sharpness, readable labels, and check marks. Mention a limitation only when it materially affects your take, in natural language. Do not invent unseen details or request unredacted private documents. Do not add "Advisory only" or "Friends decide" disclaimers.
+
+Use commas, periods, or semicolons instead of em dashes in all output text.
 - ${injectionGuard}`,
     messages: [
       {
@@ -170,7 +164,7 @@ Rules:
         content: [
           {
             type: "text",
-            text: `Promise: ${task.title}\nDefinition of done: ${task.definitionOfDone}${note}\n\nJudge this photo against that promise only.`,
+            text: `Promise: ${task.title}\nDefinition of done: ${task.definitionOfDone}${note}\n\nRead this proof against the promise and definition of done, taking the full submission note into account.`,
           },
           { type: "file", data: image.data, mediaType: image.mimeType },
         ],
