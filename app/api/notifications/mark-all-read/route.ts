@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { jsonError } from "@/lib/api";
+import { inboxKinds } from "@/lib/notification-policy";
 import { getPrisma } from "@/lib/prisma";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
       where: {
         recipientId: auth.session.user.id,
         circleId: auth.membership.circleId,
+        kind: { in: inboxKinds },
         readAt: null,
       },
       data: { readAt: new Date() },

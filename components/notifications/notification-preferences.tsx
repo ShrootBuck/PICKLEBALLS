@@ -12,50 +12,24 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { appFetch } from "@/lib/app-refresh";
+import type { NotificationPrefs } from "@/lib/notification-policy";
 
 const PREF_META = [
   {
-    key: "screenTime",
-    label: "Weekly screen time",
-    hint: "Sunday reminder to upload the completed week",
-  },
-  {
-    key: "replies",
-    label: "Replies to my stuff",
-    hint: "Replies to tasks, photos, and reviews",
-  },
-  {
     key: "proofsSubmitted",
-    label: "Proofs need review",
-    hint: "A friend posted a photo",
+    label: "Friends’ proof photos",
+    hint: "Push alerts when a friend posts proof. Photos always appear in your inbox.",
   },
   {
-    key: "proofReviews",
-    label: "My proof verdicts",
-    hint: "Approved or challenged",
-  },
-  {
-    key: "taskMissed",
-    label: "Missed tasks",
-    hint: "Deadline passed with no proof",
-  },
-  {
-    key: "taskCreated",
-    label: "New and edited tasks",
-    hint: "Optional updates from the squad",
-  },
-  {
-    key: "checkIns",
-    label: "Check-ins",
-    hint: "Optional status updates from friends",
+    key: "screenTime",
+    label: "Weekly screen-time reminder",
+    hint: "A Sunday reminder to upload the completed week.",
   },
 ] as const;
 
-type Prefs = Record<(typeof PREF_META)[number]["key"], boolean>;
-
 export function NotificationPreferences() {
   const version = useRefreshVersion();
-  const [prefs, setPrefs] = useState<Prefs | null>(null);
+  const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -77,7 +51,7 @@ export function NotificationPreferences() {
     return () => controller.abort();
   }, [attempt, version, saving]);
 
-  async function toggle(key: keyof Prefs, checked: boolean) {
+  async function toggle(key: keyof NotificationPrefs, checked: boolean) {
     if (!prefs || saving) return;
     const previous = prefs;
     const next = { ...prefs, [key]: checked };
@@ -99,7 +73,11 @@ export function NotificationPreferences() {
     }
   }
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">
+        Replies and proof verdicts always appear in your inbox, with push alerts
+        when enabled on this device.
+      </p>
       {prefs ? (
         <FieldGroup className="gap-3">
           {PREF_META.map((meta) => (

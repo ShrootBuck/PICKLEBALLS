@@ -1,6 +1,5 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { jsonError, readJson } from "@/lib/api";
-import { notifySquadUpdate } from "@/lib/notifications";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { checkInSchema } from "@/lib/schemas";
@@ -24,23 +23,6 @@ export async function POST(request: Request) {
       parsed.data.signal,
       parsed.data.blocker,
     );
-    after(async () => {
-      try {
-        await notifySquadUpdate({
-          actorId: auth.session.user.id,
-          circleId: auth.membership.circleId,
-          entityId: checkIn.id,
-          kind: "CHECK_IN_SET",
-          description:
-            checkIn.blocker ||
-            (checkIn.signal === "NAY"
-              ? "Could use a hand today."
-              : "Going well today."),
-        });
-      } catch {
-        console.warn("Squad update notification failed.");
-      }
-    });
     return NextResponse.json({ checkIn, update: { id: update.id } });
   } catch (error) {
     return jsonError(error);

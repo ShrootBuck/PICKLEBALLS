@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788821935108,
+    title: "One quieter notification inbox",
+    description:
+      "Replies, proof photos, verdicts, and weekly reminders now share one inbox. Task changes, check-ins, and missed-task alerts are gone. Replies and verdicts are always included; photo push alerts and the weekly reminder are optional.",
+  },
+  {
     timestamp: 1788821388711,
     title: "Edit member names",
     description:

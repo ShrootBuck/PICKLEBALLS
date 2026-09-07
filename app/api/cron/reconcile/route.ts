@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { notifyTaskMissed } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
 import { reconcileMissedTasks } from "@/lib/tasks";
 
@@ -22,22 +21,6 @@ export async function GET(request: Request) {
         const result = await reconcileMissedTasks(circle.id);
         batchCount = result.count;
         reconciled += result.count;
-        for (const missed of result.missed) {
-          try {
-            await notifyTaskMissed({
-              taskId: missed.id,
-              userId: missed.userId,
-              circleId: circle.id,
-              title: missed.title,
-            });
-          } catch (error) {
-            console.warn("Missed-task notification failed", {
-              taskId: missed.id,
-              circleId: circle.id,
-              error,
-            });
-          }
-        }
       } while (batchCount === 25);
     } catch (error) {
       failedCircles += 1;

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { jsonError, readJson } from "@/lib/api";
+import { inboxKinds } from "@/lib/notification-policy";
 import { getPrisma } from "@/lib/prisma";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 
@@ -33,6 +34,7 @@ export async function PATCH(
         id,
         recipientId: auth.session.user.id,
         circleId: auth.membership.circleId,
+        kind: { in: inboxKinds },
       },
       select: { id: true },
     });

@@ -2,77 +2,27 @@ import "server-only";
 
 import { type ActivityKind, Prisma } from "@/generated/prisma/client";
 import { safeAppPath, squadHref } from "@/lib/navigation";
+import {
+  defaultNotificationPrefs,
+  type NotificationPrefs,
+  shouldCreateNotification,
+  shouldPushNotification,
+} from "@/lib/notification-policy";
 import { getPrisma } from "@/lib/prisma";
 import { sendPushToUser } from "@/lib/push";
-
-export type NotificationPrefs = {
-  replies: boolean;
-  proofsSubmitted: boolean;
-  proofReviews: boolean;
-  taskMissed: boolean;
-  taskCreated: boolean;
-  checkIns: boolean;
-  screenTime: boolean;
-};
-
-export const defaultNotificationPrefs: NotificationPrefs = {
-  replies: true,
-  proofsSubmitted: true,
-  proofReviews: true,
-  taskMissed: true,
-  taskCreated: false,
-  checkIns: false,
-  screenTime: true,
-};
-
-function prefFieldForKind(kind: ActivityKind): keyof NotificationPrefs | null {
-  switch (kind) {
-    case "REPLY_POSTED":
-      return "replies";
-    case "PROOF_SUBMITTED":
-      return "proofsSubmitted";
-    case "PROOF_APPROVED":
-    case "PROOF_CHALLENGED":
-      return "proofReviews";
-    case "TASK_MISSED":
-      return "taskMissed";
-    case "TASK_CREATED":
-    case "TASK_RENEGOTIATED":
-      return "taskCreated";
-    case "CHECK_IN_SET":
-      return "checkIns";
-    case "SCREEN_TIME_REMINDER":
-      return "screenTime";
-    default:
-      return null;
-  }
-}
 
 export async function getNotificationPrefs(
   userId: string,
 ): Promise<NotificationPrefs> {
   const row = await getPrisma().notificationPreference.findUnique({
     where: { userId },
+    select: { proofsSubmitted: true, screenTime: true },
   });
   if (!row) return { ...defaultNotificationPrefs };
   return {
-    replies: row.replies,
     proofsSubmitted: row.proofsSubmitted,
-    proofReviews: row.proofReviews,
-    taskMissed: row.taskMissed,
-    taskCreated: row.taskCreated,
-    checkIns: row.checkIns,
     screenTime: row.screenTime,
   };
-}
-
-export function isKindEnabled(
-  prefs: NotificationPrefs | null,
-  kind: ActivityKind,
-): boolean {
-  const field = prefFieldForKind(kind);
-  if (!field) return false;
-  return (prefs ?? defaultNotificationPrefs)[field];
 }
 
 function snippet(text: string | null | undefined, max = 140) {
@@ -94,8 +44,9 @@ export async function createNotificationAndPush(input: {
   dedupeKey?: string;
 }) {
   if (input.recipientId === input.actorId && !input.allowSelf) return null;
+  if (!shouldCreateNotification(input.kind)) return null;
   const prefs = await getNotificationPrefs(input.recipientId);
-  if (!isKindEnabled(prefs, input.kind)) return null;
+  if (!shouldCreateNotification(input.kind, prefs)) return null;
 
   const prisma = getPrisma();
   const fallbackUrl = squadHref(input.circleId, input.entityId);
@@ -129,6 +80,7 @@ export async function createNotificationAndPush(input: {
       throw error;
     });
   if (!notification) return null;
+  if (!shouldPushNotification(input.kind, prefs)) return notification;
 
   try {
     await sendPushToUser(input.recipientId, {
@@ -337,58 +289,4 @@ export async function notifyProofReviewed(input: {
       decision: review.decision,
     },
   });
-}
-
-export async function notifyTaskMissed(input: {
-  taskId: string;
-  userId: string;
-  circleId: string;
-  title: string;
-}) {
-  return createNotificationAndPush({
-    recipientId: input.userId,
-    actorId: input.userId,
-    circleId: input.circleId,
-    kind: "TASK_MISSED",
-    entityId: input.taskId,
-    title: `You missed “${input.title}” with no proof`,
-    body: "This day is closed. The missed task stays in history; start fresh today.",
-    data: { url: `/squad?focus=${input.taskId}`, taskId: input.taskId },
-    allowSelf: true,
-  });
-}
-
-export async function notifySquadUpdate(input: {
-  actorId: string;
-  circleId: string;
-  entityId: string;
-  kind: "TASK_CREATED" | "TASK_RENEGOTIATED" | "CHECK_IN_SET";
-  description: string;
-}) {
-  const prisma = getPrisma();
-  const [actor, members] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: input.actorId },
-      select: { name: true },
-    }),
-    prisma.membership.findMany({
-      where: { circleId: input.circleId, userId: { not: input.actorId } },
-      select: { userId: true },
-    }),
-  ]);
-  if (!actor) return;
-  await Promise.all(
-    members.map((member) =>
-      createNotificationAndPush({
-        ...input,
-        recipientId: member.userId,
-        title:
-          input.kind === "CHECK_IN_SET"
-            ? `${actor.name} checked in`
-            : `${actor.name} ${input.kind === "TASK_CREATED" ? "added" : "edited"} a task`,
-        body: input.description,
-        data: { url: squadHref(input.circleId, input.entityId) },
-      }),
-    ),
-  );
 }

@@ -113,16 +113,16 @@ export function PushToggle() {
   if (state === "unsupported") {
     return (
       <p className="px-2 py-1.5 text-xs text-muted-foreground">
-        Push isn't supported in this browser. New replies will still show up
-        under For you.
+        Push isn't supported in this browser. Notifications still appear in your
+        inbox.
       </p>
     );
   }
   if (state === "denied") {
     return (
       <p className="px-2 py-1.5 text-xs text-muted-foreground">
-        Notifications are blocked. Allow them in your browser or OS settings,
-        then come back here.
+        Push notifications are blocked in your browser or device settings.
+        Notifications still appear in your inbox.
       </p>
     );
   }
@@ -131,11 +131,11 @@ export function PushToggle() {
     <div className="flex flex-col gap-1 px-2 py-1.5">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[13px] font-semibold">Push notifications</p>
+          <p className="text-[13px] font-semibold">Push on this device</p>
           <p className="text-[11px] text-muted-foreground">
             {state === "subscribed"
-              ? "On. This device gets buzzed."
-              : "Off. Turn it on to get buzzed."}
+              ? "Get alerts even when the app is closed."
+              : "Off. Your inbox still gets updates."}
           </p>
         </div>
         <Button

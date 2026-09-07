@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { jsonError, readJson } from "@/lib/api";
-import {
-  type defaultNotificationPrefs,
-  getNotificationPrefs,
-} from "@/lib/notifications";
+import type { NotificationPrefs } from "@/lib/notification-policy";
+import { getNotificationPrefs } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { notificationPreferencesSchema } from "@/lib/schemas";
@@ -47,14 +45,9 @@ export async function PUT(request: Request) {
     });
     return NextResponse.json({
       preferences: {
-        replies: prefs.replies,
         proofsSubmitted: prefs.proofsSubmitted,
-        proofReviews: prefs.proofReviews,
-        taskMissed: prefs.taskMissed,
-        taskCreated: prefs.taskCreated,
-        checkIns: prefs.checkIns,
         screenTime: prefs.screenTime,
-      } satisfies typeof defaultNotificationPrefs,
+      } satisfies NotificationPrefs,
     });
   } catch (error) {
     return jsonError(error);

@@ -38,13 +38,8 @@ export const pushSubscriptionSchema = z.object({
 });
 
 export const notificationPreferencesSchema = z.object({
-  replies: z.boolean(),
   proofsSubmitted: z.boolean(),
-  proofReviews: z.boolean(),
-  taskMissed: z.boolean(),
-  taskCreated: z.boolean(),
-  checkIns: z.boolean(),
-  screenTime: z.boolean().optional(),
+  screenTime: z.boolean(),
 });
 export const proofReviewSchema = z.object({
   decision: z.enum(["APPROVED", "CHALLENGED"]),

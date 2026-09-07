@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { jsonError } from "@/lib/api";
 import { DomainError } from "@/lib/errors";
+import { inboxKinds, notificationPageSize } from "@/lib/notification-policy";
 import { getPrisma } from "@/lib/prisma";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 
 export const runtime = "nodejs";
 
-const pageSize = 30;
+const pageSize = notificationPageSize;
 
 export async function GET(request: Request) {
   if (!hasSameOrigin(request)) {
@@ -28,6 +29,7 @@ export async function GET(request: Request) {
       where: {
         recipientId: userId,
         circleId: auth.membership.circleId,
+        kind: { in: inboxKinds },
         ...(unreadOnly ? { readAt: null } : {}),
       },
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
@@ -57,6 +59,7 @@ export async function GET(request: Request) {
       where: {
         recipientId: userId,
         circleId: auth.membership.circleId,
+        kind: { in: inboxKinds },
         readAt: null,
       },
     });
