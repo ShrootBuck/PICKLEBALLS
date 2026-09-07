@@ -13,6 +13,7 @@ export function SiteHeader({ bell }: { bell: ReactNode }) {
       "/squad": "Squad",
       "/history": "History",
       "/timeblock": "Timeblock",
+      "/screen-time": "Screen Time",
       "/changelog": "Changelog",
       "/admin": "Owner tools",
       "/settings": "Settings",

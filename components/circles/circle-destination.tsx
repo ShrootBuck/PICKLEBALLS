@@ -14,9 +14,11 @@ import { squadHref } from "@/lib/navigation";
 export function CircleDestination({
   circleId,
   focusId,
+  destination,
 }: {
   circleId: string;
   focusId?: string;
+  destination?: string;
 }) {
   const router = useRouter();
   const [attempt, setAttempt] = useState(0);
@@ -32,7 +34,8 @@ export function CircleDestination({
     })
       .then((response) => {
         if (!response.ok) throw new Error("Could not switch circle.");
-        if (!cancelled) router.replace(squadHref(circleId, focusId));
+        if (!cancelled)
+          router.replace(destination ?? squadHref(circleId, focusId));
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -40,7 +43,7 @@ export function CircleDestination({
     return () => {
       cancelled = true;
     };
-  }, [circleId, focusId, attempt, router]);
+  }, [circleId, focusId, destination, attempt, router]);
   return failed ? (
     <Alert variant="destructive">
       <AlertTitle>Could not open that circle</AlertTitle>

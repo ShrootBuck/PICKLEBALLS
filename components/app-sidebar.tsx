@@ -11,6 +11,7 @@ import {
   ScrollText,
   Settings,
   Shield,
+  Smartphone,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -49,6 +50,12 @@ import { formatDayShort, phoenixDateKey } from "@/lib/time";
 const links = [
   { href: "/", label: "Today", hint: "Your board", icon: ClipboardCheck },
   { href: "/squad", label: "Squad", hint: "Talk + verdicts", icon: Users },
+  {
+    href: "/screen-time",
+    label: "Screen Time",
+    hint: "Weekly leaderboard",
+    icon: Smartphone,
+  },
   { href: "/history", label: "History", hint: "Past boards", icon: History },
   {
     href: "/timeblock",

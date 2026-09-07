@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { ActivityKind } from "@/generated/prisma/client";
+import { type ActivityKind, Prisma } from "@/generated/prisma/client";
 import { safeAppPath, squadHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
 import { sendPushToUser } from "@/lib/push";
@@ -12,6 +12,7 @@ export type NotificationPrefs = {
   taskMissed: boolean;
   taskCreated: boolean;
   checkIns: boolean;
+  screenTime: boolean;
 };
 
 export const defaultNotificationPrefs: NotificationPrefs = {
@@ -21,6 +22,7 @@ export const defaultNotificationPrefs: NotificationPrefs = {
   taskMissed: true,
   taskCreated: false,
   checkIns: false,
+  screenTime: true,
 };
 
 function prefFieldForKind(kind: ActivityKind): keyof NotificationPrefs | null {
@@ -39,6 +41,8 @@ function prefFieldForKind(kind: ActivityKind): keyof NotificationPrefs | null {
       return "taskCreated";
     case "CHECK_IN_SET":
       return "checkIns";
+    case "SCREEN_TIME_REMINDER":
+      return "screenTime";
     default:
       return null;
   }
@@ -58,6 +62,7 @@ export async function getNotificationPrefs(
     taskMissed: row.taskMissed,
     taskCreated: row.taskCreated,
     checkIns: row.checkIns,
+    screenTime: row.screenTime,
   };
 }
 
@@ -86,6 +91,7 @@ export async function createNotificationAndPush(input: {
   body: string;
   data?: Record<string, unknown>;
   allowSelf?: boolean;
+  dedupeKey?: string;
 }) {
   if (input.recipientId === input.actorId && !input.allowSelf) return null;
   const prefs = await getNotificationPrefs(input.recipientId);
@@ -98,19 +104,31 @@ export async function createNotificationAndPush(input: {
   destination.searchParams.set("circle", input.circleId);
   const url = `${destination.pathname}${destination.search}${destination.hash}`;
 
-  const notification = await prisma.notification.create({
-    data: {
-      recipientId: input.recipientId,
-      actorId: input.actorId,
-      circleId: input.circleId,
-      kind: input.kind,
-      entityId: input.entityId ?? null,
-      title: input.title.slice(0, 120),
-      body: input.body.slice(0, 500),
-      data: { ...input.data, url },
-    },
-    select: { id: true },
-  });
+  const notification = await prisma.notification
+    .create({
+      data: {
+        recipientId: input.recipientId,
+        actorId: input.actorId,
+        circleId: input.circleId,
+        kind: input.kind,
+        entityId: input.entityId ?? null,
+        title: input.title.slice(0, 120),
+        body: input.body.slice(0, 500),
+        data: { ...input.data, url },
+        dedupeKey: input.dedupeKey,
+      },
+      select: { id: true },
+    })
+    .catch((error: unknown) => {
+      if (
+        input.dedupeKey &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      )
+        return null;
+      throw error;
+    });
+  if (!notification) return null;
 
   try {
     await sendPushToUser(input.recipientId, {

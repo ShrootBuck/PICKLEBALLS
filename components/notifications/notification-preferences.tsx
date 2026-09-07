@@ -15,6 +15,11 @@ import { appFetch } from "@/lib/app-refresh";
 
 const PREF_META = [
   {
+    key: "screenTime",
+    label: "Weekly screen time",
+    hint: "Sunday reminder to upload the completed week",
+  },
+  {
     key: "replies",
     label: "Replies to my stuff",
     hint: "Replies to tasks, photos, and reviews",

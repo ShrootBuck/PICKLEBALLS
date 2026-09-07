@@ -3,6 +3,10 @@
   "installCommand": "bunx bun@1.4.0 install",
   "crons": [
     {
+      "path": "/api/cron/screen-time",
+      "schedule": "0 17 * * 0"
+    },
+    {
       "path": "/api/cron/reconcile",
       "schedule": "5 7 * * *"
     }

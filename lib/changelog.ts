@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788818744494,
+    title: "Weekly screen time, with receipts",
+    description:
+      "Screen Time is back in the sidebar. Upload one iPhone screenshot for the completed Sunday–Saturday week, check the AI read, and confirm it to join your circle’s leaderboard. See daily averages, week-over-week changes, most improved, and your last 12 weeks. Sunday reminders and a persistent Today prompt keep missing submissions visible until you post.",
+  },
+  {
     timestamp: 1788817670626,
     title: "Fresh data without the reload",
     description:

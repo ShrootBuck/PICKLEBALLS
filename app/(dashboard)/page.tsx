@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { LandingPage } from "@/components/landing/landing-page";
+import { ScreenTimeReminder } from "@/components/screen-time/reminder";
 import { TodayDashboard } from "@/components/today/today-dashboard";
 import { auth } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
@@ -98,52 +99,58 @@ export default async function TodayPage() {
           createdAt: item.createdAt.toISOString(),
         }));
   return (
-    <TodayDashboard
-      key={`${membership.circleId}:${dayKey}`}
-      day={dayKey}
-      currentUserId={session.user.id}
-      tasks={tasks.map((task) => ({
-        id: task.id,
-        day: task.day.toISOString().slice(0, 10),
-        title: task.title,
-        definitionOfDone: task.definitionOfDone,
-        dueAt: task.dueAt.toISOString(),
-        status:
-          task.proofs.length === 0 &&
-          task.dueAt < new Date() &&
-          (task.status === "OPEN" || task.status === "RENEGOTIATED")
-            ? "MISSED"
-            : task.status,
-        proof: task.proofs[0]
-          ? {
-              id: task.proofs[0].id,
-              isLate: task.proofs[0].isLate,
-              ownerNote: task.proofs[0].ownerNote,
-              reviewStatus: task.proofs[0].reviewStatus,
-              aiStatus: task.proofs[0].aiStatus,
-              reviews: task.proofs[0].reviews.map((review) => ({
-                id: review.id,
-                decision: review.decision,
-                note: review.note,
-                createdAt: review.createdAt.toISOString(),
-                reviewerName: review.reviewer.name,
-                reviewerId: review.reviewer.id,
-                replies: review.replies.map((reply) => ({
-                  id: reply.id,
-                  body: reply.body,
-                  mediaIds: reply.mediaIds,
-                  createdAt: reply.createdAt.toISOString(),
-                  updatedAt: reply.updatedAt.toISOString(),
-                  author: reply.author,
+    <>
+      <ScreenTimeReminder
+        userId={session.user.id}
+        circleId={membership.circleId}
+      />
+      <TodayDashboard
+        key={`${membership.circleId}:${dayKey}`}
+        day={dayKey}
+        currentUserId={session.user.id}
+        tasks={tasks.map((task) => ({
+          id: task.id,
+          day: task.day.toISOString().slice(0, 10),
+          title: task.title,
+          definitionOfDone: task.definitionOfDone,
+          dueAt: task.dueAt.toISOString(),
+          status:
+            task.proofs.length === 0 &&
+            task.dueAt < new Date() &&
+            (task.status === "OPEN" || task.status === "RENEGOTIATED")
+              ? "MISSED"
+              : task.status,
+          proof: task.proofs[0]
+            ? {
+                id: task.proofs[0].id,
+                isLate: task.proofs[0].isLate,
+                ownerNote: task.proofs[0].ownerNote,
+                reviewStatus: task.proofs[0].reviewStatus,
+                aiStatus: task.proofs[0].aiStatus,
+                reviews: task.proofs[0].reviews.map((review) => ({
+                  id: review.id,
+                  decision: review.decision,
+                  note: review.note,
+                  createdAt: review.createdAt.toISOString(),
+                  reviewerName: review.reviewer.name,
+                  reviewerId: review.reviewer.id,
+                  replies: review.replies.map((reply) => ({
+                    id: reply.id,
+                    body: reply.body,
+                    mediaIds: reply.mediaIds,
+                    createdAt: reply.createdAt.toISOString(),
+                    updatedAt: reply.updatedAt.toISOString(),
+                    author: reply.author,
+                  })),
                 })),
-              })),
-            }
-          : null,
-      }))}
-      checkIn={
-        checkIn ? { signal: checkIn.signal, blocker: checkIn.blocker } : null
-      }
-      checkInHistory={historyItems}
-    />
+              }
+            : null,
+        }))}
+        checkIn={
+          checkIn ? { signal: checkIn.signal, blocker: checkIn.blocker } : null
+        }
+        checkInHistory={historyItems}
+      />
+    </>
   );
 }

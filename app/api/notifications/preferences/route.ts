@@ -53,6 +53,7 @@ export async function PUT(request: Request) {
         taskMissed: prefs.taskMissed,
         taskCreated: prefs.taskCreated,
         checkIns: prefs.checkIns,
+        screenTime: prefs.screenTime,
       } satisfies typeof defaultNotificationPrefs,
     });
   } catch (error) {

@@ -44,6 +44,7 @@ export const notificationPreferencesSchema = z.object({
   taskMissed: z.boolean(),
   taskCreated: z.boolean(),
   checkIns: z.boolean(),
+  screenTime: z.boolean().optional(),
 });
 export const proofReviewSchema = z.object({
   decision: z.enum(["APPROVED", "CHALLENGED"]),

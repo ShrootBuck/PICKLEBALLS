@@ -84,7 +84,7 @@ export async function GET(request: Request, context: Context) {
     const media = await getPrisma().mediaUpload.findFirst({
       where: { id, circleId, ready: true },
     });
-    const [proof, reply] = media
+    const [proof, reply, screenTime] = media
       ? await Promise.all([
           getPrisma().taskProof.findFirst({
             where: { circleId, mediaIds: { has: id } },
@@ -94,9 +94,20 @@ export async function GET(request: Request, context: Context) {
             where: { circleId, mediaIds: { has: id } },
             select: { id: true },
           }),
+          getPrisma().screenTimeReading.findFirst({
+            where: {
+              mediaId: id,
+              circleId,
+              OR: [
+                { userId: auth.session.user.id },
+                { submission: { isNot: null } },
+              ],
+            },
+            select: { id: true },
+          }),
         ])
-      : [null, null];
-    if (!media || (!proof && !reply))
+      : [null, null, null];
+    if (!media || (!proof && !reply && !screenTime))
       return Response.json({ error: "Not found." }, { status: 404 });
     if (media.mimeType.startsWith("image/"))
       return await immutableImageResponse(media.objectKey, media.mimeType);
