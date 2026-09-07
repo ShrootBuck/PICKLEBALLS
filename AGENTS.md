@@ -8,11 +8,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# Changelog — feature changes only
+# Changelog — noteworthy features only
 
-Add an entry to `lib/changelog.ts` only for new features, removed features, or meaningful changes to what users can do. Keep entries newest first and combine related changes into one entry.
+Treat `lib/changelog.ts` as a curated list of product updates, not a development log. Add an entry only for a substantial new capability, removal, or workflow/rule change that ordinary users would care about. Being user-visible is not enough. Ask: would someone want to learn about this because it changes what they can do or how they use the app? If the benefit is just that the app looks nicer, runs more smoothly, or works as expected, skip it. When in doubt, leave it out.
 
-Do not add entries for cosmetic changes (fonts, colors, borders, spacing), minor fixes, copy edits, refactors, dependency updates, or internal tooling and instructions. If a change does not meaningfully change a feature or workflow, skip the changelog.
+- Include updates like weekly screen-time leaderboards, a substantially simpler screen-time submission workflow, owner member-management tools, saved AI reads in proof history, user-selectable theme colors, or requiring a comment to approve proof.
+- Exclude bug fixes, reliability/performance improvements, refresh or caching behavior, cosmetic changes (fonts, colors, borders, spacing), copy or AI tone changes, validation details, refactors, dependency updates, and internal tooling or instructions. Examples to skip: “Fresh data without the reload,” “Browser refresh only,” crash fixes, and palette changes. Adding a color preference users can choose is a feature; changing the palette yourself is cosmetic.
+- Write a short title and plain-language description focused on the capability and why it matters. Strip incidental polish, bug fixes, and implementation details even when they shipped alongside a noteworthy feature. Do not dress up maintenance as a feature.
+- Keep entries newest first, preserve original timestamps when editing history, and combine related changes into one entry. Do not add an entry for editing the changelog itself.
 
 `timestamp` is milliseconds since the Unix epoch, run `bun -e "console.log(Date.now())"` for "now".
 
