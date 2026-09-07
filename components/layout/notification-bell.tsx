@@ -16,6 +16,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
+import { appFetch } from "@/lib/app-refresh";
 import { squadHref } from "@/lib/navigation";
 import { formatReplyTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -65,7 +66,7 @@ export function NotificationBell({
     if (!open) return;
     const controller = new AbortController();
     setError(null);
-    fetch("/api/notifications", { signal: controller.signal })
+    appFetch("/api/notifications", { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error("Could not load notifications.");
         const data = await response.json();
@@ -88,7 +89,7 @@ export function NotificationBell({
     if (busy) return;
     setBusy(true);
     try {
-      const response = await fetch(
+      const response = await appFetch(
         id ? `/api/notifications/${id}` : "/api/notifications/mark-all-read",
         {
           method: id ? "PATCH" : "POST",
@@ -120,7 +121,7 @@ export function NotificationBell({
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(
+      const response = await appFetch(
         `/api/notifications?cursor=${encodeURIComponent(nextCursor)}`,
       );
       if (!response.ok) throw new Error("Could not load more.");

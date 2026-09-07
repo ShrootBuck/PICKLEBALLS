@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { appFetch } from "@/lib/app-refresh";
 import {
   devicePushRegistration,
   disconnectDevicePush,
@@ -22,7 +23,7 @@ function urlBase64ToUint8Array(base64: string) {
 }
 
 async function postJson(url: string, body: unknown) {
-  const response = await fetch(url, {
+  const response = await appFetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -54,7 +55,7 @@ export function PushToggle() {
           setState("unsubscribed");
           return;
         }
-        const response = await fetch(
+        const response = await appFetch(
           `/api/push/subscriptions?endpoint=${encodeURIComponent(subscription.endpoint)}`,
         );
         if (!response.ok) throw new Error("Could not check subscription.");
@@ -74,7 +75,7 @@ export function PushToggle() {
         return;
       }
       const registration = await devicePushRegistration();
-      const { publicKey } = (await fetch("/api/push/public-key").then((r) =>
+      const { publicKey } = (await appFetch("/api/push/public-key").then((r) =>
         r.json(),
       )) as { publicKey?: string };
       if (!publicKey) throw new Error("Push not configured on server.");

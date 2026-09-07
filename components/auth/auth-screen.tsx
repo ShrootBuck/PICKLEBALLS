@@ -25,7 +25,7 @@ const points = [
   {
     icon: Clock3,
     title: "Midnight deadline",
-    body: "Phoenix time. Same clock for everyone.",
+    body: "Same deadline for everyone.",
   },
 ];
 

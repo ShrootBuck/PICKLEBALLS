@@ -129,9 +129,6 @@ export function ProofCard({
             <CardDescription>{meta}</CardDescription>
             <CardAction className="flex flex-col items-end gap-1">
               {statusBadge(proof.reviewStatus)}
-              {mode === "history" && proof.aiStatus === "SUCCEEDED"
-                ? matchBadge(proof.aiTaskMatch)
-                : null}
               {proof.aiStatus === "PENDING" && !aiStalled ? (
                 <Badge variant="outline">AI reading…</Badge>
               ) : null}
@@ -160,7 +157,7 @@ export function ProofCard({
                 {formatProofTime(proof.submittedAt)}
               </p>
             ) : null}
-            {mode === "review" && proof.aiStatus === "SUCCEEDED" ? (
+            {proof.aiStatus === "SUCCEEDED" ? (
               <Alert>
                 <Bot />
                 <AlertTitle className="flex flex-wrap items-center gap-2">

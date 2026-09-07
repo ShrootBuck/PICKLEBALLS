@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { appFetch } from "@/lib/app-refresh";
 
 export function JoinCircleButton({ token }: { token: string }) {
   const router = useRouter();
@@ -20,7 +21,7 @@ export function JoinCircleButton({ token }: { token: string }) {
           setPending(true);
           setError(null);
           try {
-            const response = await fetch("/api/circles/join", {
+            const response = await appFetch("/api/circles/join", {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ token }),

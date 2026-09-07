@@ -89,10 +89,7 @@ export default function ChangelogPage() {
 
   return (
     <>
-      <PageHeader
-        title="Changelog"
-        description="Every change, newest first. All times are Phoenix time (MST)."
-      />
+      <PageHeader title="Changelog" description="Every change, newest first." />
       {groups.length === 0 ? (
         <Empty>
           <EmptyHeader>

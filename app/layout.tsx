@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { headers } from "next/headers";
+import { AppRefreshProvider } from "@/components/layout/app-refresh-provider";
 import { RegisterSw } from "@/components/pwa/register-sw";
 import { AppearanceProvider } from "@/components/settings/appearance-provider";
 import { Toaster } from "@/components/ui/toast";
@@ -122,21 +123,26 @@ export default async function RootLayout({
       </head>
       <body className="flex h-dvh min-h-0 flex-col overflow-hidden touch-manipulation antialiased">
         <RegisterSw />
-        <AppearanceProvider
-          key={session?.user.id ?? "guest"}
-          initialColor={primaryColor}
+        <AppRefreshProvider
+          userId={session?.user.id ?? null}
+          version={crypto.randomUUID()}
         >
-          <TooltipProvider>
-            <Toaster>
-              <div
-                data-slot="app-frame"
-                className="min-h-0 min-w-0 flex-1 overflow-x-clip overflow-y-auto"
-              >
-                {children}
-              </div>
-            </Toaster>
-          </TooltipProvider>
-        </AppearanceProvider>
+          <AppearanceProvider
+            key={session?.user.id ?? "guest"}
+            initialColor={primaryColor}
+          >
+            <TooltipProvider>
+              <Toaster>
+                <div
+                  data-slot="app-frame"
+                  className="min-h-0 min-w-0 flex-1 overflow-x-clip overflow-y-auto"
+                >
+                  {children}
+                </div>
+              </Toaster>
+            </TooltipProvider>
+          </AppearanceProvider>
+        </AppRefreshProvider>
       </body>
     </html>
   );

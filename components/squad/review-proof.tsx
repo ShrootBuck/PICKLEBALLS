@@ -24,6 +24,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { appFetch } from "@/lib/app-refresh";
 
 export function ReviewProof({
   proofId,
@@ -61,7 +62,7 @@ export function ReviewProof({
     setPending(true);
     setError(null);
     try {
-      const response = await fetch(`/api/proofs/${proofId}/review`, {
+      const response = await appFetch(`/api/proofs/${proofId}/review`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ decision, note }),
@@ -82,7 +83,8 @@ export function ReviewProof({
       setOpen(false);
       setPending(false);
       setConfirmChallenge(false);
-      // Local update, no full-page refresh.
+      // Remove the reviewed card immediately, then reconcile the board,
+      // history, and counts with the committed server state.
       onReviewed?.(proofId);
     } catch {
       setError("Could not reach the server. Check your wifi and try again.");

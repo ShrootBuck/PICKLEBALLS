@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRefreshVersion } from "@/components/layout/app-refresh-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -10,6 +11,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
+import { appFetch } from "@/lib/app-refresh";
 
 const PREF_META = [
   {
@@ -47,15 +49,17 @@ const PREF_META = [
 type Prefs = Record<(typeof PREF_META)[number]["key"], boolean>;
 
 export function NotificationPreferences() {
+  const version = useRefreshVersion();
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt explicitly retries a failed request
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt and version request fresh server preferences
   useEffect(() => {
+    if (saving) return;
     const controller = new AbortController();
     setError(null);
-    fetch("/api/notifications/preferences", { signal: controller.signal })
+    appFetch("/api/notifications/preferences", { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error("Could not load preferences.");
         const data = await response.json();
@@ -66,7 +70,7 @@ export function NotificationPreferences() {
           setError("Could not load your preferences.");
       });
     return () => controller.abort();
-  }, [attempt]);
+  }, [attempt, version, saving]);
 
   async function toggle(key: keyof Prefs, checked: boolean) {
     if (!prefs || saving) return;
@@ -76,7 +80,7 @@ export function NotificationPreferences() {
     setSaving(true);
     setError(null);
     try {
-      const response = await fetch("/api/notifications/preferences", {
+      const response = await appFetch("/api/notifications/preferences", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(next),

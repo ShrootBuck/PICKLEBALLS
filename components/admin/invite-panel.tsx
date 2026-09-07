@@ -31,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { appFetch } from "@/lib/app-refresh";
 
 type Invite = {
   id: string;
@@ -58,7 +59,7 @@ export function InvitePanel({ invites: initial }: { invites: Invite[] }) {
     const form = event.currentTarget;
     const data = Object.fromEntries(new FormData(form));
     try {
-      const response = await fetch("/api/admin/invites", {
+      const response = await appFetch("/api/admin/invites", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(data),
@@ -102,7 +103,7 @@ export function InvitePanel({ invites: initial }: { invites: Invite[] }) {
     setRevokingId(id);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/invites/${id}`, {
+      const response = await appFetch(`/api/admin/invites/${id}`, {
         method: "DELETE",
       });
       if (!response.ok) {

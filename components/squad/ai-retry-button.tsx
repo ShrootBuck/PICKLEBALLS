@@ -6,36 +6,38 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
+import { proofFetch } from "@/lib/proof-fetch";
 
 export function AiRetryButton({ proofId }: { proofId: string }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
   async function retry() {
+    if (pending) return;
     setPending(true);
     setError(false);
     try {
-      const response = await fetch(`/api/proofs/${proofId}/assess`, {
-        method: "POST",
-      });
+      const response = await proofFetch(
+        `/api/proofs/${proofId}/assess`,
+        { method: "POST" },
+        () => setPending(false),
+      );
       if (!response.ok) {
         setError(true);
         setPending(false);
         return;
       }
       toast.add({
-        title:
-          "AI is reading it again. Refresh your browser later to see the result.",
+        title: "AI is reading it again. The result will appear automatically.",
         type: "success",
       });
     } catch {
       setError(true);
-    } finally {
       setPending(false);
     }
   }
   return (
     <span className="flex flex-wrap items-center gap-1.5">
-      <Badge variant="outline">AI flopped</Badge>
+      <Badge variant="outline">{pending ? "AI reading…" : "AI flopped"}</Badge>
       <Button
         type="button"
         variant="ghost"

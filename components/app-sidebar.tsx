@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
+import { appFetch } from "@/lib/app-refresh";
 import { authClient } from "@/lib/auth-client";
 import { disconnectDevicePush } from "@/lib/device-push";
 import { formatDayShort, phoenixDateKey } from "@/lib/time";
@@ -98,7 +99,7 @@ export function AppSidebar({
     if (circleId === activeCircleId || switchPending) return;
     setSwitchPending(circleId);
     try {
-      const response = await fetch("/api/circles/active", {
+      const response = await appFetch("/api/circles/active", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ circleId }),

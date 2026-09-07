@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -24,8 +24,14 @@ export function SquadTabs({
   log: ReactNode;
 }) {
   const [tab, setTab] = useState(defaultTab);
+  const previousFocus = useRef(focusId);
   useEffect(() => {
-    if (focusId) setTab(defaultTab);
+    // A new deep link can choose a tab. Refreshing the same proof must not
+    // move someone away from the tab or reply composer they are using.
+    if (focusId !== previousFocus.current) {
+      previousFocus.current = focusId;
+      setTab(defaultTab);
+    }
   }, [defaultTab, focusId]);
   return (
     <Tabs

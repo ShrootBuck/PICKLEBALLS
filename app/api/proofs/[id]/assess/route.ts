@@ -1,7 +1,8 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { jsonError } from "@/lib/api";
 import { getPrisma } from "@/lib/prisma";
 import { runProofAssessment } from "@/lib/proof-assessment";
+import { proofProgressResponse } from "@/lib/proof-progress-response";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 
@@ -40,8 +41,9 @@ export async function POST(
       data: { aiStatus: "PENDING" },
     });
     const userId = auth.session.user.id;
-    after(() => runProofAssessment(id, userId, circleId));
-    return NextResponse.json({ ok: true }, { status: 202 });
+    return proofProgressResponse(request, { ok: true }, 202, () =>
+      runProofAssessment(id, userId, circleId),
+    );
   } catch (error) {
     return jsonError(error);
   }

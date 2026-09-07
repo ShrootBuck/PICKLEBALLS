@@ -1,3 +1,5 @@
+import { appFetch } from "@/lib/app-refresh";
+
 export async function devicePushRegistration() {
   if (!("serviceWorker" in navigator))
     throw new Error("Push is not supported.");
@@ -26,7 +28,7 @@ export async function disconnectDevicePush() {
   const registration = await navigator.serviceWorker.getRegistration("/");
   const subscription = await registration?.pushManager?.getSubscription();
   if (!subscription) return;
-  const response = await fetch("/api/push/subscriptions", {
+  const response = await appFetch("/api/push/subscriptions", {
     method: "DELETE",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ endpoint: subscription.endpoint }),

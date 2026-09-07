@@ -577,7 +577,7 @@ test("deep links open task replies, old proof, and the correct circle", async ({
   await context.close();
 });
 
-test("refresh updates friend activity while preserving a typed draft", async ({
+test("returning to the app updates activity while preserving a typed draft", async ({
   browser,
 }) => {
   const context = await signedIn(browser);
@@ -587,7 +587,7 @@ test("refresh updates friend activity while preserving a typed draft", async ({
     .getByLabel("What is in the way?")
     .fill("Keep this unfinished draft");
   const id = await newTask(context.request, "Task added in another tab");
-  await page.getByRole("button", { name: "Refresh board" }).click();
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(page.locator(`#task-${id}`)).toBeVisible();
   await expect(page.getByLabel("What is in the way?")).toHaveValue(
     "Keep this unfinished draft",

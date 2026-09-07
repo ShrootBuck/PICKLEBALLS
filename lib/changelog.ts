@@ -8,6 +8,18 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788817670626,
+    title: "Fresh data without the reload",
+    description:
+      "Saves now update related screens automatically. Returning to the app, reconnecting, navigating, or saving in another open tab brings in fresh data while preserving unfinished drafts. AI proof reads appear when they finish, without a manual refresh.",
+  },
+  {
+    timestamp: 1788817039581,
+    title: "AI reads stick around",
+    description:
+      "Proof history now keeps the full AI read, including its one-liner, evidence, and caveats, after a proof is verified or challenged.",
+  },
+  {
     timestamp: 1788761000619,
     title: "Your color, your call",
     description:
@@ -35,7 +47,7 @@ export const changelogEntries: ChangelogEntry[] = [
     timestamp: 1788672989474,
     title: "A time for every change",
     description:
-      "Every changelog entry now shows its own time in Phoenix time (MST), with more space between updates so changes made throughout the day are easy to distinguish.",
+      "Every changelog entry now shows its own time, with more space between updates so changes made throughout the day are easy to distinguish.",
   },
   {
     timestamp: 1788672902612,
@@ -113,7 +125,7 @@ export const changelogEntries: ChangelogEntry[] = [
     timestamp: 1788583391053,
     title: "Late work stays reachable",
     description:
-      "Unfinished tasks from earlier days now appear on Today with a late-proof button. The midnight countdown refreshes the board when the Phoenix day changes, and deadlines are clearly labeled.",
+      "Unfinished tasks from earlier days now appear on Today with a late-proof button. The midnight countdown refreshes the board when the day changes, and deadlines are clearly labeled.",
   },
   {
     timestamp: 1788583391052,

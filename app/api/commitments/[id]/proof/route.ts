@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server";
 import { jsonError, readJson } from "@/lib/api";
 import { notifyProofSubmitted } from "@/lib/notifications";
 import { runProofAssessment } from "@/lib/proof-assessment";
+import { proofProgressResponse } from "@/lib/proof-progress-response";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { readBoundedBody } from "@/lib/request-body";
@@ -117,9 +118,9 @@ export async function POST(
         });
       }
     });
-    after(() => runProofAssessment(proof.id, uploaderId, circleId));
-
-    return NextResponse.json({ proof }, { status: 201 });
+    return proofProgressResponse(request, { proof }, 201, () =>
+      runProofAssessment(proof.id, uploaderId, circleId),
+    );
   } catch (error) {
     return jsonError(error);
   }

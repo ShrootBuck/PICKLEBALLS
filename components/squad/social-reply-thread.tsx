@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { appFetch } from "@/lib/app-refresh";
 import { uploadMedia } from "@/lib/media-upload";
 import { formatReplyTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -79,7 +80,7 @@ function ReplyItem({
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`/api/replies/${reply.id}`, {
+      const response = await appFetch(`/api/replies/${reply.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ body: trimmed }),
@@ -106,7 +107,7 @@ function ReplyItem({
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`/api/replies/${reply.id}`, {
+      const response = await appFetch(`/api/replies/${reply.id}`, {
         method: "DELETE",
       });
       if (!response.ok) {
@@ -304,7 +305,7 @@ export function SocialReplyThread({
         targetId,
         before: replies[0].id,
       });
-      const response = await fetch(`/api/replies?${query}`);
+      const response = await appFetch(`/api/replies?${query}`);
       const result = await response.json();
       if (!response.ok)
         throw new Error(result.error ?? "Could not load replies.");
@@ -338,7 +339,7 @@ export function SocialReplyThread({
         uploadedIds.current ??
         (files.length ? await uploadMedia(files, setUploadStatus) : []);
       uploadedIds.current = mediaIds;
-      const response = await fetch("/api/replies", {
+      const response = await appFetch("/api/replies", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

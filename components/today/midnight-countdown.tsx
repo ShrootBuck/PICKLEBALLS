@@ -70,8 +70,8 @@ export function MidnightCountdown({ compact = false }: { compact?: boolean }) {
       // role="timer" has implicit aria-live="off": screen readers can read
       // the countdown on demand instead of announcing every second.
       role="timer"
-      aria-label={`${label} until midnight in Phoenix`}
-      title="Daily deadline · midnight in Phoenix"
+      aria-label={`${label} until midnight`}
+      title="Daily deadline · midnight"
     >
       <Clock3 />
       {label}

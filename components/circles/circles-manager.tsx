@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { appFetch } from "@/lib/app-refresh";
 
 export type CircleListItem = {
   id: string;
@@ -40,6 +41,10 @@ export function CirclesManager({
   const router = useRouter();
   const [circles, setCircles] = useState(initial);
   const [current, setCurrent] = useState(activeId);
+  useEffect(() => {
+    setCircles(initial);
+    setCurrent(activeId);
+  }, [initial, activeId]);
   const [createPending, setCreatePending] = useState(false);
   const [switchPending, setSwitchPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +56,7 @@ export function CirclesManager({
     const form = event.currentTarget;
     const data = Object.fromEntries(new FormData(form));
     try {
-      const response = await fetch("/api/circles", {
+      const response = await appFetch("/api/circles", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ name: data.name }),
@@ -90,7 +95,7 @@ export function CirclesManager({
     setSwitchPending(circleId);
     setError(null);
     try {
-      const response = await fetch("/api/circles/active", {
+      const response = await appFetch("/api/circles/active", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ circleId }),

@@ -63,7 +63,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { appFetch } from "@/lib/app-refresh";
 import { uploadMedia } from "@/lib/media-upload";
+import { proofFetch } from "@/lib/proof-fetch";
 import {
   formatDayLong,
   formatDayShort,
@@ -256,7 +258,7 @@ function TaskDialog({
       definitionOfDone: definition,
     };
     try {
-      const response = await fetch(
+      const response = await appFetch(
         task ? `/api/commitments/${task.id}` : "/api/commitments",
         {
           method: task ? "PATCH" : "POST",
@@ -463,7 +465,7 @@ function ProofDialog({
       const mediaIds =
         uploadedIds.current ?? (await uploadMedia(files, setUploadStatus));
       uploadedIds.current = mediaIds;
-      const response = await fetch(`/api/commitments/${task.id}/proof`, {
+      const response = await proofFetch(`/api/commitments/${task.id}/proof`, {
         method: "POST",
         // Reuse the FormData captured above: the React synthetic event's
         // currentTarget can be detached after the setPending re-render.
@@ -734,7 +736,7 @@ function CheckInCard({
     if (pending) return;
     setPending(true);
     try {
-      const response = await fetch("/api/check-in", {
+      const response = await appFetch("/api/check-in", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ signal, blocker }),
@@ -1034,7 +1036,7 @@ export function TodayDashboard({
     <>
       <PageHeader
         title="Today"
-        description="Make a promise, show the work, and get a friend’s verdict. All deadlines use Phoenix time."
+        description="Make a promise, show the work, and get a friend’s verdict."
         actions={<TaskDialog onSaved={handleTaskSaved} />}
       >
         <div className="flex flex-wrap items-center gap-2">

@@ -293,7 +293,7 @@ export function TimeblockBuilder({
                     </Field>
                     <Field>
                       <FieldLabel htmlFor={`start-${row.id}`}>
-                        Started · Phoenix
+                        Started
                       </FieldLabel>
                       <Input
                         id={`start-${row.id}`}
@@ -306,7 +306,7 @@ export function TimeblockBuilder({
                     </Field>
                     <Field>
                       <FieldLabel htmlFor={`end-${row.id}`}>
-                        Finished · Phoenix
+                        Finished
                       </FieldLabel>
                       <Input
                         id={`end-${row.id}`}

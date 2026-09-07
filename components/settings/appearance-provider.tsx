@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { appFetch } from "@/lib/app-refresh";
 import type { PrimaryColor } from "@/lib/appearance";
 
 const AppearanceContext = createContext<{
@@ -23,6 +24,11 @@ export function AppearanceProvider({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pending = useRef(false);
+  useEffect(() => {
+    if (pending.current) return;
+    setPrimaryColor(initialColor);
+    document.documentElement.dataset.primaryColor = initialColor;
+  }, [initialColor]);
 
   async function chooseColor(color: PrimaryColor) {
     if (pending.current || color === primaryColor) return;
@@ -34,7 +40,7 @@ export function AppearanceProvider({
     setSaved(false);
     setError(null);
     try {
-      const response = await fetch("/api/settings/appearance", {
+      const response = await appFetch("/api/settings/appearance", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ primaryColor: color }),
