@@ -1,9 +1,8 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   createContext,
-  Suspense,
   useContext,
   useEffect,
   useRef,
@@ -30,9 +29,7 @@ export function AppRefreshProvider({
 }) {
   return (
     <RefreshVersion value={version}>
-      <Suspense fallback={null}>
-        <RefreshDriver userId={userId} version={version} />
-      </Suspense>
+      <RefreshDriver userId={userId} version={version} />
       {children}
     </RefreshVersion>
   );
@@ -46,10 +43,6 @@ function RefreshDriver({
   version: string;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const search = useSearchParams().toString();
-  const route = `${pathname}?${search}`;
-  const previousRoute = useRef(route);
   const [pending, startTransition] = useTransition();
   const scheduler = useRef<RefreshScheduler | null>(null);
   const currentVersion = useRef(version);
@@ -84,7 +77,7 @@ function RefreshDriver({
         }
       };
     } catch {
-      // Cross-tab delivery is optional; focus/navigation still catch up.
+      // Cross-tab delivery is optional; local saved actions still sync.
     }
     const changed = () => {
       queue.request();
@@ -94,43 +87,27 @@ function RefreshDriver({
         // A closed or unavailable channel must never break a saved action.
       }
     };
-    const resume = () => {
-      updateBlocked();
-      if (document.visibilityState !== "hidden" && navigator.onLine) {
-        queue.request();
-      }
-    };
-    const pageshow = (event: PageTransitionEvent) => {
-      if (event.persisted) resume();
-    };
+    // Returning to the tab only unblocks updates from actual saved changes.
+    // Focus, history restoration, and connectivity never request fresh data.
     updateBlocked();
     window.addEventListener(refreshEvent, changed);
     window.addEventListener(refreshBusyEvent, updateBlocked);
-    window.addEventListener("focus", resume);
-    window.addEventListener("online", resume);
+    window.addEventListener("online", updateBlocked);
     window.addEventListener("offline", updateBlocked);
-    window.addEventListener("pageshow", pageshow);
-    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("pageshow", updateBlocked);
+    document.addEventListener("visibilitychange", updateBlocked);
     return () => {
       queue.dispose();
       channel?.close();
       window.removeEventListener(refreshEvent, changed);
       window.removeEventListener(refreshBusyEvent, updateBlocked);
-      window.removeEventListener("focus", resume);
-      window.removeEventListener("online", resume);
+      window.removeEventListener("online", updateBlocked);
       window.removeEventListener("offline", updateBlocked);
-      window.removeEventListener("pageshow", pageshow);
-      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("pageshow", updateBlocked);
+      document.removeEventListener("visibilitychange", updateBlocked);
       scheduler.current = null;
     };
   }, [router, userId]);
-
-  useEffect(() => {
-    if (previousRoute.current !== route) {
-      previousRoute.current = route;
-      scheduler.current?.request();
-    }
-  }, [route]);
 
   return null;
 }
