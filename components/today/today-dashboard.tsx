@@ -15,10 +15,8 @@ import Link from "next/link";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { MediaPicker } from "@/components/media/media-picker";
-import {
-  SocialReplyThread,
-  type ThreadReply,
-} from "@/components/squad/social-reply-thread";
+import { ProofReviewList } from "@/components/squad/proof-review-list";
+import type { ThreadReply } from "@/components/squad/social-reply-thread";
 import { OnboardingCard } from "@/components/today/onboarding-card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -49,14 +47,6 @@ import {
   FieldTitle,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemHeader,
-  ItemTitle,
-} from "@/components/ui/item";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
@@ -171,43 +161,7 @@ function ProofFeedback({
 }) {
   if (proof.reviews.length === 0) return null;
   return (
-    <ItemGroup className="gap-2">
-      {proof.reviews.map((review) => (
-        <Item role="listitem" key={review.id} size="sm" variant="muted">
-          <ItemContent>
-            <ItemHeader>
-              <ItemTitle className="text-[13px]">
-                {review.reviewerName}
-                {review.reviewerId === currentUserId ? " (you)" : ""}
-              </ItemTitle>
-              <Badge
-                variant={
-                  review.decision === "CHALLENGED" ? "destructive" : "success"
-                }
-              >
-                {review.decision === "CHALLENGED" ? "Challenged" : "Approved"}
-              </Badge>
-            </ItemHeader>
-            {review.note ? (
-              <ItemDescription className="text-sm text-foreground">
-                {review.note}
-              </ItemDescription>
-            ) : (
-              <ItemDescription>No note. Just a vote.</ItemDescription>
-            )}
-            <div className="mt-2">
-              <SocialReplyThread
-                targetType="REVIEW"
-                targetId={review.id}
-                initialReplies={review.replies}
-                currentUserId={currentUserId}
-                compact
-              />
-            </div>
-          </ItemContent>
-        </Item>
-      ))}
-    </ItemGroup>
+    <ProofReviewList reviews={proof.reviews} currentUserId={currentUserId} />
   );
 }
 

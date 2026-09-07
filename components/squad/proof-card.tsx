@@ -2,6 +2,7 @@ import { Bot } from "lucide-react";
 import { MediaGallery } from "@/components/media/media-gallery";
 import { AiRetryButton } from "@/components/squad/ai-retry-button";
 import { ProofImageViewer } from "@/components/squad/proof-image-viewer";
+import { ProofReviewList } from "@/components/squad/proof-review-list";
 import { ReviewProof } from "@/components/squad/review-proof";
 import {
   SocialReplyThread,
@@ -17,14 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemHeader,
-  ItemTitle,
-} from "@/components/ui/item";
+import { Separator } from "@/components/ui/separator";
 import { formatProofTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -180,54 +174,18 @@ export function ProofCard({
               )
             ) : null}
             {proof.reviews.length > 0 ? (
-              <ItemGroup className="gap-2">
-                {proof.reviews.map((review) => (
-                  <Item
-                    role="listitem"
-                    key={review.id}
-                    size="sm"
-                    variant="muted"
-                  >
-                    <ItemContent>
-                      <ItemHeader>
-                        <ItemTitle className="text-[13px]">
-                          {review.reviewerName}
-                        </ItemTitle>
-                        <Badge
-                          variant={
-                            review.decision === "CHALLENGED"
-                              ? "destructive"
-                              : "success"
-                          }
-                        >
-                          {review.decision === "CHALLENGED"
-                            ? "Challenged"
-                            : "Approved"}
-                        </Badge>
-                      </ItemHeader>
-                      {review.note ? (
-                        <ItemDescription className="text-sm text-foreground">
-                          {review.note}
-                        </ItemDescription>
-                      ) : (
-                        <ItemDescription>No note. Just a vote.</ItemDescription>
-                      )}
-                      <div className="mt-2">
-                        <SocialReplyThread
-                          targetType="REVIEW"
-                          targetId={review.id}
-                          initialReplies={review.replies}
-                          currentUserId={viewerId}
-                          compact
-                          defaultExpanded={focusId === review.id}
-                        />
-                      </div>
-                    </ItemContent>
-                  </Item>
-                ))}
-              </ItemGroup>
+              <>
+                <Separator />
+                <ProofReviewList
+                  reviews={proof.reviews}
+                  currentUserId={viewerId}
+                  focusId={focusId}
+                />
+              </>
             ) : null}
+            <Separator />
             <SocialReplyThread
+              contextLabel={`Commenting on ${proof.ownerName}'s proof: ${proof.title}`}
               targetType="PROOF"
               targetId={proof.id}
               initialReplies={proof.replies}

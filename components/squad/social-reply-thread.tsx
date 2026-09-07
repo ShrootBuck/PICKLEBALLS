@@ -1,6 +1,14 @@
 "use client";
 
-import { MessageCircle, Pencil, Send, Trash2, X } from "lucide-react";
+import {
+  ChevronDown,
+  MessageCircle,
+  Paperclip,
+  Pencil,
+  Send,
+  Trash2,
+  X,
+} from "lucide-react";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { MediaGallery } from "@/components/media/media-gallery";
 import { MediaPicker } from "@/components/media/media-picker";
@@ -17,7 +25,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { appFetch } from "@/lib/app-refresh";
 import { uploadMedia } from "@/lib/media-upload";
 import { formatReplyTime } from "@/lib/time";
-import { cn } from "@/lib/utils";
 
 export type ThreadReply = {
   mediaIds?: string[];
@@ -132,9 +139,11 @@ function ReplyItem({
           {reply.author.initials}
         </AvatarFallback>
       </Avatar>
-      <div className="min-w-0 flex-1 rounded-xl bg-background/70 px-3 py-2">
+      <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-[13px] font-semibold">{reply.author.name}</span>
+          <span className="break-words text-[13px] font-medium">
+            {reply.author.name}
+          </span>
           <time
             dateTime={reply.createdAt}
             className="shrink-0 text-[11px] text-muted-foreground tabular-nums"
@@ -245,6 +254,8 @@ export function SocialReplyThread({
   compact = false,
   currentUserId,
   defaultExpanded = false,
+  contextLabel,
+  replyLabel = targetType === "PROOF" ? "Comment on proof" : "Reply",
 }: {
   targetType: ReplyTargetType;
   targetId: string;
@@ -252,6 +263,8 @@ export function SocialReplyThread({
   compact?: boolean;
   currentUserId?: string;
   defaultExpanded?: boolean;
+  contextLabel: string;
+  replyLabel?: string;
 }) {
   const generatedId = useId();
   const threadId = `reply-thread-${generatedId.replaceAll(":", "")}`;
@@ -281,8 +294,31 @@ export function SocialReplyThread({
   const uploadedIds = useRef<string[] | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const [composing, setComposing] = useState(false);
+  const [showAttachments, setShowAttachments] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(compact ? 4 : 8);
   const anchorRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const replyButtonRef = useRef<HTMLButtonElement>(null);
+  const hiddenCount = Math.max(0, replies.length - visibleCount);
+
+  useEffect(() => {
+    if (expanded && composing) inputRef.current?.focus();
+  }, [expanded, composing]);
+
+  function openComposer() {
+    setExpanded(true);
+    setComposing(true);
+    inputRef.current?.focus();
+  }
+
+  function toggleThread() {
+    if (expanded && replies.length === 0) replyButtonRef.current?.focus();
+    setExpanded((value) => !value);
+    setComposing(false);
+  }
 
   // Deep-linked threads (from the activity bell) open and scroll into view.
   useEffect(() => {
@@ -296,9 +332,13 @@ export function SocialReplyThread({
   }, [defaultExpanded]);
 
   async function loadEarlier() {
+    if (hiddenCount > 0) {
+      setVisibleCount((count) => count + 10);
+      return;
+    }
     if (loadingEarlier || !replies[0]) return;
     setLoadingEarlier(true);
-    setError(null);
+    setLoadError(null);
     try {
       const query = new URLSearchParams({
         targetType,
@@ -320,8 +360,9 @@ export function SocialReplyThread({
         ]),
       );
       setHasMore(result.hasMore);
+      setVisibleCount((count) => count + result.replies.length);
     } catch {
-      setError("Could not load earlier replies. Try again.");
+      setLoadError("Could not load earlier replies. Try again.");
     } finally {
       setLoadingEarlier(false);
     }
@@ -359,8 +400,10 @@ export function SocialReplyThread({
       }
 
       setReplies((current) => [...current, result.reply as SocialReply]);
+      setVisibleCount((count) => count + 1);
       setBody("");
       setFiles([]);
+      setShowAttachments(false);
       uploadedIds.current = null;
     } catch (error) {
       setError(
@@ -375,139 +418,201 @@ export function SocialReplyThread({
     <div
       ref={anchorRef}
       id={`thread-${targetId}`}
-      className="flex w-full scroll-mt-20 flex-col gap-2.5 rounded-xl bg-muted/60 p-3"
+      className="flex w-full min-w-0 scroll-mt-20 flex-col"
     >
-      <div className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground">
-        <MessageCircle className="size-3.5 shrink-0" />
-        {replies.length === 0
-          ? "No replies yet. Talk shit."
-          : `${replies.length}${hasMore ? "+" : ""} ${replies.length === 1 ? "reply" : "replies"}`}
+      <div className="-ml-2 flex flex-wrap items-center gap-x-1 text-muted-foreground">
+        {replies.length > 0 ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={toggleThread}
+            aria-expanded={expanded}
+            aria-controls={threadId}
+            aria-label={`${expanded ? "Hide" : "View"} ${replies.length}${hasMore ? "+" : ""} ${replies.length === 1 ? "reply" : "replies"}. ${contextLabel}`}
+          >
+            <MessageCircle data-icon="inline-start" />
+            {replies.length}
+            {hasMore ? "+" : ""} {replies.length === 1 ? "reply" : "replies"}
+            <ChevronDown
+              data-icon="inline-end"
+              className={expanded ? "rotate-180" : undefined}
+            />
+          </Button>
+        ) : null}
         <Button
+          ref={replyButtonRef}
           type="button"
           variant="ghost"
           size="sm"
-          className="ml-auto h-7 min-h-0 text-xs"
-          onClick={() => setExpanded((value) => !value)}
-          aria-expanded={expanded}
+          onClick={openComposer}
+          aria-label={`${replyLabel}. ${contextLabel}`}
+          aria-controls={threadId}
         >
-          {expanded ? "Hide" : "Reply"}
+          {replies.length === 0 ? (
+            <MessageCircle data-icon="inline-start" />
+          ) : null}
+          <span className="truncate">{replyLabel}</span>
         </Button>
+        {expanded && replies.length === 0 ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={toggleThread}
+            aria-expanded={expanded}
+            aria-controls={threadId}
+          >
+            Hide
+          </Button>
+        ) : null}
       </div>
 
-      {expanded ? (
-        <>
-          {hasMore ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={loadingEarlier}
-              onClick={loadEarlier}
-            >
-              {loadingEarlier ? "Loading…" : "Load earlier replies"}
-            </Button>
-          ) : null}
-          {replies.length > 0 ? (
-            <div
-              className={cn(
-                "flex flex-col gap-2",
-                compact && replies.length > 4
-                  ? "max-h-64 overflow-y-auto pr-1"
-                  : "",
-              )}
-              aria-live="polite"
-            >
-              {replies.map((reply) => (
-                <ReplyItem
-                  key={reply.id}
-                  reply={reply}
-                  mine={
-                    currentUserId != null && reply.author.id === currentUserId
-                  }
-                  onEdited={(updated) =>
-                    setReplies((current) =>
-                      current.map((item) =>
-                        item.id === updated.id ? updated : item,
-                      ),
-                    )
-                  }
-                  onDeleted={(id) =>
-                    setReplies((current) =>
-                      current.filter((item) => item.id !== id),
-                    )
-                  }
-                />
-              ))}
-            </div>
-          ) : null}
-
-          <form onSubmit={submit} className="w-full">
-            <FieldGroup className="gap-2">
-              <Field data-invalid={Boolean(error)}>
-                <FieldLabel htmlFor={inputId} className="sr-only">
-                  Write a reply
-                </FieldLabel>
-                <Textarea
-                  id={inputId}
-                  value={body}
-                  onChange={(event) => setBody(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (
-                      event.key === "Enter" &&
-                      (event.metaKey || event.ctrlKey)
-                    ) {
-                      event.currentTarget.form?.requestSubmit();
+      <div id={threadId} hidden={!expanded}>
+        {expanded ? (
+          <div className="my-2 ml-1 flex min-w-0 flex-col gap-4 border-l-2 border-border pl-3 sm:pl-4">
+            {!composing ? (
+              <p className="text-xs text-muted-foreground">{contextLabel}</p>
+            ) : null}
+            {hiddenCount > 0 || hasMore ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="-ml-2 w-fit"
+                disabled={loadingEarlier}
+                onClick={loadEarlier}
+              >
+                {loadingEarlier ? "Loading…" : "Load earlier replies"}
+              </Button>
+            ) : null}
+            {loadError ? (
+              <p role="alert" className="text-xs text-destructive">
+                {loadError}
+              </p>
+            ) : null}
+            {replies.length > 0 ? (
+              <div className="flex flex-col gap-4" aria-live="polite">
+                {replies.slice(-visibleCount).map((reply) => (
+                  <ReplyItem
+                    key={reply.id}
+                    reply={reply}
+                    mine={
+                      currentUserId != null && reply.author.id === currentUserId
                     }
-                  }}
-                  maxLength={500}
-                  placeholder={
-                    replies.length === 0
-                      ? "Say something useful (or at least funny)"
-                      : "Keep it going…"
-                  }
-                  aria-invalid={Boolean(error)}
-                  disabled={pending}
-                  className="min-h-11 resize-none bg-background py-2.5 text-sm"
-                  rows={1}
-                />
-                <FieldError>{error}</FieldError>
-              </Field>
-              <MediaPicker
-                files={files}
-                onChange={(next) => {
-                  setFiles(next);
-                  uploadedIds.current = null;
-                }}
-                disabled={pending}
-              />
-              {pending && uploadStatus ? (
-                <output className="text-xs text-muted-foreground">
-                  {uploadStatus}
-                </output>
-              ) : null}
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-muted-foreground tabular-nums">
-                  {body.trim().length}/500
-                </span>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={
-                    pending || (body.trim().length === 0 && files.length === 0)
-                  }
-                >
-                  {pending ? (
-                    <Spinner data-icon="inline-start" />
-                  ) : (
-                    <Send data-icon="inline-start" />
-                  )}
-                  Reply
-                </Button>
+                    onEdited={(updated) =>
+                      setReplies((current) =>
+                        current.map((item) =>
+                          item.id === updated.id ? updated : item,
+                        ),
+                      )
+                    }
+                    onDeleted={(id) =>
+                      setReplies((current) =>
+                        current.filter((item) => item.id !== id),
+                      )
+                    }
+                  />
+                ))}
               </div>
-            </FieldGroup>
-          </form>
-        </>
-      ) : null}
+            ) : null}
+
+            {composing ? (
+              <form onSubmit={submit} className="w-full">
+                <FieldGroup className="gap-2">
+                  <Field data-invalid={Boolean(error)}>
+                    <FieldLabel htmlFor={inputId}>{contextLabel}</FieldLabel>
+                    <Textarea
+                      id={inputId}
+                      ref={inputRef}
+                      value={body}
+                      onChange={(event) => setBody(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === "Enter" &&
+                          (event.metaKey || event.ctrlKey)
+                        ) {
+                          event.currentTarget.form?.requestSubmit();
+                        }
+                      }}
+                      maxLength={500}
+                      placeholder={
+                        targetType === "PROOF"
+                          ? "Write a comment…"
+                          : "Write a reply…"
+                      }
+                      aria-invalid={Boolean(error)}
+                      disabled={pending}
+                      className="min-h-16 resize-none"
+                      rows={1}
+                    />
+                    <FieldError>{error}</FieldError>
+                  </Field>
+                  {showAttachments ? (
+                    <MediaPicker
+                      files={files}
+                      onChange={(next) => {
+                        setFiles(next);
+                        uploadedIds.current = null;
+                      }}
+                      disabled={pending}
+                    />
+                  ) : null}
+                  {pending && uploadStatus ? (
+                    <output className="text-xs text-muted-foreground">
+                      {uploadStatus}
+                    </output>
+                  ) : null}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => setShowAttachments((value) => !value)}
+                      aria-expanded={showAttachments}
+                    >
+                      <Paperclip data-icon="inline-start" />
+                      {files.length ? `${files.length} attached` : "Attach"}
+                    </Button>
+                    <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+                      {body.trim().length}/500
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => {
+                        setComposing(false);
+                        if (replies.length === 0) setExpanded(false);
+                        replyButtonRef.current?.focus();
+                      }}
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={
+                        pending ||
+                        (body.trim().length === 0 && files.length === 0)
+                      }
+                    >
+                      {pending ? (
+                        <Spinner data-icon="inline-start" />
+                      ) : (
+                        <Send data-icon="inline-start" />
+                      )}
+                      {targetType === "PROOF" ? "Comment" : "Reply"}
+                    </Button>
+                  </div>
+                </FieldGroup>
+              </form>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

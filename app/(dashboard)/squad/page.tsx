@@ -2,6 +2,7 @@ import { Camera, Flame } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Fragment } from "react";
 import { CircleDestination } from "@/components/circles/circle-destination";
 import { activityIcon } from "@/components/layout/activity-icons";
 import { PageHeader } from "@/components/layout/page-header";
@@ -41,6 +42,7 @@ import {
   ItemDescription,
   ItemGroup,
   ItemMedia,
+  ItemSeparator,
   ItemTitle,
 } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
@@ -409,35 +411,41 @@ export default async function SquadPage({
                           role={
                             user.commitments.length ? "list" : "presentation"
                           }
-                          className="gap-2"
+                          className="gap-0 has-data-[size=sm]:gap-0"
                         >
-                          {user.commitments.map((task) => (
-                            <Item
-                              key={task.id}
-                              size="sm"
-                              variant="muted"
-                              className="flex-col items-stretch gap-2"
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <ItemTitle className="min-w-0 flex-1 text-sm leading-snug">
-                                  {task.title}
-                                </ItemTitle>
-                                <Badge variant={taskStatusVariant(task.status)}>
-                                  {taskStatusLabel(task.status)}
-                                </Badge>
-                              </div>
-                              <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-                                {task.definitionOfDone}
-                              </p>
-                              <SocialReplyThread
-                                targetType="COMMITMENT"
-                                targetId={task.id}
-                                initialReplies={task.replies.map(toThreadReply)}
-                                currentUserId={session.user.id}
-                                compact
-                                defaultExpanded={focusId === task.id}
-                              />
-                            </Item>
+                          {user.commitments.map((task, index) => (
+                            <Fragment key={task.id}>
+                              {index > 0 ? <ItemSeparator /> : null}
+                              <Item
+                                size="sm"
+                                className="flex-col items-stretch gap-1 px-0 py-2"
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <ItemTitle className="min-w-0 flex-1 text-sm leading-snug">
+                                    {task.title}
+                                  </ItemTitle>
+                                  <Badge
+                                    variant={taskStatusVariant(task.status)}
+                                  >
+                                    {taskStatusLabel(task.status)}
+                                  </Badge>
+                                </div>
+                                <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                                  {task.definitionOfDone}
+                                </p>
+                                <SocialReplyThread
+                                  contextLabel={`Replying to ${task.title}`}
+                                  targetType="COMMITMENT"
+                                  targetId={task.id}
+                                  initialReplies={task.replies.map(
+                                    toThreadReply,
+                                  )}
+                                  currentUserId={session.user.id}
+                                  compact
+                                  defaultExpanded={focusId === task.id}
+                                />
+                              </Item>
+                            </Fragment>
                           ))}
                           {user.commitments.length === 0 ? (
                             <p className="rounded-xl border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
@@ -498,6 +506,8 @@ export default async function SquadPage({
                                 </p>
                               )}
                               <SocialReplyThread
+                                contextLabel={`Replying to ${user.name}'s check-in`}
+                                replyLabel="Reply to check-in"
                                 targetType="CHECK_IN"
                                 targetId={checkIn.id}
                                 initialReplies={checkIn.replies.map(
@@ -512,7 +522,7 @@ export default async function SquadPage({
                         ) : (
                           <>
                             <Separator />
-                            <p className="rounded-xl bg-muted/50 px-3 py-2.5 text-center text-[13px] text-muted-foreground">
+                            <p className="py-1 text-[13px] text-muted-foreground">
                               No check-in yet.
                             </p>
                           </>
