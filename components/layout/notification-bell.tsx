@@ -185,7 +185,7 @@ export function NotificationBell({
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="max-h-[min(38rem,calc(100dvh-5rem))] w-[min(25rem,calc(100vw-1rem))] overflow-hidden p-0"
+        className="max-h-[min(38rem,calc(100dvh-5rem),var(--available-height))] w-[min(25rem,calc(100vw-1rem))] overflow-hidden p-0"
       >
         <div className="flex items-center justify-between gap-2 px-4 pt-3">
           <div className="flex min-w-0 items-center gap-2">

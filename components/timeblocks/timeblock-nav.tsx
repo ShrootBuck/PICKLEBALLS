@@ -17,7 +17,7 @@ export function TimeblockNav({
 }) {
   const router = useRouter();
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
       <Button
         variant="outline"
         size="sm"
@@ -70,7 +70,7 @@ export function TimeblockNav({
               : `/timeblock?due=${monday}`,
           );
         }}
-        className="h-8 w-auto min-w-36 text-xs"
+        className="w-full sm:h-8 sm:w-auto"
       />
     </div>
   );

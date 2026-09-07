@@ -278,8 +278,8 @@ export function TimeblockBuilder({
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <FieldGroup className="gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_14rem_14rem]">
-                    <Field>
+                  <FieldGroup className="gap-3 @xl/card:grid @xl/card:grid-cols-2 @4xl/card:grid-cols-[minmax(0,1fr)_14rem_14rem]">
+                    <Field className="min-w-0 @xl/card:col-span-2 @4xl/card:col-span-1">
                       <FieldLabel htmlFor={`name-${row.id}`}>
                         Task name
                       </FieldLabel>
@@ -293,7 +293,7 @@ export function TimeblockBuilder({
                         placeholder="Reading log"
                       />
                     </Field>
-                    <Field>
+                    <Field className="min-w-0">
                       <FieldLabel htmlFor={`start-${row.id}`}>
                         Started
                       </FieldLabel>
@@ -306,7 +306,7 @@ export function TimeblockBuilder({
                         }
                       />
                     </Field>
-                    <Field>
+                    <Field className="min-w-0">
                       <FieldLabel htmlFor={`end-${row.id}`}>
                         Finished
                       </FieldLabel>

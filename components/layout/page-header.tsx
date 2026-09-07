@@ -12,8 +12,8 @@ export function PageHeader({
   children?: ReactNode;
 }) {
   return (
-    <section className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
+    <section className="flex min-w-0 flex-wrap items-start justify-between gap-4 sm:gap-6">
+      <div className="flex min-w-0 flex-1 basis-64 flex-col gap-2">
         {children}
         <h1 className="text-2xl font-semibold leading-tight tracking-[-0.03em] text-balance sm:text-3xl">
           {title}
@@ -25,7 +25,7 @@ export function PageHeader({
         ) : null}
       </div>
       {actions ? (
-        <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto sm:justify-end">
+        <div className="flex w-full min-w-0 max-w-full shrink-0 flex-wrap gap-2 sm:w-auto sm:justify-end">
           {actions}
         </div>
       ) : null}

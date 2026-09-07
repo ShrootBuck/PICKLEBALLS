@@ -16,7 +16,7 @@ function shiftDay(dayKey: string, delta: number) {
 export function HistoryNav({ day, today }: { day: string; today: string }) {
   const router = useRouter();
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
       <Button
         variant="outline"
         size="sm"
@@ -53,7 +53,7 @@ export function HistoryNav({ day, today }: { day: string; today: string }) {
           if (!parseDateKey(value) || value > today || value === day) return;
           router.push(value !== today ? `/history?day=${value}` : "/history");
         }}
-        className="h-8 w-auto text-sm"
+        className="w-full sm:h-8 sm:w-auto"
         aria-label="Pick a day"
       />
     </div>
