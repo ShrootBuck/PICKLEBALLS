@@ -5,6 +5,20 @@ import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
+const inter = localFont({
+  src: [
+    { path: "./fonts/InterVariable.woff2", weight: "100 900", style: "normal" },
+    {
+      path: "./fonts/InterVariable-Italic.woff2",
+      weight: "100 900",
+      style: "italic",
+    },
+  ],
+  variable: "--font-inter",
+  display: "swap",
+  fallback: ["Arial", "sans-serif"],
+});
+
 const commitMono = localFont({
   src: [
     {
@@ -19,6 +33,7 @@ const commitMono = localFont({
     },
   ],
   variable: "--font-commit-mono",
+  preload: false,
   display: "swap",
   fallback: ["monospace"],
   adjustFontFallback: false,
@@ -30,7 +45,7 @@ export const viewport: Viewport = {
   maximumScale: 5,
   minimumScale: 1,
   viewportFit: "cover",
-  themeColor: "#15151b",
+  themeColor: "#111113",
   colorScheme: "dark",
   interactiveWidget: "resizes-visual",
 };
@@ -85,7 +100,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${commitMono.variable} antialiased`}
+      className={`dark ${inter.variable} ${commitMono.variable} antialiased`}
       suppressHydrationWarning
     >
       <head>

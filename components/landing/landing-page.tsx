@@ -48,10 +48,10 @@ export function LandingPage() {
       </div>
 
       <div className="flex flex-col items-center gap-6 pt-6 sm:pt-12">
-        <h1 className="max-w-3xl text-5xl font-semibold leading-[1.05] tracking-[-0.055em] text-balance sm:text-7xl">
+        <h1 className="max-w-3xl text-5xl font-semibold leading-[1.08] tracking-[-0.045em] text-balance sm:text-7xl">
           Do the homework. Earn the court.
         </h1>
-        <p className="max-w-md text-base text-pretty text-muted-foreground sm:text-lg">
+        <p className="max-w-lg text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">
           Daily promises, photo receipts, and friends who call the bluff. Start
           your own private circle in seconds — or join your crew with an invite
           link.

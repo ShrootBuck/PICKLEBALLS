@@ -31,7 +31,7 @@ const points = [
 
 export function AuthScreen({ children }: { children: ReactNode }) {
   return (
-    <main className="grid min-h-full lg:grid-cols-[1.1fr_1fr]">
+    <main className="grid min-h-full content-start lg:grid-cols-[1.1fr_1fr] lg:content-normal">
       <section className="relative flex flex-col gap-6 overflow-hidden bg-brand-panel px-5 py-6 text-brand-panel-foreground sm:px-8 sm:py-8 lg:justify-between lg:gap-10 lg:p-14">
         <div className="relative flex items-center gap-2.5 text-sm font-semibold">
           <span className="flex size-8 items-center justify-center rounded-lg bg-brand-panel-foreground text-base text-brand-panel">
@@ -49,7 +49,7 @@ export function AuthScreen({ children }: { children: ReactNode }) {
           >
             The deal
           </Badge>
-          <h1 className="text-2xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl lg:text-5xl">
+          <h1 className="text-2xl font-semibold leading-[1.12] tracking-[-0.035em] text-balance sm:text-4xl lg:text-5xl">
             Do the homework. Earn the court.
           </h1>
           <p className="hidden max-w-md text-sm leading-relaxed text-pretty opacity-85 sm:block sm:text-base lg:text-lg">
@@ -61,9 +61,12 @@ export function AuthScreen({ children }: { children: ReactNode }) {
             {points.map(({ icon: Icon, title, body }) => (
               <div
                 key={title}
-                className="flex flex-col gap-1.5 rounded-xl border border-brand-panel-foreground/15 bg-brand-panel-foreground/5 p-3"
+                className="flex flex-col gap-1.5 rounded-lg border border-brand-panel-foreground/10 p-3"
               >
-                <Icon aria-hidden="true" />
+                <Icon
+                  aria-hidden="true"
+                  className="mb-2 size-5 text-muted-foreground"
+                />
                 <p className="text-sm font-medium">{title}</p>
                 <p className="text-xs leading-relaxed opacity-75">{body}</p>
               </div>

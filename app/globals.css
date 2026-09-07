@@ -6,51 +6,51 @@
 /* Dark by default, including the first server-rendered frame and native controls. */
 :root {
   color-scheme: dark;
-  --background: #15151b;
-  --foreground: #f2f1f5;
-  --card: #1e1e26;
+  --background: #111113;
+  --foreground: #ededee;
+  --card: #19191c;
   --card-foreground: var(--foreground);
-  --popover: #262630;
+  --popover: #202023;
   --popover-foreground: var(--foreground);
-  --primary: #f078b0;
-  --primary-foreground: #25131d;
-  --secondary: #30303c;
-  --secondary-foreground: #e4e2eb;
-  --muted: #292933;
-  --muted-foreground: #aaaab9;
-  --accent: #402637;
-  --accent-foreground: #ffa8d0;
-  --success: #4ade80;
-  --success-foreground: #082713;
-  --destructive: #f87171;
-  --destructive-foreground: #32151b;
-  --overlay: #050509;
-  --border: #3a3a48;
-  --input: #626272;
-  --ring: var(--primary);
-  --chart-1: var(--primary);
+  --primary: #ededee;
+  --primary-foreground: #171719;
+  --secondary: #27272a;
+  --secondary-foreground: #e4e4e7;
+  --muted: #232326;
+  --muted-foreground: #a1a1aa;
+  --accent: #2a2a2e;
+  --accent-foreground: #f4f4f5;
+  --success: #6ed6a0;
+  --success-foreground: #10251a;
+  --destructive: #f08080;
+  --destructive-foreground: #301719;
+  --overlay: #000000;
+  --border: #303034;
+  --input: #626268;
+  --ring: #a1a1aa;
+  --chart-1: #9cb9ff;
   --chart-2: #75d4b0;
   --chart-3: #edc27c;
   --chart-4: #9cb9ff;
   --chart-5: #ffa68f;
-  --radius: 0.625rem;
-  --sidebar: #191920;
-  --sidebar-foreground: #bcbac9;
+  --radius: 0.5rem;
+  --sidebar: #141416;
+  --sidebar-foreground: #b4b4bd;
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
   --sidebar-accent: var(--accent);
   --sidebar-accent-foreground: var(--accent-foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
-  --brand-panel: #25202b;
-  --brand-panel-foreground: #f2edf5;
+  --brand-panel: #161618;
+  --brand-panel-foreground: #ededee;
 }
 
 @theme inline {
-  --font-sans: var(--font-commit-mono);
+  --font-sans: var(--font-inter), Arial, sans-serif;
   --font-mono: var(--font-commit-mono);
-  --font-serif: var(--font-commit-mono);
-  --font-heading: var(--font-commit-mono);
+  --font-serif: Georgia, serif;
+  --font-heading: var(--font-inter), Arial, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -123,6 +123,8 @@
 
   body {
     @apply bg-background font-sans text-foreground antialiased;
+    font-optical-sizing: auto;
+    letter-spacing: -0.011em;
     overscroll-behavior: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

@@ -13,9 +13,9 @@ export function PageHeader({
 }) {
   return (
     <section className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
         {children}
-        <h1 className="text-2xl font-semibold tracking-[-0.035em] text-balance sm:text-3xl">
+        <h1 className="text-2xl font-semibold leading-tight tracking-[-0.03em] text-balance sm:text-3xl">
           {title}
         </h1>
         {description ? (
@@ -45,9 +45,7 @@ export function PageSection({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          {title}
-        </h2>
+        <h2 className="text-sm font-medium text-foreground">{title}</h2>
         {action}
       </div>
       {children}
