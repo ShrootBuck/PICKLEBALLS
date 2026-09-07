@@ -211,6 +211,14 @@
     left: env(safe-area-inset-left, 0px);
   }
 
+  @media (width < 48rem) {
+    /* Let dashboard content scroll behind the home indicator. Its final
+       padding belongs to the content, not a permanently empty screen strip. */
+    [data-slot="app-frame"]:has([data-slot="dashboard-scroll"]) {
+      bottom: 0;
+    }
+  }
+
   [data-slot="app-frame"],
   [data-slot="sidebar-content"],
   [data-slot="dialog-content"],

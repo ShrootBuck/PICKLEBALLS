@@ -58,11 +58,14 @@ export default async function DashboardLayout({
             </Suspense>
           }
         />
-        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <div
+          data-slot="dashboard-scroll"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+        >
           <main
             id="main"
             tabIndex={-1}
-            className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-5 sm:gap-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8"
+            className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-5 max-md:pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] sm:gap-6 sm:px-6 sm:py-7 sm:max-md:pb-[max(1.75rem,env(safe-area-inset-bottom,0px))] lg:px-8 lg:py-8"
           >
             {children}
           </main>
