@@ -1,6 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { type Browser, expect, test } from "@playwright/test";
-import { latestScreenTimeWeek } from "../../lib/screen-time";
+import {
+  latestScreenTimeWeek,
+  validateScreenTimeExtraction,
+} from "../../lib/screen-time";
 import { requireDateKey } from "../../lib/time";
 import { shiftDateKey } from "../../lib/timeblocks";
 import { circleId, otherCircleId, sessionCookie, testPrisma } from "./seed";
@@ -81,6 +84,7 @@ test("weekly screen time: upload, review, publish, leaderboard, history and priv
     await expect(
       page.getByText("This Week", { exact: false }).first(),
     ).toBeVisible();
+    await expect(page.getByText(/no calendar dates are needed/)).toBeVisible();
     let draftId = "";
     let mediaId = "";
     // Fixtures replace only the external vision step. Upload/finalization,
@@ -93,8 +97,11 @@ test("weekly screen time: upload, review, publish, leaderboard, history and priv
           userId: "alex",
           circleId,
           weekStart: requireDateKey(week),
-          dailyAverageMinutes: 120,
-          totalMinutes: 840,
+          ...validateScreenTimeExtraction({
+            isWeeklyReport: true,
+            dailyAverageMinutes: 226,
+            totalMinutes: 1587,
+          }),
           mediaId,
         },
       });
@@ -130,10 +137,12 @@ test("weekly screen time: upload, review, publish, leaderboard, history and priv
       200,
     );
     await page.getByRole("button", { name: "Confirm and post" }).click();
-    await expect(page.getByText("2h 0m per day submitted")).toBeVisible();
+    await expect(page.getByText("3h 46m per day submitted")).toBeVisible();
     const alex = page.getByRole("row").filter({ hasText: "Alex Rivera (you)" });
-    await expect(alex).toContainText("Most improved");
-    await expect(alex).toContainText("1h 0m less");
+    await expect(alex).toContainText("46m more");
+    await expect(
+      page.getByRole("row").filter({ hasText: "Sam Chen" }),
+    ).toContainText("Most improved");
     await expect(
       page.getByRole("row").filter({ hasText: "Jules Park" }),
     ).toContainText("Not submitted");
@@ -153,7 +162,7 @@ test("weekly screen time: upload, review, publish, leaderboard, history and priv
       include: { reading: true },
     });
     expect(saved).toHaveLength(1);
-    expect(saved[0].reading.dailyAverageMinutes).toBe(120);
+    expect(saved[0].reading.dailyAverageMinutes).toBe(226);
     expect(
       (
         await friend.request.post("/api/screen-time", {
@@ -176,7 +185,7 @@ test("weekly screen time: upload, review, publish, leaderboard, history and priv
     await expect(
       page
         .getByRole("list", { name: "Weekly rankings" })
-        .getByText("2h 0m per day", { exact: true }),
+        .getByText("3h 46m per day", { exact: true }),
     ).toBeVisible();
     await page.locator('[data-slot="dashboard-scroll"]').evaluate((element) => {
       element.scrollTop = 0;
@@ -228,7 +237,7 @@ test("weekly screen time: upload, review, publish, leaderboard, history and priv
       },
       include: { reading: true },
     });
-    expect(unchanged.reading.dailyAverageMinutes).toBe(120);
+    expect(unchanged.reading.dailyAverageMinutes).toBe(226);
     await page.goto("/");
     await expect(
       page.getByText("Your weekly screen time is missing"),

@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788819941675,
+    title: "Simpler screen time uploads",
+    description:
+      "Choose Week in Screen Time, go back one week, and upload the average. Screenshots labeled Last Week’s Average work without calendar dates or a visible device selector. Check the numbers and confirm to post to the current leaderboard.",
+  },
+  {
     timestamp: 1788818744494,
     title: "Weekly screen time, with receipts",
     description:

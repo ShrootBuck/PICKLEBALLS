@@ -51,7 +51,7 @@ export async function readScreenTime(
   const data = await getMediaBytes(media.objectKey);
   let raw: unknown;
   try {
-    raw = await extractScreenTime(userId, circleId, expectedWeek, {
+    raw = await extractScreenTime(userId, circleId, {
       data,
       mimeType: media.mimeType,
     });
@@ -64,7 +64,7 @@ export async function readScreenTime(
       503,
     );
   }
-  const values = validateScreenTimeExtraction(raw, expectedWeek);
+  const values = validateScreenTimeExtraction(raw);
   return serializable(async (tx) => {
     const existing = await tx.screenTimeReading.findFirst({
       where: { mediaId, userId, circleId },
@@ -141,7 +141,7 @@ export async function sendScreenTimeReminders(now = new Date()) {
         circleId: member.circleId,
         kind: "SCREEN_TIME_REMINDER",
         title: "Your weekly screen time is due",
-        body: `${member.circle.name}: upload ${screenTimeWeekLabel(week)}. Choose Week in Screen Time, then go back one week.`,
+        body: `${member.circle.name}: your ${screenTimeWeekLabel(week)} entry is due. Choose Week in Screen Time, go back one week, and screenshot the average.`,
         data: { url: `/screen-time?week=${week}` },
         dedupeKey: `screen-time:${member.circleId}:${member.userId}:${week}`,
         allowSelf: true,

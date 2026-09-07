@@ -30,65 +30,44 @@ export function formatScreenTime(minutes: number) {
 
 export const screenTimeExtractionSchema = z.object({
   isWeeklyReport: z.boolean(),
-  isCompleteWeek: z.boolean(),
-  deviceScope: z.enum(["PHONE", "ALL_DEVICES", "OTHER", "UNKNOWN"]),
-  weekStart: z
-    .string()
+  dailyAverageMinutes: z
+    .number()
+    .int()
+    .min(0)
+    .max(1440)
     .nullable()
-    .describe("Visible first date, YYYY-MM-DD; null if unreadable."),
-  weekEnd: z
-    .string()
-    .nullable()
-    .describe("Visible last date, YYYY-MM-DD; null if unreadable."),
-  dailyAverageMinutes: z.number().int().min(0).max(1440).nullable(),
+    .describe(
+      "Visible daily average, including Last Week’s Average; null if unreadable.",
+    ),
   totalMinutes: z.number().int().min(0).max(10080).nullable(),
-  problem: z
-    .string()
-    .max(300)
-    .nullable()
-    .describe("Any ambiguity that prevents a reliable read; otherwise null."),
 });
 
-export function validateScreenTimeExtraction(
-  raw: unknown,
-  expectedWeek: string,
-) {
+export function validateScreenTimeExtraction(raw: unknown) {
   const parsed = screenTimeExtractionSchema.safeParse(raw);
   if (!parsed.success)
     throw new DomainError(
       "Could not read the report reliably. Try a clearer screenshot.",
     );
   const value = parsed.data;
-  if (!value.isWeeklyReport || !value.isCompleteWeek)
+  if (!value.isWeeklyReport)
     throw new DomainError(
-      "Choose Week, then go back to the completed week. Keep the date range and daily average visible.",
+      "Choose Week in Screen Time, go back one week, and screenshot the average.",
     );
-  if (
-    value.weekStart !== expectedWeek ||
-    value.weekEnd !== shiftDateKey(expectedWeek, 6)
-  )
+  if (value.dailyAverageMinutes === null)
     throw new DomainError(
-      `Use the report for ${screenTimeWeekLabel(expectedWeek)}. Go back one week from This Week.`,
+      "Could not read the daily average. Upload a clearer screenshot with the average visible.",
     );
-  if (value.deviceScope !== "PHONE")
-    throw new DomainError(
-      "Select just your iPhone under Devices, not All Devices, and keep the device name visible.",
-    );
-  if (value.dailyAverageMinutes === null || value.problem)
-    throw new DomainError(
-      "The daily average or report details are unclear. Upload a clearer screenshot with the full header.",
-    );
-  // Both displayed numbers are rounded to minutes. Do not invent a weekly total.
-  if (
+  // The user selects last week; the server assigns the reporting week.
+  // An optional total must never block a readable average. Omit inconsistent
+  // totals instead of rejecting the screenshot or inventing a replacement.
+  const totalMinutes =
     value.totalMinutes !== null &&
-    Math.abs(value.totalMinutes - value.dailyAverageMinutes * 7) > 7
-  )
-    throw new DomainError(
-      "The total and daily average do not agree. Check that this is a complete seven-day report.",
-    );
+    Math.abs(value.totalMinutes - value.dailyAverageMinutes * 7) <= 7
+      ? value.totalMinutes
+      : null;
   return {
     dailyAverageMinutes: value.dailyAverageMinutes,
-    totalMinutes: value.totalMinutes,
+    totalMinutes,
   };
 }
 

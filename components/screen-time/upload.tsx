@@ -59,7 +59,7 @@ export function ScreenTimeUpload({
       const mediaId =
         uploadedId.current ?? (await uploadMedia([file], setStatus))[0];
       uploadedId.current = mediaId;
-      setStatus("Reading dates and screen time… This can take a minute.");
+      setStatus("Reading screen time… This can take a minute.");
       const response = await fetch("/api/screen-time/read", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -115,7 +115,7 @@ export function ScreenTimeUpload({
             : "Your week is submitted"}
         </CardTitle>
         <CardDescription>
-          {screenTimeWeekLabel(weekStart)} · iPhone only
+          Entry for {screenTimeWeekLabel(weekStart)}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
@@ -137,22 +137,16 @@ export function ScreenTimeUpload({
             <li>
               Open Settings → Screen Time → See All App &amp; Website Activity.
             </li>
+            <li>Choose Week, then go back one week from This Week.</li>
             <li>
-              Under Devices, select your iPhone. Use the same phone each week.
-            </li>
-            <li>
-              Choose Week, then use the back arrow by the dates to go back one
-              week. “This Week” is still in progress.
-            </li>
-            <li>
-              Check the dates match {screenTimeWeekLabel(weekStart)}. Screenshot
-              the date range, device name, and Daily Average.
+              Screenshot the average and upload it below. “Last Week’s Average”
+              is the right screen; no calendar dates are needed.
             </li>
           </ol>
           <p className="text-muted-foreground">
-            Reminders arrive Sunday at 10 AM Tucson time. You can submit during
-            the following week. Your confirmed screenshot and numbers are
-            visible to this circle.
+            Use the same phone each week. Reminders arrive Sunday at 10 AM
+            Tucson time. You can submit during the following week. Your
+            confirmed screenshot and numbers are visible to this circle.
           </p>
         </div>
         {reading ? (
@@ -161,12 +155,12 @@ export function ScreenTimeUpload({
               <Smartphone />
               <AlertTitle>Check the read before posting</AlertTitle>
               <AlertDescription>
-                AI can misread numbers. Compare these with your screenshot; if
-                they are wrong, choose a clearer image.
+                Make sure you went back one week and the numbers match your
+                screenshot. If the read is wrong, choose a clearer image.
               </AlertDescription>
             </Alert>
             <dl className="grid grid-cols-2 gap-3 text-sm">
-              <dt className="text-muted-foreground">Dates</dt>
+              <dt className="text-muted-foreground">Entry for</dt>
               <dd>{screenTimeWeekLabel(reading.weekStart)}</dd>
               <dt className="text-muted-foreground">Daily average</dt>
               <dd className="font-medium tabular-nums">

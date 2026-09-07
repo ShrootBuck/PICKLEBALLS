@@ -34,59 +34,53 @@ describe("screen-time reporting weeks", () => {
 
 const validRead = {
   isWeeklyReport: true,
-  isCompleteWeek: true,
-  deviceScope: "PHONE",
-  weekStart: "2026-08-30",
-  weekEnd: "2026-09-05",
   dailyAverageMinutes: 125,
   totalMinutes: null,
-  problem: null,
 };
 describe("screen-time extraction validation", () => {
+  test("accepts Last Week’s Average without calendar dates or device evidence", () => {
+    // Regression: the supplied iPhone screenshot shows Week selected,
+    // Last Week’s Average 3h 46m, Total Screen Time 26h 27m, and a
+    // Show This Week navigation button. No calendar dates are displayed.
+    expect(
+      validateScreenTimeExtraction({
+        isWeeklyReport: true,
+        dailyAverageMinutes: 226,
+        totalMinutes: 1587,
+      }),
+    ).toEqual({ dailyAverageMinutes: 226, totalMinutes: 1587 });
+  });
   test("keeps visible zeroes and does not invent a missing total", () => {
-    expect(validateScreenTimeExtraction(validRead, "2026-08-30")).toEqual({
+    expect(validateScreenTimeExtraction(validRead)).toEqual({
       dailyAverageMinutes: 125,
       totalMinutes: null,
     });
     expect(
-      validateScreenTimeExtraction(
-        { ...validRead, dailyAverageMinutes: 0 },
-        "2026-08-30",
-      ).dailyAverageMinutes,
+      validateScreenTimeExtraction({ ...validRead, dailyAverageMinutes: 0 })
+        .dailyAverageMinutes,
     ).toBe(0);
   });
-  test("rejects wrong dates, incomplete reports, non-phone scope, ambiguity and impossible values", () => {
+  test("rejects non-weekly screenshots, unreadable averages and impossible values", () => {
     for (const patch of [
-      { weekStart: "2026-09-06", weekEnd: "2026-09-12" },
-      { weekEnd: "2026-09-04" },
-      { weekStart: null },
       { isWeeklyReport: false },
-      { isCompleteWeek: false },
-      { deviceScope: "ALL_DEVICES" },
-      { deviceScope: "UNKNOWN" },
       { dailyAverageMinutes: null },
       { dailyAverageMinutes: 1500 },
       { dailyAverageMinutes: -1 },
-      { totalMinutes: 125 },
-      { problem: "The average is blurred" },
+      { dailyAverageMinutes: 1.5 },
+      { dailyAverageMinutes: "3h 46m" },
     ])
       expect(() =>
-        validateScreenTimeExtraction({ ...validRead, ...patch }, "2026-08-30"),
+        validateScreenTimeExtraction({ ...validRead, ...patch }),
       ).toThrow();
   });
-  test("allows minute rounding but catches totals being mistaken for averages", () => {
+  test("allows minute rounding and omits an inconsistent optional total", () => {
     expect(
-      validateScreenTimeExtraction(
-        { ...validRead, totalMinutes: 879 },
-        "2026-08-30",
-      ).totalMinutes,
+      validateScreenTimeExtraction({ ...validRead, totalMinutes: 879 })
+        .totalMinutes,
     ).toBe(879);
-    expect(() =>
-      validateScreenTimeExtraction(
-        { ...validRead, totalMinutes: 900 },
-        "2026-08-30",
-      ),
-    ).toThrow();
+    expect(
+      validateScreenTimeExtraction({ ...validRead, totalMinutes: 900 }),
+    ).toEqual({ dailyAverageMinutes: 125, totalMinutes: null });
   });
 });
 

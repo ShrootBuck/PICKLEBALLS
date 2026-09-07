@@ -31,8 +31,8 @@ export async function ScreenTimeReminder({
       <AlertTitle>Your weekly screen time is missing</AlertTitle>
       <AlertDescription>
         <p>
-          Upload {screenTimeWeekLabel(week)}. In Screen Time, choose Week and go
-          back one week.
+          Your {screenTimeWeekLabel(week)} entry is due. In Screen Time, choose
+          Week, go back one week, and screenshot the average.
         </p>
         <Link
           className={buttonVariants({ size: "sm" })}
