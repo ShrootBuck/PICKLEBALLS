@@ -240,7 +240,7 @@ export function TimeblockBuilder({
           </Empty>
         ) : (
           <div className="flex flex-col gap-3">
-            {rows.map((row, index) => (
+            {rows.map((row) => (
               <Card key={row.id} size="sm">
                 <CardHeader>
                   <div className="flex flex-wrap items-center gap-2">
@@ -252,10 +252,12 @@ export function TimeblockBuilder({
                       }
                     />
                     <FieldLabel htmlFor={`include-${row.id}`}>
-                      Include task {index + 1}
+                      Include in PDF
                     </FieldLabel>
                     <Badge variant="secondary">
-                      #{rowNumbers.get(row.id) ?? "–"}
+                      {rowNumbers.has(row.id)
+                        ? `Task ${rowNumbers.get(row.id)}`
+                        : "Not included"}
                     </Badge>
                     {statusBadge(row.status)}
                     {row.status === null ? (
@@ -279,7 +281,7 @@ export function TimeblockBuilder({
                   <FieldGroup className="gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_14rem_14rem]">
                     <Field>
                       <FieldLabel htmlFor={`name-${row.id}`}>
-                        Task {index + 1} name
+                        Task name
                       </FieldLabel>
                       <Input
                         id={`name-${row.id}`}

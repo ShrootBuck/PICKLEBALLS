@@ -13,8 +13,8 @@ const PAGE_WIDTH = 792;
 const PAGE_HEIGHT = 612;
 const INK = grayscale(0.12);
 const MUTED = grayscale(0.42);
-const LINE = grayscale(0.74);
-const LIGHT_LINE = grayscale(0.88);
+const LINE = grayscale(0.48);
+const LIGHT_LINE = grayscale(0.68);
 
 function safeText(value: string) {
   return value
@@ -260,7 +260,7 @@ export async function createTimeblockPdf(input: {
     back.drawLine({
       start: { x: gridLeft, y },
       end: { x: gridRight, y },
-      thickness: hour % 6 === 0 ? 0.85 : 0.35,
+      thickness: hour % 6 === 0 ? 1 : 0.6,
       color: hour % 6 === 0 ? LINE : LIGHT_LINE,
     });
     const label = formatHour(hour);
@@ -277,7 +277,7 @@ export async function createTimeblockPdf(input: {
     back.drawLine({
       start: { x, y: gridBottom },
       end: { x, y: gridTop },
-      thickness: day === 0 || day === 7 ? 0.85 : 0.45,
+      thickness: day === 0 || day === 7 ? 1 : 0.65,
       color: day === 0 || day === 7 ? LINE : LIGHT_LINE,
     });
   }

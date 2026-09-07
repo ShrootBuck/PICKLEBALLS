@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788821388711,
+    title: "Edit member names",
+    description:
+      "Owners can edit anyone’s name, including their own, in Owner tools. Use a full name to have it appear across the app and on future timeblock PDF exports.",
+  },
+  {
     timestamp: 1788820239820,
     title: "Simpler owner tools",
     description:

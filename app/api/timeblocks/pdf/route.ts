@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       return { ...task, startedAt, completedAt };
     });
     const pdf = await createTimeblockPdf({
-      studentName: auth.session.user.name,
+      studentName: auth.membership.user.name,
       dueMonday: parsed.data.dueMonday,
       tasks,
     });

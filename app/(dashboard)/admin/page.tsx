@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DeleteMemberButton } from "@/components/admin/delete-member-button";
+import { EditMemberNameButton } from "@/components/admin/edit-member-name-button";
 import { InvitePanel } from "@/components/admin/invite-panel";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +55,7 @@ export default async function AdminPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Joined</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -78,13 +79,20 @@ export default async function AdminPage() {
                     </time>
                   </TableCell>
                   <TableCell className="text-right">
-                    {member.role !== "OWNER" && (
-                      <DeleteMemberButton
+                    <div className="flex justify-end gap-2">
+                      <EditMemberNameButton
                         userId={member.userId}
                         name={member.user.name}
                         circleId={membership.circleId}
                       />
-                    )}
+                      {member.role !== "OWNER" && (
+                        <DeleteMemberButton
+                          userId={member.userId}
+                          name={member.user.name}
+                          circleId={membership.circleId}
+                        />
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
