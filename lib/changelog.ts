@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788820239820,
+    title: "Simpler owner tools",
+    description:
+      "Owners can now delete members from their circle. Joined dates include the time in Arizona with US formatting. Removed the invite history and AI usage panels.",
+  },
+  {
     timestamp: 1788819941675,
     title: "Simpler screen time uploads",
     description:
@@ -251,7 +257,7 @@ export const changelogEntries: ChangelogEntry[] = [
     timestamp: 1788497160603,
     title: "Rich changelog entries",
     description:
-      "Changelog entries now render as Markdown with [Comark](https://comark.dev/) — **bold**, *italic*, `code`, lists, tables, task lists, alerts, :rocket: emoji, footnotes, math, diagrams, and syntax-highlighted code blocks.",
+      "Changelog entries now render as Markdown with [Comark](https://comark.dev/): **bold**, *italic*, `code`, lists, tables, task lists, alerts, :rocket: emoji, footnotes, math, diagrams, and syntax-highlighted code blocks.",
   },
   {
     timestamp: 1788495464329,

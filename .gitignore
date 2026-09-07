@@ -10,12 +10,6 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-/test-results/
-/playwright-report/
-/.next-browser/
-
 # next.js
 /.next/
 /out/

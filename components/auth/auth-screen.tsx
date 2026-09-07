@@ -54,7 +54,7 @@ export function AuthScreen({ children }: { children: ReactNode }) {
           </h1>
           <p className="hidden max-w-md text-sm leading-relaxed text-pretty opacity-85 sm:block sm:text-base lg:text-lg">
             Daily promises, photo receipts, and friends who call the bluff.
-            Start your own private circle in seconds — or join your crew with an
+            Start your own private circle in seconds, or join your crew with an
             invite link.
           </p>
           <div className="mt-2 hidden gap-3 lg:grid lg:grid-cols-3">

@@ -134,8 +134,8 @@ export function PushToggle() {
           <p className="text-[13px] font-semibold">Push notifications</p>
           <p className="text-[11px] text-muted-foreground">
             {state === "subscribed"
-              ? "On — this device gets buzzed."
-              : "Off — turn it on to get buzzed."}
+              ? "On. This device gets buzzed."
+              : "Off. Turn it on to get buzzed."}
           </p>
         </div>
         <Button

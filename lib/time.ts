@@ -164,3 +164,18 @@ export function formatHistoryTime(date: Date | string) {
 export function formatProofTime(date: Date | string) {
   return proofTimeFormatter.format(new Date(date));
 }
+
+const memberJoinedFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: appTimeZone,
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+  timeZoneName: "short",
+});
+
+export function formatMemberJoined(date: Date | string) {
+  return memberJoinedFormatter.format(new Date(date));
+}

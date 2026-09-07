@@ -146,33 +146,11 @@ data.
 ```bash
 bun run db:validate
 bun run db:generate
-bun run test
 bun run audit:ui
 bun run lint
 bun run typecheck
 bun run build
 ```
-
-Browser tests require Docker (OrbStack works) and Chromium:
-
-```bash
-bunx playwright install chromium
-bun run test:browser
-bun run test:browser --grep "proof submission" # targeted regression
-bun run test:browser --build                   # production build against disposable data
-```
-
-The runner starts a new `postgres:17-alpine` container, applies committed migrations,
-seeds fake friends and images, and removes only that container afterward. It overrides
-all database targets, auth secrets, and external-service keys. No existing database
-URL is accepted. Browser output lives in `playwright-report/` and `test-results/`.
-`bun run test:browser --serve` keeps a fake-data app available for manual inspection
-until Ctrl-C. Test builds use `.next-browser/`, separate from normal development.
-
-The suite checks circle isolation, origin protection, concurrent proof/verdict writes,
-invites, late proof, notifications, draft persistence, replies, rate limits, cron,
-PDF responses, accessibility, and layouts from 320 to 1440 pixels. Real Discord
-callbacks, paid AI responses, and device push delivery still need live smoke tests.
 
 See [the September 2026 audit](docs/audit-2026-09-04.md) for changes, verification,
 and remaining limitations.

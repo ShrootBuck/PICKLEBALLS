@@ -20,7 +20,7 @@ export default async function SignInPage({
         <div className="flex flex-col gap-1">
           <h2 className="text-xl font-semibold">Get back to work.</h2>
           <p className="text-sm text-muted-foreground">
-            New here? Just continue — you can start your own circle after.
+            New here? Just continue; you can start your own circle after.
             Joining a friend? Open their invite link instead.
           </p>
         </div>
@@ -29,7 +29,7 @@ export default async function SignInPage({
             <AlertTitle>New here?</AlertTitle>
             <AlertDescription>
               Accounts are free. Continue with Discord, then start your own
-              circle — or open a friend&apos;s invite link to join theirs.
+              circle, or open a friend&apos;s invite link to join theirs.
             </AlertDescription>
           </Alert>
         )}

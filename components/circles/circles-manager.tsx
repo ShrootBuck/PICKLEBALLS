@@ -122,7 +122,7 @@ export function CirclesManager({
         <CardHeader>
           <CardTitle>Your circles</CardTitle>
           <CardDescription>
-            Each circle is its own private world. Switch anytime — nobody sees
+            Each circle is its own private world. Switch anytime; nobody sees
             across circles.
           </CardDescription>
         </CardHeader>
@@ -133,7 +133,7 @@ export function CirclesManager({
                 <EmptyMedia variant="icon">🎾</EmptyMedia>
                 <EmptyTitle>No circles yet</EmptyTitle>
                 <EmptyDescription>
-                  Create one below — it takes ten seconds.
+                  Create one below; it takes ten seconds.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

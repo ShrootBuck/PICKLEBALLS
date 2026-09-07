@@ -23,7 +23,7 @@ export default async function TodayPage() {
   const dayKey = phoenixDateKey();
   const day = requireDateKey(dayKey);
   // Overdue marking is owned by the daily cron (`/api/cron/reconcile`), not
-  // by page views — scanning on every visit just slows down Today.
+  // by page views; scanning on every visit just slows down Today.
   const [tasks, checkIn, history] = await Promise.all([
     getPrisma().commitment.findMany({
       where: {

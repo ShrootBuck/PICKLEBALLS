@@ -106,7 +106,7 @@ export async function redeemReservedInvite(
     if (redeemed.count !== 1) throw new Error("Invite was already redeemed.");
 
     // The invite label is the member's name everywhere in the app,
-    // not whatever Discord says — but only for a first circle. A second
+    // not whatever Discord says; but only for a first circle. A second
     // circle joining must not clobber the global display name.
     const label = invite.label?.trim();
     const existingCount = await transaction.membership.count({

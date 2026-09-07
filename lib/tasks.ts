@@ -81,7 +81,7 @@ export async function createCommitment(
   const dueAt = phoenixDayDueAt(dayKey);
   if (!dueAt) throw new DomainError("Could not compute midnight deadline.");
   if (dueAt <= now) {
-    throw new DomainError("Too late — today's board is locked at midnight.");
+    throw new DomainError("Too late; today's board is locked at midnight.");
   }
 
   return serializable(async (transaction) => {
@@ -125,10 +125,7 @@ export async function updateCommitment(
     });
     if (!current) throw new DomainError("Task not found.", 404);
     if (!canEditTask(current.dueAt, now)) {
-      throw new DomainError(
-        "Midnight passed — the edit window is closed.",
-        409,
-      );
+      throw new DomainError("Midnight passed; the edit window is closed.", 409);
     }
     // No-op edit: same text in, no shame badge out.
     if (
@@ -288,7 +285,7 @@ export async function submitProof(
         actorId: userId,
         kind: "PROOF_SUBMITTED",
         entityId: proof.id,
-        summary: `${currentProof ? "replaced" : "submitted"} proof for “${task.title}”${proof.isLate ? " — late" : ""}`,
+        summary: `${currentProof ? "replaced" : "submitted"} proof for “${task.title}”${proof.isLate ? ", late" : ""}`,
       },
     });
     return proof;
@@ -304,7 +301,8 @@ export async function reviewProof(
   now = new Date(),
 ) {
   const parsed = proofReviewSchema.safeParse(input);
-  if (!parsed.success) throw new DomainError("Every verdict needs a comment of 1–500 characters.");
+  if (!parsed.success)
+    throw new DomainError("Every verdict needs a comment of 1–500 characters.");
 
   try {
     return await serializable(async (transaction) => {
@@ -391,7 +389,7 @@ export async function reviewProof(
             actorId: reviewerId,
             kind: "PROOF_APPROVED",
             entityId: proofId,
-            summary: `approved proof for “${proof.commitment.title}” (${approvals}/${needed}) — needs ${needed - approvals} more`,
+            summary: `approved proof for “${proof.commitment.title}” (${approvals}/${needed}); needs ${needed - approvals} more`,
           },
         });
       }

@@ -161,7 +161,8 @@ Rules:
 - A confirmation screen ("response submitted", "turned in") only proves submission, not quality. Mark it PARTIAL and say what content is still missing.
 - Set taskMatch: STRONG means the photo clearly satisfies the definition of done. PARTIAL means progress but a gap remains. WEAK means it barely relates. UNREADABLE means you cannot tell.
 - reviewerQuestion must be null unless one concrete answer would flip your verdict. Bad: "Can you verify in the unredacted roster...?" Good: "Which page shows problem 18?" or null.
-- oneLiner is a blunt 1-sentence take for the squad, max 20 words. Examples: "Submitted, but no content visible — needs the actual work." or "Clean solve, all pages readable."
+- Use commas, periods, or semicolons instead of em dashes in all output text.
+- oneLiner is a blunt 1-sentence take for the squad, max 20 words. Examples: "Submitted, but no content visible; needs the actual work." or "Clean solve, all pages readable."
 - ${injectionGuard}`,
     messages: [
       {

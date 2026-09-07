@@ -199,8 +199,8 @@ export default async function HistoryPage({
             </EmptyMedia>
             <EmptyTitle>Quiet day</EmptyTitle>
             <EmptyDescription>
-              Nobody locked anything in. Either rest day or collective bullshit
-              — you decide which story to tell.
+              Nobody locked anything in. Either rest day or collective bullshit.
+              You decide which story to tell.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

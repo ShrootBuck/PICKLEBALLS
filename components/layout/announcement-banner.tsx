@@ -22,7 +22,7 @@ export function AnnouncementBanner() {
         setDismissed(true);
       }
     } catch {
-      // Private mode etc. — just show the banner.
+      // Private mode etc.; just show the banner.
     }
   }, []);
 

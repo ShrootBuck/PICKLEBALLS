@@ -215,7 +215,7 @@ export default async function ScreenTimePage({
                           <Trophy className="size-4" aria-hidden="true" />1
                         </span>
                       ) : (
-                        (row.rank ?? "—")
+                        (row.rank ?? "N/A")
                       )}
                     </TableCell>
                     <TableCell>
@@ -239,7 +239,7 @@ export default async function ScreenTimePage({
                     </TableCell>
                     <TableCell>
                       {row.improvement === null ? (
-                        "—"
+                        "N/A"
                       ) : row.improvement === 0 ? (
                         "No change"
                       ) : (
@@ -266,7 +266,7 @@ export default async function ScreenTimePage({
                           View
                         </a>
                       ) : (
-                        "—"
+                        "N/A"
                       )}
                     </TableCell>
                   </TableRow>
@@ -284,7 +284,7 @@ export default async function ScreenTimePage({
                 >
                   <ItemContent>
                     <ItemTitle>
-                      {row.rank === null ? "—" : `#${row.rank}`} {row.name}
+                      {row.rank === null ? "N/A" : `#${row.rank}`} {row.name}
                       {row.userId === session.user.id ? " (you)" : ""}
                     </ItemTitle>
                     <ItemDescription>

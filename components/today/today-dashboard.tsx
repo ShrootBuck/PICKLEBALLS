@@ -646,7 +646,7 @@ function ProofDialog({
                   <AlertDescription>
                     {isReplace
                       ? "This replaces your challenged proof. Friends will judge a bare photo."
-                      : "First proof only — you cannot add one later. Friends will judge a bare photo."}
+                      : "First proof only; you cannot add one later. Friends will judge a bare photo."}
                   </AlertDescription>
                 </Alert>
               )}

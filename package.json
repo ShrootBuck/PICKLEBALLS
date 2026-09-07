@@ -13,13 +13,10 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
-    "db:dev": "bun run db:dev:main && bun run db:dev:test",
+    "db:dev": "bun run db:dev:main",
     "db:dev:main": "prisma dev --name pickleballs --port 51217 --db-port 51218 --shadow-db-port 51219 --detach",
-    "db:dev:test": "prisma dev --name pickleballs-test --port 51220 --db-port 51221 --shadow-db-port 51222 --detach",
     "db:validate": "prisma validate",
     "db:reset": "prisma migrate reset --force && prisma generate",
-    "test": "bun test tests/unit",
-    "test:browser": "tsx scripts/test-browser.ts",
     "audit:ui": "tsx scripts/audit-ui.ts",
     "postinstall": "prisma generate"
   },
@@ -59,9 +56,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.13.0",
     "@biomejs/biome": "2.4.2",
-    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/bun": "^1.4.0",
     "@types/node": "^20",

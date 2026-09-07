@@ -43,7 +43,7 @@ function ChangelogLink({ href, children, ...rest }: ComponentProps<"a">) {
 }
 
 // Comark passes fence metadata (filename, language) as props. Only className
-// is forwarded — comark-only props like `highlights` are not valid DOM attrs.
+// is forwarded; comark-only props like `highlights` are not valid DOM attrs.
 function ChangelogPre({
   filename,
   language,
@@ -79,7 +79,7 @@ function ChangelogTable({ children }: { children?: ReactNode }) {
 
 // Full-punch Comark renderer for changelog entries: GFM + component/attribute
 // syntax and alerts come from the default plugins; everything below is the
-// extra arsenal — emoji shortcodes, footnotes, KaTeX math, Mermaid diagrams,
+// extra arsenal; emoji shortcodes, footnotes, KaTeX math, Mermaid diagrams,
 // smart punctuation, Shiki highlighting, and HTML sanitization.
 export const ChangelogMarkdown = defineMarkdownComponent({
   name: "ChangelogMarkdown",
@@ -88,7 +88,7 @@ export const ChangelogMarkdown = defineMarkdownComponent({
     footnotes(),
     math(),
     mermaid(),
-    punctuation(),
+    punctuation({ dashes: false }),
     shiki({ themes: { dark: githubDark } }),
     security(),
   ],

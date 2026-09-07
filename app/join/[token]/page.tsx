@@ -65,7 +65,7 @@ export default async function JoinPage({
     );
   }
   const memberCount = invite.circle._count.memberships;
-  // Logged-in users (e.g. joining a second circle) claim directly —
+  // Logged-in users (e.g. joining a second circle) claim directly;
   // no need to go through Discord again.
   if (session) {
     const already = await getPrisma().membership.findFirst({
@@ -89,7 +89,7 @@ export default async function JoinPage({
               {memberCount} {memberCount === 1 ? "person" : "people"} in this
               circle. You join as {session.user.name}.
               {already
-                ? " Looks like you are already in — continuing just switches you over."
+                ? " Looks like you are already in; continuing just switches you over."
                 : ""}
             </p>
           </div>

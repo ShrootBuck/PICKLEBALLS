@@ -100,7 +100,7 @@ export function ProofCard({
     proof.requiredApprovals === 0
       ? "Solo circle"
       : `${proof.approvals}/${proof.requiredApprovals} approvals`,
-  ].join(" — ");
+  ].join("; ");
 
   return (
     <Card size="sm" className="gap-0 py-0">
@@ -192,12 +192,12 @@ export function ProofCard({
             {proof.reviewStatus === "PENDING" ? (
               proof.ownerId === viewerId ? (
                 <Badge variant="secondary" className="w-fit">
-                  Your proof — friends decide
+                  Your proof. Friends decide
                 </Badge>
               ) : proof.alreadyReviewed ? (
                 <Badge variant="outline" className="w-fit">
                   You already voted
-                  {proof.myReview?.note ? ` — “${proof.myReview.note}”` : ""}
+                  {proof.myReview?.note ? `: “${proof.myReview.note}”` : ""}
                 </Badge>
               ) : (
                 <ReviewProof

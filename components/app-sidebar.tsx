@@ -218,7 +218,7 @@ export function AppSidebar({
                     onClick={() => setOpenMobile(false)}
                     aria-current={pathname === href ? "page" : undefined}
                     isActive={pathname === href}
-                    tooltip={`${label} — ${hint}`}
+                    tooltip={`${label}: ${hint}`}
                   >
                     <Icon />
                     <span className="font-medium">{label}</span>

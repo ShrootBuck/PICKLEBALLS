@@ -53,7 +53,7 @@ export function LandingPage() {
         </h1>
         <p className="max-w-lg text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">
           Daily promises, photo receipts, and friends who call the bluff. Start
-          your own private circle in seconds — or join your crew with an invite
+          your own private circle in seconds, or join your crew with an invite
           link.
         </p>
         <div className="mt-2 flex w-full max-w-sm flex-col gap-2 sm:w-auto sm:max-w-none sm:flex-row">

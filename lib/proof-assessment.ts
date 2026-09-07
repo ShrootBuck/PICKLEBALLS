@@ -32,7 +32,7 @@ export async function runProofAssessment(
           aiStatus: "SUCCEEDED",
           aiUncertainty:
             "Video proof needs human review; AI has not watched this video.",
-          aiOneLiner: "Video attached — ask a squad member to review.",
+          aiOneLiner: "Video attached; ask a squad member to review.",
         },
       });
       return;

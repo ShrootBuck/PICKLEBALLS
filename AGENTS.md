@@ -18,9 +18,8 @@ Do not add entries for cosmetic changes (fonts, colors, borders, spacing), minor
 
 # Dev vs prod databases
 
-- Local dev uses two isolated `prisma dev` instances. `pickleballs` listens on
-  database port 51218 with shadow port 51219; `pickleballs-test` listens on
-  database port 51221 with shadow port 51222. Start both with `bun run db:dev`.
+- Local dev uses the isolated `pickleballs` instance on database port 51218
+  with shadow port 51219. Start it with `bun run db:dev`.
 - `.env` must ALWAYS point at local. Prod URL lives only in Vercel env vars
   and `.env.production.local` (gitignored backup). If `.env` contains
   `pooled.db.prisma.io`, stop and fix it before running any prisma/db command.
@@ -30,9 +29,6 @@ Do not add entries for cosmetic changes (fonts, colors, borders, spacing), minor
 - Schema changes: `bunx prisma migrate dev --name x` (local) → commit SQL →
   push → Vercel `migrate deploy` applies it. Never `db push`. Never
   `migrate dev` against prod.
-- Browser tests need `TEST_DATABASE_URL` pointing at a database with `test`
-  in its name (guarded): disposable local URL is
-  `postgres://postgres:postgres@localhost:51221/pickle_balls_test?sslmode=disable`.
 
 <!-- TRIGGER.DEV SKILLS START -->
 ## Trigger.dev agent skills
