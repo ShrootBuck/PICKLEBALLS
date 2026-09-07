@@ -9,6 +9,7 @@ import {
   LogOut,
   Plus,
   ScrollText,
+  Settings,
   Shield,
   Users,
 } from "lucide-react";
@@ -59,6 +60,12 @@ const links = [
     label: "Changelog",
     hint: "What changed",
     icon: ScrollText,
+  },
+  {
+    href: "/settings",
+    label: "Settings",
+    hint: "Make it yours",
+    icon: Settings,
   },
 ];
 
@@ -283,6 +290,15 @@ export function AppSidebar({
                   >
                     <Users data-icon="inline-start" />
                     All circles / new…
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setOpenMobile(false);
+                      router.push("/settings");
+                    }}
+                  >
+                    <Settings data-icon="inline-start" />
+                    Settings
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() =>

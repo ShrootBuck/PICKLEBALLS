@@ -46,6 +46,31 @@
   --brand-panel-foreground: #ededee;
 }
 
+/* Presets also color the settings swatches; all surfaces stay neutral. */
+[data-primary-color="neutral"] {
+  --primary: #ededee;
+}
+[data-primary-color="pink"] {
+  --primary: #f5a0ce;
+}
+[data-primary-color="violet"] {
+  --primary: #c4afff;
+}
+[data-primary-color="blue"] {
+  --primary: #9cb9ff;
+}
+[data-primary-color="mint"] {
+  --primary: #75d4b0;
+}
+[data-primary-color="amber"] {
+  --primary: #edc27c;
+}
+:root[data-primary-color]:not([data-primary-color="neutral"]) {
+  --ring: var(--primary);
+  --accent: color-mix(in srgb, var(--primary) 15%, #19191c);
+  --accent-foreground: var(--primary);
+}
+
 @theme inline {
   --font-sans: var(--font-inter), Arial, sans-serif;
   --font-mono: var(--font-commit-mono);

@@ -78,6 +78,7 @@ model User {
   emailVerified   Boolean  @default(false)
   image           String?
   initials        String   @default("PB")
+  primaryColor    String   @default("neutral")
   discordId       String?  @unique
   discordUsername String?
   createdAt       DateTime @default(now())

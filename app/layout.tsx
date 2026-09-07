@@ -1,8 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { headers } from "next/headers";
 import { RegisterSw } from "@/components/pwa/register-sw";
+import { AppearanceProvider } from "@/components/settings/appearance-provider";
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { parsePrimaryColor } from "@/lib/appearance";
+import { auth } from "@/lib/auth";
+import { getPrisma } from "@/lib/prisma";
 import "./globals.css";
 
 const inter = localFont({
@@ -92,14 +97,23 @@ export const metadata: Metadata = {
   ),
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  const user = session
+    ? await getPrisma().user.findUnique({
+        where: { id: session.user.id },
+        select: { primaryColor: true },
+      })
+    : null;
+  const primaryColor = parsePrimaryColor(user?.primaryColor);
   return (
     <html
       lang="en"
+      data-primary-color={primaryColor}
       className={`dark ${inter.variable} ${commitMono.variable} antialiased`}
       suppressHydrationWarning
     >
@@ -108,16 +122,21 @@ export default function RootLayout({
       </head>
       <body className="flex h-dvh min-h-0 flex-col overflow-hidden touch-manipulation antialiased">
         <RegisterSw />
-        <TooltipProvider>
-          <Toaster>
-            <div
-              data-slot="app-frame"
-              className="min-h-0 min-w-0 flex-1 overflow-x-clip overflow-y-auto"
-            >
-              {children}
-            </div>
-          </Toaster>
-        </TooltipProvider>
+        <AppearanceProvider
+          key={session?.user.id ?? "guest"}
+          initialColor={primaryColor}
+        >
+          <TooltipProvider>
+            <Toaster>
+              <div
+                data-slot="app-frame"
+                className="min-h-0 min-w-0 flex-1 overflow-x-clip overflow-y-auto"
+              >
+                {children}
+              </div>
+            </Toaster>
+          </TooltipProvider>
+        </AppearanceProvider>
       </body>
     </html>
   );

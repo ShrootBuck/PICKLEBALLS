@@ -15,6 +15,7 @@ export function SiteHeader({ bell }: { bell: ReactNode }) {
       "/timeblock": "Timeblock",
       "/changelog": "Changelog",
       "/admin": "Owner tools",
+      "/settings": "Settings",
     }[pathname] ?? "Workspace";
 
   return (

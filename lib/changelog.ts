@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788761000619,
+    title: "Your color, your call",
+    description:
+      "Open Settings from the sidebar or your account menu to choose a primary color: neutral, pink, violet, blue, mint, or amber. Changes apply immediately and save to your account across devices.",
+  },
+  {
     timestamp: 1788735633031,
     title: "Every approval needs a comment",
     description:

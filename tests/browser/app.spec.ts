@@ -1366,3 +1366,139 @@ test("Discord avatars load through the app even when browser blocks Discord", as
   ).toBe(400);
   await context.close();
 });
+
+test("settings save primary colors per account across devices and recover from failed saves", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const context = await signedIn(browser);
+  const otherDevice = await signedIn(browser);
+  const otherUser = await signedIn(browser, "sam");
+  try {
+    const page = await context.newPage();
+    await page.goto("/");
+    await page.getByRole("link", { name: "Settings", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Settings", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Pink", exact: true }).click();
+    await expect(page.getByRole("status")).toHaveText("Saved to your account.");
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-primary-color",
+      "pink",
+    );
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "Pink", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    const freshPage = await otherDevice.newPage();
+    const response = await freshPage.goto("/settings");
+    expect(await response?.text()).toContain('data-primary-color="pink"');
+    await expect(
+      freshPage.getByRole("button", { name: "Pink", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    const samPage = await otherUser.newPage();
+    await samPage.goto("/settings");
+    await expect(samPage.locator("html")).toHaveAttribute(
+      "data-primary-color",
+      "neutral",
+    );
+
+    await page.route("**/api/settings/appearance", (route) =>
+      route.fulfill({ status: 500, body: "{}" }),
+    );
+    await page.getByRole("button", { name: "Blue", exact: true }).click();
+    await expect(page.locator("main").getByRole("alert")).toContainText(
+      "wasn’t saved",
+    );
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-primary-color",
+      "pink",
+    );
+    await expect(
+      page.getByRole("button", { name: "Pink", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await page.unroute("**/api/settings/appearance");
+
+    for (const color of [
+      "Neutral",
+      "Pink",
+      "Violet",
+      "Blue",
+      "Mint",
+      "Amber",
+    ]) {
+      await page.getByRole("button", { name: color, exact: true }).click();
+      await expect(page.getByRole("status")).toHaveText(
+        "Saved to your account.",
+      );
+      // Audit the settled colors, rather than a frame midway through the toggle transition.
+      await page.evaluate(async () => {
+        await Promise.all(
+          document
+            .getAnimations()
+            .map((animation) => animation.finished.catch(() => {})),
+        );
+      });
+      const a11y = await new AxeBuilder({ page }).include("main").analyze();
+      expect(a11y.violations, color).toEqual([]);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(
+      page.getByRole("button", { name: "Amber", exact: true }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({ path: "test-results/audit/settings-mobile.png" });
+    await page
+      .getByRole("button", { name: "Toggle Sidebar", exact: true })
+      .click();
+    await page.getByRole("link", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("dialog")).not.toBeVisible();
+  } finally {
+    await context.request.put("/api/settings/appearance", {
+      headers: origin(),
+      data: { primaryColor: "neutral" },
+    });
+    await context.close();
+    await otherDevice.close();
+    await otherUser.close();
+  }
+});
+
+test("settings reject arbitrary colors, other-user fields, unauthenticated and cross-origin writes", async ({
+  browser,
+  request,
+}) => {
+  const context = await signedIn(browser);
+  try {
+    for (const data of [
+      { primaryColor: "#ff00ff" },
+      { primaryColor: "invalid" },
+      { primaryColor: "pink", userId: "sam" },
+      {},
+    ]) {
+      const response = await context.request.put("/api/settings/appearance", {
+        headers: origin(),
+        data,
+      });
+      expect(response.status()).toBe(400);
+    }
+    const crossOrigin = await context.request.put("/api/settings/appearance", {
+      headers: { origin: "https://example.com" },
+      data: { primaryColor: "pink" },
+    });
+    expect(crossOrigin.status()).toBe(403);
+    const signedOut = await request.put("/api/settings/appearance", {
+      headers: origin(),
+      data: { primaryColor: "pink" },
+    });
+    expect(signedOut.status()).toBe(401);
+  } finally {
+    await context.close();
+  }
+});
