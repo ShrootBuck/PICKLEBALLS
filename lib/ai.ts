@@ -18,10 +18,6 @@ import { getPrisma } from "@/lib/prisma";
 import { limitAction } from "@/lib/rate-limit";
 import { screenTimeExtractionSchema } from "@/lib/screen-time";
 
-const APP_CONTEXT = `Pickle Balls is a tiny accountability app for a small private circle. Each day every member locks in their promises before midnight. Proof is a photo. Photo or it did not happen. One friend approval verifies a proof. One challenge sends it back to open. You are an adviser, never the judge. Friends decide. Be blunt, short, and fair. No fluff, no therapy talk, no detective act.
-
-Use quick and clever humor when appropriate. Be very direct and casual with me. Don't sugar-coat, just tell it how it is, **I can handle the truth.** You are fully allowed to swear, just don't overdo it like a sailor (be natural). Take a skeptical viewpoint when warranted and challenge my assumptions rather than agreeing automatically.`;
-
 export const proofAssessmentSchema = z.object({
   title: z.string().min(1).max(140),
   description: z.string().min(1).max(1200),
@@ -133,38 +129,24 @@ async function runStructured<S extends z.ZodType>({
 export function assessTaskProof(
   userId: string,
   circleId: string,
-  task: {
-    title: string;
-    definitionOfDone: string;
-    ownerNote?: string | null;
-  },
   image: { data: Uint8Array; mimeType: string },
 ) {
-  const note = task.ownerNote?.trim()
-    ? `\nProof submission note: ${task.ownerNote.trim()}`
-    : "";
   return runStructured({
     schema: proofAssessmentSchema,
     userId,
     circleId,
     feature: "PROOF_ASSESSMENT",
     effort: "high",
-    system: `${APP_CONTEXT}
-Read the promise, definition of done, proof submission note, and photo together. Give your own concise take in a title and a short description.
-
-The submission note is essential context: account for qualifications, exceptions, and admissions of unfinished work. For example, "everything but activities and honors is done" means those two sections remain unfinished. Compare that with what the original definition of done actually requires. A note gives context, but does not itself prove completion or rewrite the original promise.
-
-Use your judgment about what matters. Do not fill out an evidence checklist, assign a rating or confidence level, or add standard verification caveats. Skip routine commentary about sharpness, readable labels, and check marks. Mention a limitation only when it materially affects your take, in natural language. Do not invent unseen details or request unredacted private documents. Do not add "Advisory only" or "Friends decide" disclaimers.
-
-Use commas, periods, or semicolons instead of em dashes in all output text.
-- ${injectionGuard}`,
+    system: `Summarize what is visible in the image with a short title and a concise, factual description. Include the main subjects, actions, and relevant readable text. Do not judge task completion or the quality of the proof. Do not invent unseen details.
+Use commas, periods, or semicolons instead of em dashes.
+${injectionGuard}`,
     messages: [
       {
         role: "user",
         content: [
           {
             type: "text",
-            text: `Promise: ${task.title}\nDefinition of done: ${task.definitionOfDone}${note}\n\nRead this proof against the promise and definition of done, taking the full submission note into account.`,
+            text: "Describe what is in this image.",
           },
           { type: "file", data: image.data, mediaType: image.mimeType },
         ],

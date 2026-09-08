@@ -12,7 +12,7 @@ export async function runProofAssessment(
   try {
     const proof = await getPrisma().taskProof.findFirst({
       where: { id: proofId, circleId },
-      include: { image: true, commitment: true },
+      include: { image: true },
     });
     if (!proof) throw new Error("Proof unavailable.");
     // The image assessor cannot inspect video. Make that limitation explicit.
@@ -40,19 +40,10 @@ export async function runProofAssessment(
       });
       return;
     }
-    const assessment = await assessTaskProof(
-      userId,
-      circleId,
-      {
-        title: proof.commitment.title,
-        definitionOfDone: proof.commitment.definitionOfDone,
-        ownerNote: proof.ownerNote,
-      },
-      {
-        data,
-        mimeType: media?.mimeType ?? proof.image?.mimeType ?? "image/webp",
-      },
-    );
+    const assessment = await assessTaskProof(userId, circleId, {
+      data,
+      mimeType: media?.mimeType ?? proof.image?.mimeType ?? "image/webp",
+    });
     await getPrisma().taskProof.update({
       where: { id: proofId },
       data: {
