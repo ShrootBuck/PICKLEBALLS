@@ -262,6 +262,7 @@ export function SocialReplyThread({
   scrollOnExpand = true,
   contextLabel,
   replyLabel = targetType === "PROOF" ? "Comment on proof" : "Reply",
+  onReplyCountChange,
 }: {
   targetType: ReplyTargetType;
   targetId: string;
@@ -272,6 +273,7 @@ export function SocialReplyThread({
   scrollOnExpand?: boolean;
   contextLabel: string;
   replyLabel?: string;
+  onReplyCountChange?: (delta: number) => void;
 }) {
   const generatedId = useId();
   const threadId = `reply-thread-${generatedId.replaceAll(":", "")}`;
@@ -408,6 +410,7 @@ export function SocialReplyThread({
       }
 
       setReplies((current) => [...current, result.reply as SocialReply]);
+      onReplyCountChange?.(1);
       setVisibleCount((count) => count + 1);
       setBody("");
       setFiles([]);
@@ -515,11 +518,12 @@ export function SocialReplyThread({
                         ),
                       )
                     }
-                    onDeleted={(id) =>
+                    onDeleted={(id) => {
                       setReplies((current) =>
                         current.filter((item) => item.id !== id),
-                      )
-                    }
+                      );
+                      onReplyCountChange?.(-1);
+                    }}
                   />
                 ))}
               </div>

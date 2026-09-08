@@ -3,6 +3,7 @@ import { DomainError } from "@/lib/errors";
 import {
   compareFeedPosts,
   encodeFeedCursor,
+  type FeedCursor,
   feedBoundary,
   parseFeedCursor,
 } from "@/lib/feed-cursor";
@@ -132,6 +133,68 @@ export async function getFeedPage({
     : null;
   if (rawCursor && !cursor) throw new DomainError("Invalid feed cursor.");
   const size = Math.max(1, Math.min(limit, 50));
+  const items = await readPosts({
+    viewerId,
+    circleId,
+    cursor,
+    memberId,
+    take: size + 1,
+    proofIds,
+    checkInIds,
+    includeReplaced,
+    pendingOnly,
+  });
+  const page = items.slice(0, size);
+  return {
+    items: page,
+    nextCursor:
+      items.length > size
+        ? encodeFeedCursor(
+            page[page.length - 1],
+            circleId,
+            pendingOnly ? "!review" : memberId,
+          )
+        : null,
+  };
+}
+
+// Stories read the whole recent window, independently of feed pagination, so
+// a prolific member cannot hide another person's story beyond the first page.
+export async function getRecentPosts(
+  viewerId: string,
+  circleId: string,
+  since: Date,
+  until: Date,
+) {
+  await assertCircleMember(viewerId, circleId);
+  return readPosts({ viewerId, circleId, since, until });
+}
+
+async function readPosts({
+  viewerId,
+  circleId,
+  cursor = null,
+  memberId,
+  take,
+  proofIds,
+  checkInIds,
+  includeReplaced = false,
+  pendingOnly = false,
+  since,
+  until,
+}: {
+  viewerId: string;
+  circleId: string;
+  cursor?: FeedCursor | null;
+  memberId?: string;
+  take?: number;
+  proofIds?: string[];
+  checkInIds?: string[];
+  includeReplaced?: boolean;
+  pendingOnly?: boolean;
+  since?: Date;
+  until?: Date;
+}): Promise<FeedPost[]> {
   const prisma = getPrisma();
   const [proofs, updates, members] = await Promise.all([
     prisma.taskProof.findMany({
@@ -148,9 +211,10 @@ export async function getFeedPage({
         ...(memberId ? { ownerId: memberId } : {}),
         ...(proofIds ? { id: { in: proofIds } } : {}),
         ...feedBoundary("proof", "submittedAt", cursor),
+        ...(since ? { submittedAt: { gt: since, lte: until } } : {}),
       },
       orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
-      take: size + 1,
+      take,
       include: {
         owner: { select: socialAuthorSelect },
         commitment: { select: { title: true, definitionOfDone: true } },
@@ -176,9 +240,10 @@ export async function getFeedPage({
             ? { id: { in: checkInIds } }
             : {}),
         ...feedBoundary("check-in", "createdAt", cursor),
+        ...(since ? { createdAt: { gt: since, lte: until } } : {}),
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: size + 1,
+      take,
       include: {
         user: { select: socialAuthorSelect },
         checkIn: { select: { _count: { select: { replies: true } } } },
@@ -234,16 +299,5 @@ export async function getFeedPage({
       }),
     ),
   ].sort(compareFeedPosts);
-  const page = items.slice(0, size);
-  return {
-    items: page,
-    nextCursor:
-      items.length > size
-        ? encodeFeedCursor(
-            page[page.length - 1],
-            circleId,
-            pendingOnly ? "!review" : memberId,
-          )
-        : null,
-  };
+  return items;
 }

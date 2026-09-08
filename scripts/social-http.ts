@@ -122,7 +122,58 @@ assert(
   canonical.headers.get("location")?.includes(`/posts/proof/${proof.id}`) ||
     canonicalHtml.includes(`/posts/proof/${proof.id}`),
 );
+assert.equal((await get("/api/stories", "")).status, 401);
+const storyGroups = await (await get("/api/stories")).json();
+assert(storyGroups.length > 0);
+assert(
+  storyGroups.every((group: { posts: { post: { circleId: string } }[] }) =>
+    group.posts.every(({ post }) => post.circleId === "test-circle"),
+  ),
+);
+assert.deepEqual(await (await get("/api/stories", outside)).json(), []);
+const story = storyGroups[0].posts[0].post;
+async function viewStory(
+  body: unknown,
+  session = mine,
+  requestOrigin = origin,
+) {
+  return fetch(`${origin}/api/stories`, {
+    method: "PUT",
+    headers: {
+      cookie: session,
+      origin: requestOrigin,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+}
+const receipt = {
+  circleId: "test-circle",
+  kind: story.kind,
+  id: story.id,
+  frame: 0,
+};
+assert.equal((await viewStory(receipt, "")).status, 401);
+assert.equal(
+  (await viewStory(receipt, mine, "https://untrusted.example")).status,
+  403,
+);
+assert.equal((await viewStory(receipt, outside)).status, 404);
+assert.equal((await viewStory({ ...receipt, frame: -1 })).status, 400);
+assert.equal((await viewStory({ ...receipt, frame: 100 })).status, 404);
+assert.equal((await viewStory(receipt)).status, 200);
+assert.equal((await viewStory(receipt)).status, 200);
+const updatedStories = await (await get("/api/stories")).json();
+assert(
+  updatedStories
+    .flatMap((group: { posts: unknown[] }) => group.posts)
+    .find(
+      (item: { post: { kind: string; id: string } }) =>
+        item.post.kind === story.kind && item.post.id === story.id,
+    )
+    .seenFrames.includes(0),
+);
 await prisma.$disconnect();
 console.log(
-  "HTTP checks passed: auth, profile/post/media isolation, legacy links, duplicate likes, CSRF, and comment pagination.",
+  "HTTP checks passed: auth, profile/post/media/story isolation, legacy links, duplicate likes and story views, CSRF, and comment pagination.",
 );

@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788910757467,
+    title: "Catch up through stories",
+    description:
+      "Your story comes first, followed by friends with unseen updates. Browse the last 24 hours of proof and check-ins, pick up where you left off across devices, and like or comment without leaving the viewer. Add to your story from Home, or browse someone’s posts in their profile grid. Posts stay in your history after their story expires.",
+  },
+  {
     timestamp: 1788905143377,
     title: "Your circle, in a feed",
     description:

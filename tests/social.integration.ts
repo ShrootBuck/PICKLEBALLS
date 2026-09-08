@@ -11,6 +11,7 @@ if (
 mock.module("server-only", () => ({}));
 const { getPrisma } = await import("@/lib/prisma");
 const { getFeedPage } = await import("@/lib/social-data");
+const { getStoryGroups, markStoryViewed } = await import("@/lib/story-data");
 const { setPostLike } = await import("@/lib/post-likes");
 const { createSocialReply } = await import("@/lib/social-replies");
 const {
@@ -553,4 +554,153 @@ test("screen-time readings stay private until confirmation and confirmation is i
       where: { readingId: reading.id },
     }),
   ).toBe(1);
+});
+
+test("stories include every recent author beyond feed pagination and expire after 24 hours", async () => {
+  const circleId = `story-circle-${randomUUID()}`;
+  await prisma.circle.create({
+    data: {
+      id: circleId,
+      slug: circleId,
+      name: "Stories",
+      memberships: { create: [{ userId: ids.owner }, { userId: ids.peer }] },
+    },
+  });
+  const parent = await prisma.checkIn.create({
+    data: {
+      userId: ids.owner,
+      circleId,
+      day: requireDateKey("2026-09-08"),
+      signal: "YAY",
+    },
+  });
+  const peer = await prisma.checkIn.create({
+    data: { userId: ids.peer, circleId, day: parent.day, signal: "NAY" },
+  });
+  const base = { circleId, day: parent.day, signal: "YAY" as const };
+  await prisma.checkInUpdate.createMany({
+    data: [
+      ...Array.from({ length: 60 }, (_, i) => ({
+        ...base,
+        userId: ids.owner,
+        checkInId: parent.id,
+        createdAt: new Date(now.getTime() - i * 1000),
+      })),
+      {
+        ...base,
+        userId: ids.peer,
+        checkInId: peer.id,
+        id: `${circleId}-recent`,
+        createdAt: new Date(now.getTime() - 23 * 3600_000),
+      },
+      {
+        ...base,
+        userId: ids.peer,
+        checkInId: peer.id,
+        id: `${circleId}-expired`,
+        createdAt: new Date(now.getTime() - 24 * 3600_000),
+      },
+      {
+        ...base,
+        userId: ids.peer,
+        checkInId: peer.id,
+        id: `${circleId}-future`,
+        createdAt: new Date(now.getTime() + 1000),
+      },
+    ],
+  });
+  const groups = await getStoryGroups(ids.owner, circleId, now);
+  expect(groups[0].author.id).toBe(ids.owner);
+  expect(groups[0].posts).toHaveLength(60);
+  expect(groups[1].posts.map((p) => p.post.id)).toEqual([`${circleId}-recent`]);
+  const input = {
+    circleId,
+    kind: "check-in" as const,
+    id: `${circleId}-recent`,
+    frame: 0,
+  };
+  await markStoryViewed(ids.owner, input, now);
+  await markStoryViewed(ids.owner, input, now);
+  expect(
+    await prisma.storyView.count({ where: { viewerId: ids.owner, circleId } }),
+  ).toBe(1);
+  expect(
+    (await getStoryGroups(ids.owner, circleId, now))[1].posts[0].seenFrames,
+  ).toEqual([0]);
+  expect(
+    (await getStoryGroups(ids.peer, circleId, now)).find(
+      (g) => g.author.id === ids.peer,
+    )?.posts[0].seenFrames,
+  ).toEqual([]);
+  await expect(
+    markStoryViewed(ids.owner, { ...input, id: `${circleId}-expired` }, now),
+  ).rejects.toThrow("no longer available");
+  await expect(
+    markStoryViewed(ids.owner, { ...input, frame: 1 }, now),
+  ).rejects.toThrow("attachment not found");
+  await expect(markStoryViewed(ids.outsider, input, now)).rejects.toThrow(
+    "not found",
+  );
+  await expect(getStoryGroups(ids.outsider, circleId, now)).rejects.toThrow(
+    "not found",
+  );
+});
+
+test("proof story views are per attachment, ignore replacements, and enforce receipt constraints", async () => {
+  const p = await proof();
+  const extra = await media();
+  await prisma.taskProof.update({
+    where: { id: p.id },
+    data: { mediaIds: [...p.mediaIds, extra] },
+  });
+  const input = {
+    circleId: ids.circle,
+    kind: "proof" as const,
+    id: p.id,
+    frame: 0,
+  };
+  await markStoryViewed(ids.peer, input, now);
+  const viewed = (await getStoryGroups(ids.peer, ids.circle, now))
+    .flatMap((g) => g.posts)
+    .find((item) => item.post.id === p.id);
+  expect(viewed?.seenFrames).toEqual([0]);
+  await markStoryViewed(ids.peer, { ...input, frame: 1 }, now);
+  await expect(
+    markStoryViewed(ids.peer, { ...input, frame: 2 }, now),
+  ).rejects.toThrow("attachment not found");
+  await expect(
+    markStoryViewed(ids.outsider, { ...input, circleId: ids.other }, now),
+  ).rejects.toThrow("no longer available");
+  await expect(
+    Promise.resolve(
+      prisma.storyView.create({
+        data: { viewerId: ids.peer, circleId: ids.circle, frame: 0 },
+      }),
+    ),
+  ).rejects.toThrow();
+  await expect(
+    Promise.resolve(
+      prisma.storyView.create({
+        data: {
+          viewerId: ids.peer,
+          circleId: ids.circle,
+          proofId: p.id,
+          frame: -1,
+        },
+      }),
+    ),
+  ).rejects.toThrow();
+  const replacement = await proof();
+  await prisma.taskProof.update({
+    where: { id: p.id },
+    data: { replacedById: replacement.id },
+  });
+  await expect(markStoryViewed(ids.peer, input, now)).rejects.toThrow(
+    "no longer available",
+  );
+  expect(
+    (await getStoryGroups(ids.peer, ids.circle, now))
+      .flatMap((g) => g.posts)
+      .some((item) => item.post.id === p.id),
+  ).toBe(false);
 });

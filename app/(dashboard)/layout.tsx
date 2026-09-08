@@ -8,6 +8,7 @@ import { listMyCircles } from "@/lib/circles";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
 import { socialTaskInclude, toSocialTask } from "@/lib/social-data";
+import { getStoryGroups } from "@/lib/story-data";
 import { phoenixDateKey, requireDateKey } from "@/lib/time";
 
 export default async function DashboardLayout({
@@ -20,7 +21,7 @@ export default async function DashboardLayout({
     return <div className="min-h-full bg-background">{children}</div>;
   const { membership } = await requirePageMembership();
   const day = phoenixDateKey();
-  const [memberships, tasks, pendingVerdicts] = await Promise.all([
+  const [memberships, tasks, pendingVerdicts, stories] = await Promise.all([
     listMyCircles(session.user.id),
     getPrisma().commitment.findMany({
       where: {
@@ -40,6 +41,7 @@ export default async function DashboardLayout({
         reviews: { none: { reviewerId: session.user.id } },
       },
     }),
+    getStoryGroups(session.user.id, membership.circleId),
   ]);
   const { id, name, image, initials } = membership.user;
   return (
@@ -49,6 +51,7 @@ export default async function DashboardLayout({
       circleId={membership.circleId}
       day={day}
       tasks={tasks.map(toSocialTask)}
+      initialStories={stories}
     >
       <SocialShell
         circles={memberships.map(({ circle, role }) => ({

@@ -48,8 +48,12 @@ import { proofFetch } from "@/lib/proof-fetch";
 import type { SocialTask } from "@/lib/social-types";
 import { phoenixDateKey, phoenixLocalDateTimeValue } from "@/lib/time";
 
-type Mode = "choose" | "task" | "proof" | "check-in";
-export type ComposerRequest = { mode: Mode; task?: SocialTask };
+type Mode = "choose" | "story" | "task" | "proof" | "check-in";
+export type ComposerRequest = {
+  mode: Mode;
+  task?: SocialTask;
+  source?: "story";
+};
 export type ComposerDraft = {
   title: string;
   definition: string;
@@ -72,7 +76,7 @@ export function SocialComposer({
   draft,
   onSaveDraft,
   onDiscardDraft,
-  onRequestChange,
+  onRequestChange: changeRequest,
 }: {
   request: ComposerRequest;
   tasks: SocialTask[];
@@ -85,6 +89,8 @@ export function SocialComposer({
   onRequestChange: (request: ComposerRequest) => void;
 }) {
   const router = useRouter();
+  const onRequestChange = (next: ComposerRequest) =>
+    changeRequest({ ...next, source: request.source });
   const mode = request.mode;
   const task = request.task ?? null;
   const [title, setTitle] = useState(
@@ -211,11 +217,13 @@ export function SocialComposer({
       router.push(
         mode === "task"
           ? "/profile?tab=tasks"
-          : postHref(
-              circleId,
-              mode === "proof" ? "proof" : "check-in",
-              mode === "proof" ? data.proof.id : data.update.id,
-            ),
+          : request.source === "story"
+            ? "/"
+            : postHref(
+                circleId,
+                mode === "proof" ? "proof" : "check-in",
+                mode === "proof" ? data.proof.id : data.update.id,
+              ),
       );
     } catch (cause) {
       setError(
@@ -231,6 +239,7 @@ export function SocialComposer({
 
   const heading = {
     choose: "What’s happening?",
+    story: "Add to your story",
     task: task ? "Edit your task" : "Make a commitment",
     proof: task?.proof ? "Another look. Better proof." : "Show the work",
     "check-in": "How’s it going?",
@@ -250,13 +259,15 @@ export function SocialComposer({
         <SheetHeader>
           <SheetTitle>{heading}</SheetTitle>
           <SheetDescription>
-            {mode === "choose"
-              ? "A little accountability goes a long way."
-              : mode === "task"
-                ? "Set a clear finish line. Due tonight at midnight, Phoenix time."
-                : mode === "proof"
-                  ? (task?.title ?? "Pick the task you finished.")
-                  : "A quick update for your circle."}
+            {mode === "story"
+              ? "Share proof or a check-in. In stories for 24 hours, saved in your posts."
+              : mode === "choose"
+                ? "A little accountability goes a long way."
+                : mode === "task"
+                  ? "Set a clear finish line. Due tonight at midnight, Phoenix time."
+                  : mode === "proof"
+                    ? (task?.title ?? "Pick the task you finished.")
+                    : "A quick update for your circle."}
           </SheetDescription>
         </SheetHeader>
         <form
@@ -264,7 +275,7 @@ export function SocialComposer({
           onSubmit={submit}
           className="min-h-0 overflow-y-auto px-5 pb-4"
         >
-          {mode === "choose" && (
+          {(mode === "choose" || mode === "story") && (
             <div className="flex flex-col gap-3">
               {(
                 [
@@ -287,23 +298,25 @@ export function SocialComposer({
                     icon: MessageCircle,
                   },
                 ] as const
-              ).map((item) => (
-                <Button
-                  key={item.mode}
-                  variant="outline"
-                  className="composer-choice"
-                  onClick={() => onRequestChange({ mode: item.mode })}
-                >
-                  <item.icon data-icon="inline-start" />
-                  <span className="flex flex-1 flex-col items-start gap-1">
-                    <span>{item.title}</span>
-                    <span className="font-normal text-muted-foreground">
-                      {item.description}
+              )
+                .filter((item) => mode !== "story" || item.mode !== "task")
+                .map((item) => (
+                  <Button
+                    key={item.mode}
+                    variant="outline"
+                    className="composer-choice"
+                    onClick={() => onRequestChange({ mode: item.mode })}
+                  >
+                    <item.icon data-icon="inline-start" />
+                    <span className="flex flex-1 flex-col items-start gap-1">
+                      <span>{item.title}</span>
+                      <span className="font-normal text-muted-foreground">
+                        {item.description}
+                      </span>
                     </span>
-                  </span>
-                  <ArrowRight data-icon="inline-end" />
-                </Button>
-              ))}
+                    <ArrowRight data-icon="inline-end" />
+                  </Button>
+                ))}
             </div>
           )}
           {mode === "task" && (
@@ -501,7 +514,7 @@ export function SocialComposer({
             </output>
           )}
         </form>
-        {mode !== "choose" && (
+        {mode !== "choose" && mode !== "story" && (
           <SheetFooter className="flex-row border-t">
             {mode === "proof" && task && (
               <Button

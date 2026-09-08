@@ -49,6 +49,16 @@ export type CheckInPost = PostBase & {
 export type FeedPost = ProofPost | CheckInPost;
 export type FeedPage = { items: FeedPost[]; nextCursor: string | null };
 
+export type StoryPost = { post: FeedPost; seenFrames: number[] };
+export type StoryGroup = { author: SocialAuthor; posts: StoryPost[] };
+export type StoryFrame = {
+  key: string;
+  post: FeedPost;
+  frame: number;
+  seen: boolean;
+  media: { src: string; video: boolean } | null;
+};
+
 export type SocialTask = {
   id: string;
   title: string;

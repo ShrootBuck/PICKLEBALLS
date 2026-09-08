@@ -100,6 +100,7 @@ model User {
   invitesUsed         Invite[]             @relation("InvitesUsed")
   socialReplies       SocialReply[]
   postLikes           PostLike[]
+  storyViews          StoryView[]
   pushSubscriptions   PushSubscription[]
   notifications       Notification[]       @relation("NotificationsReceived")
   notificationsSent   Notification[]       @relation("NotificationsSent")
@@ -184,6 +185,7 @@ model Circle {
   aiRuns        AIRun[]
   socialReplies SocialReply[]
   postLikes     PostLike[]
+  storyViews    StoryView[]
   notifications Notification[]
   screenTimeReadings ScreenTimeReading[]
   screenTimeSubmissions ScreenTimeSubmission[]
@@ -277,6 +279,7 @@ model TaskProof {
   reviews    TaskProofReview[]
   replies    SocialReply[]
   likes      PostLike[]
+  storyViews StoryView[]
   replacedBy TaskProof?        @relation("ProofReplacement", fields: [replacedById], references: [id], onDelete: SetNull)
   replaces   TaskProof?        @relation("ProofReplacement")
 
@@ -354,6 +357,7 @@ model CheckInUpdate {
 
   replies SocialReply[]
   likes   PostLike[]
+  storyViews StoryView[]
 
   @@index([checkInId, createdAt])
   @@index([circleId, day, createdAt])
@@ -408,6 +412,27 @@ model PostLike {
   @@unique([userId, proofId])
   @@unique([userId, checkInUpdateId])
   @@index([circleId])
+  @@index([proofId])
+  @@index([checkInUpdateId])
+}
+
+model StoryView {
+  id              String   @id @default(cuid())
+  viewerId        String
+  circleId        String
+  proofId         String?
+  checkInUpdateId String?
+  frame           Int      @default(0)
+  viewedAt        DateTime @default(now())
+
+  viewer        User           @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  circle        Circle         @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  proof         TaskProof?     @relation(fields: [proofId], references: [id], onDelete: Cascade)
+  checkInUpdate CheckInUpdate? @relation(fields: [checkInUpdateId], references: [id], onDelete: Cascade)
+
+  @@unique([viewerId, proofId, frame])
+  @@unique([viewerId, checkInUpdateId, frame])
+  @@index([circleId, viewerId, viewedAt])
   @@index([proofId])
   @@index([checkInUpdateId])
 }

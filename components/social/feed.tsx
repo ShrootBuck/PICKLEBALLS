@@ -1,8 +1,9 @@
 "use client";
 
-import { Camera, RefreshCw } from "lucide-react";
+import { Camera, Grid3X3, RefreshCw, Rows3 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PostCard } from "@/components/social/post-card";
+import { PostGrid } from "@/components/social/post-grid";
 import { useSocial } from "@/components/social/social-provider";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { requestAppRefresh } from "@/lib/app-refresh";
 import { reconcileFeed, refreshFeedPages } from "@/lib/feed-state";
 import { type FeedPage, type FeedPost, postKey } from "@/lib/social-types";
@@ -27,8 +29,11 @@ export function Feed({
   memberId?: string;
   reviewOnly?: boolean;
 }) {
-  const { feeds, openComposer } = useSocial();
+  const { feeds, openComposer, postRevision, feedLayouts } = useSocial();
   const key = reviewOnly ? "!review" : (memberId ?? "home");
+  const [layout, setLayout] = useState<"grid" | "list">(() =>
+    memberId ? (feedLayouts.get(key) ?? "grid") : "list",
+  );
   const signature = JSON.stringify(initial);
   const previousSignature = useRef(signature);
   const [page, setPage] = useState<FeedPage>(() => {
@@ -46,6 +51,12 @@ export function Feed({
   const pull = useRef(0);
   const [pullDistance, setPullDistance] = useState(0);
   const requestEpoch = useRef(0);
+  useEffect(() => {
+    if (postRevision > 0) {
+      const cached = feeds.get(key);
+      if (cached) setPage(cached);
+    }
+  }, [postRevision, feeds, key]);
   useEffect(() => {
     if (previousSignature.current !== signature) {
       previousSignature.current = signature;
@@ -159,20 +170,45 @@ export function Feed({
               ? "Posts"
               : "Around your circle"}
         </h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="Refresh posts"
-          disabled={busy !== null}
-          onClick={() => load("refresh")}
-        >
-          {busy === "refresh" ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <RefreshCw data-icon="inline-start" />
+        <div className="flex items-center gap-2">
+          {memberId && (
+            <ToggleGroup
+              aria-label="Post layout"
+              value={[layout]}
+              variant="outline"
+              size="sm"
+              spacing={0}
+              onValueChange={(value) => {
+                const next = value[0];
+                if (next === "grid" || next === "list") {
+                  setLayout(next);
+                  feedLayouts.set(key, next);
+                }
+              }}
+            >
+              <ToggleGroupItem value="grid" aria-label="Grid view">
+                <Grid3X3 />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="list" aria-label="List view">
+                <Rows3 />
+              </ToggleGroupItem>
+            </ToggleGroup>
           )}
-          Refresh
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Refresh posts"
+            disabled={busy !== null}
+            onClick={() => load("refresh")}
+          >
+            {busy === "refresh" ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <RefreshCw data-icon="inline-start" />
+            )}
+            Refresh
+          </Button>
+        </div>
       </div>
       {pullDistance > 15 && (
         <output className="py-3 text-center text-xs text-muted-foreground">
@@ -186,29 +222,33 @@ export function Feed({
         </Alert>
       )}
       {page.items.length ? (
-        page.items.map((post) => (
-          <PostCard
-            key={postKey(post)}
-            post={post}
-            onChange={(patch) =>
-              setPage((current) => ({
-                ...current,
-                items:
-                  reviewOnly &&
-                  "canReview" in patch &&
-                  patch.canReview === false
-                    ? current.items.filter(
-                        (item) => postKey(item) !== postKey(post),
-                      )
-                    : current.items.map((item) =>
-                        postKey(item) === postKey(post)
-                          ? ({ ...item, ...patch } as FeedPost)
-                          : item,
-                      ),
-              }))
-            }
-          />
-        ))
+        layout === "grid" ? (
+          <PostGrid posts={page.items} />
+        ) : (
+          page.items.map((post) => (
+            <PostCard
+              key={postKey(post)}
+              post={post}
+              onChange={(patch) =>
+                setPage((current) => ({
+                  ...current,
+                  items:
+                    reviewOnly &&
+                    "canReview" in patch &&
+                    patch.canReview === false
+                      ? current.items.filter(
+                          (item) => postKey(item) !== postKey(post),
+                        )
+                      : current.items.map((item) =>
+                          postKey(item) === postKey(post)
+                            ? ({ ...item, ...patch } as FeedPost)
+                            : item,
+                        ),
+                }))
+              }
+            />
+          ))
+        )
       ) : (
         <Empty className="py-12">
           <EmptyHeader>
