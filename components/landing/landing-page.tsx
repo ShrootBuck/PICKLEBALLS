@@ -1,123 +1,148 @@
-import { ArrowUpRight, Camera, Clock3, Users } from "lucide-react";
+import {
+  ArrowRight,
+  BadgeCheck,
+  Camera,
+  Heart,
+  MessageCircle,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-
-const points = [
-  {
-    icon: Camera,
-    title: "Photo receipts",
-    body: "Prove the work with a photo, not a vibe.",
-  },
-  {
-    icon: Users,
-    title: "Friends verify",
-    body: "One approval passes. One challenge sends it back.",
-  },
-  {
-    icon: Clock3,
-    title: "Midnight deadline",
-    body: "Same deadline for everyone.",
-  },
-];
-
-const steps = [
-  { n: "1", text: "Promise something every day." },
-  { n: "2", text: "Post photo proof before midnight." },
-  { n: "3", text: "Your circle verifies or calls bullshit." },
-];
 
 export function LandingPage() {
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-5xl flex-col items-center gap-10 px-5 py-6 text-center sm:gap-14 sm:px-8 sm:py-8">
-      <div className="flex w-full items-center gap-2.5 border-b pb-6 text-sm font-semibold">
-        <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-base text-primary-foreground">
-          <span aria-hidden="true">🎾</span>
-        </span>
-        <strong className="tracking-tight">Pickle Balls</strong>
-        <Badge variant="secondary" className="ml-auto">
-          Private circles
-        </Badge>
-      </div>
-
-      <div className="flex flex-col items-center gap-6 pt-6 sm:pt-12">
-        <h1 className="max-w-3xl text-5xl font-semibold leading-[1.08] tracking-[-0.045em] text-balance sm:text-7xl">
-          Do the homework. Earn the court.
-        </h1>
-        <p className="max-w-lg text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">
-          Daily promises, photo receipts, and friends who call the bluff. Start
-          your own private circle in seconds, or join your crew with an invite
-          link.
-        </p>
-        <div className="mt-2 flex w-full max-w-sm flex-col gap-2 sm:w-auto sm:max-w-none sm:flex-row">
+    <main className="mx-auto flex min-h-full max-w-6xl flex-col gap-12 px-5 py-6 sm:px-10 sm:py-8">
+      <header className="flex items-center justify-between gap-4">
+        <Link href="/" className="social-wordmark">
+          <span className="brand-symbol">p.</span> Pickle Balls
+        </Link>
+        <Button
+          variant="ghost"
+          nativeButton={false}
+          render={<Link href="/sign-in" />}
+        >
+          Sign in
+          <ArrowRight />
+        </Button>
+      </header>
+      <section className="grid items-center gap-14 py-4 sm:py-12 lg:grid-cols-2 lg:gap-20">
+        <div className="flex flex-col items-start gap-6">
+          <Badge variant="outline">
+            <Users /> Private social accountability
+          </Badge>
+          <h1 className="text-5xl font-semibold leading-[1.04] tracking-[-0.055em] text-balance sm:text-7xl">
+            Show up.
+            <br />
+            Show your work.
+          </h1>
+          <p className="max-w-md text-lg leading-relaxed text-muted-foreground">
+            The group chat energy. The receipts to back it up. Make plans, post
+            your progress, and keep each other honest.
+          </p>
           <Button
             size="lg"
-            className="w-full sm:w-auto"
             nativeButton={false}
             render={<Link href="/sign-up" />}
           >
-            Start your circle
+            Find your follow-through
+            <ArrowRight />
           </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            className="w-full sm:w-auto"
-            nativeButton={false}
-            render={<Link href="/sign-in" />}
-          >
-            Sign in
-          </Button>
+          <p className="text-xs text-muted-foreground">
+            Start a circle or join your friends with an invite.
+          </p>
         </div>
-      </div>
-
-      <div className="grid w-full gap-3 text-left sm:grid-cols-3">
-        {points.map(({ icon: Icon, title, body }) => (
-          <Card key={title}>
-            <CardHeader className="gap-3">
-              <Icon
-                aria-hidden="true"
-                className="mb-2 size-5 text-muted-foreground"
-              />
-              <CardTitle>{title}</CardTitle>
-              <CardDescription>{body}</CardDescription>
-            </CardHeader>
-          </Card>
-        ))}
-      </div>
-
-      <ol className="grid w-full gap-5 text-left sm:grid-cols-3">
-        {steps.map((step) => (
-          <li key={step.n} className="flex items-start gap-3">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-medium text-muted-foreground">
-              {step.n}
+        <section
+          className="landing-feed"
+          aria-label="An example of a private circle feed"
+        >
+          <div className="flex items-center gap-2 border-b pb-5 text-sm font-semibold">
+            <Users className="size-4 text-primary" /> The after-school crew{" "}
+            <Badge variant="secondary" className="ml-auto">
+              Private
+            </Badge>
+          </div>
+          <div className="flex gap-5 py-5">
+            {[
+              ["YO", "You", "2/3"],
+              ["ED", "Eddie", "3/3"],
+              ["SA", "Sam", "1/2"],
+            ].map(([initials, name, count]) => (
+              <div key={name} className="flex flex-col items-center gap-1.5">
+                <Avatar className="size-12 ring-2 ring-primary/60 ring-offset-4 ring-offset-background">
+                  <AvatarFallback>{initials}</AvatarFallback>
+                </Avatar>
+                <span className="mt-1 text-xs">{name}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {count} verified
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 border-t py-4">
+            <Avatar>
+              <AvatarFallback>ED</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-1 flex-col">
+              <strong className="text-sm">Eddie</strong>
+              <span className="text-xs text-muted-foreground">
+                Finished the problem set · 12m
+              </span>
+            </div>
+            <Badge variant="success">
+              <BadgeCheck />
+              Verified
+            </Badge>
+          </div>
+          <div className="landing-receipt">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Camera className="size-4" /> THE RECEIPTS
+            </div>
+            <p className="mt-5 text-2xl font-medium tracking-tight">
+              One less thing
+              <br />
+              on tomorrow’s list.
+            </p>
+            <div className="mt-6 flex flex-col gap-3" aria-hidden="true">
+              <div className="h-px w-full bg-border" />
+              <div className="h-px w-4/5 bg-border" />
+              <div className="h-px w-3/5 bg-border" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 py-4 text-sm">
+            <Heart className="size-5 text-primary" />3
+            <MessageCircle className="ml-2 size-5" />2
+            <span className="ml-auto text-xs text-muted-foreground">
+              Nice. Same time tomorrow?
             </span>
-            <span className="pt-1 text-sm text-muted-foreground">
-              {step.text}
-            </span>
+          </div>
+        </section>
+      </section>
+      <ol className="grid gap-8 border-t py-8 sm:grid-cols-3">
+        {[
+          ["01", "Commit to something.", "A clear task. A real finish line."],
+          [
+            "02",
+            "Post the proof.",
+            "Photos, videos, and check-ins from your day.",
+          ],
+          [
+            "03",
+            "Keep each other going.",
+            "A friend verifies the work. Everyone sees the progress.",
+          ],
+        ].map(([n, title, body]) => (
+          <li key={n}>
+            <span className="text-xs text-primary">{n}</span>
+            <h2 className="mt-3 text-base font-semibold">{title}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{body}</p>
           </li>
         ))}
       </ol>
-
-      <Separator />
-      <div className="flex flex-col items-center gap-2 pb-4 text-sm text-muted-foreground">
-        <p>Every circle is private. No audience, no feed.</p>
-        <Link
-          href="https://github.com/ShrootBuck/PICKLEBALLS"
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline"
-        >
-          Open source · ShrootBuck/PICKLEBALLS
-          <ArrowUpRight className="size-4" aria-hidden="true" />
-        </Link>
-      </div>
+      <footer className="pb-5 text-xs text-muted-foreground">
+        Your circle is invite-only. Your progress stays with your people.
+      </footer>
     </main>
   );
 }

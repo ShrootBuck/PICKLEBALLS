@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       parsed.data.signal,
       parsed.data.blocker,
     );
-    return NextResponse.json({ checkIn, update: { id: update.id } });
+    return NextResponse.json({ checkIn, update });
   } catch (error) {
     return jsonError(error);
   }

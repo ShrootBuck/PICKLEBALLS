@@ -18,6 +18,7 @@ export function HistoryNav({ day, today }: { day: string; today: string }) {
   return (
     <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
       <Button
+        nativeButton={false}
         variant="outline"
         size="sm"
         render={<Link href={`/history?day=${shiftDay(day, -1)}`} prefetch />}
@@ -27,6 +28,7 @@ export function HistoryNav({ day, today }: { day: string; today: string }) {
       </Button>
       {day !== today ? (
         <Button
+          nativeButton={false}
           variant="outline"
           size="sm"
           render={<Link href="/history" prefetch />}
@@ -36,6 +38,7 @@ export function HistoryNav({ day, today }: { day: string; today: string }) {
       ) : null}
       {day < today ? (
         <Button
+          nativeButton={false}
           variant="outline"
           size="sm"
           render={<Link href={`/history?day=${shiftDay(day, 1)}`} prefetch />}

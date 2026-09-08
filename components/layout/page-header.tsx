@@ -15,7 +15,7 @@ export function PageHeader({
     <section className="flex min-w-0 flex-wrap items-start justify-between gap-4 sm:gap-6">
       <div className="flex min-w-0 flex-1 basis-64 flex-col gap-2">
         {children}
-        <h1 className="text-2xl font-semibold leading-tight tracking-[-0.03em] text-balance sm:text-3xl">
+        <h1 className="text-[27px] font-semibold leading-[1.15] tracking-[-0.04em] text-balance sm:text-[32px]">
           {title}
         </h1>
         {description ? (

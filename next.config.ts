@@ -10,6 +10,8 @@ const mediaOrigin =
       : "";
 
 const nextConfig: NextConfig = {
+  devIndicators:
+    process.env.PB_TEST_DATABASE === "disposable-docker" ? false : undefined,
   distDir: process.env.PB_TEST_BUILD === "1" ? ".next-browser" : ".next",
   reactCompiler: true,
   async headers() {

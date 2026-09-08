@@ -40,7 +40,12 @@ export type ThreadReply = {
   };
 };
 
-type ReplyTargetType = "COMMITMENT" | "CHECK_IN" | "PROOF" | "REVIEW";
+type ReplyTargetType =
+  | "COMMITMENT"
+  | "CHECK_IN"
+  | "CHECK_IN_UPDATE"
+  | "PROOF"
+  | "REVIEW";
 
 type SocialReply = ThreadReply;
 
@@ -254,6 +259,7 @@ export function SocialReplyThread({
   compact = false,
   currentUserId,
   defaultExpanded = false,
+  scrollOnExpand = true,
   contextLabel,
   replyLabel = targetType === "PROOF" ? "Comment on proof" : "Reply",
 }: {
@@ -263,6 +269,7 @@ export function SocialReplyThread({
   compact?: boolean;
   currentUserId?: string;
   defaultExpanded?: boolean;
+  scrollOnExpand?: boolean;
   contextLabel: string;
   replyLabel?: string;
 }) {
@@ -324,12 +331,13 @@ export function SocialReplyThread({
   useEffect(() => {
     if (defaultExpanded) {
       setExpanded(true);
-      anchorRef.current?.scrollIntoView({
-        behavior: "instant",
-        block: "center",
-      });
+      if (scrollOnExpand)
+        anchorRef.current?.scrollIntoView({
+          behavior: "instant",
+          block: "center",
+        });
     }
-  }, [defaultExpanded]);
+  }, [defaultExpanded, scrollOnExpand]);
 
   async function loadEarlier() {
     if (hiddenCount > 0) {

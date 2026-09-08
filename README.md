@@ -1,9 +1,10 @@
 # Pickle Balls
 
-Pickle Balls is a private schoolwork accountability app for a small circle. It is
-not a pickleball tracker. Each person can set as many tasks as they want per Phoenix day,
-post photo proof, and get one peer approval or one challenge to verify. One
-approval from someone else verifies a proof.
+Pickle Balls is a private social accountability app. Home shows friends’ daily
+progress, proof, and check-ins. Each check-in has its own likes and discussion.
+Profiles collect posts and daily tasks; Squad collects proof that needs a verdict.
+One peer approval verifies a task. Phoenix-day deadlines, screen-time rankings,
+and weekly timeblock PDFs keep the work grounded.
 
 ## Stack
 
@@ -39,7 +40,7 @@ The `Pickle Balls` circle is created automatically on first owner sign-in.
   migrate deploy` takes a Postgres advisory lock that the pooled
   `DATABASE_URL` cannot grant, so the build fails with a P1002 timeout
   without it. Runtime traffic keeps using the pooled `DATABASE_URL`.
-- **Browser tests** start their own disposable Docker Postgres container and Next.js server on unused loopback ports. They never reset either Prisma dev instance or accept an existing database URL.
+- **Social regression tests** start a disposable Docker Postgres container on a random loopback port. The optional UI fixture uses app port `3317` and local media port `3318`. It never resets a Prisma dev instance or accepts an existing database URL.
 
 Prisma dev's TCP endpoint always routes to its one internal `template1`
 database, regardless of the path in the URL. A different URL path is therefore
@@ -163,3 +164,39 @@ disposable migrations, and the production build are checked with these versions.
 The deepmerge v8 Map-merging change does not affect this plain-object Prisma config;
 this app uses PostgreSQL and does not use the MySQL driver. Remove the overrides
 when Prisma ships patched pins. Lodash was updated within its supported range.
+
+## Social redesign validation
+
+See [the social redesign check record](docs/social-redesign-2026-09-08.md) for
+completed checks and remaining device coverage.
+
+```bash
+bun test                 # pure feed/time/PDF checks and notification regression tests
+bun run test:social      # populated old schema -> additive migration -> real database checks
+bun run test:social:ui   # the same suite, plus an isolated UI fixture
+```
+
+The UI runner prints a local login URL with four local test profiles. It
+uses a local media server and disables external AI and push delivery. Use
+`http://localhost:3318/login` for the owner or append `?user=eddie` for a peer.
+The fixture image is `/private/tmp/pb-proof-fixture.png`. Stop the runner to
+remove its disposable database. Webpack with polling is used for this fixture
+so restricted macOS file watchers do not prevent updates.
+
+While the fixture is running, run its HTTP checks with the environment overrides
+written to `/private/tmp/pb-social-test-env.json`:
+
+```bash
+bun -e 'const env = await Bun.file("/private/tmp/pb-social-test-env.json").json(); const child = Bun.spawn(["bun", "scripts/social-http.ts"], { env: { ...process.env, ...env }, stdout: "inherit", stderr: "inherit" }); process.exit(await child.exited);'
+```
+
+These checks exercise private profile/post/media access, old URLs, duplicate
+likes, CSRF protection, and independent comment pagination. The database suite
+also covers equal feed timestamps, proof replacement, solo verification,
+midnight closure, media retry, and screen-time confirmation.
+
+The social migration is additive. Deploy it before application traffic switches
+using the existing `vercel-build` command. It backfills one update only for daily
+check-ins without any updates, preserving their original timestamp. Existing
+daily discussions remain on their original records. If application rollback is
+needed, leave the additive schema in place and restore the previous app release.

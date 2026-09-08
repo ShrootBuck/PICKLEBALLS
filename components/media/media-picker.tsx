@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { Camera } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ export function MediaPicker({
 }) {
   const id = useId();
   const [error, setError] = useState("");
+  const cameraRef = useRef<HTMLInputElement>(null);
   const [previews, setPreviews] = useState<string[]>([]);
   useEffect(() => {
     const urls = files.map((file) => URL.createObjectURL(file));
@@ -74,6 +76,38 @@ export function MediaPicker({
           onChange([...files, ...added]);
         }}
       />
+      <Input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="sr-only"
+        tabIndex={-1}
+        aria-label="Take a proof photo"
+        disabled={disabled}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (!file) return;
+          if (files.length >= maxMediaCount) {
+            setError("Choose up to six files.");
+            return;
+          }
+          if (!file.size || file.size > maxPhotoBytes) {
+            setError("Choose a photo between 1 byte and 100 MB.");
+            return;
+          }
+          setError("");
+          onChange([...files, file]);
+        }}
+      />
+      <Button
+        variant="outline"
+        disabled={disabled}
+        onClick={() => cameraRef.current?.click()}
+      >
+        <Camera data-icon="inline-start" /> Take a photo
+      </Button>
       <FieldDescription id={`${id}-help`} aria-live="polite">
         {error ||
           "Up to 6 files. Photos: 100 MB, resized with location data removed. Videos: 50 MB (MP4, MOV, WebM)."}

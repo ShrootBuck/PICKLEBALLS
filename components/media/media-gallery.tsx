@@ -1,7 +1,12 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
-import { useState } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Maximize,
+} from "lucide-react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,131 +16,223 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 
-export function MediaGallery({ ids }: { ids: string[] }) {
-  const photos = ids.filter((id) => !id.startsWith("v_"));
-  const [selectedIndex, setSelected] = useState(0);
-  const selected = Math.min(selectedIndex, Math.max(0, photos.length - 1));
-  if (ids.length === 0) return null;
-
+export function MediaGallery({
+  ids,
+  legacyProofId,
+  compact = false,
+}: {
+  ids: string[];
+  legacyProofId?: string;
+  compact?: boolean;
+}) {
+  const items = ids.length
+    ? ids.map((id) => ({
+        id,
+        video: id.startsWith("v_"),
+        src: `/api/media/${id}`,
+      }))
+    : legacyProofId
+      ? [
+          {
+            id: legacyProofId,
+            video: false,
+            src: `/api/proofs/${legacyProofId}/image`,
+          },
+        ]
+      : [];
+  const scroller = useRef<HTMLDivElement>(null);
+  const [slide, setSlide] = useState(0);
+  const [selected, setSelected] = useState(0);
+  const index = Math.min(selected, Math.max(0, items.length - 1));
+  if (!items.length) return null;
+  function go(next: number) {
+    const node = scroller.current;
+    if (!node) return;
+    const reduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    node.scrollTo({
+      left: next * node.clientWidth,
+      behavior: reduced ? "instant" : "smooth",
+    });
+  }
   return (
     <Dialog>
-      <div
-        className={cn(
-          "grid w-full min-w-0 grid-cols-1 gap-2 p-2",
-          ids.length > 1 && "sm:grid-cols-2",
-        )}
-      >
-        {ids.map((id, index) =>
-          id.startsWith("v_") ? (
-            <div key={id} className="flex flex-col gap-1">
-              {/* biome-ignore lint/a11y/useMediaCaption: user-uploaded video has no caption track */}
-              <video
-                src={`/api/media/${id}`}
-                controls
-                playsInline
-                preload="metadata"
-                className="max-h-80 w-full rounded-lg bg-muted"
-                aria-label={`Video attachment ${index + 1}`}
-              />
-              <a
-                className="text-xs underline"
-                href={`/api/media/${id}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open video {index + 1}
-              </a>
-            </div>
-          ) : (
-            <DialogTrigger
-              key={id}
-              onClick={() => setSelected(photos.indexOf(id))}
-              className="min-w-0 cursor-zoom-in rounded-lg outline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
-              aria-label={`Open photo ${index + 1}`}
-            >
-              {/* biome-ignore lint/performance/noImgElement: authenticated media endpoint */}
-              <img
-                src={`/api/media/${id}`}
-                alt={`Attachment ${index + 1}`}
-                loading="lazy"
-                className="max-h-80 w-full rounded-lg bg-muted object-contain"
-              />
-            </DialogTrigger>
-          ),
-        )}
-      </div>
-      {photos.length > 0 && (
-        <DialogContent
-          className="sm:max-w-3xl"
-          onKeyDown={(event) => {
-            if (event.key === "ArrowLeft") {
-              event.preventDefault();
-              setSelected(Math.max(0, selected - 1));
-            } else if (event.key === "ArrowRight") {
-              event.preventDefault();
-              setSelected(Math.min(photos.length - 1, selected + 1));
+      <section className="min-w-0" aria-label="Post attachments">
+        <div
+          ref={scroller}
+          className="media-slides"
+          onScroll={(event) => {
+            const node = event.currentTarget;
+            const next = Math.round(
+              node.scrollLeft / Math.max(1, node.clientWidth),
+            );
+            setSlide(next);
+            for (const video of node.querySelectorAll("video")) {
+              if (video.dataset.slide !== String(next)) video.pause();
             }
           }}
         >
-          <DialogHeader>
-            <DialogTitle aria-live="polite">
-              Photo {selected + 1} of {photos.length}
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              Full-size attachment. Use the arrow keys to browse photos or
-              Escape to close.
-            </DialogDescription>
-          </DialogHeader>
-          {/* biome-ignore lint/performance/noImgElement: authenticated media endpoint */}
-          <img
-            src={`/api/media/${photos[selected]}`}
-            alt={`Attachment ${selected + 1} of ${photos.length}`}
-            className="max-h-[65dvh] w-full rounded-lg bg-muted object-contain"
+          {items.map((item, i) => (
+            <div
+              key={item.id}
+              className="media-slide"
+              style={compact ? { maxHeight: 300 } : undefined}
+            >
+              {item.video ? (
+                <>
+                  {/* biome-ignore lint/a11y/useMediaCaption: member-uploaded evidence has no caption track */}
+                  <video
+                    data-slide={i}
+                    src={item.src}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    aria-label={`Video ${i + 1} of ${items.length}`}
+                  />
+                  <DialogTrigger
+                    render={
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="absolute top-3 right-3"
+                      />
+                    }
+                    aria-label={`View full video ${i + 1} of ${items.length}`}
+                    onClick={() => {
+                      for (const video of scroller.current?.querySelectorAll(
+                        "video",
+                      ) ?? [])
+                        video.pause();
+                      setSelected(i);
+                    }}
+                  >
+                    <Maximize />
+                  </DialogTrigger>
+                </>
+              ) : (
+                <DialogTrigger
+                  render={
+                    <Button variant="ghost" className="media-slide-trigger" />
+                  }
+                  aria-label={`View full photo ${i + 1} of ${items.length}`}
+                  onClick={() => setSelected(i)}
+                >
+                  {/* biome-ignore lint/performance/noImgElement: private authenticated media */}
+                  <img
+                    src={item.src}
+                    loading="lazy"
+                    alt={`Proof attachment ${i + 1}`}
+                  />
+                </DialogTrigger>
+              )}
+            </div>
+          ))}
+        </div>
+        {items.length > 1 && (
+          <div className="media-position">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Previous attachment"
+              disabled={slide === 0}
+              onClick={() => go(slide - 1)}
+            >
+              <ChevronLeft />
+            </Button>
+            <output className="px-2 text-xs text-muted-foreground tabular-nums">
+              {slide + 1} / {items.length}
+            </output>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Next attachment"
+              disabled={slide === items.length - 1}
+              onClick={() => go(slide + 1)}
+            >
+              <ChevronRight />
+            </Button>
+          </div>
+        )}
+      </section>
+      <DialogContent
+        className="media-viewer"
+        onKeyDown={(event) => {
+          if (event.target instanceof HTMLVideoElement) return;
+          if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            setSelected(Math.max(0, index - 1));
+          }
+          if (event.key === "ArrowRight") {
+            event.preventDefault();
+            setSelected(Math.min(items.length - 1, index + 1));
+          }
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>
+            Attachment {index + 1} of {items.length}
+          </DialogTitle>
+          <DialogDescription>
+            Full evidence, without cropping.
+            {items.length > 1 && " Use the arrows to browse."}
+          </DialogDescription>
+        </DialogHeader>
+        {items[index].video ? (
+          // biome-ignore lint/a11y/useMediaCaption: member-uploaded evidence has no caption track
+          <video
+            key={items[index].id}
+            src={items[index].src}
+            controls
+            playsInline
+            preload="metadata"
+            aria-label="Full video evidence"
           />
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        ) : (
+          // biome-ignore lint/performance/noImgElement: private authenticated media
+          <img src={items[index].src} alt={`Full attachment ${index + 1}`} />
+        )}
+        <div className="flex items-center justify-between gap-3">
+          <Button
+            nativeButton={false}
+            variant="outline"
+            size="sm"
+            render={
+              <a
+                href={items[index].src}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Open original attachment"
+              >
+                Open original
+              </a>
+            }
+          >
+            <ExternalLink data-icon="inline-start" /> Open original
+          </Button>
+          <div className="flex gap-2">
             <Button
               variant="outline"
-              size="sm"
-              render={
-                // biome-ignore lint/a11y/useAnchorContent: Button supplies the link contents
-                <a
-                  href={`/api/media/${photos[selected]}`}
-                  aria-label="Open original in a new tab"
-                  target="_blank"
-                  rel="noreferrer"
-                />
-              }
+              size="icon-sm"
+              aria-label="Previous full attachment"
+              disabled={index === 0}
+              onClick={() => setSelected(index - 1)}
             >
-              <ExternalLink data-icon="inline-start" />
-              Open original
+              <ChevronLeft />
             </Button>
-            {photos.length > 1 && (
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label="Previous photo"
-                  disabled={selected === 0}
-                  onClick={() => setSelected(selected - 1)}
-                >
-                  <ChevronLeft />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label="Next photo"
-                  disabled={selected === photos.length - 1}
-                  onClick={() => setSelected(selected + 1)}
-                >
-                  <ChevronRight />
-                </Button>
-              </div>
-            )}
+            <Button
+              variant="outline"
+              size="icon-sm"
+              aria-label="Next full attachment"
+              disabled={index === items.length - 1}
+              onClick={() => setSelected(index + 1)}
+            >
+              <ChevronRight />
+            </Button>
           </div>
-        </DialogContent>
-      )}
+        </div>
+      </DialogContent>
     </Dialog>
   );
 }

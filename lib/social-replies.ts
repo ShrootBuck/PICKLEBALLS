@@ -59,6 +59,36 @@ export async function createSocialReply(
       return reply;
     }
 
+    if (targetType === "CHECK_IN_UPDATE") {
+      const checkIn = await transaction.checkInUpdate.findFirst({
+        where: { id: targetId, circleId },
+        select: { id: true, user: { select: { name: true } } },
+      });
+      if (!checkIn) throw new DomainError("Check-in not found.", 404);
+
+      const reply = await transaction.socialReply.create({
+        data: {
+          authorId,
+          circleId,
+          checkInUpdateId: checkIn.id,
+          body,
+          mediaIds,
+        },
+        include: { author: { select: authorSelect } },
+      });
+      await transaction.activityEvent.create({
+        data: {
+          circleId,
+          actorId: authorId,
+          kind: "REPLY_POSTED",
+          entityId: checkIn.id,
+          summary: `replied to ${checkIn.user.name}'s check-in`,
+          metadata: { targetType, replyId: reply.id },
+        },
+      });
+      return reply;
+    }
+
     if (targetType === "CHECK_IN") {
       const checkIn = await transaction.checkIn.findFirst({
         where: { id: targetId, circleId },

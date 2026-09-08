@@ -1,17 +1,11 @@
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronLeft,
-  ChevronRight,
-  Smartphone,
-  Trophy,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Smartphone, Trophy } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CircleDestination } from "@/components/circles/circle-destination";
 import { PageHeader } from "@/components/layout/page-header";
 import { ScreenTimeUpload } from "@/components/screen-time/upload";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -21,22 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemTitle,
-} from "@/components/ui/item";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { memberHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
 import {
@@ -88,7 +67,10 @@ export default async function ScreenTimePage({
   const [members, submissions, history] = await Promise.all([
     prisma.membership.findMany({
       where: { circleId },
-      select: { userId: true, user: { select: { name: true } } },
+      select: {
+        userId: true,
+        user: { select: { name: true, image: true, initials: true } },
+      },
     }),
     prisma.screenTimeSubmission.findMany({
       where: {
@@ -141,194 +123,127 @@ export default async function ScreenTimePage({
   return (
     <>
       <PageHeader
-        title="Screen Time"
-        description="One completed week. One screenshot. See where your time went."
-      >
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary">{membership.circle.name}</Badge>
-          <Badge variant="outline">
-            {submitted} of {members.length} submitted
-          </Badge>
-          <Badge variant="outline">iPhone only</Badge>
-        </div>
-      </PageHeader>
+        title="A little less scrolling."
+        description="Make more room for everything else. Your circle’s weekly screen time."
+      />
       <nav
         aria-label="Screen time weeks"
-        className="flex flex-wrap items-center justify-between gap-3"
+        className="flex items-center justify-between gap-3"
       >
         <Link
           href={href(previous)}
-          className={buttonVariants({ variant: "outline", size: "sm" })}
+          className={buttonVariants({ variant: "ghost", size: "icon" })}
+          aria-label="Previous week"
         >
-          <ChevronLeft data-icon="inline-start" />
-          Previous week
+          <ChevronLeft />
         </Link>
-        <p className="text-sm font-medium">{screenTimeWeekLabel(week)}</p>
+        <div className="text-center">
+          <h2 className="text-sm font-semibold">{screenTimeWeekLabel(week)}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {submitted}/{members.length} submitted · iPhone screen time
+          </p>
+        </div>
         {week < latest ? (
           <Link
             href={href(shiftDateKey(week, 7))}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
+            className={buttonVariants({ variant: "ghost", size: "icon" })}
+            aria-label="Next week"
           >
-            Next week
-            <ChevronRight data-icon="inline-end" />
+            <ChevronRight />
           </Link>
         ) : (
-          <Badge variant="secondary">Latest completed week</Badge>
+          <span className="size-9" />
         )}
       </nav>
-      <Card>
-        <CardHeader>
-          <CardTitle>Weekly leaderboard</CardTitle>
-          <CardDescription>
-            Lowest daily average first. Equal times share a rank. Change
-            compares the immediately previous week.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="hidden md:block">
-            <Table>
-              <TableCaption>
-                {submitted === 0
-                  ? "No submissions yet. Be the first to post this week."
-                  : "Missing submissions stay unranked. Screen time is a useful signal, not a measure of how productive you were."}
-              </TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead scope="col">Rank</TableHead>
-                  <TableHead scope="col">Member</TableHead>
-                  <TableHead scope="col">Daily average</TableHead>
-                  <TableHead scope="col">Change</TableHead>
-                  <TableHead scope="col">Screenshot</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {standings.map((row) => (
-                  <TableRow
-                    key={row.userId}
-                    data-state={
-                      row.userId === session.user.id ? "selected" : undefined
-                    }
-                  >
-                    <TableCell className="tabular-nums">
-                      {row.rank === 1 ? (
-                        <span className="flex items-center gap-1">
-                          <Trophy className="size-4" aria-hidden="true" />1
-                        </span>
-                      ) : (
-                        (row.rank ?? "N/A")
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span>
-                          {row.name}
-                          {row.userId === session.user.id ? " (you)" : ""}
-                        </span>
-                        {bestImprovement > 0 &&
-                          row.improvement === bestImprovement && (
-                            <Badge variant="secondary">Most improved</Badge>
-                          )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="tabular-nums">
-                      {row.dailyAverageMinutes === null ? (
-                        <Badge variant="outline">Not submitted</Badge>
-                      ) : (
-                        formatScreenTime(row.dailyAverageMinutes)
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {row.improvement === null ? (
-                        "N/A"
-                      ) : row.improvement === 0 ? (
-                        "No change"
-                      ) : (
-                        <span className="flex items-center gap-1 tabular-nums">
-                          {row.improvement > 0 ? (
-                            <ArrowDown className="size-4" aria-hidden="true" />
-                          ) : (
-                            <ArrowUp className="size-4" aria-hidden="true" />
-                          )}
-                          {formatScreenTime(Math.abs(row.improvement))}{" "}
-                          {row.improvement > 0 ? "less" : "more"}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {row.mediaId ? (
-                        <a
-                          href={`/api/media/${row.mediaId}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="underline underline-offset-4"
-                          aria-label={`View ${row.name}'s screenshot`}
-                        >
-                          View
-                        </a>
-                      ) : (
-                        "N/A"
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <div className="flex flex-col gap-4 md:hidden">
-            <ItemGroup aria-label="Weekly rankings">
-              {standings.map((row) => (
-                <Item
-                  key={row.userId}
-                  variant={row.userId === session.user.id ? "muted" : "outline"}
-                  size="sm"
+      <section aria-label="Weekly leaderboard" className="flex flex-col">
+        {standings.map((row) => {
+          const person = members.find(
+            (member) => member.userId === row.userId,
+          )?.user;
+          return (
+            <article
+              key={row.userId}
+              className="screen-time-row"
+              data-mine={row.userId === session.user.id || undefined}
+            >
+              <span className="w-6 shrink-0 text-center text-sm tabular-nums text-muted-foreground">
+                {row.rank === 1 ? (
+                  <Trophy
+                    className="size-5 text-primary"
+                    aria-label="First place"
+                  />
+                ) : (
+                  (row.rank ?? "·")
+                )}
+              </span>
+              <Link
+                href={memberHref(circleId, row.userId)}
+                aria-label={`${row.name}’s profile`}
+              >
+                <Avatar className="size-11">
+                  <AvatarImage src={person?.image ?? undefined} alt="" />
+                  <AvatarFallback>{person?.initials ?? "PB"}</AvatarFallback>
+                </Avatar>
+              </Link>
+              <div className="min-w-0 flex-1">
+                <Link
+                  href={memberHref(circleId, row.userId)}
+                  className="text-sm font-semibold"
                 >
-                  <ItemContent>
-                    <ItemTitle>
-                      {row.rank === null ? "N/A" : `#${row.rank}`} {row.name}
-                      {row.userId === session.user.id ? " (you)" : ""}
-                    </ItemTitle>
-                    <ItemDescription>
-                      {row.dailyAverageMinutes === null
-                        ? "Not submitted"
-                        : `${formatScreenTime(row.dailyAverageMinutes)} per day`}
-                    </ItemDescription>
-                    {row.improvement !== null && (
-                      <ItemDescription>
-                        {row.improvement === 0
-                          ? "No change"
-                          : `${formatScreenTime(Math.abs(row.improvement))} ${row.improvement > 0 ? "less" : "more"} per day`}
-                      </ItemDescription>
-                    )}
-                    <div className="flex flex-wrap items-center gap-2">
-                      {bestImprovement > 0 &&
-                        row.improvement === bestImprovement && (
-                          <Badge variant="secondary">Most improved</Badge>
-                        )}
-                      {row.mediaId && (
-                        <a
-                          href={`/api/media/${row.mediaId}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-sm underline underline-offset-4"
-                          aria-label={`View ${row.name}'s screenshot`}
-                        >
-                          View screenshot
-                        </a>
-                      )}
-                    </div>
-                  </ItemContent>
-                </Item>
-              ))}
-            </ItemGroup>
-            <p className="text-sm text-muted-foreground">
-              {submitted === 0
-                ? "No submissions yet. Be the first to post this week."
-                : "Missing submissions stay unranked. Screen time is a useful signal, not a measure of productivity."}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-      <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+                  {row.name}
+                  {row.userId === session.user.id ? " (you)" : ""}
+                </Link>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {row.improvement === null
+                    ? "No previous week to compare"
+                    : row.improvement === 0
+                      ? "Same as last week"
+                      : `${formatScreenTime(Math.abs(row.improvement))} ${row.improvement > 0 ? "less" : "more"} / day`}
+                </p>
+                {bestImprovement > 0 && row.improvement === bestImprovement && (
+                  <Badge variant="secondary" className="mt-2">
+                    Most improved
+                  </Badge>
+                )}
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <p className="text-sm font-semibold tabular-nums">
+                  {row.dailyAverageMinutes === null
+                    ? "Not submitted"
+                    : formatScreenTime(row.dailyAverageMinutes)}
+                </p>
+                {row.mediaId ? (
+                  <a
+                    href={`/api/media/${row.mediaId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-muted-foreground underline underline-offset-4"
+                    aria-label={`View ${row.name}’s screenshot`}
+                  >
+                    Screenshot
+                  </a>
+                ) : (
+                  row.userId === session.user.id &&
+                  week === latest && (
+                    <Link
+                      href="#upload"
+                      className="text-xs text-primary underline"
+                    >
+                      Add yours
+                    </Link>
+                  )
+                )}
+              </div>
+            </article>
+          );
+        })}
+        <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+          Lowest daily average first. Equal times share a rank. Missing
+          submissions stay unranked. Screen time is a signal, not a productivity
+          score.
+        </p>
+      </section>
+      <div className="grid min-w-0 items-start gap-8 lg:grid-cols-2">
         {week === latest ? (
           <ScreenTimeUpload
             key={`${circleId}:${week}`}
@@ -355,81 +270,34 @@ export default async function ScreenTimePage({
             </CardContent>
           </Card>
         )}
-        <Card>
-          <CardHeader>
-            <CardTitle>Your last 12 weeks</CardTitle>
-            <CardDescription>
-              Daily averages in this circle. Gaps mean no submission.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="hidden md:block">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead scope="col">Week</TableHead>
-                    <TableHead scope="col">Daily average</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {Array.from({ length: 12 }, (_, index) => {
-                    const start = shiftDateKey(latest, -7 * index);
-                    const entry = history.find(
-                      (row) =>
-                        row.weekStart.toISOString().slice(0, 10) === start,
-                    );
-                    return (
-                      <TableRow key={start}>
-                        <TableCell>
-                          <Link
-                            href={href(start)}
-                            className="underline underline-offset-4"
-                          >
-                            {screenTimeWeekLabel(start)}
-                          </Link>
-                        </TableCell>
-                        <TableCell className="tabular-nums">
-                          {entry
-                            ? formatScreenTime(
-                                entry.reading.dailyAverageMinutes,
-                              )
-                            : "Not submitted"}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-            <ItemGroup className="md:hidden" aria-label="Your weekly history">
-              {Array.from({ length: 12 }, (_, index) => {
-                const start = shiftDateKey(latest, -7 * index);
-                const entry = history.find(
-                  (row) => row.weekStart.toISOString().slice(0, 10) === start,
-                );
-                return (
-                  <Item key={start} size="sm">
-                    <ItemContent>
-                      <ItemTitle>
-                        <Link
-                          href={href(start)}
-                          className="underline underline-offset-4"
-                        >
-                          {screenTimeWeekLabel(start)}
-                        </Link>
-                      </ItemTitle>
-                      <ItemDescription>
-                        {entry
-                          ? `${formatScreenTime(entry.reading.dailyAverageMinutes)} per day`
-                          : "Not submitted"}
-                      </ItemDescription>
-                    </ItemContent>
-                  </Item>
-                );
-              })}
-            </ItemGroup>
-          </CardContent>
-        </Card>
+        <section>
+          <h2 className="text-base font-semibold">Your last 12 weeks</h2>
+          <p className="mt-1 mb-4 text-sm text-muted-foreground">
+            A little perspective on the habit.
+          </p>
+          {Array.from({ length: 12 }, (_, index) => {
+            const start = shiftDateKey(latest, -7 * index);
+            const entry = history.find(
+              (row) => row.weekStart.toISOString().slice(0, 10) === start,
+            );
+            return (
+              <Link
+                key={start}
+                href={href(start)}
+                className="flex items-center justify-between gap-3 border-b py-3 text-sm"
+              >
+                <span className="text-muted-foreground">
+                  {screenTimeWeekLabel(start)}
+                </span>
+                <span className="tabular-nums">
+                  {entry
+                    ? formatScreenTime(entry.reading.dailyAverageMinutes)
+                    : "Not submitted"}
+                </span>
+              </Link>
+            );
+          })}
+        </section>
       </div>
     </>
   );

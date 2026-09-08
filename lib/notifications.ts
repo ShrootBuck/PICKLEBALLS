@@ -1,7 +1,7 @@
 import "server-only";
 
 import { type ActivityKind, Prisma } from "@/generated/prisma/client";
-import { safeAppPath, squadHref } from "@/lib/navigation";
+import { postHref, safeAppPath, squadHref } from "@/lib/navigation";
 import {
   defaultNotificationPrefs,
   type NotificationPrefs,
@@ -117,6 +117,7 @@ export async function notifyReplyReceived(input: {
       author: { select: { name: true } },
       commitment: { select: { id: true, userId: true, title: true } },
       checkIn: { select: { id: true, userId: true } },
+      checkInUpdate: { select: { id: true, userId: true } },
       proof: {
         select: {
           id: true,
@@ -147,6 +148,7 @@ export async function notifyReplyReceived(input: {
     recipientId: string;
     context: string;
     entityId: string;
+    url?: string;
   }> = [];
 
   if (reply.commitment) {
@@ -154,6 +156,13 @@ export async function notifyReplyReceived(input: {
       recipientId: reply.commitment.userId,
       context: `your task “${reply.commitment.title}”`,
       entityId: reply.commitment.id,
+    });
+  } else if (reply.checkInUpdate) {
+    jobs.push({
+      recipientId: reply.checkInUpdate.userId,
+      context: "your check-in",
+      entityId: reply.checkInUpdate.id,
+      url: postHref(input.circleId, "check-in", reply.checkInUpdate.id),
     });
   } else if (reply.checkIn) {
     jobs.push({
@@ -166,12 +175,14 @@ export async function notifyReplyReceived(input: {
       recipientId: reply.proof.ownerId,
       context: `your proof for “${reply.proof.commitment.title}”`,
       entityId: reply.proof.id,
+      url: postHref(input.circleId, "proof", reply.proof.id),
     });
   } else if (reply.review) {
     jobs.push({
       recipientId: reply.review.reviewerId,
       context: "your review",
       entityId: reply.review.proof.id,
+      url: postHref(input.circleId, "proof", reply.review.proof.id),
     });
     // A reply to a review is also aimed at the proof owner.
     if (reply.review.proof.ownerId !== reply.review.reviewerId) {
@@ -179,6 +190,7 @@ export async function notifyReplyReceived(input: {
         recipientId: reply.review.proof.ownerId,
         context: `a review on your proof for “${reply.review.proof.commitment.title}”`,
         entityId: reply.review.proof.id,
+        url: postHref(input.circleId, "proof", reply.review.proof.id),
       });
     }
   }
@@ -200,7 +212,7 @@ export async function notifyReplyReceived(input: {
         title: `${authorName} replied to ${job.context}`,
         body: preview || "New reply.",
         data: {
-          url: `/squad?focus=${job.entityId}`,
+          url: job.url ?? squadHref(input.circleId, job.entityId),
           replyId: reply.id,
         },
       }),
@@ -241,7 +253,10 @@ export async function notifyProofSubmitted(input: {
         entityId: proof.id,
         title: `${proof.owner.name} submitted proof for “${proof.commitment.title}”`,
         body: note || "Needs your review.",
-        data: { url: `/squad?focus=${proof.id}`, proofId: proof.id },
+        data: {
+          url: postHref(input.circleId, "proof", proof.id),
+          proofId: proof.id,
+        },
       }),
     ),
   );
@@ -284,7 +299,7 @@ export async function notifyProofReviewed(input: {
       : `${review.reviewer.name} challenged your proof for “${review.proof.commitment.title}”`,
     body: note || (approved ? "Verified. Nice." : "Needs a better receipt."),
     data: {
-      url: `/squad?focus=${review.proof.id}`,
+      url: postHref(input.circleId, "proof", review.proof.id),
       reviewId: review.id,
       decision: review.decision,
     },

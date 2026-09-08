@@ -1,76 +1,70 @@
 import { headers } from "next/headers";
 import { Suspense } from "react";
 import { BellSlot } from "@/components/layout/bell-slot";
-import { SidebarSlot } from "@/components/layout/sidebar-slot";
-import { SiteHeader } from "@/components/layout/site-header";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { SocialProvider } from "@/components/social/social-provider";
+import { SocialShell } from "@/components/social/social-shell";
 import { auth } from "@/lib/auth";
 import { listMyCircles } from "@/lib/circles";
+import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
+import { socialTaskInclude, toSocialTask } from "@/lib/social-data";
+import { phoenixDateKey, requireDateKey } from "@/lib/time";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Logged-out visitors only ever see the public landing page (at `/`);
-  // every other dashboard route still requires a membership below.
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
+  if (!session)
     return <div className="min-h-full bg-background">{children}</div>;
-  }
   const { membership } = await requirePageMembership();
-  const memberships = await listMyCircles(session.user.id);
+  const day = phoenixDateKey();
+  const [memberships, tasks, pendingVerdicts] = await Promise.all([
+    listMyCircles(session.user.id),
+    getPrisma().commitment.findMany({
+      where: {
+        userId: session.user.id,
+        circleId: membership.circleId,
+        day: requireDateKey(day),
+      },
+      orderBy: { createdAt: "asc" },
+      include: socialTaskInclude,
+    }),
+    getPrisma().taskProof.count({
+      where: {
+        circleId: membership.circleId,
+        reviewStatus: "PENDING",
+        replacedById: null,
+        ownerId: { not: session.user.id },
+        reviews: { none: { reviewerId: session.user.id } },
+      },
+    }),
+  ]);
+  const { id, name, image, initials } = membership.user;
   return (
-    <SidebarProvider
-      key={membership.circleId}
-      className="relative h-full min-h-0 overflow-hidden"
+    <SocialProvider
+      key={`${id}:${membership.circleId}`}
+      viewer={{ id, name, image, initials }}
+      circleId={membership.circleId}
+      day={day}
+      tasks={tasks.map(toSocialTask)}
     >
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium"
-      >
-        Skip to content
-      </a>
-      <SidebarSlot
-        userId={session.user.id}
-        circleId={membership.circleId}
-        isOwner={membership.role === "OWNER"}
-        user={{
-          name: membership.user.name,
-          image: membership.user.image,
-          initials: membership.user.initials,
-        }}
-        circles={memberships.map((item) => ({
-          id: item.circle.id,
-          name: item.circle.name,
-          role: item.role,
+      <SocialShell
+        circles={memberships.map(({ circle, role }) => ({
+          id: circle.id,
+          name: circle.name,
+          role,
         }))}
-      />
-      <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
-        <SiteHeader
-          bell={
-            <Suspense fallback={null}>
-              <BellSlot
-                circleId={membership.circleId}
-                userId={session.user.id}
-              />
-            </Suspense>
-          }
-        />
-        <div
-          data-slot="dashboard-scroll"
-          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
-        >
-          <main
-            id="main"
-            tabIndex={-1}
-            className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-5 max-md:pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] sm:gap-6 sm:px-6 sm:py-7 sm:max-md:pb-[max(1.75rem,env(safe-area-inset-bottom,0px))] lg:px-8 lg:py-8"
-          >
-            {children}
-          </main>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+        pendingVerdicts={pendingVerdicts}
+        bell={
+          <Suspense fallback={null}>
+            <BellSlot circleId={membership.circleId} userId={id} />
+          </Suspense>
+        }
+      >
+        {children}
+      </SocialShell>
+    </SocialProvider>
   );
 }

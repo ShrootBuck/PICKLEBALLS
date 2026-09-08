@@ -1,5 +1,6 @@
 import { History } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { HistoryNav } from "@/components/history/history-nav";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProofCard } from "@/components/squad/proof-card";
@@ -26,6 +27,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { postHref, squadHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
 import { requiredApprovalsForCircle } from "@/lib/task-policy";
@@ -230,7 +232,11 @@ export default async function HistoryPage({
               (task) => task.status === "VERIFIED",
             ).length;
             return (
-              <Card key={user.id} size="sm">
+              <Card
+                key={user.id}
+                size="sm"
+                className="border-x-0 border-t-0 rounded-none bg-transparent shadow-none"
+              >
                 <CardHeader>
                   <div className="flex min-w-0 items-center gap-3">
                     <Avatar className="size-10">
@@ -324,6 +330,20 @@ export default async function HistoryPage({
                               No note. Just vibes.
                             </p>
                           )}
+                          <Link
+                            className="mt-1 inline-flex min-h-11 items-center text-xs font-medium text-muted-foreground hover:text-foreground"
+                            href={
+                              userUpdates.length
+                                ? postHref(
+                                    membership.circleId,
+                                    "check-in",
+                                    item.id,
+                                  )
+                                : squadHref(membership.circleId, item.id)
+                            }
+                          >
+                            Open check-in and discussion
+                          </Link>
                         </div>
                       ))}
                     </div>

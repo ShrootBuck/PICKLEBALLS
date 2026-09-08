@@ -15,3 +15,22 @@ export function squadHref(circleId: string, focusId?: string | null) {
   if (focusId) query.set("focus", focusId);
   return `/squad?${query}`;
 }
+
+export function postHref(
+  circleId: string,
+  kind: "proof" | "check-in",
+  id: string,
+) {
+  return `/posts/${kind}/${encodeURIComponent(id)}?${new URLSearchParams({ circle: circleId })}`;
+}
+
+export function memberHref(
+  circleId: string,
+  userId: string,
+  tab: "posts" | "tasks" = "posts",
+  day?: string,
+) {
+  const query = new URLSearchParams({ circle: circleId, tab });
+  if (day) query.set("day", day);
+  return `/members/${encodeURIComponent(userId)}?${query}`;
+}

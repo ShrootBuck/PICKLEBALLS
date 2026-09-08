@@ -19,6 +19,7 @@ export function TimeblockNav({
   return (
     <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
       <Button
+        nativeButton={false}
         variant="outline"
         size="sm"
         render={
@@ -33,6 +34,7 @@ export function TimeblockNav({
       </Button>
       {dueMonday !== latestDueMonday ? (
         <Button
+          nativeButton={false}
           variant="outline"
           size="sm"
           render={<Link href="/timeblock" prefetch />}
@@ -42,6 +44,7 @@ export function TimeblockNav({
       ) : null}
       {dueMonday < latestDueMonday ? (
         <Button
+          nativeButton={false}
           variant="outline"
           size="sm"
           render={

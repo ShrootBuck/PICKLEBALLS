@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarRange, Download, Plus, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
+import { formatDayShort } from "@/lib/time";
 import { parseTimeblockDraft } from "@/lib/timeblock-draft";
 
 type TimeblockStatus =
@@ -210,14 +211,32 @@ export function TimeblockBuilder({
   }
 
   return (
-    <Card>
+    <Card className="timeblock-sheet">
       <CardHeader>
-        <CardTitle>Build the sheet</CardTitle>
+        <CardTitle>Your week, accounted for.</CardTitle>
         <CardDescription>
-          Proof-backed tasks are already here. Fix the wording or times, remove
-          anything irrelevant, and add work completed outside the app. Edits
-          here change the report, never your original tasks or proof.
+          Your proof fills this in. Adjust the report, add other work, and
+          download when you’re ready.
         </CardDescription>
+        <Button
+          className="mt-3 w-full sm:w-fit"
+          onClick={downloadPdf}
+          disabled={pending}
+          aria-label="Download weekly PDF"
+        >
+          {pending ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <Download data-icon="inline-start" />
+          )}
+          {pending ? "Building PDF…" : "Download PDF"}
+        </Button>
+        {error ? (
+          <Alert variant="destructive" className="mt-3">
+            <AlertTitle>PDF not generated</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {rows.length === 0 ? (
@@ -240,89 +259,108 @@ export function TimeblockBuilder({
           </Empty>
         ) : (
           <div className="flex flex-col gap-3">
-            {rows.map((row) => (
-              <Card key={row.id} size="sm">
-                <CardHeader>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Checkbox
-                      id={`include-${row.id}`}
-                      checked={row.included}
-                      onCheckedChange={(included) =>
-                        updateRow(row.id, { included })
-                      }
-                    />
-                    <FieldLabel htmlFor={`include-${row.id}`}>
-                      Include in PDF
-                    </FieldLabel>
-                    <Badge variant="secondary">
-                      {rowNumbers.has(row.id)
-                        ? `Task ${rowNumbers.get(row.id)}`
-                        : "Not included"}
-                    </Badge>
-                    {statusBadge(row.status)}
-                    {row.status === null ? (
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Remove ${row.title || "manual task"}`}
-                        onClick={() =>
-                          setRows((current) =>
-                            current.filter((item) => item.id !== row.id),
-                          )
-                        }
-                        className="ml-auto"
-                      >
-                        <Trash2 />
-                      </Button>
-                    ) : null}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <FieldGroup className="gap-3 @xl/card:grid @xl/card:grid-cols-2 @4xl/card:grid-cols-[minmax(0,1fr)_14rem_14rem]">
-                    <Field className="min-w-0 @xl/card:col-span-2 @4xl/card:col-span-1">
-                      <FieldLabel htmlFor={`name-${row.id}`}>
-                        Task name
-                      </FieldLabel>
-                      <Input
-                        id={`name-${row.id}`}
-                        value={row.title}
-                        onChange={(event) =>
-                          updateRow(row.id, { title: event.target.value })
-                        }
-                        maxLength={160}
-                        placeholder="Reading log"
-                      />
-                    </Field>
-                    <Field className="min-w-0">
-                      <FieldLabel htmlFor={`start-${row.id}`}>
-                        Started
-                      </FieldLabel>
-                      <Input
-                        id={`start-${row.id}`}
-                        type="datetime-local"
-                        value={row.startedAt}
-                        onChange={(event) =>
-                          updateRow(row.id, { startedAt: event.target.value })
-                        }
-                      />
-                    </Field>
-                    <Field className="min-w-0">
-                      <FieldLabel htmlFor={`end-${row.id}`}>
-                        Finished
-                      </FieldLabel>
-                      <Input
-                        id={`end-${row.id}`}
-                        type="datetime-local"
-                        value={row.completedAt}
-                        onChange={(event) =>
-                          updateRow(row.id, { completedAt: event.target.value })
-                        }
-                      />
-                    </Field>
-                  </FieldGroup>
-                </CardContent>
-              </Card>
-            ))}
+            {[...rows]
+              .sort(
+                (a, b) =>
+                  a.startedAt.localeCompare(b.startedAt) ||
+                  a.id.localeCompare(b.id),
+              )
+              .map((row, index, sorted) => (
+                <Fragment key={row.id}>
+                  {(index === 0 ||
+                    sorted[index - 1].startedAt.slice(0, 10) !==
+                      row.startedAt.slice(0, 10)) && (
+                    <h3 className="mt-4 mb-1 text-sm font-semibold">
+                      {formatDayShort(row.startedAt.slice(0, 10))}
+                    </h3>
+                  )}
+                  <Card size="sm" className="timeblock-entry">
+                    <CardHeader>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Checkbox
+                          id={`include-${row.id}`}
+                          checked={row.included}
+                          onCheckedChange={(included) =>
+                            updateRow(row.id, { included })
+                          }
+                        />
+                        <FieldLabel htmlFor={`include-${row.id}`}>
+                          Include in PDF
+                        </FieldLabel>
+                        <Badge variant="secondary">
+                          {rowNumbers.has(row.id)
+                            ? `Task ${rowNumbers.get(row.id)}`
+                            : "Not included"}
+                        </Badge>
+                        {statusBadge(row.status)}
+                        {row.status === null ? (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Remove ${row.title || "manual task"}`}
+                            onClick={() =>
+                              setRows((current) =>
+                                current.filter((item) => item.id !== row.id),
+                              )
+                            }
+                            className="ml-auto"
+                          >
+                            <Trash2 />
+                          </Button>
+                        ) : null}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <FieldGroup className="gap-3 @xl/card:grid @xl/card:grid-cols-2 @4xl/card:grid-cols-[minmax(0,1fr)_14rem_14rem]">
+                        <Field className="min-w-0 @xl/card:col-span-2 @4xl/card:col-span-1">
+                          <FieldLabel htmlFor={`name-${row.id}`}>
+                            Task name
+                          </FieldLabel>
+                          <Input
+                            id={`name-${row.id}`}
+                            value={row.title}
+                            onChange={(event) =>
+                              updateRow(row.id, { title: event.target.value })
+                            }
+                            maxLength={160}
+                            placeholder="Reading log"
+                          />
+                        </Field>
+                        <Field className="min-w-0">
+                          <FieldLabel htmlFor={`start-${row.id}`}>
+                            Started
+                          </FieldLabel>
+                          <Input
+                            id={`start-${row.id}`}
+                            type="datetime-local"
+                            value={row.startedAt}
+                            onChange={(event) =>
+                              updateRow(row.id, {
+                                startedAt: event.target.value,
+                              })
+                            }
+                          />
+                        </Field>
+                        <Field className="min-w-0">
+                          <FieldLabel htmlFor={`end-${row.id}`}>
+                            Finished
+                          </FieldLabel>
+                          <Input
+                            id={`end-${row.id}`}
+                            type="datetime-local"
+                            value={row.completedAt}
+                            onChange={(event) =>
+                              updateRow(row.id, {
+                                completedAt: event.target.value,
+                              })
+                            }
+                          />
+                        </Field>
+                      </FieldGroup>
+                    </CardContent>
+                  </Card>
+                </Fragment>
+              ))}
           </div>
         )}
         {rows.length > 0 ? (
@@ -346,14 +384,8 @@ export function TimeblockBuilder({
             flip on the long edge.
           </AlertDescription>
         </Alert>
-        {error ? (
-          <Alert variant="destructive">
-            <AlertTitle>PDF not generated</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
       </CardContent>
-      <CardFooter className="flex-wrap justify-between gap-3">
+      <CardFooter className="timeblock-toolbar flex-wrap justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {includedCount}/56 tasks on the report.{" "}
           {savedLocally

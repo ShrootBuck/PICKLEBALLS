@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788905143377,
+    title: "Your circle, in a feed",
+    description:
+      "See friends’ proof and check-ins on Home, like their progress, and open profiles for their posts and daily tasks. Each check-in now has its own comments. Review pending proof directly from a post.",
+  },
+  {
     timestamp: 1788821935108,
     title: "One quieter notification inbox",
     description:

@@ -52,7 +52,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   const query = z
     .object({
-      targetType: z.enum(["COMMITMENT", "CHECK_IN", "PROOF", "REVIEW"]),
+      targetType: z.enum([
+        "COMMITMENT",
+        "CHECK_IN",
+        "CHECK_IN_UPDATE",
+        "PROOF",
+        "REVIEW",
+      ]),
       targetId: z.string().min(1).max(100),
       before: z.string().min(1).max(100).optional(),
     })
@@ -67,6 +73,7 @@ export async function GET(request: Request) {
     const field = {
       COMMITMENT: "commitmentId",
       CHECK_IN: "checkInId",
+      CHECK_IN_UPDATE: "checkInUpdateId",
       PROOF: "proofId",
       REVIEW: "reviewId",
     }[targetType];

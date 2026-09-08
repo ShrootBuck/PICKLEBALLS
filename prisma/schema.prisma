@@ -99,6 +99,7 @@ model User {
   invitesCreated      Invite[]             @relation("InvitesCreated")
   invitesUsed         Invite[]             @relation("InvitesUsed")
   socialReplies       SocialReply[]
+  postLikes           PostLike[]
   pushSubscriptions   PushSubscription[]
   notifications       Notification[]       @relation("NotificationsReceived")
   notificationsSent   Notification[]       @relation("NotificationsSent")
@@ -182,6 +183,7 @@ model Circle {
   invites       Invite[]
   aiRuns        AIRun[]
   socialReplies SocialReply[]
+  postLikes     PostLike[]
   notifications Notification[]
   screenTimeReadings ScreenTimeReading[]
   screenTimeSubmissions ScreenTimeSubmission[]
@@ -274,6 +276,7 @@ model TaskProof {
   image      TaskProofImage?
   reviews    TaskProofReview[]
   replies    SocialReply[]
+  likes      PostLike[]
   replacedBy TaskProof?        @relation("ProofReplacement", fields: [replacedById], references: [id], onDelete: SetNull)
   replaces   TaskProof?        @relation("ProofReplacement")
 
@@ -349,9 +352,13 @@ model CheckInUpdate {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   circle  Circle  @relation(fields: [circleId], references: [id], onDelete: Cascade)
 
+  replies SocialReply[]
+  likes   PostLike[]
+
   @@index([checkInId, createdAt])
   @@index([circleId, day, createdAt])
   @@index([userId, day, createdAt])
+  @@index([circleId, createdAt, id])
 }
 
 model SocialReply {
@@ -361,6 +368,7 @@ model SocialReply {
   circleId     String
   commitmentId String?
   checkInId    String?
+  checkInUpdateId String?
   proofId      String?
   reviewId     String?
   body         String           @db.VarChar(500)
@@ -371,15 +379,37 @@ model SocialReply {
   circle     Circle           @relation(fields: [circleId], references: [id], onDelete: Cascade)
   commitment Commitment?      @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
   checkIn    CheckIn?         @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+  checkInUpdate CheckInUpdate? @relation(fields: [checkInUpdateId], references: [id], onDelete: Cascade)
   proof      TaskProof?       @relation(fields: [proofId], references: [id], onDelete: Cascade)
   review     TaskProofReview? @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
   @@index([commitmentId, createdAt])
   @@index([checkInId, createdAt])
+  @@index([checkInUpdateId, createdAt])
   @@index([proofId, createdAt])
   @@index([reviewId, createdAt])
   @@index([circleId, createdAt])
   @@index([authorId, createdAt])
+}
+
+model PostLike {
+  id              String @id @default(cuid())
+  userId          String
+  circleId        String
+  proofId         String?
+  checkInUpdateId String?
+  createdAt       DateTime @default(now())
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle        Circle         @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  proof         TaskProof?     @relation(fields: [proofId], references: [id], onDelete: Cascade)
+  checkInUpdate CheckInUpdate? @relation(fields: [checkInUpdateId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, proofId])
+  @@unique([userId, checkInUpdateId])
+  @@index([circleId])
+  @@index([proofId])
+  @@index([checkInUpdateId])
 }
 
 model ActivityEvent {

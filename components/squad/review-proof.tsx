@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Gavel, MessageSquareWarning } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type ReactNode, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,11 +31,15 @@ export function ReviewProof({
   taskTitle,
   requiredApprovals,
   onReviewed,
+  evidence,
+  definitionOfDone,
 }: {
   proofId: string;
   taskTitle: string;
+  evidence?: ReactNode;
+  definitionOfDone?: string;
   requiredApprovals: number;
-  onReviewed?: (proofId: string) => void;
+  onReviewed?: (proofId: string, decision: "APPROVED" | "CHALLENGED") => void;
 }) {
   const [open, setOpen] = useState(false);
   const [decision, setDecision] = useState<"APPROVED" | "CHALLENGED">(
@@ -85,7 +89,7 @@ export function ReviewProof({
       setConfirmChallenge(false);
       // Remove the reviewed card immediately, then reconcile the board,
       // history, and counts with the committed server state.
-      onReviewed?.(proofId);
+      onReviewed?.(proofId, decision);
     } catch {
       setError("Could not reach the server. Check your wifi and try again.");
       setPending(false);
@@ -126,6 +130,13 @@ export function ReviewProof({
             id={`review-form-${proofId}`}
             className="flex flex-1 flex-col gap-4 overflow-auto p-4 sm:p-6"
           >
+            {evidence}
+            {definitionOfDone && (
+              <p className="text-sm leading-relaxed">
+                <strong>Done means: </strong>
+                {definitionOfDone}
+              </p>
+            )}
             <FieldGroup>
               <Field orientation="responsive">
                 <FieldTitle id={`decision-${proofId}`}>Verdict</FieldTitle>

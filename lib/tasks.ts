@@ -421,7 +421,7 @@ export async function setCheckIn(
       update: { signal, blocker: cleanBlocker },
       create: { userId, circleId, day, signal, blocker: cleanBlocker },
     });
-    // Append-only log. Old posts stay. Current row stays the single source for replies.
+    // Each immutable update is a social post. The daily row retains current status and legacy discussions.
     const update = await transaction.checkInUpdate.create({
       data: {
         checkInId: checkIn.id,

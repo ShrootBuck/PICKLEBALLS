@@ -14,7 +14,13 @@ export const checkInSchema = z.object({
 
 export const socialReplySchema = z
   .object({
-    targetType: z.enum(["COMMITMENT", "CHECK_IN", "PROOF", "REVIEW"]),
+    targetType: z.enum([
+      "COMMITMENT",
+      "CHECK_IN",
+      "CHECK_IN_UPDATE",
+      "PROOF",
+      "REVIEW",
+    ]),
     targetId: z.string().trim().min(1).max(100),
     body: z.string().trim().max(500),
     mediaIds: mediaIdsSchema.default([]),
