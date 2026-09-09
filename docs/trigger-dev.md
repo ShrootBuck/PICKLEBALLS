@@ -19,7 +19,7 @@ The web app uses Trigger.dev when `TRIGGER_SECRET_KEY` is present. Without it, e
 
 ## Vercel pipeline (recommended)
 
-This repository deploys through Vercel and has no GitHub Actions workflow. In Trigger.dev project Settings, connect Vercel project `pickleballs` and GitHub repository `ShrootBuck/PICKLEBALLS`. Set the Trigger pre-build command to `bun run db:generate` and the config path to `trigger.config.ts`.
+This repository deploys through Vercel and has no GitHub Actions workflow. In Trigger.dev project Settings, connect Vercel project `pickleballs` and GitHub repository `ShrootBuck/PICKLEBALLS`. The Trigger install command is `bunx bun@1.4.0 install --frozen-lockfile`, the pre-build command is `bun run db:generate`, and the config path is `trigger.config.ts`. The pinned installer is required because the build image includes an older Bun that cannot read lockfile version 2.
 
 The native integration deploys tasks on Vercel deployments, matches app and worker commit versions, and syncs the appropriate `TRIGGER_SECRET_KEY` into Vercel. No `TRIGGER_ACCESS_TOKEN` is needed for this integration. Review environment sync to include only the worker dependencies listed below. Vercel variables marked Sensitive cannot be read by the integration. `scripts/sync-trigger-env.ts` runs during the production Vercel build and copies only the worker allowlist directly to Trigger.dev as secret variables. Values are never printed.
 

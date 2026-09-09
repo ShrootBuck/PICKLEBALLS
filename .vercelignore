@@ -1,0 +1,6 @@
+.trigger
+.prisma
+.next-browser
+.env*
+.agents
+.codex
