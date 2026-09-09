@@ -11,6 +11,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
+  if (process.env.TRIGGER_SCHEDULES_ENABLED === "true")
+    return Response.json({ skipped: true, scheduler: "trigger.dev" });
+
   const circles = await getPrisma().circle.findMany({ select: { id: true } });
   let reconciled = 0;
   let failedCircles = 0;

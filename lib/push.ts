@@ -38,7 +38,11 @@ function isGoneError(error: unknown) {
   return statusCode === 404 || statusCode === 410;
 }
 
-export async function sendPushToUser(userId: string, payload: PushPayload) {
+export async function sendPushToUser(
+  userId: string,
+  payload: PushPayload,
+  retryFailures = false,
+) {
   const prisma = getPrisma();
   const subs = await prisma.pushSubscription.findMany({
     where: { userId },
@@ -49,6 +53,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
   const body = JSON.stringify(payload);
   let sent = 0;
   const stale: string[] = [];
+  let failed = 0;
   await Promise.all(
     subs.map(async (sub) => {
       if (!isPushEndpoint(sub.endpoint)) return;
@@ -66,7 +71,8 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
         if (isGoneError(error)) {
           stale.push(sub.endpoint);
         } else {
-          console.warn("Push delivery failed", { userId, error });
+          failed += 1;
+          console.warn("Push delivery failed", { userId });
         }
       }
     }),
@@ -78,5 +84,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
     });
     removed = result.count;
   }
+  if (retryFailures && failed)
+    throw new Error(`${failed} push deliveries failed`);
   return { sent, removed };
 }

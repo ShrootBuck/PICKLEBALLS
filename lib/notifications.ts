@@ -1,5 +1,6 @@
 import "server-only";
 
+import { idempotencyKeys, tasks } from "@trigger.dev/sdk";
 import { type ActivityKind, Prisma } from "@/generated/prisma/client";
 import { postHref, safeAppPath, squadHref } from "@/lib/navigation";
 import {
@@ -10,6 +11,7 @@ import {
 } from "@/lib/notification-policy";
 import { getPrisma } from "@/lib/prisma";
 import { sendPushToUser } from "@/lib/push";
+import type { deliverPush } from "@/src/trigger/push";
 
 export async function getNotificationPrefs(
   userId: string,
@@ -76,11 +78,28 @@ export async function createNotificationAndPush(input: {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === "P2002"
       )
-        return null;
+        return prisma.notification.findUnique({
+          where: { dedupeKey: input.dedupeKey },
+          select: { id: true },
+        });
       throw error;
     });
   if (!notification) return null;
   if (!shouldPushNotification(input.kind, prefs)) return notification;
+
+  if (process.env.TRIGGER_SECRET_KEY) {
+    await tasks.trigger<typeof deliverPush>(
+      "deliver-push",
+      { notificationId: notification.id },
+      {
+        idempotencyKey: await idempotencyKeys.create(
+          `push:${notification.id}`,
+          { scope: "global" },
+        ),
+      },
+    );
+    return notification;
+  }
 
   try {
     await sendPushToUser(input.recipientId, {
@@ -207,6 +226,7 @@ export async function notifyReplyReceived(input: {
         recipientId: job.recipientId,
         actorId: input.authorId,
         circleId: input.circleId,
+        dedupeKey: `reply:${reply.id}:${job.recipientId}`,
         kind: "REPLY_POSTED",
         entityId: job.entityId,
         title: `${authorName} replied to ${job.context}`,
@@ -249,6 +269,7 @@ export async function notifyProofSubmitted(input: {
         recipientId: member.userId,
         actorId: input.actorId,
         circleId: input.circleId,
+        dedupeKey: `proof:${proof.id}:${member.userId}`,
         kind: "PROOF_SUBMITTED",
         entityId: proof.id,
         title: `${proof.owner.name} submitted proof for “${proof.commitment.title}”`,
@@ -292,6 +313,7 @@ export async function notifyProofReviewed(input: {
     recipientId: review.proof.ownerId,
     actorId: input.reviewerId,
     circleId: input.circleId,
+    dedupeKey: `review:${review.id}:${review.proof.ownerId}`,
     kind: approved ? "PROOF_APPROVED" : "PROOF_CHALLENGED",
     entityId: review.proof.id,
     title: approved

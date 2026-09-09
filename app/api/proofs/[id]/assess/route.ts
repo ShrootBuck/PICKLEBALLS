@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { jsonError } from "@/lib/api";
+import { assessProofInBackground } from "@/lib/background";
 import { getPrisma } from "@/lib/prisma";
-import { runProofAssessment } from "@/lib/proof-assessment";
 import { proofProgressResponse } from "@/lib/proof-progress-response";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
@@ -42,7 +42,7 @@ export async function POST(
     });
     const userId = auth.session.user.id;
     return proofProgressResponse(request, { ok: true }, 202, () =>
-      runProofAssessment(id, userId, circleId),
+      assessProofInBackground(id, userId, circleId),
     );
   } catch (error) {
     return jsonError(error);

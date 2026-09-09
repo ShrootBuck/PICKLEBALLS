@@ -8,6 +8,7 @@ export async function runProofAssessment(
   proofId: string,
   userId: string,
   circleId: string,
+  retryOnFailure = false,
 ) {
   try {
     const proof = await getPrisma().taskProof.findFirst({
@@ -62,6 +63,7 @@ export async function runProofAssessment(
       proofId,
       errorType: error instanceof Error ? error.name : "Unknown",
     });
+    if (retryOnFailure) throw new Error("Proof assessment unavailable");
     await getPrisma().taskProof.updateMany({
       where: { id: proofId, circleId },
       data: { aiStatus: "FAILED" },

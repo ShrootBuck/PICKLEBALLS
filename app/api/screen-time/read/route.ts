@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { jsonError, readJson } from "@/lib/api";
+import { readScreenTimeInBackground } from "@/lib/background";
 import { DomainError } from "@/lib/errors";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
-import { readScreenTime } from "@/lib/screen-time-server";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
         409,
       );
     await limitAction(auth.session.user.id, "screen-time-read", 20, 3_600_000);
-    const reading = await readScreenTime(
+    const reading = await readScreenTimeInBackground(
       auth.session.user.id,
       auth.membership.circleId,
       parsed.data.mediaId,

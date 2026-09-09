@@ -1,7 +1,7 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { jsonError, readJson } from "@/lib/api";
-import { notifyReplyReceived } from "@/lib/notifications";
+import { notifyReplyReceived } from "@/lib/background";
 import { getPrisma } from "@/lib/prisma";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
@@ -25,21 +25,19 @@ export async function POST(request: Request) {
       auth.membership.circleId,
       await readJson(request),
     );
-    // Inbox + push fan-out runs after the response so replies feel instant.
+    // Acknowledge after Trigger.dev accepts the notification job.
     const authorId = auth.session.user.id;
     const circleId = auth.membership.circleId;
     const replyId = reply.id;
-    after(async () => {
-      try {
-        await notifyReplyReceived({ replyId, authorId, circleId });
-      } catch (error) {
-        console.warn("Reply notification fan-out failed", {
-          replyId,
-          circleId,
-          error,
-        });
-      }
-    });
+    try {
+      await notifyReplyReceived({ replyId, authorId, circleId });
+    } catch (error) {
+      console.warn("Reply notification fan-out failed", {
+        replyId,
+        circleId,
+        error,
+      });
+    }
     return NextResponse.json({ reply }, { status: 201 });
   } catch (error) {
     return jsonError(error);

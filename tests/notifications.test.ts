@@ -1,4 +1,4 @@
-import { beforeEach, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 
 mock.module("server-only", () => ({}));
 let storedPrefs: Record<string, boolean> | null = null;
@@ -6,11 +6,24 @@ const create = mock(async () => ({ id: "notification-1" }));
 const findMany = mock(async () => []);
 const count = mock(async () => 0);
 const updateMany = mock(async () => ({ count: 2 }));
+const originalTriggerKey = process.env.TRIGGER_SECRET_KEY;
+const triggerPush = mock(async () => ({ id: "run-push" }));
+const existingNotification = mock(async () => ({ id: "notification-1" }));
+mock.module("@trigger.dev/sdk", () => ({
+  tasks: { trigger: triggerPush },
+  idempotencyKeys: { create: async (key: string) => key },
+}));
 const sendPush = mock(async () => {});
 mock.module("@/lib/prisma", () => ({
   getPrisma: () => ({
     notificationPreference: { findUnique: async () => storedPrefs },
-    notification: { create, findMany, count, updateMany },
+    notification: {
+      create,
+      findMany,
+      count,
+      updateMany,
+      findUnique: existingNotification,
+    },
   }),
 }));
 mock.module("@/lib/push", () => ({ sendPushToUser: sendPush }));
@@ -34,8 +47,17 @@ const input = {
 };
 
 beforeEach(() => {
+  delete process.env.TRIGGER_SECRET_KEY;
   storedPrefs = null;
-  for (const fn of [create, findMany, count, updateMany, sendPush])
+  for (const fn of [
+    create,
+    findMany,
+    count,
+    updateMany,
+    sendPush,
+    triggerPush,
+    existingNotification,
+  ])
     fn.mockClear();
 });
 
@@ -152,4 +174,49 @@ test("inbox pages, unread count, and mark-all-read share the recipient, circle a
     }),
   );
   expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
+});
+
+afterEach(() => {
+  if (originalTriggerKey === undefined) delete process.env.TRIGGER_SECRET_KEY;
+  else process.env.TRIGGER_SECRET_KEY = originalTriggerKey;
+});
+
+test("configured notifications queue push without sending inside the web request", async () => {
+  process.env.TRIGGER_SECRET_KEY = "test-key";
+  await createNotificationAndPush({ ...input, kind: "REPLY_POSTED" });
+  expect(sendPush).not.toHaveBeenCalled();
+  expect(triggerPush).toHaveBeenCalledWith(
+    "deliver-push",
+    { notificationId: "notification-1" },
+    { idempotencyKey: "push:notification-1" },
+  );
+});
+
+test("retry after enqueue failure reuses the inbox row and the same push key", async () => {
+  process.env.TRIGGER_SECRET_KEY = "test-key";
+  const { Prisma } = await import("@/generated/prisma/client");
+  triggerPush.mockRejectedValueOnce(new Error("Unavailable"));
+  const notification = {
+    ...input,
+    kind: "REPLY_POSTED" as const,
+    dedupeKey: "reply:1:user",
+  };
+  await expect(createNotificationAndPush(notification)).rejects.toThrow(
+    "Unavailable",
+  );
+  create.mockRejectedValueOnce(
+    new Prisma.PrismaClientKnownRequestError("Duplicate", {
+      code: "P2002",
+      clientVersion: "7",
+    }),
+  );
+  await expect(createNotificationAndPush(notification)).resolves.toEqual({
+    id: "notification-1",
+  });
+  expect(existingNotification).toHaveBeenCalledWith({
+    where: { dedupeKey: notification.dedupeKey },
+    select: { id: true },
+  });
+  expect(triggerPush).toHaveBeenCalledTimes(2);
+  expect(triggerPush.mock.calls[0]).toEqual(triggerPush.mock.calls[1]);
 });

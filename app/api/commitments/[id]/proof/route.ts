@@ -1,7 +1,9 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { jsonError, readJson } from "@/lib/api";
-import { notifyProofSubmitted } from "@/lib/notifications";
-import { runProofAssessment } from "@/lib/proof-assessment";
+import {
+  assessProofInBackground,
+  notifyProofSubmitted,
+} from "@/lib/background";
 import { proofProgressResponse } from "@/lib/proof-progress-response";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
@@ -99,27 +101,25 @@ export async function POST(
     );
 
     // Run AI assessment in the background so upload feels instant.
-    // Uses Next.js `after()` to keep work alive after response.
+    // Trigger.dev owns assessment execution when configured.
     const uploaderId = auth.session.user.id;
     const circleId = auth.membership.circleId;
     const submittedProofId = proof.id;
-    after(async () => {
-      try {
-        await notifyProofSubmitted({
-          proofId: submittedProofId,
-          actorId: uploaderId,
-          circleId,
-        });
-      } catch (error) {
-        console.warn("Proof notification fan-out failed", {
-          proofId: submittedProofId,
-          circleId,
-          error,
-        });
-      }
-    });
+    try {
+      await notifyProofSubmitted({
+        proofId: submittedProofId,
+        actorId: uploaderId,
+        circleId,
+      });
+    } catch (error) {
+      console.warn("Proof notification fan-out failed", {
+        proofId: submittedProofId,
+        circleId,
+        error,
+      });
+    }
     return proofProgressResponse(request, { proof }, 201, () =>
-      runProofAssessment(proof.id, uploaderId, circleId),
+      assessProofInBackground(proof.id, uploaderId, circleId),
     );
   } catch (error) {
     return jsonError(error);
