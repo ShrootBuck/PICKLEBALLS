@@ -47,8 +47,9 @@ export default async function SquadPage({
   }
   const view =
     params.view === "members" || params.view === "log" ? params.view : "review";
-  const [members, pending, events] = await Promise.all([
-    getSocialMembers(circleId),
+  const [members, memberCount, pending, events] = await Promise.all([
+    view === "members" ? getSocialMembers(circleId) : [],
+    getPrisma().membership.count({ where: { circleId } }),
     view === "review"
       ? getFeedPage({ viewerId: session.user.id, circleId, pendingOnly: true })
       : null,
@@ -65,7 +66,7 @@ export default async function SquadPage({
     <>
       <PageHeader
         title="Show up for each other."
-        description={`${members.length} people. A little shared accountability.`}
+        description={`${memberCount} people. A little shared accountability.`}
         actions={
           <Button
             nativeButton={false}

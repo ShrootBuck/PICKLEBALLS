@@ -1,12 +1,10 @@
-import { headers } from "next/headers";
 import { Suspense } from "react";
 import { BellSlot } from "@/components/layout/bell-slot";
 import { SocialProvider } from "@/components/social/social-provider";
 import { SocialShell } from "@/components/social/social-shell";
-import { auth } from "@/lib/auth";
 import { listMyCircles } from "@/lib/circles";
 import { getPrisma } from "@/lib/prisma";
-import { requirePageMembership } from "@/lib/request";
+import { getPageSession, requirePageMembership } from "@/lib/request";
 import { socialTaskInclude, toSocialTask } from "@/lib/social-data";
 import { getStoryGroups } from "@/lib/story-data";
 import { phoenixDateKey, requireDateKey } from "@/lib/time";
@@ -16,12 +14,19 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getPageSession();
   if (!session)
     return <div className="min-h-full bg-background">{children}</div>;
   const { membership } = await requirePageMembership();
   const day = phoenixDateKey();
-  const [memberships, tasks, pendingVerdicts, stories] = await Promise.all([
+  // Stories can stream after the shell and the current page are usable.
+  const stories = getStoryGroups(session.user.id, membership.circleId).catch(
+    (error: unknown) => {
+      console.error("Could not load stories", error);
+      return null;
+    },
+  );
+  const [memberships, tasks, pendingVerdicts] = await Promise.all([
     listMyCircles(session.user.id),
     getPrisma().commitment.findMany({
       where: {
@@ -41,7 +46,6 @@ export default async function DashboardLayout({
         reviews: { none: { reviewerId: session.user.id } },
       },
     }),
-    getStoryGroups(session.user.id, membership.circleId),
   ]);
   const { id, name, image, initials } = membership.user;
   return (

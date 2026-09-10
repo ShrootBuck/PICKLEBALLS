@@ -23,6 +23,7 @@ export async function getStoryGroups(
 ): Promise<StoryGroup[]> {
   const since = new Date(now.getTime() - STORY_WINDOW_MS);
   const posts = await getRecentPosts(viewerId, circleId, since, now);
+  if (!posts.length) return [];
   const views = await getPrisma().storyView.findMany({
     where: {
       viewerId,

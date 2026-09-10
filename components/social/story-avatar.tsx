@@ -4,7 +4,7 @@ import { useSocial } from "@/components/social/social-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import type { SocialAuthor } from "@/lib/social-types";
-import { storyFrames } from "@/lib/stories";
+import { hasUnseenStory } from "@/lib/stories";
 import { cn } from "@/lib/utils";
 
 export function StoryAvatar({
@@ -29,7 +29,7 @@ export function StoryAvatar({
       disabled={!storiesReady}
       className={cn(
         "story-ring story-ring-small has-story",
-        storyFrames(group).some((frame) => !frame.seen) && "is-unseen",
+        hasUnseenStory(group) && "is-unseen",
       )}
       aria-label={`View ${author.name}’s story`}
       onClick={(event) => openStories(author.id, event.currentTarget)}

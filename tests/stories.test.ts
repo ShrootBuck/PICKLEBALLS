@@ -1,8 +1,11 @@
 import { expect, test } from "bun:test";
 import type { FeedPost, StoryGroup } from "@/lib/social-types";
 import {
+  expireStoryGroups,
   firstUnseenFrame,
+  hasUnseenStory,
   orderStoryGroups,
+  STORY_WINDOW_MS,
   storyFrameKey,
   storyFrames,
 } from "@/lib/stories";
@@ -105,4 +108,33 @@ test("empty groups are omitted and equal timestamps have deterministic order", (
       (g) => g.author.id,
     ),
   ).toEqual(["b", "a"]);
+});
+
+test("unread checks require each real attachment and ignore duplicate or foreign frame indexes", () => {
+  expect(hasUnseenStory(group("partial", 0, [0, 0, 9]))).toBe(true);
+  expect(hasUnseenStory(group("complete", 0, [0, 1, 9]))).toBe(false);
+  const legacy = group("legacy", 0);
+  if (legacy.posts[0].post.kind === "proof") legacy.posts[0].post.mediaIds = [];
+  expect(hasUnseenStory(legacy)).toBe(true);
+  legacy.posts[0].seenFrames = [0];
+  expect(hasUnseenStory(legacy)).toBe(false);
+});
+
+test("expiry keeps quiet ticks stable and removes expired frames at the 24-hour boundary", () => {
+  const older = group("older", 0, [0]);
+  const recent = group("recent", 30);
+  const groups = [older, recent];
+  const boundary =
+    new Date(older.posts[0].post.createdAt).getTime() + STORY_WINDOW_MS;
+  expect(expireStoryGroups(groups, boundary - 1)).toBe(groups);
+  const expired = expireStoryGroups(groups, boundary);
+  expect(expired).toEqual([recent]);
+  expect(expired[0]).toBe(recent);
+  expect(groups).toHaveLength(2);
+  const mixed = [
+    { author: older.author, posts: [...older.posts, ...recent.posts] },
+  ];
+  const partial = expireStoryGroups(mixed, boundary);
+  expect(partial[0].posts).toEqual(recent.posts);
+  expect(mixed[0].posts).toHaveLength(2);
 });

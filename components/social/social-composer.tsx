@@ -11,7 +11,13 @@ import {
   Plus,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import {
+  type FormEvent,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { MediaPicker } from "@/components/media/media-picker";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -67,17 +73,7 @@ export type ComposerDraft = {
   uploadedIds: string[] | null;
 };
 
-export function SocialComposer({
-  request,
-  tasks,
-  circleId,
-  day,
-  onClose,
-  draft,
-  onSaveDraft,
-  onDiscardDraft,
-  onRequestChange: changeRequest,
-}: {
+type ComposerProps = {
   request: ComposerRequest;
   tasks: SocialTask[];
   circleId: string;
@@ -87,8 +83,82 @@ export function SocialComposer({
   onSaveDraft: (draft: ComposerDraft) => void;
   onDiscardDraft: () => void;
   onRequestChange: (request: ComposerRequest) => void;
+  draftKey: string;
+};
+
+export function SocialComposer(props: ComposerProps) {
+  const mode = props.request.mode;
+  const task = props.request.task ?? null;
+  const [pending, setPending] = useState(false);
+  const heading = {
+    choose: "What’s happening?",
+    story: "Add to your story",
+    task: task ? "Edit your task" : "Make a commitment",
+    proof: task?.proof ? "Another look. Better proof." : "Show the work",
+    "check-in": "How’s it going?",
+  }[mode];
+  return (
+    <Sheet
+      open
+      onOpenChange={(open) => {
+        if (!open && !pending) props.onClose();
+      }}
+    >
+      <SheetContent
+        side="bottom"
+        className="social-composer"
+        showCloseButton={!pending}
+      >
+        <SheetHeader>
+          <SheetTitle>{heading}</SheetTitle>
+          <SheetDescription>
+            {mode === "story"
+              ? "Share proof or a check-in. In stories for 24 hours, saved in your posts."
+              : mode === "choose"
+                ? "A little accountability goes a long way."
+                : mode === "task"
+                  ? "Set a clear finish line. Due tonight at midnight, Phoenix time."
+                  : mode === "proof"
+                    ? (task?.title ?? "Pick the task you finished.")
+                    : "A quick update for your circle."}
+          </SheetDescription>
+        </SheetHeader>
+        <ComposerForm
+          key={props.draftKey}
+          {...props}
+          pending={pending}
+          setPending={setPending}
+        />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function ComposerForm({
+  request,
+  tasks,
+  circleId,
+  day,
+  onClose,
+  draft,
+  onSaveDraft,
+  onDiscardDraft,
+  onRequestChange: changeRequest,
+  pending,
+  setPending,
+}: ComposerProps & {
+  pending: boolean;
+  setPending: (pending: boolean) => void;
 }) {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  useLayoutEffect(() => {
+    // A step change removes the previous focused control without closing the
+    // sheet. Keep keyboard focus in the new step without opening the keyboard.
+    const form = formRef.current;
+    if (form && !form.contains(document.activeElement))
+      form.focus({ preventScroll: true });
+  }, []);
   const onRequestChange = (next: ComposerRequest) =>
     changeRequest({ ...next, source: request.source });
   const mode = request.mode;
@@ -114,7 +184,6 @@ export function SocialComposer({
   );
   const [step, setStep] = useState<"media" | "details">(draft?.step ?? "media");
   const [editTimes, setEditTimes] = useState(draft?.editTimes ?? false);
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState("");
   const uploadedIds = useRef<string[] | null>(draft?.uploadedIds ?? null);
@@ -253,325 +322,295 @@ export function SocialComposer({
     }
   }
 
-  const heading = {
-    choose: "What’s happening?",
-    story: "Add to your story",
-    task: task ? "Edit your task" : "Make a commitment",
-    proof: task?.proof ? "Another look. Better proof." : "Show the work",
-    "check-in": "How’s it going?",
-  }[mode];
   return (
-    <Sheet
-      open
-      onOpenChange={(open) => {
-        if (!open && !pending) onClose();
-      }}
-    >
-      <SheetContent
-        side="bottom"
-        className="social-composer"
-        showCloseButton={!pending}
+    <>
+      <form
+        ref={formRef}
+        tabIndex={-1}
+        id="social-composer-form"
+        onSubmit={submit}
+        className="min-h-0 overflow-y-auto px-5 pb-4 outline-none"
       >
-        <SheetHeader>
-          <SheetTitle>{heading}</SheetTitle>
-          <SheetDescription>
-            {mode === "story"
-              ? "Share proof or a check-in. In stories for 24 hours, saved in your posts."
-              : mode === "choose"
-                ? "A little accountability goes a long way."
-                : mode === "task"
-                  ? "Set a clear finish line. Due tonight at midnight, Phoenix time."
-                  : mode === "proof"
-                    ? (task?.title ?? "Pick the task you finished.")
-                    : "A quick update for your circle."}
-          </SheetDescription>
-        </SheetHeader>
-        <form
-          id="social-composer-form"
-          onSubmit={submit}
-          className="min-h-0 overflow-y-auto px-5 pb-4"
-        >
-          {(mode === "choose" || mode === "story") && (
-            <div className="flex flex-col gap-3">
-              {(
-                [
-                  {
-                    mode: "task",
-                    title: "Add a task",
-                    description: "Say what you’re going to do.",
-                    icon: ClipboardList,
-                  },
-                  {
-                    mode: "proof",
-                    title: "Post proof",
-                    description: "Show your circle what you finished.",
-                    icon: Camera,
-                  },
-                  {
-                    mode: "check-in",
-                    title: "Check in",
-                    description: "Going well, or need a hand?",
-                    icon: MessageCircle,
-                  },
-                ] as const
-              )
-                .filter((item) => mode !== "story" || item.mode !== "task")
-                .map((item) => (
-                  <Button
-                    key={item.mode}
-                    variant="outline"
-                    className="composer-choice"
-                    onClick={() => onRequestChange({ mode: item.mode })}
-                  >
-                    <item.icon data-icon="inline-start" />
-                    <span className="flex flex-1 flex-col items-start gap-1">
-                      <span>{item.title}</span>
-                      <span className="font-normal text-muted-foreground">
-                        {item.description}
-                      </span>
-                    </span>
-                    <ArrowRight data-icon="inline-end" />
-                  </Button>
-                ))}
-            </div>
-          )}
-          {mode === "task" && (
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="social-task-title">
-                  What will you do?
-                </FieldLabel>
-                <Input
-                  id="social-task-title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  maxLength={100}
-                  placeholder="Finish the physics problem set"
-                  required
-                  autoFocus
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="social-task-definition">
-                  What counts as done?
-                </FieldLabel>
-                <Textarea
-                  id="social-task-definition"
-                  value={definition}
-                  onChange={(e) => setDefinition(e.target.value)}
-                  maxLength={500}
-                  placeholder="All 12 problems solved, with photos of the working."
-                  required
-                />
-                <FieldDescription>
-                  Give your friends something specific to verify.
-                </FieldDescription>
-              </Field>
-            </FieldGroup>
-          )}
-          {mode === "check-in" && (
-            <FieldGroup>
-              <Field>
-                <FieldLabel id="social-signal-label">Today feels…</FieldLabel>
-                <ToggleGroup
-                  value={[signal]}
-                  onValueChange={(value) => {
-                    if (value[0]) setSignal(value[0]);
-                  }}
-                  aria-labelledby="social-signal-label"
-                  variant="outline"
-                  spacing={2}
-                >
-                  <ToggleGroupItem value="YAY" className="flex-1">
-                    <Check /> Going well
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="NAY" className="flex-1">
-                    <MessageCircle /> Need a hand
-                  </ToggleGroupItem>
-                </ToggleGroup>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="social-check-in">
-                  Tell your circle{" "}
-                  <span className="font-normal text-muted-foreground">
-                    (optional)
-                  </span>
-                </FieldLabel>
-                <Textarea
-                  id="social-check-in"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  maxLength={500}
-                  placeholder="Finally understood that one problem. You know the one."
-                />
-              </Field>
-            </FieldGroup>
-          )}
-          {mode === "proof" && !task && (
-            <div className="flex flex-col gap-2">
-              {eligible.map((item) => (
+        {(mode === "choose" || mode === "story") && (
+          <div className="flex flex-col gap-3">
+            {(
+              [
+                {
+                  mode: "task",
+                  title: "Add a task",
+                  description: "Say what you’re going to do.",
+                  icon: ClipboardList,
+                },
+                {
+                  mode: "proof",
+                  title: "Post proof",
+                  description: "Show your circle what you finished.",
+                  icon: Camera,
+                },
+                {
+                  mode: "check-in",
+                  title: "Check in",
+                  description: "Going well, or need a hand?",
+                  icon: MessageCircle,
+                },
+              ] as const
+            )
+              .filter((item) => mode !== "story" || item.mode !== "task")
+              .map((item) => (
                 <Button
-                  key={item.id}
+                  key={item.mode}
                   variant="outline"
                   className="composer-choice"
-                  onClick={() => onRequestChange({ mode: "proof", task: item })}
+                  onClick={() => onRequestChange({ mode: item.mode })}
                 >
-                  <ClipboardList data-icon="inline-start" />
-                  <span className="flex-1 whitespace-normal text-left">
-                    {item.title}
+                  <item.icon data-icon="inline-start" />
+                  <span className="flex flex-1 flex-col items-start gap-1">
+                    <span>{item.title}</span>
+                    <span className="font-normal text-muted-foreground">
+                      {item.description}
+                    </span>
                   </span>
                   <ArrowRight data-icon="inline-end" />
                 </Button>
               ))}
-              {!eligible.length && (
-                <Empty>
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                      <ClipboardList />
-                    </EmptyMedia>
-                    <EmptyTitle>No tasks waiting for proof</EmptyTitle>
-                    <EmptyDescription>
-                      Create a task to give your work a finish line.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                  <Button onClick={() => onRequestChange({ mode: "task" })}>
-                    <Plus data-icon="inline-start" /> Add a task
-                  </Button>
-                </Empty>
-              )}
-            </div>
-          )}
-          {mode === "proof" && task && step === "media" && (
-            <MediaPicker
-              files={files}
-              onChange={(next) => {
-                setFiles(next);
-                uploadedIds.current = null;
-              }}
-              disabled={pending}
-              required
-            />
-          )}
-          {mode === "proof" && task && step === "details" && (
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="social-caption">
-                  Add a caption{" "}
-                  <span className="font-normal text-muted-foreground">
-                    (optional)
-                  </span>
-                </FieldLabel>
-                <Textarea
-                  id="social-caption"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  maxLength={500}
-                  placeholder="A little context for your friends…"
-                />
-              </Field>
-              <Field>
-                <FieldLabel>Time spent</FieldLabel>
-                <Button
-                  variant="outline"
-                  className="justify-start"
-                  onClick={() => setEditTimes(!editTimes)}
-                >
-                  <Clock3 data-icon="inline-start" />
-                  <span className="min-w-0 flex-1 truncate text-left">
-                    {startedAt.replace("T", " · ")} to {completedAt.slice(11)} ·
-                    Phoenix
-                  </span>
-                  <span>{editTimes ? "Done" : "Edit"}</span>
-                </Button>
-                <FieldDescription>
-                  Prefilled as the last 30 minutes. This goes on your timeblock.
-                </FieldDescription>
-              </Field>
-              {editTimes && (
-                <>
-                  <Field>
-                    <FieldLabel htmlFor="social-start">Started</FieldLabel>
-                    <Input
-                      id="social-start"
-                      type="datetime-local"
-                      value={startedAt}
-                      onChange={(e) => setStartedAt(e.target.value)}
-                      required
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="social-finish">Finished</FieldLabel>
-                    <Input
-                      id="social-finish"
-                      type="datetime-local"
-                      value={completedAt}
-                      onChange={(e) => setCompletedAt(e.target.value)}
-                      required
-                    />
-                  </Field>
-                </>
-              )}
-              <p className="text-sm text-muted-foreground">
-                {files.length} attachment{files.length === 1 ? "" : "s"} ready
-                to post.
-              </p>
-            </FieldGroup>
-          )}
-          {error && (
-            <Alert variant="destructive" className="mt-4">
-              <AlertTitle>Could not post</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          {pending && (
-            <output className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-              <Spinner />
-              {uploadStatus || "Saving…"}
-            </output>
-          )}
-        </form>
-        {mode !== "choose" && mode !== "story" && (
-          <SheetFooter className="flex-row border-t">
-            {mode === "proof" && task && (
-              <Button
-                variant="outline"
-                disabled={pending}
-                onClick={() => {
-                  if (step === "details") setStep("media");
-                  else onRequestChange({ mode: "proof" });
+          </div>
+        )}
+        {mode === "task" && (
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="social-task-title">
+                What will you do?
+              </FieldLabel>
+              <Input
+                id="social-task-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={100}
+                placeholder="Finish the physics problem set"
+                required
+                autoFocus
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="social-task-definition">
+                What counts as done?
+              </FieldLabel>
+              <Textarea
+                id="social-task-definition"
+                value={definition}
+                onChange={(e) => setDefinition(e.target.value)}
+                maxLength={500}
+                placeholder="All 12 problems solved, with photos of the working."
+                required
+              />
+              <FieldDescription>
+                Give your friends something specific to verify.
+              </FieldDescription>
+            </Field>
+          </FieldGroup>
+        )}
+        {mode === "check-in" && (
+          <FieldGroup>
+            <Field>
+              <FieldLabel id="social-signal-label">Today feels…</FieldLabel>
+              <ToggleGroup
+                value={[signal]}
+                onValueChange={(value) => {
+                  if (value[0]) setSignal(value[0]);
                 }}
+                aria-labelledby="social-signal-label"
+                variant="outline"
+                spacing={2}
               >
-                <ArrowLeft data-icon="inline-start" /> Back
-              </Button>
-            )}
-            {mode === "proof" && task && step === "media" && (
+                <ToggleGroupItem value="YAY" className="flex-1">
+                  <Check /> Going well
+                </ToggleGroupItem>
+                <ToggleGroupItem value="NAY" className="flex-1">
+                  <MessageCircle /> Need a hand
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="social-check-in">
+                Tell your circle{" "}
+                <span className="font-normal text-muted-foreground">
+                  (optional)
+                </span>
+              </FieldLabel>
+              <Textarea
+                id="social-check-in"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={500}
+                placeholder="Finally understood that one problem. You know the one."
+              />
+            </Field>
+          </FieldGroup>
+        )}
+        {mode === "proof" && !task && (
+          <div className="flex flex-col gap-2">
+            {eligible.map((item) => (
               <Button
-                className="flex-1"
-                disabled={!files.length}
-                onClick={() => setStep("details")}
+                key={item.id}
+                variant="outline"
+                className="composer-choice"
+                onClick={() => onRequestChange({ mode: "proof", task: item })}
               >
-                Next
+                <ClipboardList data-icon="inline-start" />
+                <span className="flex-1 whitespace-normal text-left">
+                  {item.title}
+                </span>
                 <ArrowRight data-icon="inline-end" />
               </Button>
+            ))}
+            {!eligible.length && (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <ClipboardList />
+                  </EmptyMedia>
+                  <EmptyTitle>No tasks waiting for proof</EmptyTitle>
+                  <EmptyDescription>
+                    Create a task to give your work a finish line.
+                  </EmptyDescription>
+                </EmptyHeader>
+                <Button onClick={() => onRequestChange({ mode: "task" })}>
+                  <Plus data-icon="inline-start" /> Add a task
+                </Button>
+              </Empty>
             )}
-            {ready && (
-              <Button
-                className="flex-1"
-                form="social-composer-form"
-                type="submit"
-                disabled={pending}
-              >
-                {pending && <Spinner data-icon="inline-start" />}
-                {mode === "task"
-                  ? "Save task"
-                  : mode === "proof"
-                    ? "Post proof"
-                    : "Post check-in"}
-              </Button>
-            )}
-          </SheetFooter>
+          </div>
         )}
-      </SheetContent>
-    </Sheet>
+        {mode === "proof" && task && step === "media" && (
+          <MediaPicker
+            files={files}
+            onChange={(next) => {
+              setFiles(next);
+              uploadedIds.current = null;
+            }}
+            disabled={pending}
+            required
+          />
+        )}
+        {mode === "proof" && task && step === "details" && (
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="social-caption">
+                Add a caption{" "}
+                <span className="font-normal text-muted-foreground">
+                  (optional)
+                </span>
+              </FieldLabel>
+              <Textarea
+                id="social-caption"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={500}
+                placeholder="A little context for your friends…"
+              />
+            </Field>
+            <Field>
+              <FieldLabel>Time spent</FieldLabel>
+              <Button
+                variant="outline"
+                className="justify-start"
+                onClick={() => setEditTimes(!editTimes)}
+              >
+                <Clock3 data-icon="inline-start" />
+                <span className="min-w-0 flex-1 truncate text-left">
+                  {startedAt.replace("T", " · ")} to {completedAt.slice(11)} ·
+                  Phoenix
+                </span>
+                <span>{editTimes ? "Done" : "Edit"}</span>
+              </Button>
+              <FieldDescription>
+                Prefilled as the last 30 minutes. This goes on your timeblock.
+              </FieldDescription>
+            </Field>
+            {editTimes && (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="social-start">Started</FieldLabel>
+                  <Input
+                    id="social-start"
+                    type="datetime-local"
+                    value={startedAt}
+                    onChange={(e) => setStartedAt(e.target.value)}
+                    required
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="social-finish">Finished</FieldLabel>
+                  <Input
+                    id="social-finish"
+                    type="datetime-local"
+                    value={completedAt}
+                    onChange={(e) => setCompletedAt(e.target.value)}
+                    required
+                  />
+                </Field>
+              </>
+            )}
+            <p className="text-sm text-muted-foreground">
+              {files.length} attachment{files.length === 1 ? "" : "s"} ready to
+              post.
+            </p>
+          </FieldGroup>
+        )}
+        {error && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertTitle>Could not post</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {pending && (
+          <output className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <Spinner />
+            {uploadStatus || "Saving…"}
+          </output>
+        )}
+      </form>
+      {mode !== "choose" && mode !== "story" && (
+        <SheetFooter className="flex-row border-t">
+          {mode === "proof" && task && (
+            <Button
+              variant="outline"
+              disabled={pending}
+              onClick={() => {
+                if (step === "details") setStep("media");
+                else onRequestChange({ mode: "proof" });
+              }}
+            >
+              <ArrowLeft data-icon="inline-start" /> Back
+            </Button>
+          )}
+          {mode === "proof" && task && step === "media" && (
+            <Button
+              className="flex-1"
+              disabled={!files.length}
+              onClick={() => setStep("details")}
+            >
+              Next
+              <ArrowRight data-icon="inline-end" />
+            </Button>
+          )}
+          {ready && (
+            <Button
+              className="flex-1"
+              form="social-composer-form"
+              type="submit"
+              disabled={pending}
+            >
+              {pending && <Spinner data-icon="inline-start" />}
+              {mode === "task"
+                ? "Save task"
+                : mode === "proof"
+                  ? "Post proof"
+                  : "Post check-in"}
+            </Button>
+          )}
+        </SheetFooter>
+      )}
+    </>
   );
 }

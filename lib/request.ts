@@ -54,15 +54,19 @@ export async function getRequestMembership(requestHeaders: Headers) {
   return membership ? { session, membership } : null;
 }
 
+// Deduplicate session reads within one server render, never across requests.
+export const getPageSession = cache(async () =>
+  auth.api.getSession({ headers: await headers() }),
+);
+
 export const requireSession = cache(async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getPageSession();
   if (!session) redirect("/sign-in");
   return { session };
 });
 
 export const requirePageMembership = cache(async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/sign-in");
+  const { session } = await requireSession();
   const cookieStore = await cookies();
   const preferred = cookieStore.get(ACTIVE_CIRCLE_COOKIE)?.value ?? null;
   const membership = await getMembership(session.user.id, preferred);

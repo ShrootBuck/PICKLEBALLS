@@ -1382,3 +1382,67 @@
     transition: none;
   }
 }
+
+/* Keep member-written titles, links, and captions inside narrow screens. */
+.social-content,
+.social-day-panel {
+  overflow-wrap: anywhere;
+}
+.social-scroll {
+  scrollbar-gutter: stable;
+}
+.media-slides {
+  overscroll-behavior-x: contain;
+}
+.social-post-actions {
+  flex-wrap: wrap;
+}
+.social-composer[data-slot="sheet-content"] {
+  overflow: hidden;
+}
+.social-composer [data-slot="sheet-header"],
+.social-composer [data-slot="sheet-footer"] {
+  flex-shrink: 0;
+}
+
+@media (width < 48rem) {
+  .social-header {
+    min-height: 56px;
+    padding-block: 4px;
+  }
+  .social-content {
+    padding-top: 16px;
+    gap: 20px;
+  }
+  .story-tray {
+    padding-bottom: 12px;
+  }
+  .story-strip-items {
+    gap: 14px;
+  }
+  .story-person {
+    width: 66px;
+  }
+  .story-tray .story-ring [data-slot="avatar"] {
+    width: 54px;
+    height: 54px;
+  }
+  .story-person > [data-slot="skeleton"]:first-child {
+    width: 64px;
+    height: 64px;
+  }
+  .story-scroll-arrow {
+    top: 14px;
+  }
+  .social-post {
+    padding-block: 18px;
+  }
+  .social-check-in {
+    font-size: 18px;
+  }
+  /* Avoid a full-screen blur repaint behind animated sheets on phones. */
+  [data-slot="dialog-overlay"],
+  [data-slot="sheet-overlay"] {
+    backdrop-filter: none;
+  }
+}

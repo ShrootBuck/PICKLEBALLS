@@ -5,6 +5,9 @@ import {
   CalendarRange,
   Check,
   ChevronDown,
+  Circle,
+  CircleAlert,
+  Clock3,
   Home,
   Plus,
   Settings,
@@ -80,18 +83,27 @@ export function SocialShell({
     const target = scrolls.get(routeKey) ?? 0;
     navigating.current = true;
     const observer = new ResizeObserver(restore);
+    const mutations = new MutationObserver(restore);
     function restore() {
       if (!node) return;
       // A route's loading skeleton must not clamp and overwrite the feed position.
-      if (target > 0 && node.querySelector('[aria-busy="true"]')) return;
-      node.scrollTop = target;
+      const hash = window.location.hash.slice(1);
+      if ((target > 0 || hash) && node.querySelector('[aria-busy="true"]'))
+        return;
+      const anchor = hash ? document.getElementById(hash) : null;
+      if (anchor && node.contains(anchor))
+        anchor.scrollIntoView({ block: "start" });
+      else node.scrollTop = target;
       navigating.current = false;
       observer.disconnect();
+      mutations.disconnect();
     }
     if (node.firstElementChild) observer.observe(node.firstElementChild);
+    mutations.observe(node, { childList: true, subtree: true });
     restore();
     return () => {
       observer.disconnect();
+      mutations.disconnect();
     };
   }, [routeKey, scrolls]);
   useEffect(() => {
@@ -138,6 +150,26 @@ export function SocialShell({
           key={href}
           className={cn("social-nav-link", active && "is-active")}
           aria-current={active ? "page" : undefined}
+          onClick={(event) => {
+            if (
+              pathname !== href ||
+              query ||
+              event.metaKey ||
+              event.ctrlKey ||
+              event.shiftKey ||
+              event.altKey
+            )
+              return;
+            event.preventDefault();
+            navigating.current = false;
+            scrollRef.current?.scrollTo({
+              top: 0,
+              behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
+                .matches
+                ? "instant"
+                : "smooth",
+            });
+          }}
         >
           <span className="relative shrink-0">
             {Icon ? (
@@ -151,7 +183,7 @@ export function SocialShell({
             {href === "/squad" && pendingVerdicts > 0 && (
               <Badge
                 className="nav-count"
-                aria-label={`${pendingVerdicts} proofs to review`}
+                aria-label={`${pendingVerdicts} ${pendingVerdicts === 1 ? "proof" : "proofs"} to review`}
               >
                 {pendingVerdicts > 99 ? "99+" : pendingVerdicts}
               </Badge>
@@ -170,6 +202,9 @@ export function SocialShell({
         const link = (event.target as Element).closest("a[href]");
         if (
           !link ||
+          link.hasAttribute("download") ||
+          (link.getAttribute("target") !== null &&
+            link.getAttribute("target") !== "_self") ||
           event.button !== 0 ||
           event.metaKey ||
           event.ctrlKey ||
@@ -314,23 +349,33 @@ export function SocialShell({
                   className="mt-3"
                 />
                 <div className="mt-4 flex flex-col gap-3">
-                  {tasks.slice(0, 4).map((task) => (
-                    <Link
-                      href="/profile?tab=tasks"
-                      key={task.id}
-                      className="flex items-start gap-2 text-sm"
-                    >
-                      <Check
-                        className={cn(
-                          "mt-0.5 size-4 shrink-0",
-                          task.status === "VERIFIED"
-                            ? "text-success"
-                            : "text-muted-foreground/40",
-                        )}
-                      />
-                      <span className="line-clamp-2">{task.title}</span>
-                    </Link>
-                  ))}
+                  {tasks.slice(0, 4).map((task) => {
+                    const StatusIcon =
+                      task.status === "VERIFIED"
+                        ? Check
+                        : task.status === "MISSED"
+                          ? CircleAlert
+                          : task.proof
+                            ? Clock3
+                            : Circle;
+                    return (
+                      <Link
+                        href="/profile?tab=tasks"
+                        key={task.id}
+                        className="flex items-start gap-2 text-sm"
+                      >
+                        <StatusIcon
+                          className={cn(
+                            "mt-0.5 size-4 shrink-0",
+                            task.status === "VERIFIED"
+                              ? "text-success"
+                              : "text-muted-foreground/40",
+                          )}
+                        />
+                        <span className="line-clamp-2">{task.title}</span>
+                      </Link>
+                    );
+                  })}
                   {!tasks.length && (
                     <p className="text-sm leading-relaxed text-muted-foreground">
                       One small commitment is a good place to start.

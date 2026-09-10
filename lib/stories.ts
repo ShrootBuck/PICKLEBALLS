@@ -41,6 +41,31 @@ export function storyFrames(group: StoryGroup): StoryFrame[] {
   });
 }
 
+// Unread rings only need frame indexes, not a full set of media URLs.
+export function hasUnseenStory(group: StoryGroup) {
+  return group.posts.some(({ post, seenFrames }) => {
+    const count = post.kind === "proof" ? Math.max(1, post.mediaIds.length) : 1;
+    for (let frame = 0; frame < count; frame++) {
+      if (!seenFrames.includes(frame)) return true;
+    }
+    return false;
+  });
+}
+
+// Preserve references on quiet ticks so expiry checks do not rerender the app.
+export function expireStoryGroups(groups: StoryGroup[], now = Date.now()) {
+  let changed = false;
+  const fresh = groups.flatMap((group) => {
+    const posts = group.posts.filter(
+      ({ post }) => now - new Date(post.createdAt).getTime() < STORY_WINDOW_MS,
+    );
+    if (posts.length === group.posts.length && posts.length) return [group];
+    changed = true;
+    return posts.length ? [{ ...group, posts }] : [];
+  });
+  return changed ? fresh : groups;
+}
+
 export function orderStoryGroups(groups: StoryGroup[], viewerId: string) {
   const prepared = groups
     .filter((group) => group.posts.length)
@@ -51,8 +76,7 @@ export function orderStoryGroups(groups: StoryGroup[], viewerId: string) {
   return prepared.sort(
     (a, b) =>
       Number(b.author.id === viewerId) - Number(a.author.id === viewerId) ||
-      Number(storyFrames(b).some((frame) => !frame.seen)) -
-        Number(storyFrames(a).some((frame) => !frame.seen)) ||
+      Number(hasUnseenStory(b)) - Number(hasUnseenStory(a)) ||
       compareFeedPosts(
         a.posts[a.posts.length - 1].post,
         b.posts[b.posts.length - 1].post,

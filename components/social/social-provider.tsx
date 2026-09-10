@@ -3,7 +3,10 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   createContext,
+  lazy,
   type ReactNode,
+  Suspense,
+  use,
   useCallback,
   useContext,
   useEffect,
@@ -11,12 +14,17 @@ import {
   useState,
 } from "react";
 import { PendingMediaPosts } from "@/components/media/pending-media-posts";
-import {
-  type ComposerDraft,
-  type ComposerRequest,
-  SocialComposer,
+import type {
+  ComposerDraft,
+  ComposerRequest,
 } from "@/components/social/social-composer";
-import { StoryViewer } from "@/components/social/story-viewer";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import type {
   FeedPage,
@@ -27,7 +35,51 @@ import type {
   StoryGroup,
 } from "@/lib/social-types";
 import { postKey } from "@/lib/social-types";
-import { orderStoryGroups, STORY_WINDOW_MS } from "@/lib/stories";
+import { expireStoryGroups, orderStoryGroups } from "@/lib/stories";
+
+const SocialComposer = lazy(() =>
+  import("@/components/social/social-composer").then((module) => ({
+    default: module.SocialComposer,
+  })),
+);
+const StoryViewer = lazy(() =>
+  import("@/components/social/story-viewer").then((module) => ({
+    default: module.StoryViewer,
+  })),
+);
+
+function OverlayLoading({ onClose }: { onClose: () => void }) {
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent finalFocus={false}>
+        <DialogHeader>
+          <DialogTitle>Opening…</DialogTitle>
+        </DialogHeader>
+        <output className="flex items-center gap-2 py-6">
+          <Spinner />
+          Loading
+        </output>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function StorySync({
+  initial,
+  onSync,
+}: {
+  initial: Promise<StoryGroup[] | null>;
+  onSync: (groups: StoryGroup[] | null) => void;
+}) {
+  const groups = use(initial);
+  useEffect(() => onSync(groups), [groups, onSync]);
+  return null;
+}
 
 type SocialContext = {
   viewer: SocialAuthor;
@@ -61,14 +113,13 @@ export function SocialProvider({
   circleId: string;
   day: string;
   tasks: SocialTask[];
-  initialStories: StoryGroup[];
+  initialStories: Promise<StoryGroup[] | null>;
   children: ReactNode;
 }) {
   const routeKey = `${usePathname()}?${useSearchParams().toString()}`;
   const [composer, setComposer] = useState<ComposerRequest | null>(null);
-  const [stories, setStories] = useState(initialStories);
+  const [stories, setStories] = useState<StoryGroup[]>([]);
   const [storiesReady, setStoriesReady] = useState(false);
-  useEffect(() => setStoriesReady(true), []);
   const [postRevision, setPostRevision] = useState(0);
   const [storySession, setStorySession] = useState<{
     groups: StoryGroup[];
@@ -83,42 +134,39 @@ export function SocialProvider({
       current && current.routeKey !== routeKey ? null : current,
     );
   }, [routeKey]);
-  useEffect(
-    () =>
-      setStories((current) =>
-        initialStories.map((group) => ({
-          ...group,
-          posts: group.posts.map((item) => ({
-            ...item,
-            seenFrames: [
-              ...new Set([
-                ...item.seenFrames,
-                ...(current
-                  .find((old) => old.author.id === group.author.id)
-                  ?.posts.find(
-                    (old) => postKey(old.post) === postKey(item.post),
-                  )?.seenFrames ?? []),
-              ]),
-            ],
-          })),
-        })),
-      ),
-    [initialStories],
-  );
-  useEffect(() => {
-    const expire = () =>
-      setStories((current) =>
-        current
-          .map((group) => ({
-            ...group,
-            posts: group.posts.filter(
-              ({ post }) =>
-                Date.now() - new Date(post.createdAt).getTime() <
-                STORY_WINDOW_MS,
-            ),
-          }))
-          .filter((group) => group.posts.length),
+  const syncStories = useCallback((fresh: StoryGroup[] | null) => {
+    setStoriesReady(true);
+    if (!fresh) {
+      toast.add({
+        title: "Stories could not load. Refresh to try again.",
+        type: "error",
+      });
+      return;
+    }
+    setStories((current) => {
+      const seen = new Map(
+        current.flatMap((group) =>
+          group.posts.map(
+            (item) => [postKey(item.post), item.seenFrames] as const,
+          ),
+        ),
       );
+      return fresh.map((group) => ({
+        ...group,
+        posts: group.posts.map((item) => ({
+          ...item,
+          seenFrames: [
+            ...new Set([
+              ...item.seenFrames,
+              ...(seen.get(postKey(item.post)) ?? []),
+            ]),
+          ],
+        })),
+      }));
+    });
+  }, []);
+  useEffect(() => {
+    const expire = () => setStories((current) => expireStoryGroups(current));
     const timer = window.setInterval(expire, 60_000);
     return () => window.clearInterval(timer);
   }, []);
@@ -218,14 +266,7 @@ export function SocialProvider({
         feedLayouts: feedLayouts.current,
         openStories: (authorId, trigger) => {
           const groups = orderStoryGroups(
-            stories.map((group) => ({
-              ...group,
-              posts: group.posts.filter(
-                ({ post }) =>
-                  Date.now() - new Date(post.createdAt).getTime() <
-                  STORY_WINDOW_MS,
-              ),
-            })),
+            expireStoryGroups(stories),
             viewer.id,
           );
           if (groups.some((group) => group.author.id === authorId))
@@ -245,30 +286,41 @@ export function SocialProvider({
         openComposer: (request = { mode: "choose" }) => setComposer(request),
       }}
     >
+      <Suspense fallback={null}>
+        <StorySync initial={initialStories} onSync={syncStories} />
+      </Suspense>
       <PendingMediaPosts key={circleId} circleId={circleId} />
       {children}
       {storySession && storySession.routeKey === routeKey && (
-        <StoryViewer
-          groups={storySession.groups}
-          authorId={storySession.authorId}
-          returnFocus={storySession.trigger}
-          onViewed={markViewed}
-          onClose={() => setStorySession(null)}
-        />
+        <Suspense
+          fallback={<OverlayLoading onClose={() => setStorySession(null)} />}
+        >
+          <StoryViewer
+            groups={storySession.groups}
+            authorId={storySession.authorId}
+            returnFocus={storySession.trigger}
+            onViewed={markViewed}
+            onClose={() => setStorySession(null)}
+          />
+        </Suspense>
       )}
       {composer && (
-        <SocialComposer
-          key={draftKey}
-          request={composer}
-          draft={drafts.current.get(draftKey)}
-          onSaveDraft={(draft) => drafts.current.set(draftKey, draft)}
-          onDiscardDraft={() => drafts.current.delete(draftKey)}
-          onRequestChange={setComposer}
-          tasks={tasks}
-          circleId={circleId}
-          day={day}
-          onClose={() => setComposer(null)}
-        />
+        <Suspense
+          fallback={<OverlayLoading onClose={() => setComposer(null)} />}
+        >
+          <SocialComposer
+            draftKey={draftKey}
+            request={composer}
+            draft={drafts.current.get(draftKey)}
+            onSaveDraft={(draft) => drafts.current.set(draftKey, draft)}
+            onDiscardDraft={() => drafts.current.delete(draftKey)}
+            onRequestChange={setComposer}
+            tasks={tasks}
+            circleId={circleId}
+            day={day}
+            onClose={() => setComposer(null)}
+          />
+        </Suspense>
       )}
     </Context>
   );

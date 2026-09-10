@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSocial } from "@/components/social/social-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { storyFrames } from "@/lib/stories";
+import { Skeleton } from "@/components/ui/skeleton";
+import { hasUnseenStory } from "@/lib/stories";
 import { cn } from "@/lib/utils";
 
 export function StoryTray() {
@@ -15,15 +16,16 @@ export function StoryTray() {
   const [edges, setEdges] = useState({ before: false, after: false });
   const mine = stories.find((group) => group.author.id === viewer.id);
   const others = stories.filter((group) => group.author.id !== viewer.id);
-  const unseen = others.filter((group) =>
-    storyFrames(group).some((frame) => !frame.seen),
-  ).length;
+  const unseen = others.filter(hasUnseenStory).length;
   const measure = useCallback(() => {
     const node = scroller.current;
     if (node)
-      setEdges({
-        before: node.scrollLeft > 2,
-        after: node.scrollLeft + node.clientWidth < node.scrollWidth - 2,
+      setEdges((current) => {
+        const before = node.scrollLeft > 2;
+        const after = node.scrollLeft + node.clientWidth < node.scrollWidth - 2;
+        return current.before === before && current.after === after
+          ? current
+          : { before, after };
       });
   }, []);
   useEffect(() => {
@@ -51,11 +53,13 @@ export function StoryTray() {
           <span className="ml-1 font-normal text-muted-foreground">· 24h</span>
         </h2>
         <span className="text-xs text-muted-foreground">
-          {unseen
-            ? `${unseen} new ${unseen === 1 ? "story" : "stories"}`
-            : others.length
-              ? "You’re caught up"
-              : "A little of everyone’s day"}
+          {!storiesReady
+            ? "Loading stories…"
+            : unseen
+              ? `${unseen} new ${unseen === 1 ? "story" : "stories"}`
+              : others.length
+                ? "You’re caught up"
+                : "A little of everyone’s day"}
         </span>
       </div>
       <div className="relative">
@@ -103,7 +107,7 @@ export function StoryTray() {
               </span>
             </div>
             {others.map((group) => {
-              const fresh = storyFrames(group).some((frame) => !frame.seen);
+              const fresh = hasUnseenStory(group);
               return (
                 <Button
                   variant="plain"
@@ -136,7 +140,15 @@ export function StoryTray() {
                 </Button>
               );
             })}
-            {!others.length && (
+            {!storiesReady &&
+              [1, 2, 3].map((id) => (
+                <div key={id} className="story-person" aria-hidden="true">
+                  <Skeleton className="size-[76px] rounded-full" />
+                  <Skeleton className="h-3 w-12" />
+                  <Skeleton className="h-3 w-8" />
+                </div>
+              ))}
+            {storiesReady && !others.length && (
               <p className="story-tray-empty">
                 Your circle’s proof and check-ins appear here.
                 <br />

@@ -1,14 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import { headers } from "next/headers";
 import { AppRefreshProvider } from "@/components/layout/app-refresh-provider";
 import { RegisterSw } from "@/components/pwa/register-sw";
 import { AppearanceProvider } from "@/components/settings/appearance-provider";
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { parsePrimaryColor } from "@/lib/appearance";
-import { auth } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
+import { getPageSession } from "@/lib/request";
 import "./globals.css";
 
 const inter = localFont({
@@ -103,7 +102,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getPageSession();
   const user = session
     ? await getPrisma().user.findUnique({
         where: { id: session.user.id },

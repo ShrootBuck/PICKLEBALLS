@@ -215,7 +215,15 @@ async function readPosts({
       },
       orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
       take,
-      include: {
+      select: {
+        id: true,
+        submittedAt: true,
+        ownerNote: true,
+        commitmentId: true,
+        mediaIds: true,
+        reviewStatus: true,
+        replacedById: true,
+        ownerId: true,
         owner: { select: socialAuthorSelect },
         commitment: { select: { title: true, definitionOfDone: true } },
         reviews: {

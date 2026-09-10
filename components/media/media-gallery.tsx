@@ -6,7 +6,7 @@ import {
   ExternalLink,
   Maximize,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -45,6 +45,32 @@ export function MediaGallery({
   const [slide, setSlide] = useState(0);
   const [selected, setSelected] = useState(0);
   const index = Math.min(selected, Math.max(0, items.length - 1));
+  const hasVideo = items.some((item) => item.video);
+  useEffect(() => {
+    const node = scroller.current;
+    if (!node || !hasVideo) return;
+    const pause = () => {
+      for (const video of node.querySelectorAll("video")) video.pause();
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) pause();
+    });
+    observer.observe(node);
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") pause();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
+      pause();
+    };
+  }, [hasVideo]);
+  useEffect(() => {
+    for (const video of scroller.current?.querySelectorAll("video") ?? []) {
+      if (video.dataset.slide !== String(slide)) video.pause();
+    }
+  }, [slide]);
   if (!items.length) return null;
   function go(next: number) {
     const node = scroller.current;
@@ -69,9 +95,6 @@ export function MediaGallery({
               node.scrollLeft / Math.max(1, node.clientWidth),
             );
             setSlide(next);
-            for (const video of node.querySelectorAll("video")) {
-              if (video.dataset.slide !== String(next)) video.pause();
-            }
           }}
         >
           {items.map((item, i) => (
@@ -89,7 +112,12 @@ export function MediaGallery({
                     poster={`${item.src}?poster=1`}
                     controls
                     playsInline
-                    preload="metadata"
+                    preload="none"
+                    onPlay={(event) => {
+                      for (const video of document.querySelectorAll("video")) {
+                        if (video !== event.currentTarget) video.pause();
+                      }
+                    }}
                     aria-label={`Video ${i + 1} of ${items.length}`}
                   />
                   <DialogTrigger
@@ -124,6 +152,7 @@ export function MediaGallery({
                   <img
                     src={item.src}
                     loading="lazy"
+                    decoding="async"
                     alt={`Proof attachment ${i + 1}`}
                   />
                 </DialogTrigger>
