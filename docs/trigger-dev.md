@@ -2,16 +2,15 @@
 
 Project: `proj_xyssxtuhmwrlrkqotyxb`.
 
-Run `bun run dev:trigger` alongside `bun run dev`. The development API key belongs in `.env`. Development tasks run on your machine and use the local database on port 51218. The CLI is already authenticated. `health-check` is safe to run from the dashboard without sending notifications or changing app data.
+Run `bun run dev:trigger` alongside `bun run dev`. The development API key belongs in `.env`. Development tasks run on your machine and use the local database on port 51218. The CLI is already authenticated.
 
 ## Jobs
 
 - `assess-proof`: proof photo AI reads, with retries and a final failure status.
 - `read-screen-time`: screenshot extraction and saved readings. The API still waits for the reading so the existing confirmation UI works.
-- `notify-proof-submitted`, `notify-proof-reviewed`, `notify-reply-received`: inbox fan-out with per-recipient database deduplication.
-- `deliver-push`: push delivery with retries and stale subscription removal. Retries use the same notification tag, but delivery is at least once, so a device may receive another delivery attempt.
+- `notification`: accepts proof-submitted, proof-reviewed, reply-received, or push payloads. Event runs create inbox notifications with per-recipient database deduplication and enqueue push runs on the same task. Handles push delivery with retries and stale subscription removal. Retries use the same notification tag, but delivery is at least once, so a device may receive another delivery attempt.
 - `screen-time-reminders`: Sunday at 10 a.m. Phoenix time.
-- `reconcile-missed-tasks` and `reconcile-circle`: daily at 12:05 a.m. Phoenix time, with independent circle retries.
+- `reconcile-missed-tasks`: daily at midnight Phoenix time, processing each circle directly in batches. Failures retry the nightly run; completed updates are skipped.
 
 Schedules are production-only.
 

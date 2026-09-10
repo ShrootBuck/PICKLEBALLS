@@ -1,3 +1,4 @@
+import type { notification } from "@/src/trigger/notification";
 import "server-only";
 
 import { runs, tasks } from "@trigger.dev/sdk";
@@ -5,13 +6,7 @@ import { DomainError } from "@/lib/errors";
 import * as notifications from "@/lib/notifications";
 import { runProofAssessment } from "@/lib/proof-assessment";
 import { readScreenTime } from "@/lib/screen-time-server";
-import type {
-  assessProof,
-  proofReviewed,
-  proofSubmitted,
-  replyReceived,
-  screenTimeRead,
-} from "@/src/trigger/jobs";
+import type { assessProof, screenTimeRead } from "@/src/trigger/jobs";
 
 export function backgroundTasksEnabled() {
   return Boolean(process.env.TRIGGER_SECRET_KEY);
@@ -40,9 +35,9 @@ export async function notifyProofSubmitted(
 ) {
   if (!backgroundTasksEnabled())
     return notifications.notifyProofSubmitted(payload);
-  return tasks.trigger<typeof proofSubmitted>(
-    "notify-proof-submitted",
-    payload,
+  return tasks.trigger<typeof notification>(
+    "notification",
+    { kind: "proof-submitted", ...payload },
     { idempotencyKey: `proof:${payload.proofId}` },
   );
 }
@@ -51,18 +46,26 @@ export async function notifyProofReviewed(
 ) {
   if (!backgroundTasksEnabled())
     return notifications.notifyProofReviewed(payload);
-  return tasks.trigger<typeof proofReviewed>("notify-proof-reviewed", payload, {
-    idempotencyKey: `review:${payload.reviewId}`,
-  });
+  return tasks.trigger<typeof notification>(
+    "notification",
+    { kind: "proof-reviewed", ...payload },
+    {
+      idempotencyKey: `review:${payload.reviewId}`,
+    },
+  );
 }
 export async function notifyReplyReceived(
   payload: Parameters<typeof notifications.notifyReplyReceived>[0],
 ) {
   if (!backgroundTasksEnabled())
     return notifications.notifyReplyReceived(payload);
-  return tasks.trigger<typeof replyReceived>("notify-reply-received", payload, {
-    idempotencyKey: `reply:${payload.replyId}`,
-  });
+  return tasks.trigger<typeof notification>(
+    "notification",
+    { kind: "reply-received", ...payload },
+    {
+      idempotencyKey: `reply:${payload.replyId}`,
+    },
+  );
 }
 
 export async function readScreenTimeInBackground(

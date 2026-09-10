@@ -11,7 +11,7 @@ import {
 } from "@/lib/notification-policy";
 import { getPrisma } from "@/lib/prisma";
 import { sendPushToUser } from "@/lib/push";
-import type { deliverPush } from "@/src/trigger/push";
+import type { notification as notificationTask } from "@/src/trigger/notification";
 
 export async function getNotificationPrefs(
   userId: string,
@@ -88,9 +88,9 @@ export async function createNotificationAndPush(input: {
   if (!shouldPushNotification(input.kind, prefs)) return notification;
 
   if (process.env.TRIGGER_SECRET_KEY) {
-    await tasks.trigger<typeof deliverPush>(
-      "deliver-push",
-      { notificationId: notification.id },
+    await tasks.trigger<typeof notificationTask>(
+      "notification",
+      { kind: "push", notificationId: notification.id },
       {
         idempotencyKey: await idempotencyKeys.create(
           `push:${notification.id}`,

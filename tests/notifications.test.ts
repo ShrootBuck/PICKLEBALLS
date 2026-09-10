@@ -186,8 +186,8 @@ test("configured notifications queue push without sending inside the web request
   await createNotificationAndPush({ ...input, kind: "REPLY_POSTED" });
   expect(sendPush).not.toHaveBeenCalled();
   expect(triggerPush).toHaveBeenCalledWith(
-    "deliver-push",
-    { notificationId: "notification-1" },
+    "notification",
+    { kind: "push", notificationId: "notification-1" },
     { idempotencyKey: "push:notification-1" },
   );
 });
