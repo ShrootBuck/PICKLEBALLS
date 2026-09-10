@@ -38,14 +38,13 @@ function PostTile({ post }: { post: FeedPost }) {
     >
       {src && !failed ? (
         video ? (
-          <video
-            src={src}
-            muted
-            playsInline
-            preload="metadata"
+          // biome-ignore lint/performance/noImgElement: private authenticated video poster
+          <img
+            src={`${src}?poster=1`}
+            loading="lazy"
             className="profile-post-thumbnail"
             onError={() => setFailed(true)}
-            aria-label={proof ? post.title : "Proof video"}
+            alt=""
           />
         ) : (
           // biome-ignore lint/performance/noImgElement: private authenticated media

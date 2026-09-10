@@ -9,6 +9,7 @@ import {
   maxMediaCount,
   maxPhotoBytes,
   maxVideoBytes,
+  mediaMimeType,
 } from "@/lib/media-policy";
 
 export function MediaPicker({
@@ -42,7 +43,7 @@ export function MediaPicker({
         id={id}
         type="file"
         multiple
-        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/webm,video/quicktime"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,video/*,.mkv,.avi,.m4v,.mpg,.mpeg,.ts"
         disabled={disabled}
         aria-invalid={Boolean(error)}
         aria-describedby={`${id}-help`}
@@ -64,12 +65,12 @@ export function MediaPicker({
             added.some(
               (file) =>
                 file.size >
-                (file.type.startsWith("video/")
+                (mediaMimeType(file).startsWith("video/")
                   ? maxVideoBytes
                   : maxPhotoBytes),
             )
           ) {
-            setError("Photos: up to 100 MB. Videos: up to 50 MB.");
+            setError("Photos: up to 100 MB. Videos: up to 5 GB.");
             return;
           }
           setError("");
@@ -110,7 +111,7 @@ export function MediaPicker({
       </Button>
       <FieldDescription id={`${id}-help`} aria-live="polite">
         {error ||
-          "Up to 6 files. Photos: 100 MB, resized with location data removed. Videos: 50 MB (MP4, MOV, WebM)."}
+          "Up to 6 files. Photos: 100 MB, resized with location data removed. Videos: 5 GB, with no duration limit. Keep this tab open until uploading finishes."}
       </FieldDescription>
       <output className="text-xs text-muted-foreground">
         {files.length} of {maxMediaCount} attachments selected
@@ -123,7 +124,7 @@ export function MediaPicker({
               className="flex min-w-0 flex-col gap-1"
             >
               {previews[index] &&
-                (file.type.startsWith("video/") ? (
+                (mediaMimeType(file).startsWith("video/") ? (
                   // biome-ignore lint/a11y/useMediaCaption: local user-uploaded preview has no caption track
                   <video
                     src={previews[index]}

@@ -63,7 +63,11 @@ export async function getMediaBytes(key: string) {
   if (!result.Body) throw new Error("Media object is missing.");
   return result.Body.transformToByteArray();
 }
-export async function mediaDownloadUrl(key: string, mimeType: string) {
+export async function mediaDownloadUrl(
+  key: string,
+  mimeType: string,
+  expiresIn = 24 * 3600,
+) {
   const { client, bucket } = r2();
   return getSignedUrl(
     client,
@@ -73,7 +77,7 @@ export async function mediaDownloadUrl(key: string, mimeType: string) {
       ResponseContentType: mimeType,
       ResponseContentDisposition: "inline",
     }),
-    { expiresIn: 3600 },
+    { expiresIn },
   );
 }
 

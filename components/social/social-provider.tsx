@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { PendingMediaPosts } from "@/components/media/pending-media-posts";
 import {
   type ComposerDraft,
   type ComposerRequest,
@@ -244,6 +245,7 @@ export function SocialProvider({
         openComposer: (request = { mode: "choose" }) => setComposer(request),
       }}
     >
+      <PendingMediaPosts key={circleId} circleId={circleId} />
       {children}
       {storySession && storySession.routeKey === routeKey && (
         <StoryViewer

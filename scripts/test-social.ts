@@ -85,6 +85,7 @@ try {
     DISCORD_CLIENT_ID: "test",
     DISCORD_CLIENT_SECRET: "test",
     OPENROUTER_API_KEY: "",
+    TRIGGER_SECRET_KEY: "",
     BOOTSTRAP_DISCORD_USER_ID: "",
     VAPID_PRIVATE_KEY: "",
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: "",
@@ -134,8 +135,11 @@ try {
     "Migrated a populated disposable database, including legacy check-ins.",
   );
   console.log(await run(["bun", "test", "./tests/social.integration.ts"], env));
+  console.log(await run(["bun", "test", "./tests/media.integration.ts"], env));
   if (process.argv.includes("--serve")) {
     console.log(await run(["bun", "scripts/social-fixtures.ts"], env));
+    if (process.argv.includes("--video"))
+      console.log(await run(["bun", "scripts/media-fixtures.ts"], env));
     const objects = new Map<string, { data: Uint8Array; type: string }>();
     fixture = Bun.serve({
       hostname: "127.0.0.1",
@@ -189,21 +193,53 @@ try {
           });
           return new Response(null, { headers });
         }
-        const object = url.pathname.startsWith("/media/fixture-screen-")
+        const object = url.pathname.startsWith("/media/fixture-video-")
           ? {
               data: new Uint8Array(
                 await Bun.file(
-                  "/private/tmp/pb-proof-fixture.png",
+                  url.pathname.endsWith("poster")
+                    ? "/private/tmp/pb-video-fixture.webp"
+                    : "/private/tmp/pb-video-fixture.mp4",
                 ).arrayBuffer(),
               ),
-              type: "image/png",
+              type: url.pathname.endsWith("poster")
+                ? "image/webp"
+                : "video/mp4",
             }
-          : objects.get(url.pathname);
+          : url.pathname.startsWith("/media/fixture-screen-")
+            ? {
+                data: new Uint8Array(
+                  await Bun.file(
+                    "/private/tmp/pb-proof-fixture.png",
+                  ).arrayBuffer(),
+                ),
+                type: "image/png",
+              }
+            : objects.get(url.pathname);
         if (!object)
           return new Response("Missing fixture media", {
             status: 404,
             headers,
           });
+        const range = request.headers
+          .get("range")
+          ?.match(/^bytes=(\d+)-(\d*)$/);
+        if (range) {
+          const start = Number(range[1]);
+          const end = range[2]
+            ? Math.min(Number(range[2]), object.data.length - 1)
+            : object.data.length - 1;
+          return new Response(object.data.slice(start, end + 1), {
+            status: 206,
+            headers: {
+              ...headers,
+              "content-type": object.type,
+              "accept-ranges": "bytes",
+              "content-range": `bytes ${start}-${end}/${object.data.length}`,
+              "content-length": String(end - start + 1),
+            },
+          });
+        }
         return new Response(
           request.method === "HEAD" ? null : new Uint8Array(object.data),
           {

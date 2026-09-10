@@ -2,7 +2,9 @@ import { z } from "zod";
 
 export const maxMediaCount = 6;
 export const maxPhotoBytes = 100 * 1024 * 1024;
-export const maxVideoBytes = 50 * 1024 * 1024;
+export const maxVideoBytes = 5 * 1024 * 1024 * 1024;
+export const mediaPartBytes = 32 * 1024 * 1024;
+export const uploadLifetimeMs = 24 * 60 * 60 * 1000;
 export const mediaIdsSchema = z
   .array(z.string().regex(/^[iv]_[a-f0-9-]{36}$/))
   .max(maxMediaCount)
@@ -18,6 +20,11 @@ export const uploadTicketSchema = z
       "video/mp4",
       "video/webm",
       "video/quicktime",
+      "video/x-matroska",
+      "video/x-msvideo",
+      "video/x-m4v",
+      "video/mpeg",
+      "video/mp2t",
     ]),
     sizeBytes: z.number().int().positive(),
   })
@@ -25,19 +32,21 @@ export const uploadTicketSchema = z
     (v) =>
       v.sizeBytes <=
       (v.mimeType.startsWith("video/") ? maxVideoBytes : maxPhotoBytes),
-    "Photo must be at most 100 MB; video must be at most 50 MB.",
+    "Photo must be at most 100 MB; video must be at most 5 GB.",
   );
 
-export function matchesVideo(data: Uint8Array, mimeType: string) {
-  if (mimeType === "video/webm")
-    return (
-      data.length > 4 &&
-      data[0] === 0x1a &&
-      data[1] === 0x45 &&
-      data[2] === 0xdf &&
-      data[3] === 0xa3
-    );
-  return (
-    data.length >= 12 && new TextDecoder().decode(data.slice(4, 8)) === "ftyp"
-  );
+export function mediaMimeType(file: Pick<File, "name" | "type">) {
+  const extension = file.name.split(".").at(-1)?.toLowerCase();
+  const types: Record<string, string> = {
+    mp4: "video/mp4",
+    mov: "video/quicktime",
+    webm: "video/webm",
+    mkv: "video/x-matroska",
+    avi: "video/x-msvideo",
+    m4v: "video/x-m4v",
+    mpg: "video/mpeg",
+    mpeg: "video/mpeg",
+    ts: "video/mp2t",
+  };
+  return types[extension ?? ""] ?? file.type.toLowerCase();
 }

@@ -4,6 +4,8 @@ import {
   assessProofInBackground,
   notifyProofSubmitted,
 } from "@/lib/background";
+import { startPendingProof } from "@/lib/media-dispatch";
+import { queueProof } from "@/lib/pending-proof";
 import { proofProgressResponse } from "@/lib/proof-progress-response";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
@@ -88,6 +90,28 @@ export async function POST(
       return NextResponse.json(
         { error: "Add a valid start and finish time." },
         { status: 400 },
+      );
+    }
+    if (Array.isArray(file) && file.some((id) => String(id).startsWith("v_"))) {
+      const pending = await queueProof(
+        id,
+        auth.session.user.id,
+        auth.membership.circleId,
+        file as string[],
+        note,
+        startedAt,
+        completedAt,
+      );
+      try {
+        await startPendingProof(pending.id);
+      } catch {
+        console.warn("Pending proof dispatch will be retried", {
+          pendingId: pending.id,
+        });
+      }
+      return Response.json(
+        { pending: { id: pending.id, proofId: pending.proofId } },
+        { status: 202 },
       );
     }
     const proof = await submitProof(

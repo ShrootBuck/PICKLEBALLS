@@ -86,6 +86,7 @@ export function MediaGallery({
                   <video
                     data-slide={i}
                     src={item.src}
+                    poster={`${item.src}?poster=1`}
                     controls
                     playsInline
                     preload="metadata"
@@ -184,6 +185,7 @@ export function MediaGallery({
           <video
             key={items[index].id}
             src={items[index].src}
+            poster={`${items[index].src}?poster=1`}
             controls
             playsInline
             preload="metadata"
@@ -203,13 +205,13 @@ export function MediaGallery({
                 href={items[index].src}
                 target="_blank"
                 rel="noreferrer"
-                aria-label="Open original attachment"
+                aria-label="Open full attachment"
               >
-                Open original
+                Open full attachment
               </a>
             }
           >
-            <ExternalLink data-icon="inline-start" /> Open original
+            <ExternalLink data-icon="inline-start" /> Open full attachment
           </Button>
           <div className="flex gap-2">
             <Button

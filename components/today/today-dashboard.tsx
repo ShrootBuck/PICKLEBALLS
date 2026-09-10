@@ -417,7 +417,8 @@ function ProofDialog({
     setError(null);
     try {
       const mediaIds =
-        uploadedIds.current ?? (await uploadMedia(files, setUploadStatus));
+        uploadedIds.current ??
+        (await uploadMedia(files, setUploadStatus, { deferProcessing: true }));
       uploadedIds.current = mediaIds;
       const response = await proofFetch(`/api/commitments/${task.id}/proof`, {
         method: "POST",
@@ -437,6 +438,7 @@ function ProofDialog({
         return;
       }
       const body = (await response.json()) as {
+        pending?: { id: string };
         proof: {
           id: string;
           isLate: boolean;
@@ -445,6 +447,19 @@ function ProofDialog({
           aiStatus: NonNullable<Task["proof"]>["aiStatus"];
         };
       };
+      if (body.pending) {
+        window.dispatchEvent(new Event("pb:media-pending"));
+        toast.add({
+          title:
+            "Upload complete. Your proof will post when processing finishes.",
+          type: "success",
+        });
+        setFiles([]);
+        uploadedIds.current = null;
+        setOpen(false);
+        setPending(false);
+        return;
+      }
       // Solo circles verify on post; everyone else waits for a verdict.
       const status: Task["status"] =
         body.proof.reviewStatus === "APPROVED" ? "VERIFIED" : "AWAITING_REVIEW";

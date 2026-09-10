@@ -21,9 +21,14 @@ import { serializable } from "@/lib/transaction";
 export { DomainError };
 
 export async function reconcileMissedTasks(circleId: string, now = new Date()) {
+  const processing = await getPrisma().pendingProof.findMany({
+    where: { circleId, proofId: null, dismissed: false },
+    select: { commitmentId: true },
+  });
   const candidates = await getPrisma().commitment.findMany({
     where: {
       circleId,
+      id: { notIn: processing.map((p) => p.commitmentId) },
       dueAt: { lt: now },
       status: { in: ["OPEN", "RENEGOTIATED"] },
       proofs: { none: {} },
@@ -135,7 +140,10 @@ export async function updateCommitment(
       return { task: current, changed: false };
     }
 
-    if (current._count.proofs > 0) {
+    const processing = await transaction.pendingProof.count({
+      where: { commitmentId: taskId, proofId: null, dismissed: false },
+    });
+    if (current._count.proofs > 0 || processing > 0) {
       throw new DomainError(
         "This task already has proof. Its promise stays fixed so reviews remain honest.",
         409,
@@ -163,15 +171,11 @@ export async function updateCommitment(
   });
 }
 
-export async function submitProof(
-  taskId: string,
-  userId: string,
-  circleId: string,
-  file: File | string[],
+export function validateProofTimes(
   ownerNote: string | null,
   startedAt: Date,
   completedAt: Date,
-  now = new Date(),
+  now: Date,
 ) {
   if (ownerNote && ownerNote.length > 500)
     throw new DomainError("Keep the proof note under 500 characters.");
@@ -188,6 +192,20 @@ export async function submitProof(
   if (completedAt.getTime() - startedAt.getTime() > 24 * 60 * 60 * 1000) {
     throw new DomainError("Keep one task block under 24 hours.");
   }
+}
+
+export async function submitProof(
+  taskId: string,
+  userId: string,
+  circleId: string,
+  file: File | string[],
+  ownerNote: string | null,
+  startedAt: Date,
+  completedAt: Date,
+  now = new Date(),
+  pendingProofId?: string,
+) {
+  validateProofTimes(ownerNote, startedAt, completedAt, now);
   const mediaIds = Array.isArray(file) ? file : [];
   if (
     Array.isArray(file) &&
@@ -199,6 +217,40 @@ export async function submitProof(
   if (image && objectKey) await putMedia(objectKey, image.data, image.mimeType);
 
   return serializable(async (transaction) => {
+    if (pendingProofId) {
+      const pending = await transaction.pendingProof.findFirst({
+        where: {
+          id: pendingProofId,
+          ownerId: userId,
+          circleId,
+          commitmentId: taskId,
+          dismissed: false,
+        },
+      });
+      if (!pending) throw new DomainError("Pending proof not found.", 404);
+      const membership = await transaction.membership.findUnique({
+        where: { userId_circleId: { userId, circleId } },
+      });
+      if (!membership)
+        throw new DomainError(
+          "You are no longer a member of this circle.",
+          403,
+        );
+      if (pending.proofId)
+        return transaction.taskProof.findUniqueOrThrow({
+          where: { id: pending.proofId },
+        });
+    }
+    const otherPending = await transaction.pendingProof.findFirst({
+      where: {
+        commitmentId: taskId,
+        proofId: null,
+        dismissed: false,
+        ...(pendingProofId ? { id: { not: pendingProofId } } : {}),
+      },
+    });
+    if (otherPending)
+      throw new DomainError("This task already has proof processing.", 409);
     const task = await transaction.commitment.findFirst({
       where: { id: taskId, userId, circleId },
       include: {
@@ -233,7 +285,7 @@ export async function submitProof(
         ownerId: userId,
         circleId,
         ownerNote: ownerNote || null,
-        submittedAt: now,
+        submittedAt: pendingProofId ? new Date() : now,
         startedAt,
         completedAt,
         isLate: isLateProof(task.dueAt, now),
@@ -243,7 +295,12 @@ export async function submitProof(
           : {}),
       },
     });
-    await claimMedia(transaction, mediaIds, userId, circleId);
+    await claimMedia(transaction, mediaIds, userId, circleId, pendingProofId);
+    if (pendingProofId)
+      await transaction.pendingProof.update({
+        where: { id: pendingProofId },
+        data: { proofId: proof.id, error: null },
+      });
     if (currentProof) {
       await transaction.taskProof.update({
         where: { id: currentProof.id },

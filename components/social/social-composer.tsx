@@ -191,7 +191,10 @@ export function SocialComposer({
         if (!task || !files.length)
           throw new Error("Choose a task and attach your proof first.");
         const mediaIds =
-          uploadedIds.current ?? (await uploadMedia(files, setUploadStatus));
+          uploadedIds.current ??
+          (await uploadMedia(files, setUploadStatus, {
+            deferProcessing: true,
+          }));
         uploadedIds.current = mediaIds;
         response = await proofFetch(`/api/commitments/${task.id}/proof`, {
           method: "POST",
@@ -202,6 +205,19 @@ export function SocialComposer({
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.error ?? "Could not save. Try again.");
+      if (data.pending) {
+        submitted.current = true;
+        onDiscardDraft();
+        onClose();
+        window.dispatchEvent(new Event("pb:media-pending"));
+        toast.add({
+          title:
+            "Upload complete. Your proof will post when processing finishes.",
+          type: "success",
+        });
+        router.push("/");
+        return;
+      }
       submitted.current = true;
       onDiscardDraft();
       onClose();

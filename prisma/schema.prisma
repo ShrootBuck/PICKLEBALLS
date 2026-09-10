@@ -538,12 +538,39 @@ model MediaUpload {
   ownerId String
   circleId String
   mimeType String
-  sizeBytes Int
+  sizeBytes BigInt
   objectKey String @unique
   ready Boolean @default(false)
   claimed Boolean @default(false)
   createdAt DateTime @default(now())
+  uploadId String?
+  uploadedAt DateTime?
+  processingError String?
+  encodeAttempt Int @default(0)
+  progress Int @default(0)
+  posterKey String?
+  duration Float?
+  pendingProofId String?
   @@index([ownerId, circleId])
+}
+
+// A private submission, published atomically only after all attachments are ready.
+model PendingProof {
+  id String @id @default(cuid())
+  ownerId String
+  circleId String
+  commitmentId String
+  mediaIds String[]
+  note String?
+  startedAt DateTime
+  completedAt DateTime
+  createdAt DateTime @default(now())
+  proofId String? @unique
+  error String?
+  dismissed Boolean @default(false)
+  attempt Int @default(0)
+  @@index([ownerId, circleId, dismissed])
+  @@index([commitmentId])
 }
 
 // Immutable AI reads. Only the owner can see a draft; confirmation publishes it.

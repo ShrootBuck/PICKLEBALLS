@@ -704,3 +704,193 @@ test("proof story views are per attachment, ignore replacements, and enforce rec
       .some((item) => item.post.id === p.id),
   ).toBe(false);
 });
+
+test("pending video proof stays private, reserves attachments, and publishes exactly once after encoding", async () => {
+  const { queueProof } = await import("@/lib/pending-proof");
+  const commitment = await task();
+  const video = `v_${randomUUID()}`;
+  await prisma.mediaUpload.create({
+    data: {
+      id: video,
+      ownerId: ids.owner,
+      circleId: ids.circle,
+      mimeType: "video/mp4",
+      sizeBytes: BigInt(5 * 1024 ** 3),
+      objectKey: `staging/${video}`,
+      uploadedAt: now,
+    },
+  });
+  const queued = await queueProof(
+    commitment.id,
+    ids.owner,
+    ids.circle,
+    [video],
+    "Big video",
+    start,
+    now,
+    now,
+  );
+  expect(
+    (
+      await queueProof(
+        commitment.id,
+        ids.owner,
+        ids.circle,
+        [video],
+        "Big video",
+        start,
+        now,
+        now,
+      )
+    ).id,
+  ).toBe(queued.id);
+  expect(
+    await prisma.taskProof.count({ where: { commitmentId: commitment.id } }),
+  ).toBe(0);
+  await expect(
+    submitProof(
+      commitment.id,
+      ids.owner,
+      ids.circle,
+      [video],
+      null,
+      start,
+      now,
+      now,
+    ),
+  ).rejects.toThrow("processing");
+  await expect(
+    submitProof(
+      commitment.id,
+      ids.owner,
+      ids.circle,
+      [video],
+      null,
+      start,
+      now,
+      now,
+      queued.id,
+    ),
+  ).rejects.toThrow("Attachments");
+  await prisma.mediaUpload.update({
+    where: { id: video },
+    data: { ready: true, progress: 100 },
+  });
+  const published = await submitProof(
+    commitment.id,
+    ids.owner,
+    ids.circle,
+    [video],
+    queued.note,
+    start,
+    now,
+    queued.createdAt,
+    queued.id,
+  );
+  const retried = await submitProof(
+    commitment.id,
+    ids.owner,
+    ids.circle,
+    [video],
+    queued.note,
+    start,
+    now,
+    queued.createdAt,
+    queued.id,
+  );
+  expect(retried.id).toBe(published.id);
+  expect(
+    await prisma.taskProof.count({ where: { commitmentId: commitment.id } }),
+  ).toBe(1);
+  expect(
+    (await prisma.pendingProof.findUniqueOrThrow({ where: { id: queued.id } }))
+      .proofId,
+  ).toBe(published.id);
+  expect(
+    (await prisma.mediaUpload.findUniqueOrThrow({ where: { id: video } }))
+      .claimed,
+  ).toBe(true);
+  expect(published.isLate).toBe(false);
+});
+
+test("pending proof rejects foreign media and late submissions atomically", async () => {
+  const { queueProof } = await import("@/lib/pending-proof");
+  const commitment = await task();
+  const foreign = await media(ids.outsider, ids.other);
+  await expect(
+    queueProof(
+      commitment.id,
+      ids.owner,
+      ids.circle,
+      [foreign],
+      null,
+      start,
+      now,
+      now,
+    ),
+  ).rejects.toThrow("Attachments");
+  expect(
+    await prisma.pendingProof.count({ where: { commitmentId: commitment.id } }),
+  ).toBe(0);
+  const own = await media();
+  await expect(
+    queueProof(
+      commitment.id,
+      ids.owner,
+      ids.circle,
+      [own],
+      null,
+      start,
+      now,
+      new Date("2026-09-09T08:00:00Z"),
+    ),
+  ).rejects.toThrow("closed");
+  expect(
+    (await prisma.mediaUpload.findUniqueOrThrow({ where: { id: own } }))
+      .pendingProofId,
+  ).toBeNull();
+});
+
+test("a queued submission cannot publish after its owner leaves the circle", async () => {
+  const { queueProof } = await import("@/lib/pending-proof");
+  const userId = `departed-${randomUUID()}`;
+  await prisma.user.create({
+    data: {
+      id: userId,
+      email: `${userId}@example.invalid`,
+      name: "Departed member",
+    },
+  });
+  await prisma.membership.create({ data: { userId, circleId: ids.circle } });
+  const commitment = await task(userId);
+  const attachment = await media(userId);
+  const pending = await queueProof(
+    commitment.id,
+    userId,
+    ids.circle,
+    [attachment],
+    null,
+    start,
+    now,
+    now,
+  );
+  await prisma.membership.delete({
+    where: { userId_circleId: { userId, circleId: ids.circle } },
+  });
+  await expect(
+    submitProof(
+      commitment.id,
+      userId,
+      ids.circle,
+      [attachment],
+      null,
+      start,
+      now,
+      now,
+      pending.id,
+    ),
+  ).rejects.toThrow("no longer a member");
+  expect(
+    await prisma.taskProof.count({ where: { commitmentId: commitment.id } }),
+  ).toBe(0);
+});

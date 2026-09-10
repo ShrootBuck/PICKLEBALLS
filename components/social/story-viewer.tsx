@@ -62,12 +62,20 @@ export function StoryViewer({
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [muted, setMuted] = useState(true);
   const [progress, setProgress] = useState(0);
+  const [readyFrame, setReadyFrame] = useState<string | null>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const gesture = useRef<{ x: number; y: number; at: number } | null>(null);
   const ignoreClick = useRef(false);
   const group = groups[position.group];
   const frames = useMemo(() => storyFrames(group), [group]);
   const frame = frames[position.frame];
+  const nextFrame =
+    frames[position.frame + 1] ??
+    (groups[position.group + 1]
+      ? storyFrames(groups[position.group + 1])[
+          firstUnseenFrame(groups[position.group + 1])
+        ]
+      : null);
   const post = frame.post;
   const mine = group.author.id === viewer.id;
   const stopped = paused || holding || away || commentsOpen;
@@ -127,8 +135,7 @@ export function StoryViewer({
           if (
             commentsOpen ||
             event.target instanceof HTMLInputElement ||
-            event.target instanceof HTMLTextAreaElement ||
-            event.target instanceof HTMLVideoElement
+            event.target instanceof HTMLTextAreaElement
           )
             return;
           if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
@@ -150,8 +157,8 @@ export function StoryViewer({
         </DialogTitle>
         <DialogDescription className="sr-only">
           Proof and check-ins from the last 24 hours. Use the previous and next
-          buttons or arrow keys to browse. Hold a photo to pause. Escape closes
-          stories.
+          buttons or arrow keys to browse. Hold a photo or video to pause.
+          Escape closes stories.
         </DialogDescription>
         <div className="story-top">
           <nav className="story-progress" aria-label="Story progress">
@@ -231,11 +238,7 @@ export function StoryViewer({
         <div
           className="story-stage"
           onPointerDown={(event) => {
-            if (
-              (event.target as Element).closest(
-                "video, a, button:not(.story-tap)",
-              )
-            )
+            if ((event.target as Element).closest("a, button:not(.story-tap)"))
               return;
             ignoreClick.current = false;
             gesture.current = {
@@ -264,39 +267,54 @@ export function StoryViewer({
             setHolding(false);
           }}
         >
-          <StoryScene
-            key={frame.key}
-            frame={frame}
-            paused={stopped}
-            visible={!away && !commentsOpen}
-            muted={muted}
-            onProgress={setProgress}
-            onEnd={() => move(1)}
-            onViewed={onViewed}
+          {[
+            frame,
+            ...(nextFrame && readyFrame === frame.key ? [nextFrame] : []),
+          ].map((scene) => (
+            <div
+              key={scene.key}
+              className="story-scene"
+              hidden={scene.key !== frame.key}
+              inert={scene.key !== frame.key}
+            >
+              <StoryScene
+                frame={scene}
+                active={scene.key === frame.key}
+                paused={scene.key !== frame.key || stopped}
+                visible={scene.key === frame.key && !away && !commentsOpen}
+                muted={muted}
+                onReady={() => {
+                  if (scene.key === frame.key) setReadyFrame(scene.key);
+                }}
+                onProgress={
+                  scene.key === frame.key ? setProgress : ignoreProgress
+                }
+                onEnd={() => {
+                  if (scene.key === frame.key) move(1);
+                }}
+                onViewed={onViewed}
+              />
+            </div>
+          ))}
+          <Button
+            variant="plain"
+            type="button"
+            className="story-tap story-tap-previous"
+            aria-label="Previous story"
+            disabled={position.group === 0 && position.frame === 0}
+            onClick={() => {
+              if (!ignoreClick.current) move(-1);
+            }}
           />
-          {!frame.media?.video && (
-            <>
-              <Button
-                variant="plain"
-                type="button"
-                className="story-tap story-tap-previous"
-                aria-label="Previous story"
-                disabled={position.group === 0 && position.frame === 0}
-                onClick={() => {
-                  if (!ignoreClick.current) move(-1);
-                }}
-              />
-              <Button
-                variant="plain"
-                type="button"
-                className="story-tap story-tap-next"
-                aria-label="Next story"
-                onClick={() => {
-                  if (!ignoreClick.current) move(1);
-                }}
-              />
-            </>
-          )}
+          <Button
+            variant="plain"
+            type="button"
+            className="story-tap story-tap-next"
+            aria-label="Next story"
+            onClick={() => {
+              if (!ignoreClick.current) move(1);
+            }}
+          />
         </div>
         <footer className="story-footer">
           {post.kind === "proof" && (
@@ -395,8 +413,12 @@ export function StoryViewer({
   );
 }
 
+const ignoreProgress = () => {};
+
 function StoryScene({
   frame,
+  active,
+  onReady,
   paused,
   visible,
   muted,
@@ -405,6 +427,8 @@ function StoryScene({
   onViewed,
 }: {
   frame: StoryFrame;
+  active: boolean;
+  onReady: () => void;
   paused: boolean;
   visible: boolean;
   muted: boolean;
@@ -416,6 +440,33 @@ function StoryScene({
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [blocked, setBlocked] = useState(false);
+  const [buffering, setBuffering] = useState(false);
+  const [playback, setPlayback] = useState<{
+    url: string;
+    duration: number | null;
+    poster: string | null;
+  } | null>(null);
+  useEffect(() => {
+    if (!frame.media?.video) return;
+    let cancelled = false;
+    void fetch(`${frame.media.src}?playback=1&attempt=${attempt}`, {
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Video unavailable");
+        const info = await response.json();
+        if (!cancelled) setPlayback(info);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [frame.media?.src, frame.media?.video, attempt]);
+  useEffect(() => {
+    if (active && ready) onReady();
+  }, [active, ready, onReady]);
   const video = useRef<HTMLVideoElement>(null);
   const elapsed = useRef(0);
   const end = useRef(onEnd);
@@ -425,10 +476,17 @@ function StoryScene({
     viewed.current = onViewed;
   }, [onEnd, onViewed]);
   useEffect(() => {
-    if (!ready || !visible || error) return;
+    if (
+      !ready ||
+      !visible ||
+      error ||
+      buffering ||
+      (frame.media?.video && (blocked || paused))
+    )
+      return;
     const timer = window.setTimeout(() => viewed.current(frame), 600);
     return () => window.clearTimeout(timer);
-  }, [ready, visible, error, frame]);
+  }, [ready, visible, error, buffering, blocked, paused, frame]);
   useEffect(() => {
     if (!ready || paused || error || frame.media?.video) return;
     const duration = frame.media
@@ -452,7 +510,13 @@ function StoryScene({
     if (!node || !ready) return;
     if (paused) node.pause();
     else if (node.ended) end.current();
-    else void node.play().catch(() => setBlocked(true));
+    else
+      void node
+        .play()
+        .then(() => setBlocked(false))
+        .catch((error) => {
+          if (error?.name !== "AbortError") setBlocked(true);
+        });
   }, [paused, ready]);
   if (error)
     return (
@@ -477,7 +541,7 @@ function StoryScene({
   const post = frame.post;
   return (
     <>
-      {!ready && (
+      {(!ready || buffering) && (
         <output className="story-media-message">
           <Spinner />
           <span>Loading story</span>
@@ -489,19 +553,28 @@ function StoryScene({
             <video
               key={attempt}
               ref={video}
-              src={frame.media.src}
+              src={playback?.url}
+              poster={playback?.poster ?? undefined}
               className="story-media"
               playsInline
               muted={muted}
-              controls
-              preload="auto"
+              preload={active || !ready ? "auto" : "none"}
+              disablePictureInPicture
+              tabIndex={-1}
               aria-label={post.kind === "proof" ? post.title : "Story video"}
               onLoadedData={() => setReady(true)}
+              onWaiting={() => setBuffering(true)}
+              onPlaying={() => {
+                setBuffering(false);
+                setBlocked(false);
+              }}
+              onCanPlay={() => setBuffering(false)}
               onError={() => setError(true)}
               onTimeUpdate={(event) => {
                 const node = event.currentTarget;
-                if (Number.isFinite(node.duration) && node.duration > 0)
-                  onProgress(node.currentTime / node.duration);
+                const duration = playback?.duration ?? node.duration;
+                if (Number.isFinite(duration) && duration > 0)
+                  onProgress(Math.min(1, node.currentTime / duration));
               }}
               onEnded={() => {
                 if (!paused) end.current();

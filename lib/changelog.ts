@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1788999382147,
+    title: "Room for the whole video",
+    description:
+      "Attach videos up to 5 GB with no duration limit. Once your proof finishes uploading, you can leave while it processes. Your post appears when every attachment is ready, and you can check progress or retry from Home.",
+  },
+  {
     timestamp: 1788910757467,
     title: "Catch up through stories",
     description:

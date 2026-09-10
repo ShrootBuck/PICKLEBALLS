@@ -8,13 +8,21 @@ export async function claimMedia(
   ids: string[],
   ownerId: string,
   circleId: string,
+  pendingProofId?: string,
 ) {
   if (!mediaIdsSchema.safeParse(ids).success)
     throw new DomainError("Choose up to six attachments.");
   if (!ids.length) return;
   const result = await transaction.mediaUpload.updateMany({
-    where: { id: { in: ids }, ownerId, circleId, ready: true, claimed: false },
-    data: { claimed: true },
+    where: {
+      id: { in: ids },
+      ownerId,
+      circleId,
+      ready: true,
+      claimed: false,
+      pendingProofId: pendingProofId ?? null,
+    },
+    data: { claimed: true, pendingProofId: null },
   });
   if (result.count !== ids.length)
     throw new DomainError(

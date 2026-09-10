@@ -1,3 +1,4 @@
+import { ffmpeg } from "@trigger.dev/build/extensions/core";
 import { prismaExtension } from "@trigger.dev/build/extensions/prisma";
 import { defineConfig } from "@trigger.dev/sdk";
 
@@ -22,7 +23,7 @@ export default defineConfig({
   build: {
     conditions: ["react-server"],
     external: ["sharp"],
-    extensions: [prismaExtension({ mode: "modern" })],
+    extensions: [prismaExtension({ mode: "modern" }), ffmpeg()],
   },
   dirs: ["./src/trigger"],
 });
