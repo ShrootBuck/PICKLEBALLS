@@ -36,17 +36,63 @@ function putChunk(
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
-    xhr.timeout = 15 * 60_000;
+    // Absolute ceiling for one chunk on a very slow link. Slow but
+    // progressing uploads must not time out, so stalls are detected below
+    // via missing progress events instead of this timer.
+    xhr.timeout = 30 * 60_000;
     if (mimeType) xhr.setRequestHeader("content-type", mimeType);
-    xhr.upload.onprogress = (event) => progress(event.loaded);
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300
-        ? resolve()
-        : reject(new Error("Upload failed. Retry to resume completed chunks."));
-    xhr.onerror = xhr.ontimeout = () =>
+    let lastProgress = Date.now();
+    let done = false;
+    const cleanup = () => clearInterval(stallTimer);
+    const stallTimer = setInterval(() => {
+      // No bytes moved for a full minute: the connection is stuck. Abort so
+      // the caller retries this chunk instead of hanging until xhr.timeout.
+      if (!done && Date.now() - lastProgress > 60_000) {
+        done = true;
+        cleanup();
+        try {
+          xhr.abort();
+        } catch {
+          // Ignore abort errors; the rejection below carries the failure.
+        }
+        reject(new Error("Connection stalled. Retrying this chunk."));
+      }
+    }, 10_000);
+    xhr.upload.onprogress = (event) => {
+      lastProgress = Date.now();
+      progress(event.loaded);
+    };
+    xhr.onload = () => {
+      if (done) return;
+      done = true;
+      cleanup();
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else
+        reject(new Error("Upload failed. Retry to resume completed chunks."));
+    };
+    const onConnectionLost = () => {
+      if (done) return;
+      done = true;
+      cleanup();
       reject(new Error("Connection lost. Retry to resume completed chunks."));
+    };
+    xhr.onerror = onConnectionLost;
+    xhr.ontimeout = onConnectionLost;
+    xhr.onabort = () => {
+      if (done) return;
+      done = true;
+      cleanup();
+      reject(new Error("Connection stalled. Retrying this chunk."));
+    };
     xhr.send(blob);
   });
+}
+
+function isFatalUploadError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /closed|invalid upload part|upload not found|expired|no longer available|sign in|size limit|supported photo/i.test(
+    message,
+  );
 }
 async function waitForMedia(id: string, status?: (message: string) => void) {
   for (;;) {
@@ -130,23 +176,45 @@ export async function uploadMedia(
                 current.parts.add(part);
                 break;
               } catch (error) {
-                if (attempt >= 2) throw error;
+                if (isFatalUploadError(error) || attempt >= 5) throw error;
+                onProgress?.(
+                  `Connection hiccup on chunk ${part}. Retrying (kept ${current.parts.size} of ${Math.ceil(current.file.size / partSize)})…`,
+                );
                 await new Promise((resolve) =>
-                  setTimeout(resolve, 1000 * 2 ** attempt),
+                  setTimeout(
+                    resolve,
+                    Math.min(1000 * 2 ** attempt, 10_000) +
+                      Math.floor(Math.random() * 500),
+                  ),
                 );
               }
             }
           }
         } else {
-          await putChunk(
-            current.url as string,
-            current.file,
-            current.file.type,
-            (loaded) =>
-              onProgress?.(
-                `Uploading ${index + 1} of ${files.length}: ${Math.floor((loaded / current.file.size) * 100)}%`,
-              ),
-          );
+          for (let attempt = 0; ; attempt++) {
+            try {
+              await putChunk(
+                current.url as string,
+                current.file,
+                current.file.type,
+                (loaded) =>
+                  onProgress?.(
+                    `Uploading ${index + 1} of ${files.length}: ${Math.floor((loaded / current.file.size) * 100)}%`,
+                  ),
+              );
+              break;
+            } catch (error) {
+              if (isFatalUploadError(error) || attempt >= 5) throw error;
+              onProgress?.(`Connection hiccup. Retrying upload…`);
+              await new Promise((resolve) =>
+                setTimeout(
+                  resolve,
+                  Math.min(1000 * 2 ** attempt, 10_000) +
+                    Math.floor(Math.random() * 500),
+                ),
+              );
+            }
+          }
         }
         await jsonRequest(`/api/media/${current.id}`, "POST");
         current.finalized = true;

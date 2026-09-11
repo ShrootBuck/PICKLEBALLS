@@ -3,7 +3,7 @@ import { z } from "zod";
 export const maxMediaCount = 6;
 export const maxPhotoBytes = 100 * 1024 * 1024;
 export const maxVideoBytes = 5 * 1024 * 1024 * 1024;
-export const mediaPartBytes = 32 * 1024 * 1024;
+export const mediaPartBytes = 8 * 1024 * 1024;
 export const uploadLifetimeMs = 24 * 60 * 60 * 1000;
 export const mediaIdsSchema = z
   .array(z.string().regex(/^[iv]_[a-f0-9-]{36}$/))
