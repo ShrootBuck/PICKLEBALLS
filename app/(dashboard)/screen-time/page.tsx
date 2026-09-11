@@ -22,6 +22,7 @@ import {
   formatScreenTime,
   isScreenTimeWeek,
   latestScreenTimeWeek,
+  parseTopApps,
   rankScreenTime,
   screenTimeWeekLabel,
 } from "@/lib/screen-time";
@@ -108,6 +109,7 @@ export default async function ScreenTimePage({
         previousDailyAverageMinutes:
           byWeek(member.userId, previous)?.dailyAverageMinutes ?? null,
         mediaId: current?.mediaId ?? null,
+        topApps: parseTopApps(current?.topApps),
       };
     }),
   );
@@ -160,6 +162,9 @@ export default async function ScreenTimePage({
           const person = members.find(
             (member) => member.userId === row.userId,
           )?.user;
+          const topAppsLabel = row.topApps
+            .map((app) => `${app.name} ${formatScreenTime(app.minutes)}`)
+            .join(" · ");
           return (
             <article
               key={row.userId}
@@ -200,6 +205,14 @@ export default async function ScreenTimePage({
                       ? "Same as last week"
                       : `${formatScreenTime(Math.abs(row.improvement))} ${row.improvement > 0 ? "less" : "more"} / day`}
                 </p>
+                {topAppsLabel && (
+                  <p
+                    className="mt-1 truncate text-xs text-muted-foreground"
+                    title={topAppsLabel}
+                  >
+                    {topAppsLabel}
+                  </p>
+                )}
                 {bestImprovement > 0 && row.improvement === bestImprovement && (
                   <Badge variant="secondary" className="mt-2">
                     Most improved

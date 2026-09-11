@@ -4,6 +4,7 @@ import { readScreenTimeInBackground } from "@/lib/background";
 import { DomainError } from "@/lib/errors";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
+import { parseTopApps } from "@/lib/screen-time";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
         weekStart: reading.weekStart.toISOString().slice(0, 10),
         dailyAverageMinutes: reading.dailyAverageMinutes,
         totalMinutes: reading.totalMinutes,
+        topApps: parseTopApps(reading.topApps),
       },
     });
   } catch (error) {

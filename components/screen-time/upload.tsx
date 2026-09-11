@@ -22,7 +22,11 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { appFetch, holdAppRefresh } from "@/lib/app-refresh";
 import { uploadMedia } from "@/lib/media-upload";
-import { formatScreenTime, screenTimeWeekLabel } from "@/lib/screen-time";
+import {
+  formatScreenTime,
+  type ScreenTimeApp,
+  screenTimeWeekLabel,
+} from "@/lib/screen-time";
 
 type Reading = {
   id: string;
@@ -30,6 +34,7 @@ type Reading = {
   weekStart: string;
   dailyAverageMinutes: number;
   totalMinutes: number | null;
+  topApps: ScreenTimeApp[];
 };
 
 export function ScreenTimeUpload({
@@ -175,6 +180,24 @@ export function ScreenTimeUpload({
                 </>
               )}
             </dl>
+            {reading.topApps.length > 0 && (
+              <div className="text-sm">
+                <p className="mb-1.5 text-muted-foreground">Top apps</p>
+                <ul className="flex flex-col gap-1">
+                  {reading.topApps.map((app, index) => (
+                    <li
+                      key={`${app.name}:${index}`}
+                      className="flex items-baseline justify-between gap-3"
+                    >
+                      <span className="min-w-0 truncate">{app.name}</span>
+                      <span className="shrink-0 tabular-nums text-muted-foreground">
+                        {formatScreenTime(app.minutes)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <MediaGallery ids={[reading.mediaId]} />
             <div className="flex flex-wrap gap-2">
               <Button disabled={pending} onClick={confirm}>

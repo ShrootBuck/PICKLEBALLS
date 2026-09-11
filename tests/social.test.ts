@@ -124,6 +124,7 @@ test("screen-time ties and missing submissions retain honest ranks", () => {
     dailyAverageMinutes: minutes,
     previousDailyAverageMinutes: 90,
     mediaId: null,
+    topApps: [],
   }));
   expect(rankScreenTime(rows).map((r) => r.rank)).toEqual([1, 1, 3, null]);
 });

@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1789098266157,
+    title: "Top apps in your screen time read",
+    description:
+      "The screenshot reader now picks up your most-used apps, up to five, with the time spent in each one. They appear with the numbers you check before posting, and on your leaderboard row for that week. Screenshots without a visible app list read the averages as before.",
+  },
+  {
     timestamp: 1788999382147,
     title: "Room for the whole video",
     description:

@@ -582,6 +582,7 @@ model ScreenTimeReading {
   weekStart           DateTime @db.Date
   dailyAverageMinutes Int
   totalMinutes        Int?
+  topApps             Json?
   createdAt           DateTime @default(now())
 
   user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -28,6 +28,26 @@ export function formatScreenTime(minutes: number) {
   return hours ? `${hours}h ${rest}m` : `${rest}m`;
 }
 
+export const screenTimeAppSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  minutes: z.number().int().min(0).max(10080),
+});
+
+export type ScreenTimeApp = z.infer<typeof screenTimeAppSchema>;
+
+// Readings store topApps as JSON; older rows and damaged values read as empty.
+// One bad row drops itself, not the whole list.
+export function parseTopApps(value: unknown): ScreenTimeApp[] {
+  if (!Array.isArray(value)) return [];
+  const apps: ScreenTimeApp[] = [];
+  for (const entry of value) {
+    const parsed = screenTimeAppSchema.safeParse(entry);
+    if (parsed.success) apps.push(parsed.data);
+    if (apps.length === 5) break;
+  }
+  return apps;
+}
+
 export const screenTimeExtractionSchema = z.object({
   isWeeklyReport: z.boolean(),
   dailyAverageMinutes: z
@@ -40,6 +60,13 @@ export const screenTimeExtractionSchema = z.object({
       "Visible daily average, including Last Week’s Average; null if unreadable.",
     ),
   totalMinutes: z.number().int().min(0).max(10080).nullable(),
+  // Loose rows on purpose: one misread app must not fail the whole read.
+  // validateScreenTimeExtraction drops rows parseTopApps cannot keep.
+  topApps: z
+    .array(z.object({ name: z.string(), minutes: z.number() }))
+    .describe(
+      "Up to five most-used apps in the order displayed, each with its visible weekly time; empty array when no app list is visible.",
+    ),
 });
 
 export function validateScreenTimeExtraction(raw: unknown) {
@@ -65,9 +92,13 @@ export function validateScreenTimeExtraction(raw: unknown) {
     Math.abs(value.totalMinutes - value.dailyAverageMinutes * 7) <= 7
       ? value.totalMinutes
       : null;
+  // The app list is context, not evidence: an unreadable or absent list never
+  // blocks the average, and partial reads keep only fully readable rows.
+  const topApps = parseTopApps(value.topApps);
   return {
     dailyAverageMinutes: value.dailyAverageMinutes,
     totalMinutes,
+    topApps,
   };
 }
 
@@ -77,6 +108,7 @@ export type ScreenTimeStanding = {
   dailyAverageMinutes: number | null;
   previousDailyAverageMinutes: number | null;
   mediaId: string | null;
+  topApps: ScreenTimeApp[];
 };
 
 export function rankScreenTime(rows: ScreenTimeStanding[]) {
