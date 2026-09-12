@@ -132,6 +132,7 @@ export async function notifyReplyReceived(input: {
     select: {
       id: true,
       body: true,
+      createdAt: true,
       authorId: true,
       author: { select: { name: true } },
       commitment: { select: { id: true, userId: true, title: true } },
@@ -214,10 +215,55 @@ export async function notifyReplyReceived(input: {
     }
   }
 
+  // Match the exact thread, including separate review and check-in threads.
+  const target = reply.commitment
+    ? { commitmentId: reply.commitment.id }
+    : reply.checkInUpdate
+      ? { checkInUpdateId: reply.checkInUpdate.id }
+      : reply.checkIn
+        ? { checkInId: reply.checkIn.id }
+        : reply.proof
+          ? { proofId: reply.proof.id }
+          : reply.review
+            ? { reviewId: reply.review.id }
+            : null;
+  const destination = jobs[0];
+  if (!target || !destination) return [];
+
+  const participants = await prisma.socialReply.findMany({
+    where: {
+      circleId: input.circleId,
+      ...target,
+      // Delayed jobs must not notify people about replies from before they joined.
+      createdAt: { lte: reply.createdAt },
+      authorId: { not: input.authorId },
+    },
+    distinct: ["authorId"],
+    select: { authorId: true },
+  });
+  for (const participant of participants) {
+    jobs.push({
+      ...destination,
+      recipientId: participant.authorId,
+      context: "a thread you’re participating in",
+    });
+  }
+  const members = await prisma.membership.findMany({
+    where: {
+      circleId: input.circleId,
+      userId: { in: [...new Set(jobs.map((job) => job.recipientId))] },
+    },
+    select: { userId: true },
+  });
+  const memberIds = new Set(members.map((member) => member.userId));
   const seen = new Set<string>();
   const results = [];
   for (const job of jobs) {
-    if (job.recipientId === input.authorId || seen.has(job.recipientId)) {
+    if (
+      job.recipientId === input.authorId ||
+      seen.has(job.recipientId) ||
+      !memberIds.has(job.recipientId)
+    ) {
       continue;
     }
     seen.add(job.recipientId);

@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1789251460089,
+    title: "Stay in the conversation",
+    description:
+      "Comment in a thread and you’ll be notified when someone replies, even when it isn’t your post. Post owners and reviewers still receive replies to their posts and reviews.",
+  },
+  {
     timestamp: 1789098266157,
     title: "Top apps in your screen time read",
     description:

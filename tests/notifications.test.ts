@@ -2,20 +2,52 @@ import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 
 mock.module("server-only", () => ({}));
 let storedPrefs: Record<string, boolean> | null = null;
+let replyRow: Record<string, unknown> | null = null;
+const replyFind = mock(async () => replyRow);
+const participantsFind = mock(async () => [
+  { authorId: "participant" },
+  { authorId: "owner" },
+  { authorId: "actor" },
+  { authorId: "departed" },
+]);
+const membersFind = mock(async () => [
+  { userId: "owner" },
+  { userId: "participant" },
+  { userId: "reviewer" },
+  { userId: "actor" },
+]);
 const create = mock(async () => ({ id: "notification-1" }));
 const findMany = mock(async () => []);
 const count = mock(async () => 0);
 const updateMany = mock(async () => ({ count: 2 }));
 const originalTriggerKey = process.env.TRIGGER_SECRET_KEY;
 const triggerPush = mock(async () => ({ id: "run-push" }));
-const existingNotification = mock(async () => ({ id: "notification-1" }));
+const existingNotification = mock(
+  async (): Promise<Record<string, unknown> | null> => ({
+    id: "notification-1",
+  }),
+);
+const membershipFind = mock(
+  async (): Promise<{ userId: string } | null> => ({ userId: "recipient" }),
+);
+let runNotification: (payload: {
+  kind: string;
+  notificationId: string;
+}) => Promise<unknown>;
+
 mock.module("@trigger.dev/sdk", () => ({
   tasks: { trigger: triggerPush },
+  schemaTask: (definition: { run: typeof runNotification }) => {
+    runNotification = definition.run;
+    return definition;
+  },
   idempotencyKeys: { create: async (key: string) => key },
 }));
 const sendPush = mock(async () => {});
 mock.module("@/lib/prisma", () => ({
   getPrisma: () => ({
+    socialReply: { findFirst: replyFind, findMany: participantsFind },
+    membership: { findMany: membersFind, findUnique: membershipFind },
     notificationPreference: { findUnique: async () => storedPrefs },
     notification: {
       create,
@@ -34,7 +66,10 @@ mock.module("@/lib/request", () => ({
     membership: { circleId: "circle" },
   }),
 }));
-const { createNotificationAndPush } = await import("@/lib/notifications");
+const { createNotificationAndPush, notifyReplyReceived } = await import(
+  "@/lib/notifications"
+);
+await import("@/src/trigger/notification");
 const { GET } = await import("@/app/api/notifications/route");
 const { POST } = await import("@/app/api/notifications/mark-all-read/route");
 const { inboxKinds } = await import("@/lib/notification-policy");
@@ -49,7 +84,12 @@ const input = {
 beforeEach(() => {
   delete process.env.TRIGGER_SECRET_KEY;
   storedPrefs = null;
+  replyRow = null;
   for (const fn of [
+    membershipFind,
+    replyFind,
+    participantsFind,
+    membersFind,
     create,
     findMany,
     count,
@@ -219,4 +259,144 @@ test("retry after enqueue failure reuses the inbox row and the same push key", a
   });
   expect(triggerPush).toHaveBeenCalledTimes(2);
   expect(triggerPush.mock.calls[0]).toEqual(triggerPush.mock.calls[1]);
+});
+
+for (const [relation, field, target] of [
+  [
+    "commitment",
+    "commitmentId",
+    { id: "target", userId: "owner", title: "Task" },
+  ],
+  ["checkIn", "checkInId", { id: "target", userId: "owner" }],
+  ["checkInUpdate", "checkInUpdateId", { id: "target", userId: "owner" }],
+  [
+    "proof",
+    "proofId",
+    { id: "target", ownerId: "owner", commitment: { title: "Task" } },
+  ],
+  [
+    "review",
+    "reviewId",
+    {
+      id: "target",
+      reviewerId: "reviewer",
+      proof: { id: "proof", ownerId: "owner", commitment: { title: "Task" } },
+    },
+  ],
+] as const) {
+  test(`${relation} replies notify owners and participants once, excluding self and former members`, async () => {
+    const createdAt = new Date("2026-09-12T12:00:00Z");
+    replyRow = {
+      id: "reply",
+      authorId: "actor",
+      author: { name: "Alex" },
+      body: "",
+      createdAt,
+      [relation]: target,
+    };
+    await notifyReplyReceived({
+      replyId: "reply",
+      authorId: "actor",
+      circleId: "circle",
+    });
+    expect(participantsFind).toHaveBeenCalledWith({
+      where: {
+        circleId: "circle",
+        [field]: "target",
+        createdAt: { lte: createdAt },
+        authorId: { not: "actor" },
+      },
+      distinct: ["authorId"],
+      select: { authorId: true },
+    });
+    expect(create).toHaveBeenCalledTimes(relation === "review" ? 3 : 2);
+    for (const recipientId of relation === "review"
+      ? ["owner", "reviewer", "participant"]
+      : ["owner", "participant"]) {
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            recipientId,
+            dedupeKey: `reply:reply:${recipientId}`,
+            body: "Sent an attachment",
+          }),
+        }),
+      );
+    }
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          recipientId: "participant",
+          title: "Alex replied to a thread you’re participating in",
+          data: expect.objectContaining({
+            url:
+              relation === "proof"
+                ? "/posts/proof/target?circle=circle"
+                : relation === "review"
+                  ? "/posts/proof/proof?circle=circle"
+                  : relation === "checkInUpdate"
+                    ? "/posts/check-in/target?circle=circle"
+                    : "/squad?circle=circle&focus=target",
+          }),
+        }),
+      }),
+    );
+  });
+}
+
+test("deleted replies and mismatched authors produce no notifications", async () => {
+  const payload = { replyId: "reply", authorId: "actor", circleId: "circle" };
+  expect(await notifyReplyReceived(payload)).toEqual([]);
+  replyRow = { authorId: "someone-else" };
+  expect(await notifyReplyReceived(payload)).toEqual([]);
+  expect(participantsFind).not.toHaveBeenCalled();
+  expect(create).not.toHaveBeenCalled();
+});
+
+const queuedNotification = {
+  id: "notification-1",
+  recipientId: "recipient",
+  circleId: "circle",
+  kind: "REPLY_POSTED",
+  title: "Reply",
+  body: "Hello",
+  readAt: null,
+  data: { url: "/posts/proof/proof?circle=circle" },
+};
+
+test("queued pushes skip deleted or already-read notifications", async () => {
+  for (const row of [null, { ...queuedNotification, readAt: new Date() }]) {
+    existingNotification.mockResolvedValueOnce(row);
+    expect(
+      await runNotification({ kind: "push", notificationId: "notification-1" }),
+    ).toEqual({ skipped: true });
+  }
+  expect(sendPush).not.toHaveBeenCalled();
+});
+
+test("queued pushes skip recipients who left the circle", async () => {
+  existingNotification.mockResolvedValueOnce(queuedNotification);
+  membershipFind.mockResolvedValueOnce(null);
+  expect(
+    await runNotification({ kind: "push", notificationId: "notification-1" }),
+  ).toEqual({ skipped: true });
+  expect(sendPush).not.toHaveBeenCalled();
+});
+
+test("unread queued pushes still reach current members", async () => {
+  existingNotification.mockResolvedValueOnce(queuedNotification);
+  await runNotification({ kind: "push", notificationId: "notification-1" });
+  expect(membershipFind).toHaveBeenCalledWith({
+    where: { userId_circleId: { userId: "recipient", circleId: "circle" } },
+    select: { userId: true },
+  });
+  expect(sendPush).toHaveBeenCalledWith(
+    "recipient",
+    expect.objectContaining({
+      title: "Reply",
+      url: "/posts/proof/proof?circle=circle",
+      notificationId: "notification-1",
+    }),
+    true,
+  );
 });

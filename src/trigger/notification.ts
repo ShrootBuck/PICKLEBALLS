@@ -48,7 +48,17 @@ export const notification = schemaTask({
     const notification = await getPrisma().notification.findUnique({
       where: { id: notificationId },
     });
-    if (!notification) return { skipped: true };
+    if (!notification || notification.readAt) return { skipped: true };
+    const membership = await getPrisma().membership.findUnique({
+      where: {
+        userId_circleId: {
+          userId: notification.recipientId,
+          circleId: notification.circleId,
+        },
+      },
+      select: { userId: true },
+    });
+    if (!membership) return { skipped: true };
     const prefs = await getNotificationPrefs(notification.recipientId);
     if (!shouldPushNotification(notification.kind, prefs))
       return { skipped: true };

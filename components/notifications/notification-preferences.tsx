@@ -75,8 +75,9 @@ export function NotificationPreferences() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        Replies and proof verdicts always appear in your inbox, with push alerts
-        when enabled on this device.
+        Replies to your posts and threads you’ve commented in always appear in
+        your inbox, along with proof verdicts. Push alerts arrive when enabled
+        on this device.
       </p>
       {prefs ? (
         <FieldGroup className="gap-3">
