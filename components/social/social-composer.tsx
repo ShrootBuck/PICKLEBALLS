@@ -284,9 +284,9 @@ function ComposerForm({
         onClose();
         window.dispatchEvent(new Event("pb:media-pending"));
         toast.add({
-          title:
-            "Upload complete. Your proof will post when processing finishes.",
-          type: "success",
+          title: "Upload complete",
+          description: "Preparing your proof. We’ll post it when it’s ready.",
+          type: "info",
         });
         router.push("/");
         return;

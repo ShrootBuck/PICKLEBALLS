@@ -1,8 +1,14 @@
 "use client";
 
+import { CircleCheckIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
@@ -73,6 +79,9 @@ export function PendingMediaPosts({ circleId }: { circleId: string }) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
+      if (action === "dismiss") {
+        setPosts((current) => current.filter((post) => post.id !== id));
+      }
       window.dispatchEvent(new Event("pb:media-pending"));
     } catch (error) {
       toast.add({
@@ -87,11 +96,17 @@ export function PendingMediaPosts({ circleId }: { circleId: string }) {
   if (!posts.length) return null;
   return (
     <aside
-      className="flex flex-col gap-2 px-4 pt-3"
+      className="flex max-h-[30dvh] shrink-0 flex-col gap-2 overflow-y-auto px-4 pt-3"
       aria-label="Your processing posts"
     >
       {posts.map((post) => (
-        <Alert key={post.id} variant={post.error ? "destructive" : "default"}>
+        <Alert
+          key={post.id}
+          className="shrink-0"
+          variant={post.error ? "destructive" : "default"}
+          role={post.error ? "alert" : "status"}
+        >
+          {post.proofId && <CircleCheckIcon />}
           {!post.error && !post.proofId && <Spinner />}
           <AlertTitle>
             {post.proofId
@@ -110,31 +125,42 @@ export function PendingMediaPosts({ circleId }: { circleId: string }) {
               </Link>
             ) : (
               post.error ||
-              "You can leave this screen. Your friends will see the post when every attachment is ready."
+              "You can keep browsing. Your proof will post automatically."
             )}
-            {(post.error || post.proofId) && (
-              <div className="flex gap-2 pt-2">
-                {post.error && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy === post.id}
-                    onClick={() => void act(post.id, "retry")}
-                  >
-                    Retry processing
-                  </Button>
-                )}
+            {post.error && (
+              <div className="flex flex-wrap gap-2 pt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === post.id}
+                  onClick={() => void act(post.id, "retry")}
+                >
+                  Retry processing
+                </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   disabled={busy === post.id}
                   onClick={() => void act(post.id, "dismiss")}
                 >
-                  {post.proofId ? "Dismiss" : "Remove submission"}
+                  Remove submission
                 </Button>
               </div>
             )}
           </AlertDescription>
+          {post.proofId && (
+            <AlertAction>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="Dismiss posted proof notification"
+                disabled={busy === post.id}
+                onClick={() => void act(post.id, "dismiss")}
+              >
+                <XIcon />
+              </Button>
+            </AlertAction>
+          )}
         </Alert>
       ))}
     </aside>

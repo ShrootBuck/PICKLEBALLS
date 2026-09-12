@@ -175,7 +175,7 @@
       min-height: 44px;
     }
     /* Inputs/textarea need comfortable thumb targets on mobile too */
-    input:not([type="hidden"]),
+    input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
     textarea,
     select,
     [data-slot="input-group"] {
@@ -243,7 +243,8 @@
 /* Avoid iOS focus zoom, even where a compact form adds text-sm. */
 @media (pointer: coarse) {
   [data-slot="input"],
-  [data-slot="textarea"] {
+  [data-slot="textarea"],
+  select {
     font-size: 16px;
   }
 }
@@ -1139,10 +1140,9 @@
   padding: 24px;
   text-align: center;
   font-size: 14px;
-}
-.story-media-message {
   pointer-events: none;
 }
+
 .story-media-message button {
   pointer-events: auto;
 }
@@ -1193,7 +1193,7 @@
   background:
     radial-gradient(
       ellipse at 100% 100%,
-      color-mix(in oklch, var(--warning) 16%, transparent),
+      color-mix(in oklch, var(--chart-3) 16%, transparent),
       transparent 75%
     ),
     var(--card);
@@ -1444,5 +1444,19 @@
   [data-slot="dialog-overlay"],
   [data-slot="sheet-overlay"] {
     backdrop-filter: none;
+  }
+}
+
+/* Keep feedback above the mobile tabs, including the iOS home indicator. */
+@media (width < 48rem) {
+  body:has(.social-bottom-nav) [data-slot="toast-viewport"] {
+    bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+  [data-slot="toast-close"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .social-scroll {
+    scrollbar-gutter: auto;
   }
 }
