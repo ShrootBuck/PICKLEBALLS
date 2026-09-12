@@ -94,7 +94,10 @@ function isFatalUploadError(error: unknown) {
     message,
   );
 }
-async function waitForMedia(id: string, status?: (message: string) => void) {
+async function waitForMedia(
+  id: string,
+  status?: (message: string, percent?: number) => void,
+) {
   for (;;) {
     const response = await fetch(
       `/api/media/status?id=${encodeURIComponent(id)}`,
@@ -106,14 +109,14 @@ async function waitForMedia(id: string, status?: (message: string) => void) {
     if (!media) throw new Error("Upload no longer available.");
     if (media.ready) return;
     if (media.processingError) throw new Error(media.processingError);
-    status?.(`Processing video: ${media.progress}%`);
+    status?.("Processing video…", media.progress);
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 }
 
 export async function uploadMedia(
   files: File[],
-  onProgress?: (message: string) => void,
+  onProgress?: (message: string, percent?: number) => void,
   options?: { deferProcessing?: boolean },
 ) {
   const release = holdAppRefresh();
@@ -147,7 +150,27 @@ export async function uploadMedia(
         uploads.set(source, state as UploadState);
       }
       const current = state as UploadState;
+      const reportBytes = (loaded: number) => {
+        onProgress?.(
+          `Uploading ${index + 1} of ${files.length}: ${source.name}`,
+          Math.min(100, Math.floor((loaded / current.file.size) * 100)),
+        );
+      };
       if (!current.finalized) {
+        reportBytes(
+          current.partSize
+            ? [...current.parts].reduce(
+                (total, part) =>
+                  total +
+                  Math.min(
+                    current.partSize as number,
+                    current.file.size -
+                      (part - 1) * (current.partSize as number),
+                  ),
+                0,
+              )
+            : 0,
+        );
         if (current.partSize) {
           const partSize = current.partSize;
           for (
@@ -169,16 +192,14 @@ export async function uploadMedia(
                   { part },
                 );
                 await putChunk(url, chunk, null, (loaded) =>
-                  onProgress?.(
-                    `Uploading ${index + 1} of ${files.length}: ${Math.min(100, Math.floor(((start + loaded) / current.file.size) * 100))}%`,
-                  ),
+                  reportBytes(start + loaded),
                 );
                 current.parts.add(part);
                 break;
               } catch (error) {
                 if (isFatalUploadError(error) || attempt >= 5) throw error;
                 onProgress?.(
-                  `Connection hiccup on chunk ${part}. Retrying (kept ${current.parts.size} of ${Math.ceil(current.file.size / partSize)})…`,
+                  `Connection interrupted. Retrying ${source.name} (attempt ${attempt + 1} of 5). Your progress is saved.`,
                 );
                 await new Promise((resolve) =>
                   setTimeout(
@@ -197,15 +218,14 @@ export async function uploadMedia(
                 current.url as string,
                 current.file,
                 current.file.type,
-                (loaded) =>
-                  onProgress?.(
-                    `Uploading ${index + 1} of ${files.length}: ${Math.floor((loaded / current.file.size) * 100)}%`,
-                  ),
+                reportBytes,
               );
               break;
             } catch (error) {
               if (isFatalUploadError(error) || attempt >= 5) throw error;
-              onProgress?.(`Connection hiccup. Retrying upload…`);
+              onProgress?.(
+                `Connection interrupted. Retrying ${source.name} (attempt ${attempt + 1} of 5)…`,
+              );
               await new Promise((resolve) =>
                 setTimeout(
                   resolve,
@@ -216,6 +236,9 @@ export async function uploadMedia(
             }
           }
         }
+        onProgress?.(
+          `Finishing ${index + 1} of ${files.length}: ${source.name}…`,
+        );
         await jsonRequest(`/api/media/${current.id}`, "POST");
         current.finalized = true;
       }

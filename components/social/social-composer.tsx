@@ -19,6 +19,10 @@ import {
   useState,
 } from "react";
 import { MediaPicker } from "@/components/media/media-picker";
+import {
+  UploadStatus,
+  useUploadStatus,
+} from "@/components/media/upload-status";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -185,7 +189,7 @@ function ComposerForm({
   const [step, setStep] = useState<"media" | "details">(draft?.step ?? "media");
   const [editTimes, setEditTimes] = useState(draft?.editTimes ?? false);
   const [error, setError] = useState<string | null>(null);
-  const [uploadStatus, setUploadStatus] = useState("");
+  const [uploadStatus, setUploadStatus, uploadPercent] = useUploadStatus();
   const uploadedIds = useRef<string[] | null>(draft?.uploadedIds ?? null);
   const submitted = useRef(false);
   useEffect(() => {
@@ -564,10 +568,7 @@ function ComposerForm({
           </Alert>
         )}
         {pending && (
-          <output className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <Spinner />
-            {uploadStatus || "Saving…"}
-          </output>
+          <UploadStatus status={uploadStatus} percent={uploadPercent} />
         )}
       </form>
       {mode !== "choose" && mode !== "story" && (

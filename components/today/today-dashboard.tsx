@@ -15,6 +15,10 @@ import Link from "next/link";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { MediaPicker } from "@/components/media/media-picker";
+import {
+  UploadStatus,
+  useUploadStatus,
+} from "@/components/media/upload-status";
 import { ProofReviewList } from "@/components/squad/proof-review-list";
 import type { ThreadReply } from "@/components/squad/social-reply-thread";
 import { OnboardingCard } from "@/components/today/onboarding-card";
@@ -388,7 +392,7 @@ function ProofDialog({
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [uploadStatus, setUploadStatus] = useState("");
+  const [uploadStatus, setUploadStatus, uploadPercent] = useUploadStatus();
   const uploadedIds = useRef<string[] | null>(null);
   const [confirmEmpty, setConfirmEmpty] = useState(false);
   const [startedAt, setStartedAt] = useState(() =>
@@ -552,9 +556,7 @@ function ProofDialog({
                   required
                 />
                 {pending && uploadStatus ? (
-                  <output className="text-sm text-muted-foreground">
-                    {uploadStatus}
-                  </output>
+                  <UploadStatus status={uploadStatus} percent={uploadPercent} />
                 ) : null}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>

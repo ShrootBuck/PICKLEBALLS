@@ -12,6 +12,10 @@ import {
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { MediaGallery } from "@/components/media/media-gallery";
 import { MediaPicker } from "@/components/media/media-picker";
+import {
+  UploadStatus,
+  useUploadStatus,
+} from "@/components/media/upload-status";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -299,7 +303,7 @@ export function SocialReplyThread({
   }, [initialReplies]);
   const [body, setBody] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [uploadStatus, setUploadStatus] = useState("");
+  const [uploadStatus, setUploadStatus, uploadPercent] = useUploadStatus();
   const uploadedIds = useRef<string[] | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -571,9 +575,10 @@ export function SocialReplyThread({
                     />
                   ) : null}
                   {pending && uploadStatus ? (
-                    <output className="text-xs text-muted-foreground">
-                      {uploadStatus}
-                    </output>
+                    <UploadStatus
+                      status={uploadStatus}
+                      percent={uploadPercent}
+                    />
                   ) : null}
                   <div className="flex flex-wrap items-center gap-2">
                     <Button

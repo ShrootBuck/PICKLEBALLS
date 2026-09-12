@@ -3,6 +3,10 @@
 import { Check, Smartphone, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { MediaGallery } from "@/components/media/media-gallery";
+import {
+  UploadStatus,
+  useUploadStatus,
+} from "@/components/media/upload-status";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,7 +54,7 @@ export function ScreenTimeUpload({
   const uploadedId = useRef<string | null>(null);
   const [reading, setReading] = useState<Reading | null>(null);
   const [pending, setPending] = useState(false);
-  const [status, setStatus] = useState("");
+  const [status, setStatus, uploadPercent] = useUploadStatus();
   const [error, setError] = useState<string | null>(null);
   const [savedAverage, setSavedAverage] = useState<number | null>(null);
   const average = savedAverage ?? submittedAverage;
@@ -269,9 +273,7 @@ export function ScreenTimeUpload({
             </Button>
           </form>
         )}
-        {status && (
-          <output className="text-sm text-muted-foreground">{status}</output>
-        )}
+        {status && <UploadStatus status={status} percent={uploadPercent} />}
         {error && (
           <Alert variant="destructive">
             <AlertTitle>Could not finish</AlertTitle>
