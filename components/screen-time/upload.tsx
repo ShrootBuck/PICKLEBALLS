@@ -1,8 +1,7 @@
 "use client";
 
-import { Check, Smartphone, Upload } from "lucide-react";
-import { useRef, useState } from "react";
-import { MediaGallery } from "@/components/media/media-gallery";
+import { Check, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import {
   UploadStatus,
   useUploadStatus,
@@ -24,43 +23,89 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { appFetch, holdAppRefresh } from "@/lib/app-refresh";
+import { holdAppRefresh, requestAppRefresh } from "@/lib/app-refresh";
 import { uploadMedia } from "@/lib/media-upload";
-import {
-  formatScreenTime,
-  type ScreenTimeApp,
-  screenTimeWeekLabel,
-} from "@/lib/screen-time";
-
-type Reading = {
-  id: string;
-  mediaId: string;
-  weekStart: string;
-  dailyAverageMinutes: number;
-  totalMinutes: number | null;
-  topApps: ScreenTimeApp[];
-};
+import { formatScreenTime, screenTimeWeekLabel } from "@/lib/screen-time";
 
 export function ScreenTimeUpload({
   weekStart,
+  userId,
   circleId,
   submittedAverage,
 }: {
   weekStart: string;
+  userId: string;
   circleId: string;
   submittedAverage: number | null;
 }) {
   const [file, setFile] = useState<File | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const uploadedId = useRef<string | null>(null);
-  const [reading, setReading] = useState<Reading | null>(null);
+  const [runId, setRunId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [status, setStatus, uploadPercent] = useUploadStatus();
   const [error, setError] = useState<string | null>(null);
   const [savedAverage, setSavedAverage] = useState<number | null>(null);
   const average = savedAverage ?? submittedAverage;
+  const storageKey = `screen-time-read:${userId}:${circleId}:${weekStart}`;
+
+  useEffect(() => {
+    try {
+      setRunId(localStorage.getItem(storageKey));
+    } catch {}
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!runId) return;
+    const activeRunId = runId;
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      try {
+        const response = await fetch(
+          `/api/screen-time/read?runId=${encodeURIComponent(activeRunId)}`,
+          { cache: "no-store" },
+        );
+        const result = await response.json();
+        if (disposed) return;
+        if (
+          (response.ok && result.pending) ||
+          response.status >= 500 ||
+          response.status === 429
+        ) {
+          timer = setTimeout(poll, 2000);
+          return;
+        }
+        if (response.ok && result.reading) {
+          setSavedAverage(result.reading.dailyAverageMinutes);
+          setFile(null);
+          if (inputRef.current) inputRef.current.value = "";
+          uploadedId.current = null;
+          requestAppRefresh();
+        } else {
+          setError(
+            result.error ?? "Could not read this screenshot. Try again.",
+          );
+        }
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        setRunId(null);
+      } catch {
+        if (!disposed) timer = setTimeout(poll, 5000);
+      }
+    }
+    void poll();
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+    };
+  }, [runId, storageKey]);
+
+  const busy = pending || runId !== null;
 
   async function read() {
-    if (!file || pending) return;
+    if (!file || busy) return;
     setPending(true);
     setError(null);
     const release = holdAppRefresh();
@@ -77,7 +122,18 @@ export function ScreenTimeUpload({
       const result = await response.json();
       if (!response.ok)
         throw new Error(result.error ?? "Could not read this screenshot.");
-      setReading(result.reading);
+      if (result.runId) {
+        try {
+          localStorage.setItem(storageKey, result.runId);
+        } catch {}
+        setRunId(result.runId);
+      } else {
+        setSavedAverage(result.reading.dailyAverageMinutes);
+        setFile(null);
+        if (inputRef.current) inputRef.current.value = "";
+        uploadedId.current = null;
+        requestAppRefresh();
+      }
     } catch (error) {
       setError(
         error instanceof Error ? error.message : "Upload failed. Try again.",
@@ -86,32 +142,6 @@ export function ScreenTimeUpload({
       setPending(false);
       setStatus("");
       release();
-    }
-  }
-
-  async function confirm() {
-    if (!reading || pending) return;
-    setPending(true);
-    setError(null);
-    try {
-      const response = await appFetch("/api/screen-time", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ readingId: reading.id, circleId }),
-      });
-      const result = await response.json();
-      if (!response.ok)
-        throw new Error(result.error ?? "Could not save your screen time.");
-      setSavedAverage(reading.dailyAverageMinutes);
-      setReading(null);
-      setFile(null);
-      uploadedId.current = null;
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Could not save. Try again.",
-      );
-    } finally {
-      setPending(false);
     }
   }
 
@@ -135,8 +165,8 @@ export function ScreenTimeUpload({
               {formatScreenTime(average)} per day submitted
             </AlertTitle>
             <AlertDescription>
-              You can replace it below. Your current entry stays until you
-              confirm the replacement.
+              You can replace it below. Your current entry stays until a new
+              screenshot passes validation.
             </AlertDescription>
           </Alert>
         )}
@@ -154,126 +184,71 @@ export function ScreenTimeUpload({
           </ol>
           <p className="text-muted-foreground">
             Use the same phone each week. Reminders arrive Sunday at 10 AM
-            Tucson time. You can submit during the following week. Your
-            confirmed screenshot and numbers are visible to this circle.
+            Tucson time. You can submit during the following week. Your accepted
+            screenshot and numbers are visible to this circle.
           </p>
         </div>
-        {reading ? (
-          <div className="flex flex-col gap-4">
-            <Alert>
-              <Smartphone />
-              <AlertTitle>Check the read before posting</AlertTitle>
-              <AlertDescription>
-                Make sure you went back one week and the numbers match your
-                screenshot. If the read is wrong, choose a clearer image.
-              </AlertDescription>
-            </Alert>
-            <dl className="grid grid-cols-2 gap-3 text-sm">
-              <dt className="text-muted-foreground">Entry for</dt>
-              <dd>{screenTimeWeekLabel(reading.weekStart)}</dd>
-              <dt className="text-muted-foreground">Daily average</dt>
-              <dd className="font-medium tabular-nums">
-                {formatScreenTime(reading.dailyAverageMinutes)}
-              </dd>
-              {reading.totalMinutes !== null && (
-                <>
-                  <dt className="text-muted-foreground">Weekly total</dt>
-                  <dd className="tabular-nums">
-                    {formatScreenTime(reading.totalMinutes)}
-                  </dd>
-                </>
-              )}
-            </dl>
-            {reading.topApps.length > 0 && (
-              <div className="text-sm">
-                <p className="mb-1.5 text-muted-foreground">Top apps</p>
-                <ul className="flex flex-col gap-1">
-                  {reading.topApps.map((app, index) => (
-                    <li
-                      key={`${app.name}:${index}`}
-                      className="flex items-baseline justify-between gap-3"
-                    >
-                      <span className="min-w-0 truncate">{app.name}</span>
-                      <span className="shrink-0 tabular-nums text-muted-foreground">
-                        {formatScreenTime(app.minutes)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <MediaGallery ids={[reading.mediaId]} />
-            <div className="flex flex-wrap gap-2">
-              <Button disabled={pending} onClick={confirm}>
-                {pending ? (
-                  <Spinner data-icon="inline-start" />
-                ) : (
-                  <Check data-icon="inline-start" />
-                )}
-                Confirm and post
-              </Button>
-              <Button
-                variant="outline"
-                disabled={pending}
-                onClick={() => {
-                  setReading(null);
-                  setFile(null);
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void read();
+          }}
+          className="flex flex-col gap-3"
+        >
+          <FieldGroup>
+            <Field data-invalid={Boolean(error)} data-disabled={busy}>
+              <FieldLabel htmlFor="screen-time-image">
+                Weekly screenshot
+              </FieldLabel>
+              <Input
+                ref={inputRef}
+                id="screen-time-image"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
+                disabled={busy}
+                aria-invalid={Boolean(error)}
+                aria-describedby="screen-time-file-help"
+                onChange={(event) => {
+                  setFile(event.target.files?.[0] ?? null);
                   uploadedId.current = null;
                   setError(null);
                 }}
-              >
-                Choose another screenshot
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void read();
-            }}
-            className="flex flex-col gap-3"
-          >
-            <FieldGroup>
-              <Field data-invalid={Boolean(error)} data-disabled={pending}>
-                <FieldLabel htmlFor="screen-time-image">
-                  Weekly screenshot
-                </FieldLabel>
-                <Input
-                  key={average}
-                  id="screen-time-image"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
-                  disabled={pending}
-                  aria-invalid={Boolean(error)}
-                  aria-describedby="screen-time-file-help"
-                  onChange={(event) => {
-                    setFile(event.target.files?.[0] ?? null);
-                    uploadedId.current = null;
-                    setError(null);
-                  }}
-                />
-                <FieldDescription id="screen-time-file-help">
-                  One PNG, JPEG, WebP, or HEIC, up to 100 MB. A screenshot is
-                  usually clearest.
-                </FieldDescription>
-              </Field>
-            </FieldGroup>
-            <Button
-              type="submit"
-              disabled={!file || pending}
-              className="self-start"
-            >
-              {pending ? (
-                <Spinner data-icon="inline-start" />
-              ) : (
-                <Upload data-icon="inline-start" />
-              )}
-              {pending ? "Reading screenshot…" : "Read screenshot"}
-            </Button>
-          </form>
-        )}
+              />
+              <FieldDescription id="screen-time-file-help">
+                One PNG, JPEG, WebP, or HEIC, up to 100 MB. A screenshot is
+                usually clearest.
+              </FieldDescription>
+              <FieldDescription>
+                Valid screenshots post automatically to the leaderboard and your
+                story. If a screenshot is rejected, your existing entry stays.
+                Keep this page open until the upload is accepted for reading.
+              </FieldDescription>
+            </Field>
+          </FieldGroup>
+          <Button type="submit" disabled={!file || busy} className="self-start">
+            {busy ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <Upload data-icon="inline-start" />
+            )}
+            {busy ? "Reading screenshot…" : "Upload and post"}
+          </Button>
+        </form>
         {status && <UploadStatus status={status} percent={uploadPercent} />}
+        {status && uploadPercent === null && (
+          <output className="text-sm text-muted-foreground">
+            {status} Keep this page open until background reading starts.
+          </output>
+        )}
+        {runId && (
+          <Alert>
+            <AlertTitle>Reading in the background</AlertTitle>
+            <AlertDescription>
+              You can leave this page. Valid screenshots post automatically.
+              Return here to see the result or any problem with your screenshot.
+            </AlertDescription>
+          </Alert>
+        )}
         {error && (
           <Alert variant="destructive">
             <AlertTitle>Could not finish</AlertTitle>

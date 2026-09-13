@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { memberHref, postHref } from "@/lib/navigation";
+import { formatScreenTime, screenTimeWeekLabel } from "@/lib/screen-time";
 import { postKey, type StoryFrame, type StoryGroup } from "@/lib/social-types";
 import { firstUnseenFrame, storyFrames } from "@/lib/stories";
 import { cn } from "@/lib/utils";
@@ -156,9 +157,9 @@ export function StoryViewer({
           {mine ? "Your story" : `${group.author.name}’s story`}
         </DialogTitle>
         <DialogDescription className="sr-only">
-          Proof and check-ins from the last 24 hours. Use the previous and next
-          buttons or arrow keys to browse. Hold a photo or video to pause.
-          Escape closes stories.
+          Proof, check-ins, and screen time from the last 24 hours. Use the
+          previous and next buttons or arrow keys to browse. Hold a photo or
+          video to pause. Escape closes stories.
         </DialogDescription>
         <div className="story-top">
           <nav className="story-progress" aria-label="Story progress">
@@ -317,6 +318,16 @@ export function StoryViewer({
           />
         </div>
         <footer className="story-footer">
+          {post.kind === "screen-time" && (
+            <div className="story-caption">
+              <p className="font-semibold">
+                {formatScreenTime(post.dailyAverageMinutes)} per day
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Screen time · {screenTimeWeekLabel(post.weekStart)}
+              </p>
+            </div>
+          )}
           {post.kind === "proof" && (
             <div className="story-caption">
               <div className="flex flex-wrap items-center gap-2">
@@ -350,12 +361,28 @@ export function StoryViewer({
             </div>
           )}
           <div className="flex items-center justify-between gap-1">
-            <PostInteractions
-              key={postKey(post)}
-              post={post}
-              onCommentsOpenChange={setCommentsOpen}
-            />
-            {mine ? (
+            {post.kind !== "screen-time" && (
+              <PostInteractions
+                key={postKey(post)}
+                post={post}
+                onCommentsOpenChange={setCommentsOpen}
+              />
+            )}
+            {post.kind === "screen-time" ? (
+              <Button
+                nativeButton={false}
+                variant="ghost"
+                size="sm"
+                render={
+                  <Link
+                    href={`/screen-time?week=${post.weekStart}&circle=${encodeURIComponent(post.circleId)}`}
+                  />
+                }
+              >
+                View screen time
+                <ArrowUpRight data-icon="inline-end" />
+              </Button>
+            ) : mine ? (
               <Button
                 size="sm"
                 variant="secondary"
@@ -604,7 +631,9 @@ function StoryScene({
             alt={
               post.kind === "proof"
                 ? `${post.title}, attachment ${frame.frame + 1}`
-                : "Story"
+                : post.kind === "screen-time"
+                  ? `${post.author.name}’s screen time, ${formatScreenTime(post.dailyAverageMinutes)} per day`
+                  : "Story"
             }
             draggable={false}
             onLoad={() => setReady(true)}

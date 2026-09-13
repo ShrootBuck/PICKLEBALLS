@@ -260,6 +260,7 @@ export default async function ScreenTimePage({
         {week === latest ? (
           <ScreenTimeUpload
             key={`${circleId}:${week}`}
+            userId={session.user.id}
             weekStart={week}
             circleId={circleId}
             submittedAverage={ownAverage}

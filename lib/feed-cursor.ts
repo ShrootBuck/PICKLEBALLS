@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { FeedPost, PostKind } from "@/lib/social-types";
+import type { FeedPost, PostKind, StoryContent } from "@/lib/social-types";
 
 const cursorSchema = z
   .object({
@@ -47,8 +47,8 @@ export function parseFeedCursor(
 }
 
 export function compareFeedPosts(
-  a: Pick<FeedPost, "createdAt" | "kind" | "id">,
-  b: Pick<FeedPost, "createdAt" | "kind" | "id">,
+  a: Pick<StoryContent, "createdAt" | "kind" | "id">,
+  b: Pick<StoryContent, "createdAt" | "kind" | "id">,
 ) {
   for (const [left, right] of [
     [a.createdAt, b.createdAt],

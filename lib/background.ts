@@ -75,26 +75,32 @@ export async function readScreenTimeInBackground(
   week: string,
 ) {
   if (!backgroundTasksEnabled())
-    return readScreenTime(userId, circleId, mediaId, week);
+    return { reading: await readScreenTime(userId, circleId, mediaId, week) };
   const handle = await tasks.trigger<typeof screenTimeRead>(
     "read-screen-time",
     { userId, circleId, mediaId, week },
-    {
-      concurrencyKey: mediaId,
-    },
+    { concurrencyKey: mediaId },
   );
-  const result = await runs.poll<typeof screenTimeRead>(handle.id, {
-    pollIntervalMs: 1000,
-  });
-  if (!result.output)
-    throw new DomainError(
-      "The screenshot reader is unavailable. Try again shortly.",
-      503,
-    );
-  if (!result.output.ok)
-    throw new DomainError(result.output.message, result.output.status);
-  return {
-    ...result.output.reading,
-    weekStart: new Date(result.output.reading.weekStart),
-  };
+  return { runId: handle.id };
+}
+
+export async function screenTimeReadStatus(
+  runId: string,
+  userId: string,
+  circleId: string,
+) {
+  const run = await runs.retrieve<typeof screenTimeRead>(runId);
+  if (
+    run.taskIdentifier !== "read-screen-time" ||
+    run.payload?.userId !== userId ||
+    run.payload?.circleId !== circleId
+  )
+    throw new DomainError("That screenshot read is unavailable.", 404);
+  if (!run.isCompleted) return { pending: true as const };
+  if (!run.output)
+    return {
+      error: "The screenshot reader could not finish. Try uploading again.",
+    };
+  if (!run.output.ok) return { error: run.output.message };
+  return { reading: run.output.reading };
 }

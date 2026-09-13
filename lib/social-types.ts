@@ -49,11 +49,18 @@ export type CheckInPost = PostBase & {
 export type FeedPost = ProofPost | CheckInPost;
 export type FeedPage = { items: FeedPost[]; nextCursor: string | null };
 
-export type StoryPost = { post: FeedPost; seenFrames: number[] };
+export type ScreenTimeStory = PostBase & {
+  kind: "screen-time";
+  mediaId: string;
+  weekStart: string;
+  dailyAverageMinutes: number;
+};
+export type StoryContent = FeedPost | ScreenTimeStory;
+export type StoryPost = { post: StoryContent; seenFrames: number[] };
 export type StoryGroup = { author: SocialAuthor; posts: StoryPost[] };
 export type StoryFrame = {
   key: string;
-  post: FeedPost;
+  post: StoryContent;
   frame: number;
   seen: boolean;
   media: { src: string; video: boolean } | null;
@@ -77,6 +84,6 @@ export type SocialMember = SocialAuthor & {
   note: string | null;
 };
 
-export function postKey(post: Pick<FeedPost, "kind" | "id">) {
+export function postKey(post: Pick<StoryContent, "kind" | "id">) {
   return `${post.kind}:${post.id}`;
 }

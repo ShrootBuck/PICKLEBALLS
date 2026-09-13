@@ -49,6 +49,16 @@ export function parseTopApps(value: unknown): ScreenTimeApp[] {
 }
 
 export const screenTimeExtractionSchema = z.object({
+  isValid: z
+    .boolean()
+    .describe("Whether this screenshot is suitable for automatic submission."),
+  failureReason: z
+    .string()
+    .max(400)
+    .nullable()
+    .describe(
+      "A short explanation and what to upload instead when invalid; null when valid.",
+    ),
   isWeeklyReport: z.boolean(),
   dailyAverageMinutes: z
     .number()
@@ -76,6 +86,11 @@ export function validateScreenTimeExtraction(raw: unknown) {
       "Could not read the report reliably. Try a clearer screenshot.",
     );
   const value = parsed.data;
+  if (!value.isValid)
+    throw new DomainError(
+      value.failureReason?.trim() ||
+        "This screenshot is not a valid weekly report. Upload a clearer screenshot of last week’s average.",
+    );
   if (!value.isWeeklyReport)
     throw new DomainError(
       "Choose Week in Screen Time, go back one week, and screenshot the average.",

@@ -422,6 +422,7 @@ model StoryView {
   circleId        String
   proofId         String?
   checkInUpdateId String?
+  screenTimeReadingId String?
   frame           Int      @default(0)
   viewedAt        DateTime @default(now())
 
@@ -429,12 +430,15 @@ model StoryView {
   circle        Circle         @relation(fields: [circleId], references: [id], onDelete: Cascade)
   proof         TaskProof?     @relation(fields: [proofId], references: [id], onDelete: Cascade)
   checkInUpdate CheckInUpdate? @relation(fields: [checkInUpdateId], references: [id], onDelete: Cascade)
+  screenTimeReading ScreenTimeReading? @relation(fields: [screenTimeReadingId], references: [id], onDelete: Cascade)
 
   @@unique([viewerId, proofId, frame])
   @@unique([viewerId, checkInUpdateId, frame])
+  @@unique([viewerId, screenTimeReadingId, frame])
   @@index([circleId, viewerId, viewedAt])
   @@index([proofId])
   @@index([checkInUpdateId])
+  @@index([screenTimeReadingId])
 }
 
 model ActivityEvent {
@@ -588,6 +592,7 @@ model ScreenTimeReading {
   user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   circle       Circle                @relation(fields: [circleId], references: [id], onDelete: Cascade)
   submission   ScreenTimeSubmission?
+  storyViews   StoryView[]
 
   @@index([userId, circleId, weekStart])
 }

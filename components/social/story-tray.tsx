@@ -150,7 +150,7 @@ export function StoryTray() {
               ))}
             {storiesReady && !others.length && (
               <p className="story-tray-empty">
-                Your circle’s proof and check-ins appear here.
+                Your circle’s proof, check-ins, and screen time appear here.
                 <br />
                 <span>Give them something to catch up on.</span>
               </p>

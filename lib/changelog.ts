@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1789319994801,
+    title: "Screen time posts automatically",
+    description:
+      "Upload your weekly screenshot and the reader posts valid results to the leaderboard and your story automatically. Once background reading starts, you can leave and return to see the result. Rejected screenshots include an explanation and leave your existing entry unchanged.",
+  },
+  {
     timestamp: 1789251460089,
     title: "Stay in the conversation",
     description:

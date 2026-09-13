@@ -71,7 +71,12 @@ export async function readScreenTime(
     });
     if (existing) return existing;
     await claimMedia(tx, [mediaId], userId, circleId);
-    return tx.screenTimeReading.create({
+    if (expectedWeek !== latestScreenTimeWeek())
+      throw new DomainError(
+        "A new reporting week has opened. Reload and upload last week’s screenshot.",
+        409,
+      );
+    const reading = await tx.screenTimeReading.create({
       data: {
         userId,
         circleId,
@@ -80,6 +85,13 @@ export async function readScreenTime(
         ...values,
       },
     });
+    const weekStart = requireDateKey(expectedWeek);
+    await tx.screenTimeSubmission.upsert({
+      where: { userId_circleId_weekStart: { userId, circleId, weekStart } },
+      create: { userId, circleId, weekStart, readingId: reading.id },
+      update: { readingId: reading.id },
+    });
+    return reading;
   });
 }
 

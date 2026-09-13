@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { jsonError, readJson } from "@/lib/api";
-import { readScreenTimeInBackground } from "@/lib/background";
+import {
+  readScreenTimeInBackground,
+  screenTimeReadStatus,
+} from "@/lib/background";
 import { DomainError } from "@/lib/errors";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
-import { parseTopApps } from "@/lib/screen-time";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -29,22 +31,31 @@ export async function POST(request: Request) {
         409,
       );
     await limitAction(auth.session.user.id, "screen-time-read", 20, 3_600_000);
-    const reading = await readScreenTimeInBackground(
+    const result = await readScreenTimeInBackground(
       auth.session.user.id,
       auth.membership.circleId,
       parsed.data.mediaId,
       parsed.data.weekStart,
     );
-    return Response.json({
-      reading: {
-        id: reading.id,
-        mediaId: reading.mediaId,
-        weekStart: reading.weekStart.toISOString().slice(0, 10),
-        dailyAverageMinutes: reading.dailyAverageMinutes,
-        totalMinutes: reading.totalMinutes,
-        topApps: parseTopApps(reading.topApps),
-      },
-    });
+    return Response.json(result, { status: result.runId ? 202 : 200 });
+  } catch (error) {
+    return jsonError(error);
+  }
+}
+
+export async function GET(request: Request) {
+  const auth = await getRequestMembership(request.headers);
+  if (!auth) return Response.json({ error: "Sign in first." }, { status: 401 });
+  const runId = new URL(request.url).searchParams.get("runId");
+  if (!runId || !/^run_[a-zA-Z0-9]+$/.test(runId) || runId.length > 100)
+    return Response.json({ error: "Invalid read." }, { status: 400 });
+  try {
+    const result = await screenTimeReadStatus(
+      runId,
+      auth.session.user.id,
+      auth.membership.circleId,
+    );
+    return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return jsonError(error);
   }

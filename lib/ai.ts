@@ -172,7 +172,8 @@ The prominent number headed Daily Average is an average, NOT a weekly total. Set
 The screenshot may list the most-used apps with a time beside each name. Copy up to five of them into topApps in the order displayed, names exactly as shown and times as weekly minutes. Include only apps whose name AND time are both clearly readable; skip the rest. Set topApps to an empty array when no app list is visible. App times are weekly totals for that app, never daily averages.
 "Last Week’s Average" (or "Last Week's Average") is also a daily average. A Week view with that heading is a weekly report even when no calendar dates appear.
 "Show This Week" is a navigation button, not the period currently displayed. A selected individual Day view is not a weekly report.
-The user is instructed to go back one week and confirms the screenshot before posting. Do not validate calendar dates, whether the week has ended, or the device selector. Missing dates or device names do not prevent reading the average.
+Valid reads are posted automatically without human confirmation. Set isValid to false for a non-Screen-Time image, an individual Day view, a clearly selected current/incomplete week, or an unreadable or ambiguous daily average. Give a short, plain-language failureReason explaining what is wrong and what screenshot to upload instead. For valid reports set isValid to true and failureReason to null.
+The user is instructed to go back one week. Missing calendar dates or device names do not prevent reading the average. A Last Week’s Average heading is sufficient evidence of a completed week. Do not mistake the Show This Week navigation button for a selected current week.
 Set unreadable numbers to null. Do not guess or silently correct inconsistent numbers.
 ${injectionGuard}`,
     messages: [

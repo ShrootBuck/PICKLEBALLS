@@ -1,7 +1,7 @@
 import { compareFeedPosts } from "@/lib/feed-cursor";
 import {
-  type FeedPost,
   postKey,
+  type StoryContent,
   type StoryFrame,
   type StoryGroup,
 } from "@/lib/social-types";
@@ -9,7 +9,7 @@ import {
 export const STORY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export function storyFrameKey(
-  post: Pick<FeedPost, "kind" | "id">,
+  post: Pick<StoryContent, "kind" | "id">,
   frame: number,
 ) {
   return `${postKey(post)}:${frame}`;
@@ -30,7 +30,14 @@ export function storyFrames(group: StoryGroup): StoryFrame[] {
                 video: false,
               },
             ]
-        : [null];
+        : post.kind === "screen-time"
+          ? [
+              {
+                src: `/api/media/${encodeURIComponent(post.mediaId)}`,
+                video: false,
+              },
+            ]
+          : [null];
     return media.map((item, frame) => ({
       key: storyFrameKey(post, frame),
       post,
