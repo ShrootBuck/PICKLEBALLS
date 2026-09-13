@@ -6,7 +6,6 @@ import {
   ProgressLabel,
   ProgressValue,
 } from "@/components/ui/progress";
-import { Spinner } from "@/components/ui/spinner";
 
 export function useUploadStatus() {
   const [status, setStatus] = useState("");
@@ -25,21 +24,18 @@ export function UploadStatus({
   status: string;
   percent: number | null;
 }) {
+  // Action buttons already show pending state. Only add a separate indicator
+  // when there is measurable upload progress to display.
+  if (percent === null) return null;
+
   return (
     <div className="flex min-w-0 flex-col gap-2 rounded-lg border bg-muted/30 p-3">
-      {percent === null ? (
-        <output className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Spinner className="shrink-0" />
-          <span className="min-w-0 break-words">{status || "Saving…"}</span>
-        </output>
-      ) : (
-        <Progress value={percent}>
-          <ProgressLabel className="min-w-0 flex-1 break-words">
-            {status}
-          </ProgressLabel>
-          <ProgressValue />
-        </Progress>
-      )}
+      <Progress value={percent}>
+        <ProgressLabel className="min-w-0 flex-1 break-words">
+          {status}
+        </ProgressLabel>
+        <ProgressValue />
+      </Progress>
     </div>
   );
 }
