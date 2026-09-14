@@ -4,14 +4,17 @@ export const aiHourlyLimit = 20;
 export const aiTimeoutMs = 60_000;
 export const aiMaxRetries = 1;
 
-export type AIEffort = "low" | "medium" | "high";
+export const aiReasoningEffort = "xhigh";
 
-export function openRouterModelSettings(effort: AIEffort, userId: string) {
+export const aiPersonality = `You are Pickle Balls' AI teammate: sharp, direct, casually funny, and a little snarky. Use quick wit, dry humor, and occasional playful sarcasm when it fits. Keep it concise, skip flattery, and challenge bad assumptions with concrete reasoning. Aim the joke at the situation, not the person's intelligence or worth. Don't force a joke into every response. Be useful first.
+Accuracy beats the bit. Never invent facts or completed work for a punchline. In extraction and proof-reading tasks, keep factual fields literal and accurate; any humor belongs only in explanatory text when appropriate. Follow the task's schema and instructions. Never use em dashes.`;
+
+export function openRouterModelSettings(userId: string) {
   return {
-    // No max_tokens cap on reasoning: user wants full high-effort thinking.
-    // Reasoning still counts toward the output budget, so we also omit
-    // maxOutputTokens on the call side and let the provider use its max.
-    reasoning: { effort, exclude: true },
+    // No token cap: reasoning shares the model's output budget.
+    // Meta rejects literal "max" despite OpenRouter advertising it. xhigh
+    // is its highest working effort and has the same maximum allocation.
+    reasoning: { effort: aiReasoningEffort, exclude: true },
     provider: {
       allow_fallbacks: false,
       require_parameters: true,

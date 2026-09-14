@@ -1,7 +1,23 @@
 "use client";
 
-import { CalendarRange, Download, Plus, Trash2 } from "lucide-react";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import {
+  CalendarRange,
+  Check,
+  Clock3,
+  Download,
+  List,
+  Plus,
+  Redo2,
+  Sparkles,
+  Trash2,
+  Undo2,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  blockTime,
+  TimeblockCalendar,
+} from "@/components/timeblocks/timeblock-calendar";
+import { TimeblockChat } from "@/components/timeblocks/timeblock-chat";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,8 +31,15 @@ import {
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -25,36 +48,144 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
-import { formatDayShort } from "@/lib/time";
-import { parseTimeblockDraft } from "@/lib/timeblock-draft";
+import { formatDayShort, parsePhoenixLocalDateTime } from "@/lib/time";
+import {
+  parseTimeblockDraft,
+  type TimeblockDraftRow,
+} from "@/lib/timeblock-draft";
+import {
+  blockIssue,
+  draftFingerprint,
+  overlappingIds,
+} from "@/lib/timeblock-editor";
+import { shiftDateKey } from "@/lib/timeblocks";
 
-type TimeblockStatus =
-  | "OPEN"
-  | "AWAITING_REVIEW"
-  | "VERIFIED"
-  | "MISSED"
-  | "RENEGOTIATED";
+export type TimeblockBuilderRow = TimeblockDraftRow;
 
-export type TimeblockBuilderRow = {
-  id: string;
-  title: string;
-  startedAt: string;
-  completedAt: string;
-  status: TimeblockStatus | null;
-  included: boolean;
-};
-
-function statusBadge(status: TimeblockStatus | null) {
-  if (!status) return <Badge variant="outline">Manual</Badge>;
-  if (status === "VERIFIED") return <Badge>Verified</Badge>;
-  if (status === "AWAITING_REVIEW") {
-    return <Badge variant="secondary">Reviewing</Badge>;
-  }
-  if (status === "MISSED") {
-    return <Badge variant="destructive">Late proof</Badge>;
-  }
-  return <Badge variant="outline">Proof added</Badge>;
+function BlockEditor({
+  row,
+  dueMonday,
+  onSave,
+  onRemove,
+  onClose,
+}: {
+  row: TimeblockDraftRow;
+  dueMonday: string;
+  onSave: (row: TimeblockDraftRow) => void;
+  onRemove: () => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState(row);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent>
+        <form
+          className="flex flex-col gap-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const values = new FormData(event.currentTarget);
+            const next = {
+              ...draft,
+              title: String(values.get("title") ?? "").trim(),
+              startedAt: String(values.get("startedAt") ?? ""),
+              completedAt: String(values.get("completedAt") ?? ""),
+            };
+            const issue = blockIssue(next, dueMonday);
+            setError(issue);
+            if (!issue) onSave(next);
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {row.title ? "Edit block" : "Add a block"}
+            </DialogTitle>
+            <DialogDescription>
+              Shape your report. All times are Phoenix time.
+            </DialogDescription>
+          </DialogHeader>
+          <FieldGroup>
+            <Field data-invalid={!!error && !draft.title.trim()}>
+              <FieldLabel htmlFor="block-title">
+                What did you work on?
+              </FieldLabel>
+              <Input
+                id="block-title"
+                name="title"
+                value={draft.title}
+                onChange={(event) =>
+                  setDraft({ ...draft, title: event.target.value })
+                }
+                placeholder="Physics problem set"
+                maxLength={160}
+                required
+                aria-invalid={!!error && !draft.title.trim()}
+              />
+            </Field>
+            <Field data-invalid={!!error}>
+              <FieldLabel htmlFor="block-start">Started</FieldLabel>
+              <Input
+                id="block-start"
+                name="startedAt"
+                type="datetime-local"
+                value={draft.startedAt}
+                onChange={(event) =>
+                  setDraft({ ...draft, startedAt: event.target.value })
+                }
+                required
+                aria-invalid={!!error}
+              />
+            </Field>
+            <Field data-invalid={!!error}>
+              <FieldLabel htmlFor="block-end">Finished</FieldLabel>
+              <Input
+                id="block-end"
+                name="completedAt"
+                type="datetime-local"
+                value={draft.completedAt}
+                onChange={(event) =>
+                  setDraft({ ...draft, completedAt: event.target.value })
+                }
+                required
+                aria-invalid={!!error}
+              />
+            </Field>
+            <Field orientation="horizontal">
+              <Checkbox
+                id="block-included"
+                checked={draft.included}
+                onCheckedChange={(included) => setDraft({ ...draft, included })}
+              />
+              <FieldLabel htmlFor="block-included">Include in PDF</FieldLabel>
+            </Field>
+          </FieldGroup>
+          {error && (
+            <Alert variant="destructive">
+              <AlertTitle>Check this block</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onRemove}>
+              <Trash2 data-icon="inline-start" />
+              {row.status ? "Exclude" : "Remove"}
+            </Button>
+            <Button type="submit">
+              <Check data-icon="inline-start" />
+              Save block
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 async function readError(response: Response) {
@@ -74,47 +205,62 @@ export function TimeblockBuilder({
   initialRows: TimeblockBuilderRow[];
 }) {
   const [rows, setRows] = useState(initialRows);
+  const rowsRef = useRef(initialRows);
+  const history = useRef<{
+    past: TimeblockDraftRow[][];
+    future: TimeblockDraftRow[][];
+  }>({ past: [], future: [] });
   const restored = useRef(false);
   const [ready, setReady] = useState(false);
   const [savedLocally, setSavedLocally] = useState(true);
+  const [editing, setEditing] = useState<TimeblockDraftRow | null>(null);
+  const [newBlock, setNewBlock] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const getRows = useCallback(() => rowsRef.current, []);
+  const commit = useCallback((next: TimeblockDraftRow[]) => {
+    if (draftFingerprint(next) === draftFingerprint(rowsRef.current)) return;
+    history.current.past = [...history.current.past, rowsRef.current].slice(
+      -40,
+    );
+    history.current.future = [];
+    rowsRef.current = next;
+    setRows(next);
+    setError(null);
+  }, []);
+  const applyEdit = useCallback(
+    (before: string, next: TimeblockDraftRow[]) => {
+      if (draftFingerprint(rowsRef.current) !== before) return false;
+      commit(next);
+      return true;
+    },
+    [commit],
+  );
   useEffect(() => {
+    let current = rowsRef.current;
     if (!restored.current) {
       restored.current = true;
       try {
-        const draft = parseTimeblockDraft(localStorage.getItem(draftKey));
-        if (draft) {
-          const known = new Set(draft.map((row) => row.id));
-          setRows(
-            [
-              ...draft.map((row) => ({
-                ...row,
-                status:
-                  initialRows.find((fresh) => fresh.id === row.id)?.status ??
-                  row.status,
-              })),
-              ...initialRows.filter((row) => !known.has(row.id)),
-            ].slice(0, 56),
-          );
-        }
+        current =
+          parseTimeblockDraft(localStorage.getItem(draftKey)) ?? current;
       } catch {
         setSavedLocally(false);
       }
-      setReady(true);
-    } else {
-      setRows((current) => {
-        const known = new Set(current.map((row) => row.id));
-        const additions = initialRows.filter((row) => !known.has(row.id));
-        return [
-          ...current.map((row) => ({
-            ...row,
-            status:
-              initialRows.find((fresh) => fresh.id === row.id)?.status ??
-              row.status,
-          })),
-          ...additions,
-        ].slice(0, 56);
-      });
     }
+    const known = new Set(current.map((row) => row.id));
+    const next = [
+      ...current.map((row) => ({
+        ...row,
+        status:
+          initialRows.find((fresh) => fresh.id === row.id)?.status ??
+          row.status,
+      })),
+      ...initialRows.filter((row) => !known.has(row.id)),
+    ].slice(0, 56);
+    rowsRef.current = next;
+    setRows(next);
+    setReady(true);
   }, [draftKey, initialRows]);
   useEffect(() => {
     if (!ready) return;
@@ -125,44 +271,83 @@ export function TimeblockBuilder({
       setSavedLocally(false);
     }
   }, [rows, draftKey, ready]);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const includedCount = useMemo(
-    () => rows.filter((row) => row.included && row.title.trim()).length,
-    [rows],
-  );
-  const rowNumbers = useMemo(() => {
-    const numbers = new Map<string, number>();
-    const included = rows
-      .filter((row) => row.included && row.title.trim())
-      .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
-    included.forEach((row, index) => {
-      numbers.set(row.id, index + 1);
-    });
-    return numbers;
-  }, [rows]);
 
-  function updateRow(id: string, patch: Partial<TimeblockBuilderRow>) {
-    setRows((current) =>
-      current.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+  const included = useMemo(() => rows.filter((row) => row.included), [rows]);
+  const includedCount = included.length;
+  const overlaps = useMemo(() => overlappingIds(rows), [rows]);
+  const issues = included
+    .map((row) => ({ row, issue: blockIssue(row, dueMonday) }))
+    .filter((item) => item.issue);
+  const hours = included.reduce((sum, row) => {
+    const start = parsePhoenixLocalDateTime(row.startedAt);
+    const end = parsePhoenixLocalDateTime(row.completedAt);
+    return (
+      sum +
+      (start && end && end > start
+        ? (end.getTime() - start.getTime()) / 3_600_000
+        : 0)
     );
-  }
+  }, 0);
 
-  function addRow() {
-    if (rows.length >= 56) return;
-    setRows((current) => [
-      ...current,
-      {
-        id: `manual-${crypto.randomUUID()}`,
-        title: "",
-        startedAt: `${weekEnd}T16:30`,
-        completedAt: `${weekEnd}T17:00`,
-        status: null,
-        included: true,
-      },
-    ]);
+  function undo() {
+    const previous = history.current.past.pop();
+    if (!previous) return;
+    history.current.future.push(rowsRef.current);
+    rowsRef.current = previous;
+    setRows(previous);
+    setError(null);
   }
-
+  function redo() {
+    const next = history.current.future.pop();
+    if (!next) return;
+    history.current.past.push(rowsRef.current);
+    rowsRef.current = next;
+    setRows(next);
+    setError(null);
+  }
+  function openEditor(row: TimeblockDraftRow) {
+    setNewBlock(false);
+    setEditing(row);
+  }
+  function addRow(day = weekEnd) {
+    if (rowsRef.current.length >= 56) return;
+    setNewBlock(true);
+    setEditing({
+      id: `manual-${crypto.randomUUID()}`,
+      title: "",
+      startedAt: `${day}T16:00`,
+      completedAt: `${day}T17:00`,
+      status: null,
+      included: true,
+    });
+  }
+  function saveRow(next: TimeblockDraftRow) {
+    const current = rowsRef.current.find((row) => row.id === next.id);
+    if (
+      (!current && !newBlock) ||
+      (current &&
+        editing &&
+        draftFingerprint([current]) !== draftFingerprint([editing]))
+    ) {
+      toast.add({
+        title:
+          "This block changed while you were editing. Reopen it to use the latest version.",
+        type: "error",
+      });
+      setEditing(null);
+      return;
+    }
+    if (!current && rowsRef.current.length >= 56) {
+      toast.add({ title: "The report holds up to 56 blocks.", type: "error" });
+      return;
+    }
+    commit(
+      current
+        ? rowsRef.current.map((row) => (row.id === next.id ? next : row))
+        : [...rowsRef.current, next],
+    );
+    setEditing(null);
+  }
   async function downloadPdf() {
     if (pending) return;
     if (rows.some((row) => row.included && !row.title.trim())) {
@@ -211,196 +396,272 @@ export function TimeblockBuilder({
   }
 
   return (
-    <Card className="timeblock-sheet">
-      <CardHeader>
-        <CardTitle>Your week, accounted for.</CardTitle>
-        <CardDescription>
-          Your proof fills this in. Adjust the report, add other work, and
-          download when you’re ready.
-        </CardDescription>
+    <div className="timeblock-workspace">
+      <div className="timeblock-studio-heading">
+        <div>
+          <p className="timeblock-eyebrow">
+            <Sparkles className="size-3.5" />
+            YOUR WEEK, REFINED
+          </p>
+          <h2>
+            A little structure.
+            <br />A lot more clarity.
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Start with your proof. Fill in the rest. Make it yours.
+          </p>
+        </div>
+        <div className="timeblock-stats">
+          <div>
+            <strong>
+              {hours.toLocaleString("en-US", { maximumFractionDigits: 1 })}
+              <span>h</span>
+            </strong>
+            <p>work logged</p>
+          </div>
+          <div>
+            <strong>
+              {includedCount}
+              <span>/ 56</span>
+            </strong>
+            <p>blocks included</p>
+          </div>
+        </div>
+      </div>
+      <div className="timeblock-studio-grid">
+        <Card className="timeblock-board">
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <CardTitle>Your week at a glance</CardTitle>
+                <CardDescription>
+                  {formatDayShort(shiftDateKey(dueMonday, -7))} through{" "}
+                  {formatDayShort(weekEnd)}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Undo last edit"
+                  disabled={!ready || !history.current.past.length}
+                  onClick={undo}
+                >
+                  <Undo2 />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Redo last edit"
+                  disabled={!ready || !history.current.future.length}
+                  onClick={redo}
+                >
+                  <Redo2 />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!ready || rows.length >= 56}
+                  onClick={() => addRow()}
+                >
+                  <Plus data-icon="inline-start" />
+                  Add block
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 px-0">
+            <Tabs defaultValue="calendar">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4">
+                <TabsList>
+                  <TabsTrigger value="calendar">
+                    <CalendarRange data-icon="inline-start" />
+                    Calendar
+                  </TabsTrigger>
+                  <TabsTrigger value="list">
+                    <List data-icon="inline-start" />
+                    All blocks
+                  </TabsTrigger>
+                </TabsList>
+                <p className="text-xs text-muted-foreground">
+                  Click a block to edit
+                </p>
+              </div>
+              <TabsContent value="calendar">
+                <TimeblockCalendar
+                  rows={rows}
+                  weekStart={shiftDateKey(dueMonday, -7)}
+                  overlaps={overlaps}
+                  onSelect={openEditor}
+                  onAdd={addRow}
+                  disabled={!ready || rows.length >= 56}
+                />
+              </TabsContent>
+              <TabsContent value="list">
+                <div className="timeblock-list">
+                  {rows.length === 0 ? (
+                    <Empty>
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <CalendarRange />
+                        </EmptyMedia>
+                        <EmptyTitle>A clean slate</EmptyTitle>
+                        <EmptyDescription>
+                          Add a block or tell the AI editor what you worked on.
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  ) : (
+                    [...rows]
+                      .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+                      .map((row) => (
+                        <div
+                          key={row.id}
+                          className="timeblock-list-row"
+                          data-excluded={!row.included || undefined}
+                        >
+                          <Checkbox
+                            checked={row.included}
+                            aria-label={`Include ${row.title || "untitled block"} in PDF`}
+                            onCheckedChange={(included) =>
+                              commit(
+                                rowsRef.current.map((item) =>
+                                  item.id === row.id
+                                    ? { ...item, included }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                          <Button
+                            variant="plain"
+                            type="button"
+                            className="timeblock-list-open"
+                            onClick={() => openEditor(row)}
+                          >
+                            <strong>{row.title || "Untitled block"}</strong>
+                            <span>
+                              {formatDayShort(row.startedAt.slice(0, 10))} ·{" "}
+                              {blockTime(row.startedAt)} to{" "}
+                              {blockTime(row.completedAt)}
+                            </span>
+                          </Button>
+                          <Badge
+                            variant={
+                              overlaps.has(row.id) ? "destructive" : "outline"
+                            }
+                          >
+                            {overlaps.has(row.id)
+                              ? "Overlap"
+                              : !row.included
+                                ? "Excluded"
+                                : row.status === "VERIFIED"
+                                  ? "Verified proof"
+                                  : row.status
+                                    ? "From proof"
+                                    : "Manual"}
+                          </Badge>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+            {issues.length > 0 && (
+              <Alert variant="destructive" className="mx-4 w-auto">
+                <AlertTitle>
+                  {issues.length}{" "}
+                  {issues.length === 1 ? "block needs" : "blocks need"}{" "}
+                  attention
+                </AlertTitle>
+                <AlertDescription>
+                  {issues[0].row.title || "Untitled block"}: {issues[0].issue}
+                </AlertDescription>
+              </Alert>
+            )}
+            {overlaps.size > 0 && (
+              <Alert className="mx-4 w-auto">
+                <Clock3 />
+                <AlertTitle>{overlaps.size} blocks overlap</AlertTitle>
+                <AlertDescription>
+                  Check the highlighted blocks or ask the AI editor to review
+                  them. Overlaps can still be exported.
+                </AlertDescription>
+              </Alert>
+            )}
+            {error && (
+              <Alert variant="destructive" className="mx-4 w-auto">
+                <AlertTitle>PDF not generated</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+          <CardFooter className="flex-wrap justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="timeblock-legend-dot" />
+              From proof
+              <span className="timeblock-legend-dot" data-manual />
+              Manual
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {!ready
+                ? "Restoring draft…"
+                : savedLocally
+                  ? "Draft saved on this device"
+                  : "Device storage unavailable. Keep this tab open."}
+            </p>
+          </CardFooter>
+        </Card>
+        <TimeblockChat
+          dueMonday={dueMonday}
+          getRows={getRows}
+          applyEdit={applyEdit}
+          onBusyChange={setBusy}
+          ready={ready}
+        />
+      </div>
+      <div className="timeblock-export-bar">
+        <div>
+          <p className="font-medium">Ready for the real world.</p>
+          <p className="text-xs text-muted-foreground">
+            Two pages: your task list and full weekly grid. Landscape,
+            double-sided.
+          </p>
+        </div>
         <Button
-          className="mt-3 w-full sm:w-fit"
           onClick={downloadPdf}
-          disabled={pending}
-          aria-label="Download weekly PDF"
+          disabled={!ready || pending || busy || issues.length > 0}
         >
           {pending ? (
             <Spinner data-icon="inline-start" />
           ) : (
             <Download data-icon="inline-start" />
           )}
-          {pending ? "Building PDF…" : "Download PDF"}
+          {pending ? "Building PDF…" : "Export PDF"}
         </Button>
-        {error ? (
-          <Alert variant="destructive" className="mt-3">
-            <AlertTitle>PDF not generated</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {rows.length === 0 ? (
-          <Empty className="border border-dashed">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <CalendarRange />
-              </EmptyMedia>
-              <EmptyTitle>No completed tasks found</EmptyTitle>
-              <EmptyDescription>
-                Add a task manually, or upload proof during the selected week.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button variant="outline" size="sm" onClick={addRow}>
-                <Plus data-icon="inline-start" />
-                Add task
-              </Button>
-            </EmptyContent>
-          </Empty>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {[...rows]
-              .sort(
-                (a, b) =>
-                  a.startedAt.localeCompare(b.startedAt) ||
-                  a.id.localeCompare(b.id),
-              )
-              .map((row, index, sorted) => (
-                <Fragment key={row.id}>
-                  {(index === 0 ||
-                    sorted[index - 1].startedAt.slice(0, 10) !==
-                      row.startedAt.slice(0, 10)) && (
-                    <h3 className="mt-4 mb-1 text-sm font-semibold">
-                      {formatDayShort(row.startedAt.slice(0, 10))}
-                    </h3>
-                  )}
-                  <Card size="sm" className="timeblock-entry">
-                    <CardHeader>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Checkbox
-                          id={`include-${row.id}`}
-                          checked={row.included}
-                          onCheckedChange={(included) =>
-                            updateRow(row.id, { included })
-                          }
-                        />
-                        <FieldLabel htmlFor={`include-${row.id}`}>
-                          Include in PDF
-                        </FieldLabel>
-                        <Badge variant="secondary">
-                          {rowNumbers.has(row.id)
-                            ? `Task ${rowNumbers.get(row.id)}`
-                            : "Not included"}
-                        </Badge>
-                        {statusBadge(row.status)}
-                        {row.status === null ? (
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Remove ${row.title || "manual task"}`}
-                            onClick={() =>
-                              setRows((current) =>
-                                current.filter((item) => item.id !== row.id),
-                              )
-                            }
-                            className="ml-auto"
-                          >
-                            <Trash2 />
-                          </Button>
-                        ) : null}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <FieldGroup className="gap-3 @xl/card:grid @xl/card:grid-cols-2 @4xl/card:grid-cols-[minmax(0,1fr)_14rem_14rem]">
-                        <Field className="min-w-0 @xl/card:col-span-2 @4xl/card:col-span-1">
-                          <FieldLabel htmlFor={`name-${row.id}`}>
-                            Task name
-                          </FieldLabel>
-                          <Input
-                            id={`name-${row.id}`}
-                            value={row.title}
-                            onChange={(event) =>
-                              updateRow(row.id, { title: event.target.value })
-                            }
-                            maxLength={160}
-                            placeholder="Reading log"
-                          />
-                        </Field>
-                        <Field className="min-w-0">
-                          <FieldLabel htmlFor={`start-${row.id}`}>
-                            Started
-                          </FieldLabel>
-                          <Input
-                            id={`start-${row.id}`}
-                            type="datetime-local"
-                            value={row.startedAt}
-                            onChange={(event) =>
-                              updateRow(row.id, {
-                                startedAt: event.target.value,
-                              })
-                            }
-                          />
-                        </Field>
-                        <Field className="min-w-0">
-                          <FieldLabel htmlFor={`end-${row.id}`}>
-                            Finished
-                          </FieldLabel>
-                          <Input
-                            id={`end-${row.id}`}
-                            type="datetime-local"
-                            value={row.completedAt}
-                            onChange={(event) =>
-                              updateRow(row.id, {
-                                completedAt: event.target.value,
-                              })
-                            }
-                          />
-                        </Field>
-                      </FieldGroup>
-                    </CardContent>
-                  </Card>
-                </Fragment>
-              ))}
-          </div>
-        )}
-        {rows.length > 0 ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={addRow}
-            disabled={rows.length >= 56}
-            className="self-start"
-          >
-            <Plus data-icon="inline-start" />
-            Add task
-          </Button>
-        ) : null}
-        <Alert>
-          <CalendarRange />
-          <AlertTitle>What the PDF contains</AlertTitle>
-          <AlertDescription>
-            Page 1 is the numbered task list. Page 2 is a full 12 AM-to-12 AM
-            grid for Monday through Sunday. Print landscape, double-sided, and
-            flip on the long edge.
-          </AlertDescription>
-        </Alert>
-      </CardContent>
-      <CardFooter className="timeblock-toolbar flex-wrap justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {includedCount}/56 tasks on the report.{" "}
-          {savedLocally
-            ? "Draft saved on this device."
-            : "Draft stays in this tab; device storage is unavailable."}
-        </p>
-        <Button onClick={downloadPdf} disabled={pending}>
-          {pending ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <Download data-icon="inline-start" />
-          )}
-          {pending ? "Building PDF…" : "Download print-ready PDF"}
-        </Button>
-      </CardFooter>
-    </Card>
+      </div>
+      {editing && (
+        <BlockEditor
+          key={editing.id}
+          row={editing}
+          dueMonday={dueMonday}
+          onClose={() => setEditing(null)}
+          onSave={saveRow}
+          onRemove={() => {
+            const current = rowsRef.current.find(
+              (row) => row.id === editing.id,
+            );
+            commit(
+              current?.status
+                ? rowsRef.current.map((row) =>
+                    row.id === editing.id ? { ...row, included: false } : row,
+                  )
+                : rowsRef.current.filter((row) => row.id !== editing.id),
+            );
+            setEditing(null);
+          }}
+        />
+      )}
+    </div>
   );
 }

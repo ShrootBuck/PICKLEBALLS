@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1789404337595,
+    title: "Shape your timeblock with AI",
+    description:
+      "Build your weekly report in an interactive calendar. Ask the AI editor to add work or revise blocks, edit any block yourself, and undo or redo changes before exporting your PDF. Your draft saves on this device, and original proof stays untouched.",
+  },
+  {
     timestamp: 1789319994801,
     title: "Screen time posts automatically",
     description:
