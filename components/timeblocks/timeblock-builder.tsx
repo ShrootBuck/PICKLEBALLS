@@ -8,7 +8,6 @@ import {
   List,
   Plus,
   Redo2,
-  Sparkles,
   Trash2,
   Undo2,
 } from "lucide-react";
@@ -52,6 +51,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { formatDayShort, parsePhoenixLocalDateTime } from "@/lib/time";
+import { blockDuration } from "@/lib/timeblock-calendar";
 import {
   parseTimeblockDraft,
   type TimeblockDraftRow,
@@ -77,12 +77,14 @@ function BlockEditor({
   onSave,
   onRemove,
   onClose,
+  isNew,
 }: {
   row: TimeblockDraftRow;
   dueMonday: string;
   onSave: (row: TimeblockDraftRow) => void;
   onRemove: () => void;
   onClose: () => void;
+  isNew: boolean;
 }) {
   const [draft, setDraft] = useState(row);
   const [error, setError] = useState<string | null>(null);
@@ -111,11 +113,11 @@ function BlockEditor({
           }}
         >
           <DialogHeader>
-            <DialogTitle>
-              {row.title ? "Edit block" : "Add a block"}
-            </DialogTitle>
+            <DialogTitle>{isNew ? "Add a block" : "Edit block"}</DialogTitle>
             <DialogDescription>
-              Shape your report. All times are Phoenix time.
+              {formatDayShort(shiftDateKey(dueMonday, -7))} through{" "}
+              {formatDayShort(shiftDateKey(dueMonday, -1))}. All times are
+              Phoenix time.
             </DialogDescription>
           </DialogHeader>
           <FieldGroup>
@@ -177,10 +179,20 @@ function BlockEditor({
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+          {blockDuration(draft.startedAt, draft.completedAt) && (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock3 className="size-4" />
+              {blockDuration(draft.startedAt, draft.completedAt)} total
+            </p>
+          )}
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onRemove}>
-              <Trash2 data-icon="inline-start" />
-              {row.status ? "Exclude" : "Remove"}
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={isNew ? onClose : onRemove}
+            >
+              {!isNew && <Trash2 data-icon="inline-start" />}
+              {isNew ? "Cancel" : row.status ? "Exclude" : "Remove"}
             </Button>
             <Button type="submit">
               <Check data-icon="inline-start" />
@@ -211,6 +223,7 @@ export function TimeblockBuilder({
   initialRows: TimeblockBuilderRow[];
   initialRoutine: TimeblockRoutine;
 }) {
+  const [routineFocus, setRoutineFocus] = useState<{ id: string } | null>(null);
   const [rows, setRows] = useState(initialRows);
   const rowsRef = useRef(initialRows);
   const [routine, setRoutine] = useState(initialRoutine);
@@ -385,16 +398,11 @@ export function TimeblockBuilder({
   }
   function openEditor(row: TimeblockDraftRow) {
     if (isRoutineBlock(row.id)) {
-      document
-        .getElementById("timeblock-routine")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      document
-        .getElementById(
-          row.id.includes("school")
-            ? `period-${row.id.slice(-1)}`
-            : "sleep-bedtime",
-        )
-        ?.focus({ preventScroll: true });
+      setRoutineFocus({
+        id: row.id.includes("school")
+          ? `period-${row.id.slice(-1)}`
+          : "sleep-bedtime",
+      });
       return;
     }
     setNewBlock(false);
@@ -440,7 +448,7 @@ export function TimeblockBuilder({
     setEditing(null);
   }
   async function downloadPdf() {
-    if (pending) return;
+    if (!ready || pending || busy || routineDirty || issues.length > 0) return;
     if (rows.some((row) => row.included && !row.title.trim())) {
       setError(
         "Give each included task a name, or uncheck it before downloading.",
@@ -490,15 +498,8 @@ export function TimeblockBuilder({
     <div className="timeblock-workspace">
       <div className="timeblock-studio-heading">
         <div>
-          <p className="timeblock-eyebrow">
-            <Sparkles className="size-3.5" />
-            YOUR WEEK, READY TO PRINT
-          </p>
-          <h2>
-            A complete week.
-            <br />
-            Ready for Ms. Merrill.
-          </h2>
+          <p className="timeblock-eyebrow">WEEKLY REPORT</p>
+          <h2>Make the week add up.</h2>
           <p className="text-sm text-muted-foreground">
             Add your classes and sleep. Review your work. Export and print.
           </p>
@@ -516,13 +517,14 @@ export function TimeblockBuilder({
               {includedCount}
               <span>/ 56</span>
             </strong>
-            <p>blocks included</p>
+            <p>work blocks included</p>
           </div>
         </div>
       </div>
       <TimeblockRoutineForm
         key={JSON.stringify(routine)}
         routine={routine}
+        focusRequest={routineFocus}
         disabled={!ready}
         onSave={(next) => commit(rowsRef.current, next)}
         saveStatus={routineSaveStatus}
@@ -545,7 +547,14 @@ export function TimeblockBuilder({
                   variant="ghost"
                   size="icon-sm"
                   aria-label="Undo last edit"
-                  disabled={!ready || !history.current.past.length}
+                  title={
+                    routineDirty
+                      ? "Apply routine changes before undoing"
+                      : "Undo last edit"
+                  }
+                  disabled={
+                    !ready || routineDirty || !history.current.past.length
+                  }
                   onClick={undo}
                 >
                   <Undo2 />
@@ -554,7 +563,14 @@ export function TimeblockBuilder({
                   variant="ghost"
                   size="icon-sm"
                   aria-label="Redo last edit"
-                  disabled={!ready || !history.current.future.length}
+                  title={
+                    routineDirty
+                      ? "Apply routine changes before redoing"
+                      : "Redo last edit"
+                  }
+                  disabled={
+                    !ready || routineDirty || !history.current.future.length
+                  }
                   onClick={redo}
                 >
                   <Redo2 />
@@ -595,7 +611,8 @@ export function TimeblockBuilder({
                   overlaps={overlaps}
                   onSelect={openEditor}
                   onAdd={addRow}
-                  disabled={!ready || rows.length >= 56}
+                  disabled={!ready}
+                  addDisabled={rows.length >= 56}
                 />
               </TabsContent>
               <TabsContent value="list">
@@ -623,7 +640,7 @@ export function TimeblockBuilder({
                         >
                           <Checkbox
                             checked={row.included}
-                            disabled={isRoutineBlock(row.id)}
+                            disabled={!ready || isRoutineBlock(row.id)}
                             aria-label={`Include ${row.title || "untitled block"} in PDF`}
                             onCheckedChange={(included) =>
                               commit(
@@ -639,13 +656,19 @@ export function TimeblockBuilder({
                             variant="plain"
                             type="button"
                             className="timeblock-list-open"
+                            disabled={!ready}
                             onClick={() => openEditor(row)}
                           >
                             <strong>{row.title || "Untitled block"}</strong>
                             <span>
                               {formatDayShort(row.startedAt.slice(0, 10))} ·{" "}
                               {blockTime(row.startedAt)} to{" "}
+                              {row.startedAt.slice(0, 10) !==
+                                row.completedAt.slice(0, 10) &&
+                                `${formatDayShort(row.completedAt.slice(0, 10))} `}
                               {blockTime(row.completedAt)}
+                              {blockDuration(row.startedAt, row.completedAt) &&
+                                ` · ${blockDuration(row.startedAt, row.completedAt)}`}
                             </span>
                           </Button>
                           <Badge
@@ -680,6 +703,22 @@ export function TimeblockBuilder({
                 </AlertTitle>
                 <AlertDescription>
                   {issues[0].row.title || "Untitled block"}: {issues[0].issue}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEditor(issues[0].row)}
+                  >
+                    Fix block
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+            {rows.length >= 56 && (
+              <Alert className="mx-4 w-auto">
+                <AlertTitle>All 56 work blocks are in use</AlertTitle>
+                <AlertDescription>
+                  Remove a manual block to make room. Excluded blocks still
+                  count toward the limit.
                 </AlertDescription>
               </Alert>
             )}
@@ -701,13 +740,15 @@ export function TimeblockBuilder({
             )}
           </CardContent>
           <CardFooter className="flex-wrap justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span className="timeblock-legend-dot" />
               From proof
               <span className="timeblock-legend-dot" data-manual />
               Manual
+              <span className="timeblock-legend-dot" data-routine />
+              School & sleep
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground" aria-live="polite">
               {!ready
                 ? "Restoring draft…"
                 : savedLocally
@@ -727,14 +768,24 @@ export function TimeblockBuilder({
       </div>
       <div className="timeblock-export-bar">
         <div>
-          <p className="font-medium">Print it. Hand it in.</p>
-          <p className="text-xs text-muted-foreground">
-            School, sleep, and full task titles in day columns. Print landscape;
-            extra pages are added when needed.
+          <p className="font-medium">Ready to hand in</p>
+          <p
+            id="timeblock-export-status"
+            className="text-xs text-muted-foreground"
+            aria-live="polite"
+          >
+            {routineDirty
+              ? "Apply your school and sleep changes before exporting."
+              : issues.length
+                ? "Fix the flagged blocks before exporting."
+                : busy
+                  ? "Wait for the AI editor to finish before exporting."
+                  : "Landscape PDF with school, sleep, and your work. Extra pages are added as needed."}
           </p>
         </div>
         <Button
           onClick={downloadPdf}
+          aria-describedby="timeblock-export-status"
           disabled={
             !ready || pending || busy || routineDirty || issues.length > 0
           }
@@ -755,6 +806,7 @@ export function TimeblockBuilder({
         <BlockEditor
           key={editing.id}
           row={editing}
+          isNew={newBlock}
           dueMonday={dueMonday}
           onClose={() => setEditing(null)}
           onSave={saveRow}
