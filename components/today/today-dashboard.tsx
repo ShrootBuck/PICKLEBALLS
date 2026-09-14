@@ -280,8 +280,8 @@ function TaskDialog({
         )}
         {task ? "Edit" : "Add task"}
       </DialogTrigger>
-      <DialogContent className="max-h-[calc(100dvh-1.5rem)] overflow-hidden p-0 sm:max-w-lg">
-        <div className="flex max-h-[calc(100dvh-1.5rem)] flex-col">
+      <DialogContent className="overflow-hidden p-0 sm:max-w-lg">
+        <div className="flex min-h-0 max-h-[inherit] flex-col">
           <DialogHeader className="shrink-0 p-4 pb-0 sm:p-6 sm:pb-0">
             <DialogTitle className="text-xl tracking-tight">
               {task ? "Renegotiate before midnight" : "Make a real promise"}
@@ -528,8 +528,8 @@ function ProofDialog({
         <Camera data-icon="inline-start" />
         {isReplace ? "Replace proof" : "Upload proof"}
       </DialogTrigger>
-      <DialogContent className="max-h-[calc(100dvh-1.5rem)] overflow-hidden p-0 sm:max-w-lg">
-        <div className="flex max-h-[calc(100dvh-1.5rem)] flex-col">
+      <DialogContent className="overflow-hidden p-0 sm:max-w-lg">
+        <div className="flex min-h-0 max-h-[inherit] flex-col">
           <DialogHeader className="shrink-0 p-4 pb-0 sm:p-6 sm:pb-0">
             <DialogTitle className="text-xl tracking-tight">
               Prove it: {task.title}

@@ -113,8 +113,8 @@ export function ReviewProof({
       >
         <Gavel data-icon="inline-start" /> Review proof
       </DialogTrigger>
-      <DialogContent className="max-h-[calc(100dvh-1.5rem)] overflow-hidden p-0 sm:max-w-lg">
-        <div className="flex max-h-[calc(100dvh-1.5rem)] flex-col">
+      <DialogContent className="overflow-hidden p-0 sm:max-w-lg">
+        <div className="flex min-h-0 max-h-[inherit] flex-col">
           <DialogHeader className="shrink-0 p-4 pb-0 sm:p-6 sm:pb-0">
             <DialogTitle>Call it like it is</DialogTitle>
             <DialogDescription>

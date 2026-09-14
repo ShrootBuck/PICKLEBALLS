@@ -9,6 +9,11 @@ import {
   storyFrameKey,
   storyFrames,
 } from "@/lib/stories";
+import {
+  applyStoryViews,
+  parseStoryViews,
+  type StoryViewReceipt,
+} from "@/lib/story-views";
 
 function group(
   id: string,
@@ -108,6 +113,92 @@ test("empty groups are omitted and equal timestamps have deterministic order", (
       (g) => g.author.id,
     ),
   ).toEqual(["b", "a"]);
+});
+
+test("locally read attachments survive stale server data without clearing new frames", () => {
+  const original = group("friend", 0);
+  const receipt: StoryViewReceipt = {
+    kind: "proof",
+    id: "friend",
+    frame: 0,
+    createdAt: original.posts[0].post.createdAt,
+    pending: true,
+  };
+  const now = new Date(receipt.createdAt).getTime() + 1000;
+  const saved = parseStoryViews(JSON.stringify([receipt]), now);
+  const merged = applyStoryViews([original], saved.values());
+  expect(firstUnseenFrame(merged[0])).toBe(1);
+  expect(hasUnseenStory(merged[0])).toBe(true);
+  expect(original.posts[0].seenFrames).toEqual([]);
+  const complete = applyStoryViews(merged, [{ ...receipt, frame: 1 }]);
+  expect(hasUnseenStory(complete[0])).toBe(false);
+  const fresh = group("friend", 1);
+  fresh.posts[0].post.id = "new-proof";
+  const withNew = applyStoryViews(
+    [
+      {
+        author: original.author,
+        posts: [...complete[0].posts, ...fresh.posts],
+      },
+    ],
+    saved.values(),
+  );
+  expect(hasUnseenStory(withNew[0])).toBe(true);
+  expect(firstUnseenFrame(withNew[0])).toBe(2);
+});
+
+test("local receipts preserve server reads and never cross post kinds", () => {
+  const original = group("shared-id", 0, [1]);
+  const receipt: StoryViewReceipt = {
+    kind: "check-in",
+    id: "shared-id",
+    frame: 0,
+    createdAt: original.posts[0].post.createdAt,
+    pending: false,
+  };
+  expect(applyStoryViews([original], [receipt])[0].posts[0].seenFrames).toEqual(
+    [1],
+  );
+  const merged = applyStoryViews([original], [{ ...receipt, kind: "proof" }]);
+  expect(hasUnseenStory(merged[0])).toBe(false);
+  expect(
+    applyStoryViews(merged, [{ ...receipt, kind: "proof" }])[0].posts[0]
+      .seenFrames,
+  ).toHaveLength(2);
+});
+
+test("local read history rejects damaged storage, invalid frames, and expired receipts", () => {
+  const createdAt = "2026-09-14T12:00:00.000Z";
+  const now = new Date(createdAt).getTime() + 1000;
+  const valid = {
+    kind: "proof",
+    id: "post",
+    frame: 0,
+    createdAt,
+    pending: true,
+  };
+  expect(parseStoryViews("broken", now).size).toBe(0);
+  expect(parseStoryViews('{"not":"an array"}', now).size).toBe(0);
+  expect(
+    parseStoryViews(
+      JSON.stringify([
+        null,
+        {},
+        valid,
+        { ...valid, frame: -1 },
+        { ...valid, frame: 0.5 },
+        { ...valid, frame: 101 },
+        { ...valid, kind: "unknown" },
+        { ...valid, createdAt: "invalid" },
+        { ...valid, pending: "true" },
+        { ...valid, createdAt: new Date(now + 1000).toISOString() },
+      ]),
+      now,
+    ).size,
+  ).toBe(1);
+  expect(
+    parseStoryViews(JSON.stringify([valid]), now + STORY_WINDOW_MS).size,
+  ).toBe(0);
 });
 
 test("unread checks require each real attachment and ignore duplicate or foreign frame indexes", () => {

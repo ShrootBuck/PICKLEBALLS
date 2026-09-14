@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSocial } from "@/components/social/social-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -10,8 +10,15 @@ import { hasUnseenStory } from "@/lib/stories";
 import { cn } from "@/lib/utils";
 
 export function StoryTray() {
-  const { viewer, stories, storiesReady, openStories, openComposer } =
-    useSocial();
+  const {
+    viewer,
+    stories,
+    storiesReady,
+    storiesError,
+    reloadStories,
+    openStories,
+    openComposer,
+  } = useSocial();
   const scroller = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ before: false, after: false });
   const mine = stories.find((group) => group.author.id === viewer.id);
@@ -52,15 +59,27 @@ export function StoryTray() {
           Stories{" "}
           <span className="ml-1 font-normal text-muted-foreground">· 24h</span>
         </h2>
-        <span className="text-xs text-muted-foreground">
-          {!storiesReady
-            ? "Loading stories…"
-            : unseen
-              ? `${unseen} new ${unseen === 1 ? "story" : "stories"}`
-              : others.length
-                ? "You’re caught up"
-                : "A little of everyone’s day"}
-        </span>
+        {storiesError ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!storiesReady}
+            onClick={() => void reloadStories()}
+          >
+            <RefreshCw data-icon="inline-start" />
+            {storiesReady ? "Retry stories" : "Loading…"}
+          </Button>
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            {!storiesReady
+              ? "Loading stories…"
+              : unseen
+                ? `${unseen} new ${unseen === 1 ? "story" : "stories"}`
+                : others.length
+                  ? "You’re caught up"
+                  : "A little of everyone’s day"}
+          </span>
+        )}
       </div>
       <div className="relative">
         <div ref={scroller} onScroll={measure} className="story-strip">
@@ -148,7 +167,7 @@ export function StoryTray() {
                   <Skeleton className="h-3 w-8" />
                 </div>
               ))}
-            {storiesReady && !others.length && (
+            {storiesReady && !others.length && !storiesError && (
               <p className="story-tray-empty">
                 Your circle’s proof, check-ins, and screen time appear here.
                 <br />

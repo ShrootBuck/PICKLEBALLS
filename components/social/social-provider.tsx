@@ -26,12 +26,12 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
+import { useStoryViews } from "@/hooks/use-story-views";
 import type {
   FeedPage,
   FeedPost,
   SocialAuthor,
   SocialTask,
-  StoryFrame,
   StoryGroup,
 } from "@/lib/social-types";
 import { postKey } from "@/lib/social-types";
@@ -88,6 +88,8 @@ type SocialContext = {
   tasks: SocialTask[];
   stories: StoryGroup[];
   storiesReady: boolean;
+  storiesError: boolean;
+  reloadStories: () => Promise<void>;
   postRevision: number;
   feedLayouts: Map<string, "grid" | "list">;
   openStories: (authorId: string, trigger?: HTMLElement) => void;
@@ -120,6 +122,8 @@ export function SocialProvider({
   const [composer, setComposer] = useState<ComposerRequest | null>(null);
   const [stories, setStories] = useState<StoryGroup[]>([]);
   const [storiesReady, setStoriesReady] = useState(false);
+  const [storiesError, setStoriesError] = useState(false);
+  const reloadingStories = useRef(false);
   const [postRevision, setPostRevision] = useState(0);
   const [storySession, setStorySession] = useState<{
     groups: StoryGroup[];
@@ -127,44 +131,69 @@ export function SocialProvider({
     routeKey: string;
     trigger?: HTMLElement;
   } | null>(null);
-  const seenRequests = useRef(new Set<string>());
-  const viewErrorShown = useRef(false);
+  const { markViewed, mergeViews } = useStoryViews(
+    viewer.id,
+    circleId,
+    setStories,
+  );
   useEffect(() => {
     setStorySession((current) =>
       current && current.routeKey !== routeKey ? null : current,
     );
   }, [routeKey]);
-  const syncStories = useCallback((fresh: StoryGroup[] | null) => {
-    setStoriesReady(true);
-    if (!fresh) {
-      toast.add({
-        title: "Stories could not load. Refresh to try again.",
-        type: "error",
-      });
-      return;
-    }
-    setStories((current) => {
-      const seen = new Map(
-        current.flatMap((group) =>
-          group.posts.map(
-            (item) => [postKey(item.post), item.seenFrames] as const,
+  const syncStories = useCallback(
+    (fresh: StoryGroup[] | null) => {
+      setStoriesReady(true);
+      setStoriesError(!fresh);
+      if (!fresh) {
+        toast.add({
+          title: "Stories could not load.",
+          type: "error",
+        });
+        return;
+      }
+      const local = mergeViews(fresh);
+      setStories((current) => {
+        const seen = new Map(
+          current.flatMap((group) =>
+            group.posts.map(
+              (item) => [postKey(item.post), item.seenFrames] as const,
+            ),
           ),
-        ),
-      );
-      return fresh.map((group) => ({
-        ...group,
-        posts: group.posts.map((item) => ({
-          ...item,
-          seenFrames: [
-            ...new Set([
-              ...item.seenFrames,
-              ...(seen.get(postKey(item.post)) ?? []),
-            ]),
-          ],
-        })),
-      }));
-    });
-  }, []);
+        );
+        return local.map((group) => ({
+          ...group,
+          posts: group.posts.map((item) => ({
+            ...item,
+            seenFrames: [
+              ...new Set([
+                ...item.seenFrames,
+                ...(seen.get(postKey(item.post)) ?? []),
+              ]),
+            ],
+          })),
+        }));
+      });
+    },
+    [mergeViews],
+  );
+  const reloadStories = useCallback(async () => {
+    if (reloadingStories.current) return;
+    reloadingStories.current = true;
+    setStoriesReady(false);
+    try {
+      const response = await fetch("/api/stories", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) throw new Error("Could not load stories");
+      syncStories(await response.json());
+    } catch {
+      syncStories(null);
+    } finally {
+      reloadingStories.current = false;
+    }
+  }, [syncStories]);
   useEffect(() => {
     const expire = () => setStories((current) => expireStoryGroups(current));
     const timer = window.setInterval(expire, 60_000);
@@ -208,51 +237,6 @@ export function SocialProvider({
     },
     [],
   );
-  const markViewed = useCallback(
-    async (frame: StoryFrame) => {
-      if (frame.seen || seenRequests.current.has(frame.key)) return;
-      seenRequests.current.add(frame.key);
-      try {
-        // Read receipts should not refresh the whole app after every frame.
-        const response = await fetch("/api/stories", {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            circleId,
-            kind: frame.post.kind,
-            id: frame.post.id,
-            frame: frame.frame,
-          }),
-          keepalive: true,
-        });
-        if (!response.ok) throw new Error("View failed");
-        setStories((groups) =>
-          groups.map((group) => ({
-            ...group,
-            posts: group.posts.map((item) =>
-              postKey(item.post) === postKey(frame.post)
-                ? {
-                    ...item,
-                    seenFrames: [...new Set([...item.seenFrames, frame.frame])],
-                  }
-                : item,
-            ),
-          })),
-        );
-      } catch {
-        seenRequests.current.delete(frame.key);
-        if (!viewErrorShown.current) {
-          viewErrorShown.current = true;
-          toast.add({
-            title:
-              "Could not save your place in stories. You can keep watching.",
-            type: "error",
-          });
-        }
-      }
-    },
-    [circleId],
-  );
   return (
     <Context
       value={{
@@ -262,6 +246,8 @@ export function SocialProvider({
         tasks,
         stories: orderStoryGroups(stories, viewer.id),
         storiesReady,
+        storiesError,
+        reloadStories,
         postRevision,
         feedLayouts: feedLayouts.current,
         openStories: (authorId, trigger) => {

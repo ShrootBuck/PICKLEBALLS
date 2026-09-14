@@ -171,7 +171,7 @@ export function SocialShell({
             });
           }}
         >
-          <span className="relative shrink-0">
+          <span className="social-nav-icon">
             {Icon ? (
               <Icon className="size-6" strokeWidth={active ? 2.3 : 1.7} />
             ) : (

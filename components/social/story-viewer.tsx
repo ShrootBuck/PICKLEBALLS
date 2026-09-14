@@ -59,13 +59,20 @@ export function StoryViewer({
     () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
   const [holding, setHolding] = useState(false);
-  const [away, setAway] = useState(false);
+  const [away, setAway] = useState(
+    () => document.hidden || !document.hasFocus(),
+  );
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [muted, setMuted] = useState(true);
   const [progress, setProgress] = useState(0);
   const [readyFrame, setReadyFrame] = useState<string | null>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
-  const gesture = useRef<{ x: number; y: number; at: number } | null>(null);
+  const gesture = useRef<{
+    x: number;
+    y: number;
+    at: number;
+    pointerId: number;
+  } | null>(null);
   const ignoreClick = useRef(false);
   const group = groups[position.group];
   const frames = useMemo(() => storyFrames(group), [group]);
@@ -106,7 +113,11 @@ export function StoryViewer({
   );
   useEffect(() => {
     const visible = () => setAway(document.hidden || !document.hasFocus());
-    const release = () => setHolding(false);
+    const release = () => {
+      gesture.current = null;
+      setHolding(false);
+    };
+    visible();
     document.addEventListener("visibilitychange", visible);
     window.addEventListener("blur", visible);
     window.addEventListener("focus", visible);
@@ -239,6 +250,7 @@ export function StoryViewer({
         <div
           className="story-stage"
           onPointerDown={(event) => {
+            if (!event.isPrimary || event.button !== 0) return;
             if ((event.target as Element).closest("a, button:not(.story-tap)"))
               return;
             ignoreClick.current = false;
@@ -246,14 +258,16 @@ export function StoryViewer({
               x: event.clientX,
               y: event.clientY,
               at: performance.now(),
+              pointerId: event.pointerId,
             };
+            (event.target as Element).setPointerCapture(event.pointerId);
             setHolding(true);
           }}
           onPointerUp={(event) => {
             const start = gesture.current;
+            if (!start || start.pointerId !== event.pointerId) return;
             gesture.current = null;
             setHolding(false);
-            if (!start) return;
             const dx = event.clientX - start.x,
               dy = event.clientY - start.y;
             ignoreClick.current =
@@ -264,6 +278,7 @@ export function StoryViewer({
               move(dx < 0 ? 1 : -1);
           }}
           onPointerCancel={() => {
+            ignoreClick.current = true;
             gesture.current = null;
             setHolding(false);
           }}
@@ -303,8 +318,8 @@ export function StoryViewer({
             className="story-tap story-tap-previous"
             aria-label="Previous story"
             disabled={position.group === 0 && position.frame === 0}
-            onClick={() => {
-              if (!ignoreClick.current) move(-1);
+            onClick={(event) => {
+              if (event.detail === 0 || !ignoreClick.current) move(-1);
             }}
           />
           <Button
@@ -312,8 +327,8 @@ export function StoryViewer({
             type="button"
             className="story-tap story-tap-next"
             aria-label="Next story"
-            onClick={() => {
-              if (!ignoreClick.current) move(1);
+            onClick={(event) => {
+              if (event.detail === 0 || !ignoreClick.current) move(1);
             }}
           />
         </div>
@@ -360,7 +375,7 @@ export function StoryViewer({
               )}
             </div>
           )}
-          <div className="flex items-center justify-between gap-1">
+          <div className="flex flex-wrap items-center justify-between gap-1">
             {post.kind !== "screen-time" && (
               <PostInteractions
                 key={postKey(post)}
@@ -498,22 +513,21 @@ function StoryScene({
   const elapsed = useRef(0);
   const end = useRef(onEnd);
   const viewed = useRef(onViewed);
+  const reported = useRef(false);
   useEffect(() => {
     end.current = onEnd;
     viewed.current = onViewed;
   }, [onEnd, onViewed]);
+  const recordView = useCallback(() => {
+    if (!active || !ready || !visible || error || reported.current) return;
+    reported.current = true;
+    viewed.current(frame);
+  }, [active, ready, visible, error, frame]);
   useEffect(() => {
-    if (
-      !ready ||
-      !visible ||
-      error ||
-      buffering ||
-      (frame.media?.video && (blocked || paused))
-    )
-      return;
-    const timer = window.setTimeout(() => viewed.current(frame), 600);
-    return () => window.clearTimeout(timer);
-  }, [ready, visible, error, buffering, blocked, paused, frame]);
+    // A displayed photo or check-in is seen, even if the reader quickly taps
+    // ahead or holds to pause. Preloaded and failed attachments stay unread.
+    if (!frame.media?.video) recordView();
+  }, [frame.media?.video, recordView]);
   useEffect(() => {
     if (!ready || paused || error || frame.media?.video) return;
     const duration = frame.media
@@ -594,11 +608,13 @@ function StoryScene({
               onPlaying={() => {
                 setBuffering(false);
                 setBlocked(false);
+                recordView();
               }}
               onCanPlay={() => setBuffering(false)}
               onError={() => setError(true)}
               onTimeUpdate={(event) => {
                 const node = event.currentTarget;
+                if (node.currentTime > 0) recordView();
                 const duration = playback?.duration ?? node.duration;
                 if (Number.isFinite(duration) && duration > 0)
                   onProgress(Math.min(1, node.currentTime / duration));

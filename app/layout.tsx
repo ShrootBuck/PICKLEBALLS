@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { AppRefreshProvider } from "@/components/layout/app-refresh-provider";
+import { VisualViewportSync } from "@/components/layout/visual-viewport";
 import { RegisterSw } from "@/components/pwa/register-sw";
 import { AppearanceProvider } from "@/components/settings/appearance-provider";
 import { Toaster } from "@/components/ui/toast";
@@ -121,6 +122,7 @@ export default async function RootLayout({
         <link rel="apple-touch-icon" href="/apple-icon" />
       </head>
       <body className="flex h-dvh min-h-0 flex-col overflow-hidden touch-manipulation antialiased">
+        <VisualViewportSync />
         <RegisterSw />
         <AppRefreshProvider
           userId={session?.user.id ?? null}

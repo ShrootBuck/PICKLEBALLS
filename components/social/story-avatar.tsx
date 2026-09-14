@@ -14,8 +14,9 @@ export function StoryAvatar({
   author: SocialAuthor;
   href: string;
 }) {
-  const { stories, storiesReady, openStories } = useSocial();
+  const { viewer, stories, storiesReady, openStories } = useSocial();
   const group = stories.find((story) => story.author.id === author.id);
+  const unseen = group && author.id !== viewer.id && hasUnseenStory(group);
   const avatar = (
     <Avatar className="size-10">
       <AvatarImage src={author.image ?? undefined} alt="" />
@@ -29,9 +30,9 @@ export function StoryAvatar({
       disabled={!storiesReady}
       className={cn(
         "story-ring story-ring-small has-story",
-        hasUnseenStory(group) && "is-unseen",
+        unseen && "is-unseen",
       )}
-      aria-label={`View ${author.name}’s story`}
+      aria-label={`View ${author.name}’s story${unseen ? ", unseen" : ""}`}
       onClick={(event) => openStories(author.id, event.currentTarget)}
     >
       {avatar}
