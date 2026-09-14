@@ -81,6 +81,7 @@ model User {
   image           String?
   initials        String   @default("PB")
   primaryColor    String   @default("neutral")
+  timeblockRoutine Json?
   discordId       String?  @unique
   discordUsername String?
   createdAt       DateTime @default(now())

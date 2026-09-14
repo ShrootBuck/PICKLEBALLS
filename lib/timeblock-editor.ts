@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { parsePhoenixLocalDateTime } from "@/lib/time";
 import type { TimeblockDraftRow } from "@/lib/timeblock-draft";
+import {
+  type TimeblockRoutine,
+  timeblockRoutineSchema,
+} from "@/lib/timeblock-routine";
 import { timeblockWeek } from "@/lib/timeblocks";
 
 export const blockEditSchema = z.object({
@@ -23,6 +27,34 @@ export const blockEditSchema = z.object({
   removeIds: z.array(z.string().max(100)).max(56),
 });
 export type BlockEdit = z.infer<typeof blockEditSchema>;
+
+export const reportEditSchema = blockEditSchema.extend({
+  routine: timeblockRoutineSchema
+    .nullable()
+    .describe(
+      "Full updated recurring class names and daily sleep settings, or null to leave them unchanged. Period times and period 4 lunch are fixed. These settings also apply to future reports.",
+    ),
+});
+
+export function reportFingerprint(
+  rows: TimeblockDraftRow[],
+  routine: TimeblockRoutine,
+) {
+  return JSON.stringify([draftFingerprint(rows), routine]);
+}
+
+export function applyReportEdit(
+  rows: TimeblockDraftRow[],
+  routine: TimeblockRoutine,
+  edit: z.infer<typeof reportEditSchema>,
+  dueMonday: string,
+) {
+  const parsed = reportEditSchema.parse(edit);
+  return {
+    rows: applyBlockEdit(rows, parsed, dueMonday),
+    routine: parsed.routine ?? routine,
+  };
+}
 
 export function draftFingerprint(rows: TimeblockDraftRow[]) {
   return JSON.stringify(

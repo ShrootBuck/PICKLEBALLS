@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1789410277604,
+    title: "School and sleep in your timeblock",
+    description:
+      "Save your class names and daily sleep times once. Every weekly report includes the school periods, fourth-period lunch, and sleep automatically. Ask the AI editor to update your routine or organize your work, then print a schedule with full task titles.",
+  },
+  {
     timestamp: 1789404337595,
     title: "Shape your timeblock with AI",
     description:

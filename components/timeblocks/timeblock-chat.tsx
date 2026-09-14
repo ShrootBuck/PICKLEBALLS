@@ -35,22 +35,30 @@ import { Textarea } from "@/components/ui/textarea";
 import type { TimeblockAgentMessage } from "@/lib/timeblock-agent";
 import type { TimeblockDraftRow } from "@/lib/timeblock-draft";
 
+import type { TimeblockRoutine } from "@/lib/timeblock-routine";
+
 const suggestions = [
-  "Check my week for overlaps",
+  "Check my report for overlaps and missing details",
   "Make my task names clearer",
-  "Help me add missing work",
+  "I sleep from 10 PM to 6 AM every day",
 ];
 
 export function TimeblockChat({
   dueMonday,
   getRows,
+  getRoutine,
   applyEdit,
   onBusyChange,
   ready,
 }: {
   dueMonday: string;
   getRows: () => TimeblockDraftRow[];
-  applyEdit: (before: string, rows: TimeblockDraftRow[]) => boolean;
+  getRoutine: () => TimeblockRoutine;
+  applyEdit: (
+    before: string,
+    rows: TimeblockDraftRow[],
+    routine: TimeblockRoutine,
+  ) => boolean;
   onBusyChange: (busy: boolean) => void;
   ready: boolean;
 }) {
@@ -65,6 +73,7 @@ export function TimeblockChat({
           body: {
             dueMonday,
             rows: getRows(),
+            routine: getRoutine(),
             messages: messages
               .map((message) => ({
                 id: message.id,
@@ -91,7 +100,7 @@ export function TimeblockChat({
           return response;
         }) as typeof fetch,
       }),
-    [dueMonday, getRows],
+    [dueMonday, getRows, getRoutine],
   );
   const {
     messages,
@@ -117,7 +126,11 @@ export function TimeblockChat({
           continue;
         handled.current.add(part.toolCallId);
         if (part.output.ok) {
-          const applied = applyEdit(part.output.before, part.output.rows);
+          const applied = applyEdit(
+            part.output.before,
+            part.output.rows,
+            part.output.routine,
+          );
           setOutcomes((current) => ({
             ...current,
             [part.toolCallId]: applied,
@@ -158,7 +171,7 @@ export function TimeblockChat({
         </div>
         <CardTitle>Talk your week into shape.</CardTitle>
         <CardDescription>
-          Tell me what to add or change. Watch it happen on your calendar.
+          Set classes and sleep, add work, or clean up your report for printing.
         </CardDescription>
       </CardHeader>
       <CardContent className="min-h-0 flex-1 px-4">
@@ -333,7 +346,7 @@ export function TimeblockChat({
           </Field>
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
-              Edits stay in your draft. Undo anytime.
+              Undo any edit. School and sleep save to your account.
             </p>
             {busy ? (
               <Button

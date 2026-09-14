@@ -18,6 +18,7 @@ import {
   TimeblockCalendar,
 } from "@/components/timeblocks/timeblock-calendar";
 import { TimeblockChat } from "@/components/timeblocks/timeblock-chat";
+import { TimeblockRoutineForm } from "@/components/timeblocks/timeblock-routine-form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,13 @@ import {
   blockIssue,
   draftFingerprint,
   overlappingIds,
+  reportFingerprint,
 } from "@/lib/timeblock-editor";
+import {
+  isRoutineBlock,
+  routineBlocks,
+  type TimeblockRoutine,
+} from "@/lib/timeblock-routine";
 import { shiftDateKey } from "@/lib/timeblocks";
 
 export type TimeblockBuilderRow = TimeblockDraftRow;
@@ -113,9 +120,7 @@ function BlockEditor({
           </DialogHeader>
           <FieldGroup>
             <Field data-invalid={!!error && !draft.title.trim()}>
-              <FieldLabel htmlFor="block-title">
-                What did you work on?
-              </FieldLabel>
+              <FieldLabel htmlFor="block-title">What did you do?</FieldLabel>
               <Input
                 id="block-title"
                 name="title"
@@ -198,17 +203,50 @@ export function TimeblockBuilder({
   draftKey,
   weekEnd,
   initialRows,
+  initialRoutine,
 }: {
   dueMonday: string;
   draftKey: string;
   weekEnd: string;
   initialRows: TimeblockBuilderRow[];
+  initialRoutine: TimeblockRoutine;
 }) {
   const [rows, setRows] = useState(initialRows);
   const rowsRef = useRef(initialRows);
+  const [routine, setRoutine] = useState(initialRoutine);
+  const routineRef = useRef(initialRoutine);
+  const [routineSaveStatus, setRoutineSaveStatus] = useState<
+    "saved" | "saving" | "error"
+  >("saved");
+  const [routineDirty, setRoutineDirty] = useState(false);
+  const routineDirtyRef = useRef(false);
+  const onRoutineDirtyChange = useCallback((dirty: boolean) => {
+    routineDirtyRef.current = dirty;
+    setRoutineDirty(dirty);
+  }, []);
+  const saveQueue = useRef(Promise.resolve());
+  const saveVersion = useRef(0);
+  const persistRoutine = useCallback((next: TimeblockRoutine) => {
+    const version = ++saveVersion.current;
+    setRoutineSaveStatus("saving");
+    // Serialize writes so an older request cannot overwrite a later edit/undo.
+    saveQueue.current = saveQueue.current.then(async () => {
+      try {
+        const response = await fetch("/api/timeblocks/routine", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(next),
+        });
+        if (!response.ok) throw new Error("Settings could not save");
+        if (version === saveVersion.current) setRoutineSaveStatus("saved");
+      } catch {
+        if (version === saveVersion.current) setRoutineSaveStatus("error");
+      }
+    });
+  }, []);
   const history = useRef<{
-    past: TimeblockDraftRow[][];
-    future: TimeblockDraftRow[][];
+    past: { rows: TimeblockDraftRow[]; routine: TimeblockRoutine }[];
+    future: { rows: TimeblockDraftRow[]; routine: TimeblockRoutine }[];
   }>({ past: [], future: [] });
   const restored = useRef(false);
   const [ready, setReady] = useState(false);
@@ -219,20 +257,42 @@ export function TimeblockBuilder({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const getRows = useCallback(() => rowsRef.current, []);
-  const commit = useCallback((next: TimeblockDraftRow[]) => {
-    if (draftFingerprint(next) === draftFingerprint(rowsRef.current)) return;
-    history.current.past = [...history.current.past, rowsRef.current].slice(
-      -40,
-    );
-    history.current.future = [];
-    rowsRef.current = next;
-    setRows(next);
-    setError(null);
-  }, []);
+  const getRoutine = useCallback(() => routineRef.current, []);
+  const commit = useCallback(
+    (next: TimeblockDraftRow[], nextRoutine = routineRef.current) => {
+      if (
+        reportFingerprint(next, nextRoutine) ===
+        reportFingerprint(rowsRef.current, routineRef.current)
+      )
+        return;
+      history.current.past = [
+        ...history.current.past,
+        { rows: rowsRef.current, routine: routineRef.current },
+      ].slice(-40);
+      history.current.future = [];
+      rowsRef.current = next;
+      setRows(next);
+      if (JSON.stringify(nextRoutine) !== JSON.stringify(routineRef.current)) {
+        routineRef.current = nextRoutine;
+        setRoutine(nextRoutine);
+        persistRoutine(nextRoutine);
+      }
+      setError(null);
+    },
+    [persistRoutine],
+  );
   const applyEdit = useCallback(
-    (before: string, next: TimeblockDraftRow[]) => {
-      if (draftFingerprint(rowsRef.current) !== before) return false;
-      commit(next);
+    (
+      before: string,
+      next: TimeblockDraftRow[],
+      nextRoutine: TimeblockRoutine,
+    ) => {
+      if (
+        routineDirtyRef.current ||
+        reportFingerprint(rowsRef.current, routineRef.current) !== before
+      )
+        return false;
+      commit(next, nextRoutine);
       return true;
     },
     [commit],
@@ -274,7 +334,11 @@ export function TimeblockBuilder({
 
   const included = useMemo(() => rows.filter((row) => row.included), [rows]);
   const includedCount = included.length;
-  const overlaps = useMemo(() => overlappingIds(rows), [rows]);
+  const calendarRows = useMemo(
+    () => [...rows, ...routineBlocks(dueMonday, routine)],
+    [rows, dueMonday, routine],
+  );
+  const overlaps = useMemo(() => overlappingIds(calendarRows), [calendarRows]);
   const issues = included
     .map((row) => ({ row, issue: blockIssue(row, dueMonday) }))
     .filter((item) => item.issue);
@@ -292,20 +356,47 @@ export function TimeblockBuilder({
   function undo() {
     const previous = history.current.past.pop();
     if (!previous) return;
-    history.current.future.push(rowsRef.current);
-    rowsRef.current = previous;
-    setRows(previous);
+    history.current.future.push({
+      rows: rowsRef.current,
+      routine: routineRef.current,
+    });
+    rowsRef.current = previous.rows;
+    setRows(previous.rows);
+    if (JSON.stringify(routineRef.current) !== JSON.stringify(previous.routine))
+      persistRoutine(previous.routine);
+    routineRef.current = previous.routine;
+    setRoutine(previous.routine);
     setError(null);
   }
   function redo() {
     const next = history.current.future.pop();
     if (!next) return;
-    history.current.past.push(rowsRef.current);
-    rowsRef.current = next;
-    setRows(next);
+    history.current.past.push({
+      rows: rowsRef.current,
+      routine: routineRef.current,
+    });
+    rowsRef.current = next.rows;
+    setRows(next.rows);
+    if (JSON.stringify(routineRef.current) !== JSON.stringify(next.routine))
+      persistRoutine(next.routine);
+    routineRef.current = next.routine;
+    setRoutine(next.routine);
     setError(null);
   }
   function openEditor(row: TimeblockDraftRow) {
+    if (isRoutineBlock(row.id)) {
+      document
+        .getElementById("timeblock-routine")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document
+        .getElementById(
+          row.id.includes("school")
+            ? `period-${row.id.slice(-1)}`
+            : "sleep-bedtime",
+        )
+        ?.focus({ preventScroll: true });
+      return;
+    }
     setNewBlock(false);
     setEditing(row);
   }
@@ -371,7 +462,7 @@ export function TimeblockBuilder({
       const response = await fetch("/api/timeblocks/pdf", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ dueMonday, tasks }),
+        body: JSON.stringify({ dueMonday, tasks, routine: routineRef.current }),
       });
       if (!response.ok) {
         setError(await readError(response));
@@ -387,7 +478,7 @@ export function TimeblockBuilder({
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
-      toast.add({ title: "Two-page PDF ready.", type: "success" });
+      toast.add({ title: "Printable PDF ready.", type: "success" });
       setPending(false);
     } catch {
       setError("Could not reach the server. Check your wifi and try again.");
@@ -401,14 +492,15 @@ export function TimeblockBuilder({
         <div>
           <p className="timeblock-eyebrow">
             <Sparkles className="size-3.5" />
-            YOUR WEEK, REFINED
+            YOUR WEEK, READY TO PRINT
           </p>
           <h2>
-            A little structure.
-            <br />A lot more clarity.
+            A complete week.
+            <br />
+            Ready for Ms. Merrill.
           </h2>
           <p className="text-sm text-muted-foreground">
-            Start with your proof. Fill in the rest. Make it yours.
+            Add your classes and sleep. Review your work. Export and print.
           </p>
         </div>
         <div className="timeblock-stats">
@@ -428,6 +520,15 @@ export function TimeblockBuilder({
           </div>
         </div>
       </div>
+      <TimeblockRoutineForm
+        key={JSON.stringify(routine)}
+        routine={routine}
+        disabled={!ready}
+        onSave={(next) => commit(rowsRef.current, next)}
+        saveStatus={routineSaveStatus}
+        onDirtyChange={onRoutineDirtyChange}
+        onRetry={() => persistRoutine(routineRef.current)}
+      />
       <div className="timeblock-studio-grid">
         <Card className="timeblock-board">
           <CardHeader>
@@ -489,7 +590,7 @@ export function TimeblockBuilder({
               </div>
               <TabsContent value="calendar">
                 <TimeblockCalendar
-                  rows={rows}
+                  rows={calendarRows}
                   weekStart={shiftDateKey(dueMonday, -7)}
                   overlaps={overlaps}
                   onSelect={openEditor}
@@ -499,7 +600,7 @@ export function TimeblockBuilder({
               </TabsContent>
               <TabsContent value="list">
                 <div className="timeblock-list">
-                  {rows.length === 0 ? (
+                  {calendarRows.length === 0 ? (
                     <Empty>
                       <EmptyHeader>
                         <EmptyMedia variant="icon">
@@ -512,7 +613,7 @@ export function TimeblockBuilder({
                       </EmptyHeader>
                     </Empty>
                   ) : (
-                    [...rows]
+                    [...calendarRows]
                       .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
                       .map((row) => (
                         <div
@@ -522,6 +623,7 @@ export function TimeblockBuilder({
                         >
                           <Checkbox
                             checked={row.included}
+                            disabled={isRoutineBlock(row.id)}
                             aria-label={`Include ${row.title || "untitled block"} in PDF`}
                             onCheckedChange={(included) =>
                               commit(
@@ -555,11 +657,13 @@ export function TimeblockBuilder({
                               ? "Overlap"
                               : !row.included
                                 ? "Excluded"
-                                : row.status === "VERIFIED"
-                                  ? "Verified proof"
-                                  : row.status
-                                    ? "From proof"
-                                    : "Manual"}
+                                : isRoutineBlock(row.id)
+                                  ? "School & sleep"
+                                  : row.status === "VERIFIED"
+                                    ? "Verified proof"
+                                    : row.status
+                                      ? "From proof"
+                                      : "Manual"}
                           </Badge>
                         </div>
                       ))
@@ -615,6 +719,7 @@ export function TimeblockBuilder({
         <TimeblockChat
           dueMonday={dueMonday}
           getRows={getRows}
+          getRoutine={getRoutine}
           applyEdit={applyEdit}
           onBusyChange={setBusy}
           ready={ready}
@@ -622,22 +727,28 @@ export function TimeblockBuilder({
       </div>
       <div className="timeblock-export-bar">
         <div>
-          <p className="font-medium">Ready for the real world.</p>
+          <p className="font-medium">Print it. Hand it in.</p>
           <p className="text-xs text-muted-foreground">
-            Two pages: your task list and full weekly grid. Landscape,
-            double-sided.
+            School, sleep, and full task titles in day columns. Print landscape;
+            extra pages are added when needed.
           </p>
         </div>
         <Button
           onClick={downloadPdf}
-          disabled={!ready || pending || busy || issues.length > 0}
+          disabled={
+            !ready || pending || busy || routineDirty || issues.length > 0
+          }
         >
           {pending ? (
             <Spinner data-icon="inline-start" />
           ) : (
             <Download data-icon="inline-start" />
           )}
-          {pending ? "Building PDF…" : "Export PDF"}
+          {pending
+            ? "Building PDF…"
+            : routineDirty
+              ? "Apply school & sleep first"
+              : "Export PDF"}
         </Button>
       </div>
       {editing && (

@@ -46,6 +46,7 @@ export async function POST(request: Request) {
       studentName: auth.membership.user.name,
       dueMonday: parsed.data.dueMonday,
       tasks,
+      routine: parsed.data.routine,
     });
     return new Response(Uint8Array.from(pdf).buffer, {
       headers: {

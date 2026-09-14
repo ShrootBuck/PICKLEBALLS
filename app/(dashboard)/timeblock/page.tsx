@@ -16,6 +16,7 @@ import {
   phoenixDateKey,
   phoenixLocalDateTimeValue,
 } from "@/lib/time";
+import { parseTimeblockRoutine } from "@/lib/timeblock-routine";
 import {
   isMondayDateKey,
   nextOrSameMonday,
@@ -40,6 +41,10 @@ export default async function TimeblockPage({
       ? requestedDue
       : latestDueMonday;
   const week = timeblockWeek(dueMonday);
+  const user = await getPrisma().user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    select: { timeblockRoutine: true },
+  });
 
   const proofs = await getPrisma().taskProof.findMany({
     where: {
@@ -69,7 +74,7 @@ export default async function TimeblockPage({
     <>
       <PageHeader
         title="Timeblock"
-        description={`Completed work from ${formatDayShort(week.startKey)} through ${formatDayShort(week.endKey)}. Proof uploads fill this in automatically.`}
+        description={`Your printable report for Ms. Merrill, ${formatDayShort(week.startKey)} through ${formatDayShort(week.endKey)}. School, sleep, and work in one schedule.`}
         actions={
           <TimeblockNav
             dueMonday={dueMonday}
@@ -88,6 +93,7 @@ export default async function TimeblockPage({
         draftKey={`pb-timeblock:${session.user.id}:${membership.circleId}:${dueMonday}`}
         weekEnd={week.endKey}
         initialRows={rows}
+        initialRoutine={parseTimeblockRoutine(user.timeblockRoutine)}
       />
     </>
   );

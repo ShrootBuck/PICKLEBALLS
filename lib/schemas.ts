@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { mediaIdsSchema } from "@/lib/media-policy";
 import { isPushEndpoint } from "@/lib/push-endpoint";
+import { timeblockRoutineSchema } from "@/lib/timeblock-routine";
 
 export const commitmentInputSchema = z.object({
   title: z.string().trim().min(1).max(100),
@@ -55,6 +56,7 @@ export const proofReviewSchema = z.object({
 const localDateTimeSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 
 export const timeblockPdfSchema = z.object({
+  routine: timeblockRoutineSchema,
   dueMonday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   tasks: z
     .array(

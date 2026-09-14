@@ -7,11 +7,13 @@ import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { createTimeblockAgent } from "@/lib/timeblock-agent";
 import { timeblockDraftSchema } from "@/lib/timeblock-draft";
+import { timeblockRoutineSchema } from "@/lib/timeblock-routine";
 import { isMondayDateKey } from "@/lib/timeblocks";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 const requestSchema = z.object({
+  routine: timeblockRoutineSchema,
   dueMonday: z.string().refine(isMondayDateKey),
   rows: timeblockDraftSchema.shape.rows.refine(
     (rows) => new Set(rows.map((r) => r.id)).size === rows.length,
@@ -55,6 +57,7 @@ export async function POST(request: Request) {
         auth.session.user.id,
         parsed.data.dueMonday,
         parsed.data.rows,
+        parsed.data.routine,
       ),
       uiMessages: parsed.data.messages,
       abortSignal: request.signal,
