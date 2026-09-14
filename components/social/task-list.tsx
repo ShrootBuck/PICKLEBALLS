@@ -29,10 +29,12 @@ import type { SocialTask } from "@/lib/social-types";
 export function TaskList({
   tasks,
   mine,
+  historical = false,
   focusId,
 }: {
   tasks: SocialTask[];
   mine: boolean;
+  historical?: boolean;
   focusId?: string;
 }) {
   const { circleId, openComposer } = useSocial();
@@ -48,12 +50,18 @@ export function TaskList({
         <Empty>
           <EmptyHeader>
             <EmptyTitle>
-              {mine ? "A fresh start" : "Nothing planned yet"}
+              {historical
+                ? "No tasks for this day"
+                : mine
+                  ? "A fresh start"
+                  : "Nothing planned yet"}
             </EmptyTitle>
             <EmptyDescription>
-              {mine
-                ? "Give today a finish line. Start with one task."
-                : "Their tasks will show up here when they add them."}
+              {historical
+                ? "Choose another date or return to today."
+                : mine
+                  ? "Give today a finish line. Start with one task."
+                  : "Their tasks will show up here when they add them."}
             </EmptyDescription>
           </EmptyHeader>
           {mine && (

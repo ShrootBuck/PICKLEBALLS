@@ -56,7 +56,13 @@ import { uploadMedia } from "@/lib/media-upload";
 import { postHref } from "@/lib/navigation";
 import { proofFetch } from "@/lib/proof-fetch";
 import type { SocialTask } from "@/lib/social-types";
-import { phoenixDateKey, phoenixLocalDateTimeValue } from "@/lib/time";
+import {
+  formatDayShort,
+  formatHistoryTime,
+  parsePhoenixLocalDateTime,
+  phoenixDateKey,
+  phoenixLocalDateTimeValue,
+} from "@/lib/time";
 
 type Mode = "choose" | "story" | "task" | "proof" | "check-in";
 export type ComposerRequest = {
@@ -156,13 +162,7 @@ function ComposerForm({
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
-  useLayoutEffect(() => {
-    // A step change removes the previous focused control without closing the
-    // sheet. Keep keyboard focus in the new step without opening the keyboard.
-    const form = formRef.current;
-    if (form && !form.contains(document.activeElement))
-      form.focus({ preventScroll: true });
-  }, []);
+  const errorRef = useRef<HTMLDivElement>(null);
   const onRequestChange = (next: ComposerRequest) =>
     changeRequest({ ...next, source: request.source });
   const mode = request.mode;
@@ -187,8 +187,20 @@ function ComposerForm({
     () => draft?.completedAt ?? phoenixLocalDateTimeValue(),
   );
   const [step, setStep] = useState<"media" | "details">(draft?.step ?? "media");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Each proof step needs a fresh scroll and focus position.
+  useLayoutEffect(() => {
+    // The footer stays mounted between proof steps, so focus would otherwise
+    // remain on Back (or disappear with Next) instead of entering the new form.
+    const form = formRef.current;
+    if (form && !form.contains(document.activeElement))
+      form.focus({ preventScroll: true });
+    form?.scrollTo({ top: 0 });
+  }, [step]);
   const [editTimes, setEditTimes] = useState(draft?.editTimes ?? false);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ block: "nearest" });
+  }, [error]);
   const [uploadStatus, setUploadStatus, uploadPercent] = useUploadStatus();
   const uploadedIds = useRef<string[] | null>(draft?.uploadedIds ?? null);
   const submitted = useRef(false);
@@ -230,10 +242,16 @@ function ComposerForm({
     mode === "task" ||
     mode === "check-in" ||
     (mode === "proof" && task && step === "details");
+  const start = parsePhoenixLocalDateTime(startedAt);
+  const finish = parsePhoenixLocalDateTime(completedAt);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (pending) return;
+    if (mode === "task" && (!title.trim() || !definition.trim())) {
+      setError("Give your task a title and a clear definition of done.");
+      return;
+    }
     if (day !== phoenixDateKey()) {
       setError(
         "This day has closed. Close this draft and refresh before starting a new one.",
@@ -333,6 +351,7 @@ function ComposerForm({
         tabIndex={-1}
         id="social-composer-form"
         onSubmit={submit}
+        aria-busy={pending}
         className="min-h-0 overflow-y-auto px-5 pb-4 outline-none"
       >
         {(mode === "choose" || mode === "story") && (
@@ -381,7 +400,7 @@ function ComposerForm({
         )}
         {mode === "task" && (
           <FieldGroup>
-            <Field>
+            <Field data-disabled={pending}>
               <FieldLabel htmlFor="social-task-title">
                 What will you do?
               </FieldLabel>
@@ -392,10 +411,11 @@ function ComposerForm({
                 maxLength={100}
                 placeholder="Finish the physics problem set"
                 required
+                disabled={pending}
                 autoFocus
               />
             </Field>
-            <Field>
+            <Field data-disabled={pending}>
               <FieldLabel htmlFor="social-task-definition">
                 What counts as done?
               </FieldLabel>
@@ -406,6 +426,7 @@ function ComposerForm({
                 maxLength={500}
                 placeholder="All 12 problems solved, with photos of the working."
                 required
+                disabled={pending}
               />
               <FieldDescription>
                 Give your friends something specific to verify.
@@ -418,6 +439,7 @@ function ComposerForm({
             <Field>
               <FieldLabel id="social-signal-label">Today feels…</FieldLabel>
               <ToggleGroup
+                disabled={pending}
                 value={[signal]}
                 onValueChange={(value) => {
                   if (value[0]) setSignal(value[0]);
@@ -446,6 +468,7 @@ function ComposerForm({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 maxLength={500}
+                disabled={pending}
                 placeholder="Finally understood that one problem. You know the one."
               />
             </Field>
@@ -510,6 +533,7 @@ function ComposerForm({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 maxLength={500}
+                disabled={pending}
                 placeholder="A little context for your friends…"
               />
             </Field>
@@ -517,22 +541,34 @@ function ComposerForm({
               <FieldLabel>Time spent</FieldLabel>
               <Button
                 variant="outline"
-                className="justify-start"
+                className="h-auto justify-start py-3 whitespace-normal"
+                disabled={pending}
+                aria-expanded={editTimes}
+                aria-controls="social-proof-times"
                 onClick={() => setEditTimes(!editTimes)}
               >
                 <Clock3 data-icon="inline-start" />
-                <span className="min-w-0 flex-1 truncate text-left">
-                  {startedAt.replace("T", " · ")} to {completedAt.slice(11)} ·
-                  Phoenix
+                <span className="flex min-w-0 flex-1 flex-col gap-1 text-left">
+                  <span>
+                    {start ? formatHistoryTime(start) : "Start time"} to{" "}
+                    {finish ? formatHistoryTime(finish) : "finish time"}
+                  </span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {start && finish
+                      ? `${formatDayShort(startedAt.slice(0, 10))}${startedAt.slice(0, 10) !== completedAt.slice(0, 10) ? ` to ${formatDayShort(completedAt.slice(0, 10))}` : ""} · `
+                      : ""}
+                    Phoenix time
+                  </span>
                 </span>
                 <span>{editTimes ? "Done" : "Edit"}</span>
               </Button>
               <FieldDescription>
-                Prefilled as the last 30 minutes. This goes on your timeblock.
+                Adjust these times to match when you worked. They appear on your
+                timeblock.
               </FieldDescription>
             </Field>
             {editTimes && (
-              <>
+              <FieldGroup id="social-proof-times">
                 <Field>
                   <FieldLabel htmlFor="social-start">Started</FieldLabel>
                   <Input
@@ -541,6 +577,7 @@ function ComposerForm({
                     value={startedAt}
                     onChange={(e) => setStartedAt(e.target.value)}
                     required
+                    disabled={pending}
                   />
                 </Field>
                 <Field>
@@ -551,9 +588,10 @@ function ComposerForm({
                     value={completedAt}
                     onChange={(e) => setCompletedAt(e.target.value)}
                     required
+                    disabled={pending}
                   />
                 </Field>
-              </>
+              </FieldGroup>
             )}
             <p className="text-sm text-muted-foreground">
               {files.length} attachment{files.length === 1 ? "" : "s"} ready to
@@ -562,8 +600,10 @@ function ComposerForm({
           </FieldGroup>
         )}
         {error && (
-          <Alert variant="destructive" className="mt-4">
-            <AlertTitle>Could not post</AlertTitle>
+          <Alert ref={errorRef} variant="destructive" className="mt-4">
+            <AlertTitle>
+              {mode === "task" ? "Could not save task" : "Could not post"}
+            </AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -573,22 +613,29 @@ function ComposerForm({
       </form>
       {mode !== "choose" && mode !== "story" && (
         <SheetFooter className="flex-row border-t">
-          {mode === "proof" && task && (
-            <Button
-              variant="outline"
-              disabled={pending}
-              onClick={() => {
+          <Button
+            variant="outline"
+            disabled={pending}
+            onClick={() => {
+              if (mode === "proof" && task) {
                 if (step === "details") setStep("media");
                 else onRequestChange({ mode: "proof" });
-              }}
-            >
-              <ArrowLeft data-icon="inline-start" /> Back
-            </Button>
-          )}
+              } else if (mode === "task" && task) {
+                onClose();
+              } else {
+                onRequestChange({
+                  mode: request.source === "story" ? "story" : "choose",
+                });
+              }
+            }}
+          >
+            <ArrowLeft data-icon="inline-start" />{" "}
+            {mode === "task" && task ? "Cancel" : "Back"}
+          </Button>
           {mode === "proof" && task && step === "media" && (
             <Button
               className="flex-1"
-              disabled={!files.length}
+              disabled={pending || !files.length}
               onClick={() => setStep("details")}
             >
               Next
@@ -604,10 +651,16 @@ function ComposerForm({
             >
               {pending && <Spinner data-icon="inline-start" />}
               {mode === "task"
-                ? "Save task"
+                ? pending
+                  ? "Saving task…"
+                  : "Save task"
                 : mode === "proof"
-                  ? "Post proof"
-                  : "Post check-in"}
+                  ? pending
+                    ? "Posting proof…"
+                    : "Post proof"
+                  : pending
+                    ? "Posting check-in…"
+                    : "Post check-in"}
             </Button>
           )}
         </SheetFooter>

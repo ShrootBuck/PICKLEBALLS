@@ -26,7 +26,7 @@ import {
 import { useSocial } from "@/components/social/social-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -254,14 +254,16 @@ export function SocialShell({
             <br />
             Back your friends.
           </p>
-          <Button
-            nativeButton={false}
-            variant="ghost"
-            className="justify-start"
-            render={<Link href="/settings" />}
+          <Link
+            href="/settings"
+            className={cn(
+              buttonVariants({ variant: "ghost" }),
+              "justify-start",
+            )}
+            aria-current={pathname === "/settings" ? "page" : undefined}
           >
             <Settings data-icon="inline-start" /> Settings
-          </Button>
+          </Link>
         </div>
       </aside>
       <div className="social-workspace">
@@ -360,7 +362,7 @@ export function SocialShell({
                             : Circle;
                     return (
                       <Link
-                        href="/profile?tab=tasks"
+                        href={`/profile?${new URLSearchParams({ circle: circleId, tab: "tasks", day })}#task-${encodeURIComponent(task.id)}`}
                         key={task.id}
                         className="flex items-start gap-2 text-sm"
                       >
@@ -382,15 +384,16 @@ export function SocialShell({
                     </p>
                   )}
                 </div>
-                <Button
-                  nativeButton={false}
-                  variant="ghost"
-                  className="mt-4 w-full justify-between"
-                  render={<Link href="/profile?tab=tasks" />}
+                <Link
+                  href="/profile?tab=tasks"
+                  className={cn(
+                    buttonVariants({ variant: "ghost" }),
+                    "mt-4 w-full justify-between",
+                  )}
                 >
                   Your tasks
                   <ArrowRight data-icon="inline-end" />
-                </Button>
+                </Link>
                 <p className="mt-3 text-xs text-muted-foreground">
                   Due at midnight · Phoenix time
                 </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Upload } from "lucide-react";
+import { Check, ChevronDown, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   UploadStatus,
@@ -15,6 +15,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Field,
   FieldDescription,
@@ -170,24 +175,6 @@ export function ScreenTimeUpload({
             </AlertDescription>
           </Alert>
         )}
-        <div className="flex flex-col gap-2 text-sm">
-          <p className="font-medium">Get the right screenshot</p>
-          <ol className="ml-5 list-decimal leading-relaxed text-muted-foreground">
-            <li>
-              Open Settings → Screen Time → See All App &amp; Website Activity.
-            </li>
-            <li>Choose Week, then go back one week from This Week.</li>
-            <li>
-              Screenshot the average and upload it below. “Last Week’s Average”
-              is the right screen; no calendar dates are needed.
-            </li>
-          </ol>
-          <p className="text-muted-foreground">
-            Use the same phone each week. Reminders arrive Sunday at 10 AM
-            Tucson time. You can submit during the following week. Your accepted
-            screenshot and numbers are visible to this circle.
-          </p>
-        </div>
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -215,13 +202,12 @@ export function ScreenTimeUpload({
                 }}
               />
               <FieldDescription id="screen-time-file-help">
-                One PNG, JPEG, WebP, or HEIC, up to 100 MB. A screenshot is
-                usually clearest.
+                Use “Last Week’s Average” from iPhone Screen Time. PNG, JPEG,
+                WebP, or HEIC, up to 100 MB.
               </FieldDescription>
               <FieldDescription>
                 Valid screenshots post automatically to the leaderboard and your
-                story. If a screenshot is rejected, your existing entry stays.
-                Keep this page open until the upload is accepted for reading.
+                story. Keep this page open until background reading starts.
               </FieldDescription>
             </Field>
           </FieldGroup>
@@ -234,6 +220,39 @@ export function ScreenTimeUpload({
             {busy ? "Reading screenshot…" : "Upload and post"}
           </Button>
         </form>
+        <Collapsible>
+          <CollapsibleTrigger
+            render={
+              <Button
+                variant="ghost"
+                className="w-full justify-between whitespace-normal text-left"
+              />
+            }
+          >
+            How to get the right screenshot
+            <ChevronDown data-icon="inline-end" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="flex flex-col gap-3 pt-3 text-sm">
+              <ol className="ml-5 list-decimal leading-relaxed text-muted-foreground">
+                <li>
+                  Open Settings → Screen Time → See All App &amp; Website
+                  Activity.
+                </li>
+                <li>Choose Week, then go back one week from This Week.</li>
+                <li>
+                  Screenshot “Last Week’s Average”. No calendar dates are
+                  needed.
+                </li>
+              </ol>
+              <p className="text-muted-foreground">
+                Use the same phone each week. Reminders arrive Sunday at 10 AM
+                Tucson time. You can submit during the following week. Your
+                accepted screenshot and numbers are visible to this circle.
+              </p>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
         {status && <UploadStatus status={status} percent={uploadPercent} />}
         {status && uploadPercent === null && (
           <output className="text-sm text-muted-foreground">

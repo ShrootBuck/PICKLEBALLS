@@ -1,4 +1,10 @@
-import { ChevronLeft, ChevronRight, Smartphone, Trophy } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Smartphone,
+  Trophy,
+  Upload,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -127,6 +133,26 @@ export default async function ScreenTimePage({
       <PageHeader
         title="A little less scrolling."
         description="Make more room for everything else. Your circle’s weekly screen time."
+        actions={
+          week === latest ? (
+            <a
+              href="#upload"
+              className={buttonVariants({
+                variant: ownAverage === null ? "default" : "outline",
+              })}
+            >
+              <Upload data-icon="inline-start" />
+              {ownAverage === null ? "Upload your week" : "Update screenshot"}
+            </a>
+          ) : (
+            <Link
+              href={href(latest)}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Smartphone data-icon="inline-start" /> Latest week
+            </Link>
+          )
+        }
       />
       <nav
         aria-label="Screen time weeks"

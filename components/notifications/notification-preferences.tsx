@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useRefreshVersion } from "@/components/layout/app-refresh-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,10 +28,12 @@ const PREF_META = [
 ] as const;
 
 export function NotificationPreferences() {
+  const id = useId();
   const version = useRefreshVersion();
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   // biome-ignore lint/correctness/useExhaustiveDependencies: attempt and version request fresh server preferences
   useEffect(() => {
@@ -57,7 +59,7 @@ export function NotificationPreferences() {
     const next = { ...prefs, [key]: checked };
     setPrefs(next);
     setSaving(true);
-    setError(null);
+    setSaveError(null);
     try {
       const response = await appFetch("/api/notifications/preferences", {
         method: "PUT",
@@ -67,7 +69,7 @@ export function NotificationPreferences() {
       if (!response.ok) throw new Error("Could not save.");
     } catch {
       setPrefs(previous);
-      setError("That preference was not saved. Try again.");
+      setSaveError("That preference was not saved. Try again.");
     } finally {
       setSaving(false);
     }
@@ -88,13 +90,16 @@ export function NotificationPreferences() {
               data-disabled={saving}
             >
               <FieldContent>
-                <FieldLabel htmlFor={`pref-${meta.key}`}>
+                <FieldLabel htmlFor={`${id}-${meta.key}`}>
                   {meta.label}
                 </FieldLabel>
-                <FieldDescription>{meta.hint}</FieldDescription>
+                <FieldDescription id={`${id}-${meta.key}-help`}>
+                  {meta.hint}
+                </FieldDescription>
               </FieldContent>
               <Checkbox
-                id={`pref-${meta.key}`}
+                id={`${id}-${meta.key}`}
+                aria-describedby={`${id}-${meta.key}-help`}
                 checked={prefs[meta.key]}
                 disabled={saving}
                 onCheckedChange={(checked) => toggle(meta.key, checked)}
@@ -105,9 +110,9 @@ export function NotificationPreferences() {
       ) : !error ? (
         <p className="text-sm text-muted-foreground">Loading preferences…</p>
       ) : null}
-      {error ? (
+      {saveError || error ? (
         <p role="alert" className="text-sm text-destructive">
-          {error}
+          {saveError ?? error}
         </p>
       ) : null}
       {!prefs && error ? (

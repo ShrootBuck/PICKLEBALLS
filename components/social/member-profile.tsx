@@ -127,7 +127,7 @@ export async function MemberProfile({
     }),
   ]);
   const stats = weeklyTasks.map(toSocialTask);
-  const profileQuery = new URLSearchParams({ circle: circleId });
+  const profileQuery = new URLSearchParams({ circle: circleId, day });
   const taskQuery = new URLSearchParams({
     circle: circleId,
     tab: "tasks",
@@ -238,6 +238,7 @@ export async function MemberProfile({
             key={`${id}:${day}`}
             tasks={tasks.map(toSocialTask)}
             mine={mine && day === today}
+            historical={day !== today}
             focusId={
               typeof params.focus === "string" ? params.focus : undefined
             }

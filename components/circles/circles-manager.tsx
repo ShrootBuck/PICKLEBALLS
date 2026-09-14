@@ -47,12 +47,15 @@ export function CirclesManager({
   }, [initial, activeId]);
   const [createPending, setCreatePending] = useState(false);
   const [switchPending, setSwitchPending] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [switchError, setSwitchError] = useState<string | null>(null);
+  const busy = createPending || switchPending !== null;
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     setCreatePending(true);
-    setError(null);
+    setCreateError(null);
     const form = event.currentTarget;
     const data = Object.fromEntries(new FormData(form));
     try {
@@ -69,7 +72,7 @@ export function CirclesManager({
         role?: "OWNER" | "MEMBER";
       };
       if (!response.ok || !body.id) {
-        setError(body.error ?? "Could not create the circle.");
+        setCreateError(body.error ?? "Could not create the circle.");
       } else {
         setCircles((prev) => [
           ...prev,
@@ -85,15 +88,22 @@ export function CirclesManager({
         router.push("/");
       }
     } catch {
-      setError("Could not reach the server. Check your wifi and try again.");
+      setCreateError(
+        "Could not reach the server. Check your connection and try again.",
+      );
     } finally {
       setCreatePending(false);
     }
   }
 
   async function switchTo(circleId: string) {
+    if (busy) return;
+    if (circleId === current) {
+      router.push("/");
+      return;
+    }
     setSwitchPending(circleId);
-    setError(null);
+    setSwitchError(null);
     try {
       const response = await appFetch("/api/circles/active", {
         method: "POST",
@@ -104,13 +114,15 @@ export function CirclesManager({
         const body = (await response.json().catch(() => ({}))) as {
           error?: string;
         };
-        setError(body.error ?? "Could not switch circles.");
+        setSwitchError(body.error ?? "Could not switch circles.");
       } else {
         setCurrent(circleId);
         router.push("/");
       }
     } catch {
-      setError("Could not reach the server. Check your wifi and try again.");
+      setSwitchError(
+        "Could not reach the server. Check your connection and try again.",
+      );
     } finally {
       setSwitchPending(null);
     }
@@ -157,7 +169,7 @@ export function CirclesManager({
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={switchPending !== null || createPending}
+                    disabled={busy}
                     onClick={() => switchTo(circle.id)}
                     className="w-full sm:w-auto"
                   >
@@ -169,6 +181,12 @@ export function CirclesManager({
                 }
               </div>
             ))
+          )}
+          {switchError && (
+            <Alert variant="destructive">
+              <AlertTitle>Could not switch circles</AlertTitle>
+              <AlertDescription>{switchError}</AlertDescription>
+            </Alert>
           )}
         </CardContent>
       </Card>
@@ -182,7 +200,7 @@ export function CirclesManager({
           </CardHeader>
           <CardContent>
             <FieldGroup>
-              <Field>
+              <Field data-disabled={busy}>
                 <FieldLabel htmlFor="circle-name">Circle name</FieldLabel>
                 <Input
                   id="circle-name"
@@ -190,6 +208,7 @@ export function CirclesManager({
                   placeholder="e.g. Calc study crew"
                   maxLength={40}
                   required
+                  disabled={busy}
                   autoComplete="off"
                 />
               </Field>
@@ -198,17 +217,17 @@ export function CirclesManager({
           <CardFooter className="flex-col items-stretch gap-3">
             <Button
               type="submit"
-              disabled={createPending}
+              disabled={busy}
               size="lg"
               className="w-full sm:w-auto"
             >
               {createPending ? <Spinner data-icon="inline-start" /> : null}
-              Create circle
+              {createPending ? "Creating circle…" : "Create circle"}
             </Button>
-            {error ? (
+            {createError ? (
               <Alert variant="destructive">
                 <AlertTitle>That did not work.</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>{createError}</AlertDescription>
               </Alert>
             ) : null}
           </CardFooter>

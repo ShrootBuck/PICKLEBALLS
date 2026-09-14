@@ -480,6 +480,7 @@
   background: var(--background);
 }
 .circle-trigger {
+  flex-shrink: 1;
   min-width: 0;
   max-width: 65%;
   font-size: 17px;
@@ -609,7 +610,8 @@
   padding-block: 22px;
   border-bottom: 1px solid var(--border);
 }
-.social-task[data-focused] {
+.social-task[data-focused],
+.social-task:target {
   outline: 2px solid var(--ring);
   outline-offset: 8px;
   border-radius: 8px;
@@ -649,6 +651,14 @@
   justify-content: flex-start;
   gap: 16px;
   white-space: normal;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.composer-choice > span {
+  min-width: 0;
+}
+#upload {
+  scroll-margin-block: 20px;
 }
 .profile-stats {
   display: grid;

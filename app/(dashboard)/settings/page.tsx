@@ -14,7 +14,7 @@ export default async function SettingsPage() {
     <>
       <PageHeader title="Settings" description="Make yourself at home." />
       <AppearanceSettings />
-      <Card className="mt-6 max-w-2xl">
+      <Card className="max-w-2xl">
         <CardHeader>
           <CardTitle>Notifications</CardTitle>
         </CardHeader>
