@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  MAX_TIMEBLOCKS,
   parseTimeblockDraft,
   type TimeblockDraftRow,
 } from "@/lib/timeblock-draft";
@@ -99,8 +100,8 @@ describe("timeblock editing", () => {
       ),
     ).toThrow();
   });
-  test("enforces 56 blocks, permits replacing a removed block at capacity", () => {
-    const rows = Array.from({ length: 56 }, (_, i) => ({
+  test("enforces the shared block limit, permits replacing a removed block at capacity", () => {
+    const rows = Array.from({ length: MAX_TIMEBLOCKS }, (_, i) => ({
       ...manual,
       id: `manual-${i}`,
     }));
@@ -109,10 +110,12 @@ describe("timeblock editing", () => {
       upserts: [{ ...manual, id: "manual-new" }],
       removeIds: [] as string[],
     };
-    expect(() => applyBlockEdit(rows, edit, due)).toThrow("56");
+    expect(() => applyBlockEdit(rows, edit, due)).toThrow(
+      String(MAX_TIMEBLOCKS),
+    );
     expect(
       applyBlockEdit(rows, { ...edit, removeIds: ["manual-0"] }, due),
-    ).toHaveLength(56);
+    ).toHaveLength(MAX_TIMEBLOCKS);
   });
   test("matches PDF timing constraints including overnight week boundaries", () => {
     expect(

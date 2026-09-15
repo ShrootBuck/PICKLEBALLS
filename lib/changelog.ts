@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1789447548778,
+    title: "Replan your whole week in chat",
+    description:
+      "Ask the timeblock editor to rebuild your week, change school and meal times, or create custom recurring routines. Group work by category in the task list and printable report, and undo any draft edit.",
+  },
+  {
     timestamp: 1789441367956,
     title: "Everyone signs off",
     description:

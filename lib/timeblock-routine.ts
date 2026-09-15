@@ -14,7 +14,37 @@ export const SCHOOL_PERIODS = [
 
 const className = z.string().trim().max(160);
 const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+export const recurringBlockSchema = z
+  .object({
+    id: z.string().regex(/^[a-zA-Z0-9-]{1,80}$/),
+    title: z.string().trim().min(1).max(160),
+    days: z
+      .array(z.number().int().min(0).max(6))
+      .min(1)
+      .max(7)
+      .refine((days) => new Set(days).size === days.length)
+      .describe("Days when the block starts: Monday=0 through Sunday=6."),
+    start: clockTime,
+    end: clockTime,
+  })
+  .refine((block) => block.start !== block.end, {
+    message:
+      "Recurring blocks need different start and end times. Earlier end times mean overnight.",
+  });
 export const timeblockRoutineSchema = z.object({
+  schedule: z
+    .array(recurringBlockSchema)
+    .max(80)
+    .refine(
+      (blocks) =>
+        new Set(blocks.map((block) => block.id)).size === blocks.length,
+    )
+    .nullable()
+    .optional()
+    .describe(
+      "Complete custom weekly routine replacing ALL default school periods and lunch. Null uses default school, [] disables school. Sleep below is added separately; avoid duplicates.",
+    ),
+  listOrder: z.enum(["time", "category"]).optional(),
   classes: z.object({
     "1": className,
     "2": className,
@@ -45,7 +75,7 @@ export function isRoutineBlock(id: string) {
 }
 
 // Shared by the calendar, AI context, and PDF. Routine blocks never consume
-// the user's 56 work slots and cannot masquerade as verified work.
+// the user's work slots and cannot masquerade as verified work.
 export function routineBlocks(
   dueMonday: string,
   routine: TimeblockRoutine,
@@ -69,7 +99,7 @@ export function routineBlocks(
   };
   for (let day = 0; day < 7; day++) {
     const date = shiftDateKey(week.startKey, day);
-    if (day < 5)
+    if (day < 5 && routine.schedule == null)
       for (const { period, start, end } of SCHOOL_PERIODS) {
         const title =
           period === "4" ? "Lunch" : routine.classes[period] || "Class";
@@ -105,6 +135,26 @@ export function routineBlocks(
           `${shiftDateKey(date, 1)}T00:00`,
         );
       }
+    }
+  }
+  // Include the previous Sunday so overnight routines cover Monday morning.
+  for (const block of routine.schedule ?? []) {
+    for (let day = -1; day < 7; day++) {
+      if (!block.days.includes((day + 7) % 7)) continue;
+      const date = shiftDateKey(week.startKey, day);
+      const start = `${date}T${block.start}`;
+      const end = `${shiftDateKey(date, block.end < block.start ? 1 : 0)}T${block.end}`;
+      const clippedStart =
+        start < `${week.startKey}T00:00` ? `${week.startKey}T00:00` : start;
+      const clippedEnd =
+        end > `${dueMonday}T00:00` ? `${dueMonday}T00:00` : end;
+      if (clippedStart < clippedEnd)
+        add(
+          `custom-${block.id}-${date}`,
+          block.title,
+          clippedStart,
+          clippedEnd,
+        );
     }
   }
   return rows;

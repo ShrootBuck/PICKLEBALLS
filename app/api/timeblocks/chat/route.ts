@@ -1,5 +1,6 @@
 import { createAgentUIStreamResponse } from "ai";
 import { z } from "zod";
+import { model } from "@/lib/ai";
 import { aiHourlyLimit } from "@/lib/ai-config";
 import { jsonError, readJson } from "@/lib/api";
 import { DomainError } from "@/lib/errors";
@@ -11,7 +12,7 @@ import { timeblockRoutineSchema } from "@/lib/timeblock-routine";
 import { isMondayDateKey } from "@/lib/timeblocks";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 const requestSchema = z.object({
   routine: timeblockRoutineSchema,
   dueMonday: z.string().refine(isMondayDateKey),
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
   const auth = await getRequestMembership(request.headers);
   if (!auth) return Response.json({ error: "Sign in first." }, { status: 401 });
   try {
-    const parsed = requestSchema.safeParse(await readJson(request, 256_000));
+    const parsed = requestSchema.safeParse(await readJson(request));
     if (!parsed.success || parsed.data.messages.at(-1)?.role !== "user")
       throw new DomainError("Send a message with a valid timeblock draft.");
     if (!process.env.OPENROUTER_API_KEY)
@@ -54,14 +55,14 @@ export async function POST(request: Request) {
     await limitAction(auth.session.user.id, "ai", aiHourlyLimit, 3_600_000);
     return await createAgentUIStreamResponse({
       agent: createTimeblockAgent(
-        auth.session.user.id,
+        model(auth.session.user.id),
         parsed.data.dueMonday,
         parsed.data.rows,
         parsed.data.routine,
       ),
       uiMessages: parsed.data.messages,
       abortSignal: request.signal,
-      timeout: 110_000,
+      timeout: 290_000,
       sendReasoning: false,
       onError: () =>
         "The AI editor couldn't finish. Your draft is safe. Try again.",

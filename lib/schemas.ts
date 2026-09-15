@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { mediaIdsSchema } from "@/lib/media-policy";
 import { isPushEndpoint } from "@/lib/push-endpoint";
+import { MAX_TIMEBLOCKS, timeblockCategorySchema } from "@/lib/timeblock-draft";
 import { timeblockRoutineSchema } from "@/lib/timeblock-routine";
 
 export const commitmentInputSchema = z.object({
@@ -63,9 +64,10 @@ export const timeblockPdfSchema = z.object({
       z.object({
         id: z.string().trim().min(1).max(100),
         title: z.string().trim().min(1).max(160),
+        category: timeblockCategorySchema,
         startedAt: localDateTimeSchema,
         completedAt: localDateTimeSchema,
       }),
     )
-    .max(56),
+    .max(MAX_TIMEBLOCKS),
 });

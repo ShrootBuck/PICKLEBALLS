@@ -53,6 +53,8 @@ import { toast } from "@/components/ui/toast";
 import { formatDayShort, parsePhoenixLocalDateTime } from "@/lib/time";
 import { blockDuration } from "@/lib/timeblock-calendar";
 import {
+  compareTimeblockRows,
+  MAX_TIMEBLOCKS,
   parseTimeblockDraft,
   type TimeblockDraftRow,
 } from "@/lib/timeblock-draft";
@@ -104,6 +106,7 @@ function BlockEditor({
             const next = {
               ...draft,
               title: String(values.get("title") ?? "").trim(),
+              category: String(values.get("category") ?? "").trim(),
               startedAt: String(values.get("startedAt") ?? ""),
               completedAt: String(values.get("completedAt") ?? ""),
             };
@@ -134,6 +137,19 @@ function BlockEditor({
                 maxLength={160}
                 required
                 aria-invalid={!!error && !draft.title.trim()}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="block-category">Category</FieldLabel>
+              <Input
+                id="block-category"
+                name="category"
+                value={draft.category ?? ""}
+                onChange={(event) =>
+                  setDraft({ ...draft, category: event.target.value })
+                }
+                placeholder="Physics, applications, exercise…"
+                maxLength={80}
               />
             </Field>
             <Field data-invalid={!!error}>
@@ -330,7 +346,7 @@ export function TimeblockBuilder({
           row.status,
       })),
       ...initialRows.filter((row) => !known.has(row.id)),
-    ].slice(0, 56);
+    ].slice(0, MAX_TIMEBLOCKS);
     rowsRef.current = next;
     setRows(next);
     setReady(true);
@@ -399,9 +415,11 @@ export function TimeblockBuilder({
   function openEditor(row: TimeblockDraftRow) {
     if (isRoutineBlock(row.id)) {
       setRoutineFocus({
-        id: row.id.includes("school")
-          ? `period-${row.id.slice(-1)}`
-          : "sleep-bedtime",
+        id: row.id.includes("custom")
+          ? "custom-routine"
+          : row.id.includes("school")
+            ? `period-${row.id.slice(-1)}`
+            : "sleep-bedtime",
       });
       return;
     }
@@ -409,7 +427,7 @@ export function TimeblockBuilder({
     setEditing(row);
   }
   function addRow(day = weekEnd) {
-    if (rowsRef.current.length >= 56) return;
+    if (rowsRef.current.length >= MAX_TIMEBLOCKS) return;
     setNewBlock(true);
     setEditing({
       id: `manual-${crypto.randomUUID()}`,
@@ -436,8 +454,11 @@ export function TimeblockBuilder({
       setEditing(null);
       return;
     }
-    if (!current && rowsRef.current.length >= 56) {
-      toast.add({ title: "The report holds up to 56 blocks.", type: "error" });
+    if (!current && rowsRef.current.length >= MAX_TIMEBLOCKS) {
+      toast.add({
+        title: `The report holds up to ${MAX_TIMEBLOCKS} blocks.`,
+        type: "error",
+      });
       return;
     }
     commit(
@@ -460,10 +481,11 @@ export function TimeblockBuilder({
     try {
       const tasks = rows
         .filter((row) => row.included && row.title.trim())
-        .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
-        .map(({ id, title, startedAt, completedAt }) => ({
+        .sort((a, b) => compareTimeblockRows(a, b, routine.listOrder))
+        .map(({ id, title, category, startedAt, completedAt }) => ({
           id,
           title: title.trim(),
+          category,
           startedAt,
           completedAt,
         }));
@@ -515,7 +537,7 @@ export function TimeblockBuilder({
           <div>
             <strong>
               {includedCount}
-              <span>/ 56</span>
+              <span>/ {MAX_TIMEBLOCKS}</span>
             </strong>
             <p>work blocks included</p>
           </div>
@@ -578,7 +600,7 @@ export function TimeblockBuilder({
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={!ready || rows.length >= 56}
+                  disabled={!ready || rows.length >= MAX_TIMEBLOCKS}
                   onClick={() => addRow()}
                 >
                   <Plus data-icon="inline-start" />
@@ -612,7 +634,7 @@ export function TimeblockBuilder({
                   onSelect={openEditor}
                   onAdd={addRow}
                   disabled={!ready}
-                  addDisabled={rows.length >= 56}
+                  addDisabled={rows.length >= MAX_TIMEBLOCKS}
                 />
               </TabsContent>
               <TabsContent value="list">
@@ -631,7 +653,9 @@ export function TimeblockBuilder({
                     </Empty>
                   ) : (
                     [...calendarRows]
-                      .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+                      .sort((a, b) =>
+                        compareTimeblockRows(a, b, routine.listOrder),
+                      )
                       .map((row) => (
                         <div
                           key={row.id}
@@ -660,6 +684,7 @@ export function TimeblockBuilder({
                             onClick={() => openEditor(row)}
                           >
                             <strong>{row.title || "Untitled block"}</strong>
+                            {row.category && <span>{row.category}</span>}
                             <span>
                               {formatDayShort(row.startedAt.slice(0, 10))} ·{" "}
                               {blockTime(row.startedAt)} to{" "}
@@ -681,7 +706,7 @@ export function TimeblockBuilder({
                               : !row.included
                                 ? "Excluded"
                                 : isRoutineBlock(row.id)
-                                  ? "School & sleep"
+                                  ? "Routine"
                                   : row.status === "VERIFIED"
                                     ? "Verified proof"
                                     : row.status
@@ -713,9 +738,11 @@ export function TimeblockBuilder({
                 </AlertDescription>
               </Alert>
             )}
-            {rows.length >= 56 && (
+            {rows.length >= MAX_TIMEBLOCKS && (
               <Alert className="mx-4 w-auto">
-                <AlertTitle>All 56 work blocks are in use</AlertTitle>
+                <AlertTitle>
+                  All {MAX_TIMEBLOCKS} work blocks are in use
+                </AlertTitle>
                 <AlertDescription>
                   Remove a manual block to make room. Excluded blocks still
                   count toward the limit.

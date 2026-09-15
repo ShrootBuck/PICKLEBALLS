@@ -38,9 +38,9 @@ import type { TimeblockDraftRow } from "@/lib/timeblock-draft";
 import type { TimeblockRoutine } from "@/lib/timeblock-routine";
 
 const suggestions = [
-  "Check my report for overlaps and missing details",
-  "Make my task names clearer",
-  "I sleep from 10 PM to 6 AM every day",
+  "Reorganize my whole week around school and sleep",
+  "Group my tasks by category and spread out the work",
+  "Set school 7:30 AM to 2 PM, then lunch until 3 PM",
 ];
 
 export function TimeblockChat({
@@ -171,7 +171,8 @@ export function TimeblockChat({
         </div>
         <CardTitle>Talk your week into shape.</CardTitle>
         <CardDescription>
-          Set classes and sleep, add work, or clean up your report for printing.
+          Rebuild your week, change routines, or group tasks for printing. Every
+          draft edit can be undone.
         </CardDescription>
       </CardHeader>
       <CardContent className="min-h-0 flex-1 px-4">
@@ -185,8 +186,9 @@ export function TimeblockChat({
                       <MessageContent>
                         <Bubble variant="ghost">
                           <BubbleContent>
-                            Start with what you worked on, or ask me to tidy up
-                            what’s already here.
+                            Describe the week you want. I can rearrange the
+                            whole schedule, check conflicts, and revise it with
+                            you.
                           </BubbleContent>
                         </Bubble>
                       </MessageContent>
@@ -241,6 +243,18 @@ export function TimeblockChat({
                                 </BubbleContent>
                               </Bubble>
                             );
+                          if (part.type === "tool-inspectSchedule")
+                            return (
+                              <Badge key={part.toolCallId} variant="secondary">
+                                {part.state === "output-available"
+                                  ? "Schedule checked"
+                                  : part.state === "output-error"
+                                    ? "Check failed"
+                                    : busy
+                                      ? "Checking schedule…"
+                                      : "Check interrupted"}
+                              </Badge>
+                            );
                           if (part.type !== "tool-editBlocks") return null;
                           if (part.state === "output-available")
                             return (
@@ -259,7 +273,9 @@ export function TimeblockChat({
                                   {part.output.ok
                                     ? outcomes[part.toolCallId] === false
                                       ? "Not applied"
-                                      : "Draft updated"
+                                      : outcomes[part.toolCallId] === true
+                                        ? "Draft updated"
+                                        : "Applying draft…"
                                     : "Edit needs a fix"}
                                 </Badge>
                                 <p className="text-xs text-muted-foreground">
@@ -346,7 +362,7 @@ export function TimeblockChat({
           </Field>
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
-              Undo any edit. School and sleep save to your account.
+              Undo any edit. Recurring routines save across weeks.
             </p>
             {busy ? (
               <Button

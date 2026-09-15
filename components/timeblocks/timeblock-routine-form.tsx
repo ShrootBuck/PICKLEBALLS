@@ -85,7 +85,7 @@ export function TimeblockRoutineForm({
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-col gap-1">
-              <CardTitle>School & sleep</CardTitle>
+              <CardTitle>Weekly routine</CardTitle>
               <CardDescription>
                 Your recurring routine, saved across weeks.
               </CardDescription>
@@ -101,7 +101,9 @@ export function TimeblockRoutineForm({
           <div className="flex flex-wrap gap-2 pt-2" aria-live="polite">
             <Badge variant="secondary">
               <School />
-              Monday to Friday
+              {routine.schedule != null
+                ? "Custom weekly schedule"
+                : "Monday to Friday"}
             </Badge>
             <Badge variant="outline">
               <Moon />
@@ -141,38 +143,103 @@ export function TimeblockRoutineForm({
             className="flex flex-col gap-5 pt-5"
           >
             <CardContent className="flex flex-col gap-5">
-              <FieldGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {SCHOOL_PERIODS.map(({ period, start, end }) => (
-                  <Field key={period}>
-                    <FieldLabel htmlFor={`period-${period}`}>
-                      Period {period}
-                      {period === "4" ? " · Lunch" : ""}
-                    </FieldLabel>
-                    <Input
-                      id={`period-${period}`}
-                      value={period === "4" ? "Lunch" : draft.classes[period]}
-                      readOnly={period === "4"}
-                      disabled={disabled}
-                      maxLength={160}
-                      placeholder="Class name"
-                      onChange={(event) => {
-                        if (period !== "4")
-                          setDraft({
-                            ...draft,
-                            classes: {
-                              ...draft.classes,
-                              [period]: event.target.value,
-                            },
-                          });
-                      }}
-                    />
-                    <FieldDescription>
-                      {blockTime(`2000-01-01T${start}`)} to{" "}
-                      {blockTime(`2000-01-01T${end}`)}
-                    </FieldDescription>
-                  </Field>
-                ))}
-              </FieldGroup>
+              <div className="flex flex-wrap items-center gap-3">
+                <Badge variant="outline">
+                  {draft.listOrder === "category"
+                    ? "Tasks grouped by category"
+                    : "Tasks in time order"}
+                </Badge>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={disabled}
+                  onClick={() =>
+                    setDraft({
+                      ...draft,
+                      listOrder:
+                        draft.listOrder === "category" ? "time" : "category",
+                    })
+                  }
+                >
+                  {draft.listOrder === "category"
+                    ? "Use time order"
+                    : "Group by category"}
+                </Button>
+              </div>
+              {draft.schedule != null && (
+                <div
+                  id="custom-routine"
+                  tabIndex={-1}
+                  className="flex flex-col gap-3"
+                >
+                  <p className="text-sm text-muted-foreground">
+                    Your custom routine replaces the default school periods. Ask
+                    the AI editor to change any activity, time, or day.
+                  </p>
+                  {draft.schedule.map((block) => (
+                    <p key={block.id} className="text-sm">
+                      <strong>{block.title}</strong>:{" "}
+                      {block.days
+                        .map(
+                          (day) =>
+                            ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][
+                              day
+                            ],
+                        )
+                        .join(", ")}
+                      , {blockTime(`2000-01-01T${block.start}`)} to{" "}
+                      {blockTime(`2000-01-01T${block.end}`)}
+                      {block.end < block.start ? " (next day)" : ""}
+                    </p>
+                  ))}
+                  {draft.schedule.length === 0 && (
+                    <p>No recurring school blocks.</p>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={disabled}
+                    onClick={() => setDraft({ ...draft, schedule: null })}
+                  >
+                    Restore default school periods
+                  </Button>
+                </div>
+              )}
+              {draft.schedule == null && (
+                <FieldGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {SCHOOL_PERIODS.map(({ period, start, end }) => (
+                    <Field key={period}>
+                      <FieldLabel htmlFor={`period-${period}`}>
+                        Period {period}
+                        {period === "4" ? " · Lunch" : ""}
+                      </FieldLabel>
+                      <Input
+                        id={`period-${period}`}
+                        value={period === "4" ? "Lunch" : draft.classes[period]}
+                        readOnly={period === "4"}
+                        disabled={disabled}
+                        maxLength={160}
+                        placeholder="Class name"
+                        onChange={(event) => {
+                          if (period !== "4")
+                            setDraft({
+                              ...draft,
+                              classes: {
+                                ...draft.classes,
+                                [period]: event.target.value,
+                              },
+                            });
+                        }}
+                      />
+                      <FieldDescription>
+                        {blockTime(`2000-01-01T${start}`)} to{" "}
+                        {blockTime(`2000-01-01T${end}`)}
+                      </FieldDescription>
+                    </Field>
+                  ))}
+                </FieldGroup>
+              )}
               <FieldGroup className="grid gap-4 sm:grid-cols-2">
                 <Field data-invalid={!!error}>
                   <FieldLabel htmlFor="sleep-bedtime">Bedtime</FieldLabel>
@@ -238,11 +305,11 @@ export function TimeblockRoutineForm({
                   : saveStatus === "saving"
                     ? "Saving to your account…"
                     : saveStatus === "saved"
-                      ? "School and sleep settings apply to all weeks."
+                      ? "Routine settings apply to all weeks."
                       : "Keep this tab open until settings save."}
               </p>
               <Button type="submit" disabled={disabled || !changed}>
-                Apply school & sleep
+                Apply routine
               </Button>
             </CardFooter>
           </form>
