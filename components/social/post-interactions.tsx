@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { PostBody } from "@/components/social/post-body";
 import { useSocial } from "@/components/social/social-provider";
 import {
   SocialReplyThread,
@@ -32,7 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import { appFetch } from "@/lib/app-refresh";
 import { memberHref, postHref } from "@/lib/navigation";
@@ -177,6 +178,7 @@ export function PostInteractions({
         <span className="tabular-nums">{like.likeCount || "Like"}</span>
       </Button>
       <PostComments
+        key={`${post.kind}:${post.id}`}
         post={post}
         viewerId={viewer.id}
         count={commentCount}
@@ -206,7 +208,11 @@ function PostComments({
   onCountChange: (delta: number) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [replies, setReplies] = useState<ThreadReply[] | null>(null);
+  const [discussion, setDiscussion] = useState<{
+    replies: ThreadReply[];
+    verdicts?: ThreadReply[];
+    hasMore: boolean;
+  } | null>(null);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const targetType = post.kind === "proof" ? "PROOF" : "CHECK_IN_UPDATE";
@@ -222,8 +228,8 @@ function PostComments({
     })
       .then(async (response) => {
         if (!response.ok) throw new Error("Comments failed");
-        const data: { replies: ThreadReply[] } = await response.json();
-        if (!controller.signal.aborted) setReplies(data.replies);
+        const data = await response.json();
+        if (!controller.signal.aborted) setDiscussion(data);
       })
       .catch(() => {
         if (!controller.signal.aborted) setError(true);
@@ -252,56 +258,60 @@ function PostComments({
       </DialogTrigger>
       <DialogContent className="post-comments-dialog">
         <DialogHeader>
-          <DialogTitle>Comments</DialogTitle>
+          <DialogTitle>
+            {post.kind === "proof"
+              ? "Proof and comments"
+              : "Check-in and comments"}
+          </DialogTitle>
           <DialogDescription>
             {post.author.name} ·{" "}
             {post.kind === "proof" ? post.title : "Check-in"}
           </DialogDescription>
         </DialogHeader>
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>
-              Could not load comments.{" "}
-              <Button
-                variant="link"
-                onClick={() => setAttempt((value) => value + 1)}
-              >
-                Try again
-              </Button>
-            </AlertDescription>
-          </Alert>
-        ) : replies ? (
-          <SocialReplyThread
-            targetType={targetType}
-            targetId={post.id}
-            initialReplies={replies}
-            currentUserId={viewerId}
-            contextLabel="Visible to everyone in your circle"
-            replyLabel="Add a comment"
-            defaultExpanded
-            composerVisible
-            scrollOnExpand={false}
-            onReplyCountChange={onCountChange}
-          />
-        ) : (
-          <output className="flex items-center gap-2 py-8">
-            <Spinner />
-            Loading comments
-          </output>
-        )}
-        <Button
-          nativeButton={false}
-          variant="link"
-          className="justify-self-start"
-          render={
-            <Link
-              href={`${postHref(post.circleId, post.kind, post.id)}#comments`}
-            />
-          }
-        >
-          Open full post
-          <ExternalLink data-icon="inline-end" />
-        </Button>
+        <div className="post-discussion-layout">
+          <div className="post-discussion-body">
+            <PostBody post={post} />
+          </div>
+          <section className="post-discussion-comments" aria-label="Comments">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  Could not load comments.{" "}
+                  <Button
+                    variant="link"
+                    onClick={() => setAttempt((value) => value + 1)}
+                  >
+                    Try again
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+            {discussion ? (
+              <SocialReplyThread
+                targetType={targetType}
+                targetId={post.id}
+                initialReplies={discussion.replies}
+                initialVerdicts={discussion.verdicts}
+                initialHasMore={discussion.hasMore}
+                onDiscussionChange={setDiscussion}
+                currentUserId={viewerId}
+                contextLabel="Visible to everyone in your circle"
+                replyLabel="Add a comment"
+                defaultExpanded
+                composerVisible
+                scrollOnExpand={false}
+                onReplyCountChange={onCountChange}
+              />
+            ) : !error ? (
+              <output className="flex min-h-64 flex-col gap-5">
+                <span className="sr-only">Loading comments</span>
+                <Skeleton className="h-14 w-full" />
+                <Skeleton className="h-14 w-4/5" />
+                <Skeleton className="h-24 w-full" />
+              </output>
+            ) : null}
+          </section>
+        </div>
       </DialogContent>
     </Dialog>
   );

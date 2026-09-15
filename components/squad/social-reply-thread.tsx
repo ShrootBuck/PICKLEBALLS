@@ -291,6 +291,7 @@ export function SocialReplyThread({
   contextLabel,
   replyLabel = targetType === "PROOF" ? "Comment on proof" : "Reply",
   onReplyCountChange,
+  onDiscussionChange,
 }: {
   targetType: ReplyTargetType;
   targetId: string;
@@ -306,6 +307,11 @@ export function SocialReplyThread({
   contextLabel: string;
   replyLabel?: string;
   onReplyCountChange?: (delta: number) => void;
+  onDiscussionChange?: (discussion: {
+    replies: SocialReply[];
+    verdicts: SocialReply[];
+    hasMore: boolean;
+  }) => void;
 }) {
   const generatedId = useId();
   const threadId = `reply-thread-${generatedId.replaceAll(":", "")}`;
@@ -335,6 +341,16 @@ export function SocialReplyThread({
     });
     if (fresh.length < 50) setHasMore(false);
   }, [initialReplies]);
+  const latestDiscussion = useRef({ replies, verdicts, hasMore });
+  useEffect(() => {
+    latestDiscussion.current = { replies, verdicts, hasMore };
+  }, [replies, verdicts, hasMore]);
+  useEffect(
+    () => () => {
+      onDiscussionChange?.(latestDiscussion.current);
+    },
+    [onDiscussionChange],
+  );
   const [body, setBody] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [uploadStatus, setUploadStatus, uploadPercent] = useUploadStatus();

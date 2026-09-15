@@ -1,10 +1,10 @@
 "use client";
 
-import { BadgeCheck } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
 import { MediaGallery } from "@/components/media/media-gallery";
 import { PostAvatar } from "@/components/social/post-avatar";
+import { PostBody } from "@/components/social/post-body";
 import {
   PostInteractions,
   PostMenu,
@@ -12,8 +12,6 @@ import {
 import { PostTimestamp } from "@/components/social/post-timestamp";
 import { useSocial } from "@/components/social/social-provider";
 import { ReviewProof } from "@/components/squad/review-proof";
-import { Badge } from "@/components/ui/badge";
-import { moodLabel } from "@/lib/mood";
 import { memberHref, postHref } from "@/lib/navigation";
 import type {
   FeedPost,
@@ -118,69 +116,7 @@ function InteractivePostCard({
         </div>
         <PostMenu post={post} />
       </header>
-      {post.kind === "proof" ? (
-        <>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <Link
-              href={href}
-              className="text-[17px] font-semibold tracking-tight"
-            >
-              {post.title}
-            </Link>
-            <Badge
-              variant={
-                post.reviewStatus === "APPROVED"
-                  ? "success"
-                  : post.reviewStatus === "CHALLENGED"
-                    ? "destructive"
-                    : "secondary"
-              }
-            >
-              {post.reviewStatus === "APPROVED" ? (
-                <>
-                  <BadgeCheck data-icon="inline-start" /> Verified
-                </>
-              ) : post.reviewStatus === "CHALLENGED" ? (
-                "Challenged"
-              ) : (
-                `${post.approvalCount}/${post.requiredApprovals} approvals`
-              )}
-            </Badge>
-          </div>
-          <div className="feed-media">
-            <MediaGallery ids={post.mediaIds} legacyProofId={post.id} />
-          </div>
-          {post.body && <p className="social-post-caption">{post.body}</p>}
-          {post.verifiedBy && post.reviewStatus === "APPROVED" && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Verified by {post.verifiedBy}
-            </p>
-          )}
-        </>
-      ) : (
-        <>
-          <Badge
-            className="w-fit"
-            variant={
-              post.mood != null && post.mood < 3 ? "outline" : "secondary"
-            }
-          >
-            {moodLabel(post.mood)}
-          </Badge>
-          {!!post.feelings?.length && (
-            <ul aria-label="Feelings" className="mt-3 flex flex-wrap gap-2">
-              {post.feelings.map((feeling) => (
-                <li key={feeling}>
-                  <Badge variant="outline">{feeling}</Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="social-check-in whitespace-pre-wrap break-words">
-            {post.body || "Taking a moment to check in."}
-          </p>
-        </>
-      )}
+      <PostBody post={post} />
       <footer className="social-post-actions">
         <PostInteractions post={post} onChange={onChange} />
         {post.kind === "proof" && post.canReview && (

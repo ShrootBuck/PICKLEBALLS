@@ -966,7 +966,7 @@
 
 /* Stories use recent posts, with a distinct reading surface and unread rings. */
 .post-comments-dialog[data-slot="dialog-content"] {
-  width: 540px;
+  width: 1040px;
   max-width: calc(100vw - 24px);
   max-height: min(
     800px,
@@ -976,6 +976,25 @@
       max(16px, env(safe-area-inset-bottom, 0px))
     )
   );
+}
+/* Keep the post visible while its discussion loads. */
+.post-discussion-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 24px;
+  min-height: min(560px, 65dvh);
+  align-items: start;
+}
+.post-discussion-body,
+.post-discussion-comments {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 767px) {
+  .post-discussion-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
 }
 /* Keep member-written titles, links, and captions inside narrow screens. */
 .social-content,
