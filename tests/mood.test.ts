@@ -10,15 +10,15 @@ test("mood-only entries and long optional journals are valid", () => {
   expect(
     moodCheckInSchema.parse({
       mood: 5,
-      feelings: ["Excited", "Nervous"],
+      feelings: ["Excited", "Joyful"],
       journal: `  ${"x".repeat(5000)}  `,
     }).journal,
   ).toHaveLength(5000);
 });
 
-test("each mood offers a broad word bank and accepts every offered word", () => {
+test("each mood offers exactly 33 words and accepts every offered word", () => {
   for (const mood of moods) {
-    expect(mood.feelings.length).toBeGreaterThanOrEqual(25);
+    expect(mood.feelings).toHaveLength(33);
     expect(
       moodCheckInSchema.safeParse({
         mood: mood.value,

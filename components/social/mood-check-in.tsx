@@ -109,12 +109,15 @@ export function MoodCheckIn({
                   <ToggleGroupItem
                     key={item.value}
                     value={String(item.value)}
-                    className="h-20 flex-1 flex-col gap-1 py-3"
+                    className="h-24 flex-1 flex-col gap-1 px-1 py-3 sm:h-20 sm:px-2.5"
                   >
-                    <span aria-hidden="true" className="text-2xl">
+                    <span
+                      aria-hidden="true"
+                      className="shrink-0 text-2xl leading-none"
+                    >
                       {item.face}
                     </span>
-                    <span className="whitespace-normal text-center text-xs leading-tight sm:text-sm">
+                    <span className="h-[2lh] shrink-0 whitespace-normal text-center text-xs leading-tight sm:h-[1lh] sm:text-sm">
                       {item.label}
                     </span>
                   </ToggleGroupItem>
