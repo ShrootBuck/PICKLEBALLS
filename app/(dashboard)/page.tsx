@@ -14,7 +14,7 @@ export default async function HomePage() {
   const { membership } = await requirePageMembership();
   const context = { viewerId: session.user.id, circleId: membership.circleId };
   const [feed, pending] = await Promise.all([
-    getFeedPage(context),
+    getFeedPage({ ...context, timelineOnly: true }),
     getFeedPage({ ...context, awaitingOnly: true }),
   ]);
   return (

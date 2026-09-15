@@ -24,18 +24,22 @@ export function Feed({
   memberId,
   reviewOnly = false,
   awaitingOnly = false,
+  timelineOnly = false,
 }: {
   initial: FeedPage;
   memberId?: string;
   reviewOnly?: boolean;
   awaitingOnly?: boolean;
+  timelineOnly?: boolean;
 }) {
   const { feeds, openComposer, postRevision } = useSocial();
   const key = reviewOnly
     ? "!review"
     : awaitingOnly
       ? "!pending"
-      : (memberId ?? "home");
+      : timelineOnly
+        ? "!timeline"
+        : (memberId ?? "home");
   const signature = JSON.stringify(initial);
   const previousSignature = useRef(signature);
   const [page, setPage] = useState<FeedPage>(() => {
@@ -90,6 +94,7 @@ export function Feed({
         if (memberId) query.set("memberId", memberId);
         if (reviewOnly) query.set("filter", "review");
         if (awaitingOnly) query.set("filter", "pending");
+        if (timelineOnly) query.set("filter", "timeline");
         if (cursor) query.set("cursor", cursor);
         const response = await fetch(`/api/feed?${query}`, {
           cache: "no-store",
@@ -166,7 +171,7 @@ export function Feed({
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold tracking-tight">
             {awaitingOnly
-              ? "Waiting for everyone’s approval"
+              ? "Waiting for your approval"
               : reviewOnly
                 ? "Waiting for your verdict"
                 : memberId
@@ -209,8 +214,8 @@ export function Feed({
                       "canReview" in patch &&
                       patch.canReview === false) ||
                     (awaitingOnly &&
-                      "reviewStatus" in patch &&
-                      patch.reviewStatus !== "PENDING")
+                      "canReview" in patch &&
+                      patch.canReview === false)
                       ? current.items.filter(
                           (item) => postKey(item) !== postKey(post),
                         )
@@ -236,7 +241,7 @@ export function Feed({
               </EmptyTitle>
               <EmptyDescription>
                 {awaitingOnly
-                  ? "No proofs are waiting for approval. Check the timeline for your circle’s latest posts."
+                  ? "No proofs are waiting for your approval. Check the timeline for your circle’s latest posts."
                   : reviewOnly
                     ? "No proof needs your verdict. Thanks for showing up for your friends."
                     : memberId

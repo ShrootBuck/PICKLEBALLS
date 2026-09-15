@@ -109,7 +109,10 @@ export function SocialProvider({
                 (key !== "!review" ||
                   (item.kind === "proof" && item.canReview)) &&
                 (key !== "!pending" ||
-                  (item.kind === "proof" && item.reviewStatus === "PENDING")),
+                  (item.kind === "proof" && item.canReview)) &&
+                (key !== "!timeline" ||
+                  item.kind !== "proof" ||
+                  !item.canReview),
             ),
         });
       }

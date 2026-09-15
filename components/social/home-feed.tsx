@@ -24,7 +24,7 @@ export function HomeFeed({
         <Feed key="pending" initial={pending} awaitingOnly />
       </TabsContent>
       <TabsContent value="timeline">
-        <Feed key="timeline" initial={timeline} />
+        <Feed key="timeline" initial={timeline} timelineOnly />
       </TabsContent>
     </Tabs>
   );

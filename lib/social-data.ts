@@ -127,6 +127,7 @@ export async function getFeedPage({
   includeReplaced = false,
   pendingOnly = false,
   awaitingOnly = false,
+  timelineOnly = false,
 }: {
   viewerId: string;
   circleId: string;
@@ -138,6 +139,7 @@ export async function getFeedPage({
   includeReplaced?: boolean;
   pendingOnly?: boolean;
   awaitingOnly?: boolean;
+  timelineOnly?: boolean;
 }): Promise<FeedPage> {
   await assertCircleMember(viewerId, circleId);
   if (memberId && memberId !== viewerId)
@@ -146,7 +148,13 @@ export async function getFeedPage({
     ? parseFeedCursor(
         rawCursor,
         circleId,
-        pendingOnly ? "!review" : awaitingOnly ? "!pending" : memberId,
+        pendingOnly
+          ? "!review"
+          : awaitingOnly
+            ? "!pending"
+            : timelineOnly
+              ? "!timeline"
+              : memberId,
       )
     : null;
   if (rawCursor && !cursor) throw new DomainError("Invalid feed cursor.");
@@ -162,6 +170,7 @@ export async function getFeedPage({
     includeReplaced,
     pendingOnly,
     awaitingOnly,
+    timelineOnly,
   });
   const page = items.slice(0, size);
   return {
@@ -171,7 +180,13 @@ export async function getFeedPage({
         ? encodeFeedCursor(
             page[page.length - 1],
             circleId,
-            pendingOnly ? "!review" : awaitingOnly ? "!pending" : memberId,
+            pendingOnly
+              ? "!review"
+              : awaitingOnly
+                ? "!pending"
+                : timelineOnly
+                  ? "!timeline"
+                  : memberId,
           )
         : null,
   };
@@ -188,6 +203,7 @@ async function readPosts({
   includeReplaced = false,
   pendingOnly = false,
   awaitingOnly = false,
+  timelineOnly = false,
   since,
   until,
 }: {
@@ -201,6 +217,7 @@ async function readPosts({
   includeReplaced?: boolean;
   pendingOnly?: boolean;
   awaitingOnly?: boolean;
+  timelineOnly?: boolean;
   since?: Date;
   until?: Date;
 }): Promise<FeedPost[]> {
@@ -210,8 +227,16 @@ async function readPosts({
       where: {
         circleId,
         ...(!includeReplaced ? { replacedById: null } : {}),
-        ...(awaitingOnly ? { reviewStatus: "PENDING" as const } : {}),
-        ...(pendingOnly
+        ...(timelineOnly
+          ? {
+              NOT: {
+                reviewStatus: "PENDING" as const,
+                ownerId: { not: viewerId },
+                reviews: { none: { reviewerId: viewerId } },
+              },
+            }
+          : {}),
+        ...(pendingOnly || awaitingOnly
           ? {
               reviewStatus: "PENDING" as const,
               ownerId: { not: viewerId },

@@ -11,7 +11,7 @@ export const changelogEntries: ChangelogEntry[] = [
     timestamp: 1789441367956,
     title: "Everyone signs off",
     description:
-      "Pending and new proofs need approval from every other member of your circle. Already verified proofs stay verified. Home now separates Needs approval from the Timeline, both newest first, and opens Needs approval when there are proofs waiting on the group.",
+      "Pending and new proofs need approval from every other member of your circle. Already verified proofs stay verified. Home separates proofs needing your approval from your Timeline, both newest first. Proofs move to your Timeline once you review them, and Home opens Timeline when nothing needs your approval.",
   },
   {
     timestamp: 1789439878969,
