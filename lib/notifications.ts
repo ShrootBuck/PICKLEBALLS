@@ -202,7 +202,7 @@ export async function notifyReplyReceived(input: {
       recipientId: reply.review.reviewerId,
       context: "your review",
       entityId: reply.review.proof.id,
-      url: `${postHref(input.circleId, "proof", reply.review.proof.id)}&focus=${encodeURIComponent(reply.review.id)}#thread-${encodeURIComponent(reply.review.id)}`,
+      url: `${postHref(input.circleId, "proof", reply.review.proof.id)}&focus=${encodeURIComponent(reply.review.id)}#comments`,
     });
     // A reply to a review is also aimed at the proof owner.
     if (reply.review.proof.ownerId !== reply.review.reviewerId) {
@@ -210,12 +210,13 @@ export async function notifyReplyReceived(input: {
         recipientId: reply.review.proof.ownerId,
         context: `a review on your proof for “${reply.review.proof.commitment.title}”`,
         entityId: reply.review.proof.id,
-        url: `${postHref(input.circleId, "proof", reply.review.proof.id)}&focus=${encodeURIComponent(reply.review.id)}#thread-${encodeURIComponent(reply.review.id)}`,
+        url: `${postHref(input.circleId, "proof", reply.review.proof.id)}&focus=${encodeURIComponent(reply.review.id)}#comments`,
       });
     }
   }
 
-  // Match the exact thread, including separate review and check-in threads.
+  // Proof comments and verdict replies now share one discussion.
+  const discussionProofId = reply.proof?.id ?? reply.review?.proof.id;
   const target = reply.commitment
     ? { commitmentId: reply.commitment.id }
     : reply.checkInUpdate
@@ -233,7 +234,14 @@ export async function notifyReplyReceived(input: {
   const participants = await prisma.socialReply.findMany({
     where: {
       circleId: input.circleId,
-      ...target,
+      ...(discussionProofId
+        ? {
+            OR: [
+              { proofId: discussionProofId },
+              { review: { proofId: discussionProofId } },
+            ],
+          }
+        : target),
       // Delayed jobs must not notify people about replies from before they joined.
       createdAt: { lte: reply.createdAt },
       authorId: { not: input.authorId },
@@ -241,6 +249,19 @@ export async function notifyReplyReceived(input: {
     distinct: ["authorId"],
     select: { authorId: true },
   });
+  if (discussionProofId) {
+    const reviewers = await prisma.taskProofReview.findMany({
+      where: {
+        circleId: input.circleId,
+        proofId: discussionProofId,
+        note: { not: null },
+        createdAt: { lte: reply.createdAt },
+      },
+      select: { reviewerId: true },
+    });
+    for (const reviewer of reviewers)
+      participants.push({ authorId: reviewer.reviewerId });
+  }
   for (const participant of participants) {
     jobs.push({
       ...destination,
@@ -367,7 +388,7 @@ export async function notifyProofReviewed(input: {
       : `${review.reviewer.name} challenged your proof for “${review.proof.commitment.title}”`,
     body: note || (approved ? "Verified. Nice." : "Needs a better receipt."),
     data: {
-      url: postHref(input.circleId, "proof", review.proof.id),
+      url: `${postHref(input.circleId, "proof", review.proof.id)}&focus=${encodeURIComponent(review.id)}#comments`,
       reviewId: review.id,
       decision: review.decision,
     },

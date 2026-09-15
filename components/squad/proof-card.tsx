@@ -2,7 +2,6 @@ import { Bot } from "lucide-react";
 import { MediaGallery } from "@/components/media/media-gallery";
 import { AiRetryButton } from "@/components/squad/ai-retry-button";
 import { ProofImageViewer } from "@/components/squad/proof-image-viewer";
-import { ProofReviewList } from "@/components/squad/proof-review-list";
 import { ReviewProof } from "@/components/squad/review-proof";
 import {
   SocialReplyThread,
@@ -28,6 +27,7 @@ export type ProofReview = {
   note: string | null;
   createdAt: string;
   reviewerName: string;
+  reviewerId: string;
   replies: ThreadReply[];
 };
 
@@ -173,25 +173,48 @@ export function ProofCard({
                 />
               )
             ) : null}
-            {proof.reviews.length > 0 ? (
-              <>
-                <Separator />
-                <ProofReviewList
-                  reviews={proof.reviews}
-                  currentUserId={viewerId}
-                  focusId={focusId}
-                />
-              </>
-            ) : null}
             <Separator />
             <SocialReplyThread
               contextLabel={`Commenting on ${proof.ownerName}'s proof: ${proof.title}`}
               targetType="PROOF"
               targetId={proof.id}
-              initialReplies={proof.replies}
+              initialReplies={[
+                ...proof.replies,
+                ...proof.reviews.flatMap((review) =>
+                  review.replies.map((reply) => ({
+                    ...reply,
+                    replyContext: `Reply to ${review.reviewerName}’s verdict`,
+                  })),
+                ),
+              ]
+                .sort(
+                  (a, b) =>
+                    b.createdAt.localeCompare(a.createdAt) ||
+                    b.id.localeCompare(a.id),
+                )
+                .slice(0, 50)}
+              initialVerdicts={proof.reviews.map((review) => ({
+                id: review.id,
+                body: review.note ?? "",
+                createdAt: review.createdAt,
+                verdict: review.decision,
+                author: {
+                  id: review.reviewerId,
+                  name: review.reviewerName,
+                  image: null,
+                  initials: review.reviewerName
+                    .trim()
+                    .split(/\s+/)
+                    .map((part) => part[0])
+                    .slice(0, 2)
+                    .join(""),
+                },
+              }))}
+              focusId={focusId}
               currentUserId={viewerId}
               compact={compact}
-              defaultExpanded={focusId === proof.id}
+              defaultExpanded
+              composerVisible
             />
           </CardContent>
         </div>

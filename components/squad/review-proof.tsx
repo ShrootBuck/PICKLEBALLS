@@ -51,6 +51,7 @@ export function ReviewProof({
     decision: "APPROVED" | "CHALLENGED",
     result: {
       proofStatus: "PENDING" | "APPROVED" | "CHALLENGED";
+      hasComment: boolean;
       approvalCount: number;
       requiredApprovals: number;
     },
@@ -75,9 +76,9 @@ export function ReviewProof({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
-    if (!note.trim()) {
+    if (decision === "CHALLENGED" && !note.trim()) {
       setNoteInvalid(true);
-      setError("Every verdict needs a comment.");
+      setError("Explain what is missing before challenging proof.");
       noteRef.current?.focus();
       return;
     }
@@ -120,7 +121,10 @@ export function ReviewProof({
       setConfirmChallenge(false);
       // Remove the reviewed card immediately, then reconcile the board,
       // history, and counts with the committed server state.
-      onReviewed?.(proofId, decision, review);
+      onReviewed?.(proofId, decision, {
+        ...review,
+        hasComment: Boolean(note.trim()),
+      });
     } catch {
       setError("Could not reach the server. Check your wifi and try again.");
       setPending(false);
@@ -182,6 +186,8 @@ export function ReviewProof({
                   onValueChange={(value) => {
                     if (value[0]) {
                       setDecision(value[0] as typeof decision);
+                      setNoteInvalid(false);
+                      setError(null);
                       setConfirmChallenge(false);
                     }
                   }}
@@ -208,7 +214,9 @@ export function ReviewProof({
               </Field>
               <Field data-invalid={noteInvalid} data-disabled={pending}>
                 <FieldLabel htmlFor={`review-note-${id}`}>
-                  Reviewer note (required)
+                  {decision === "CHALLENGED"
+                    ? "Reason (required)"
+                    : "Comment (optional)"}
                 </FieldLabel>
                 <Textarea
                   ref={noteRef}
@@ -223,11 +231,11 @@ export function ReviewProof({
                   }}
                   disabled={pending}
                   maxLength={500}
-                  required
+                  required={decision === "CHALLENGED"}
                   placeholder={
                     decision === "CHALLENGED"
                       ? "What is missing? Be specific, not just mean"
-                      : "Say why this counts."
+                      : "Add a comment if you want…"
                   }
                   className="min-h-24"
                   aria-invalid={noteInvalid}
@@ -238,8 +246,9 @@ export function ReviewProof({
                   }
                 />
                 <FieldDescription id={`review-note-help-${id}`}>
-                  Every verdict needs a comment. Say why it counts or what is
-                  missing.
+                  {decision === "CHALLENGED"
+                    ? "Say what is missing so they know what to fix. Your reason appears in the post’s comments."
+                    : "Your comment appears in the post’s discussion. You can also approve without one."}
                 </FieldDescription>
               </Field>
             </FieldGroup>

@@ -47,6 +47,13 @@ const sendPush = mock(async () => {});
 mock.module("@/lib/prisma", () => ({
   getPrisma: () => ({
     socialReply: { findFirst: replyFind, findMany: participantsFind },
+    taskProofReview: {
+      findMany: async () => [
+        { reviewerId: "reviewer" },
+        { reviewerId: "actor" },
+        { reviewerId: "departed" },
+      ],
+    },
     membership: { findMany: membersFind, findUnique: membershipFind },
     notificationPreference: { findUnique: async () => storedPrefs },
     notification: {
@@ -302,15 +309,28 @@ for (const [relation, field, target] of [
     expect(participantsFind).toHaveBeenCalledWith({
       where: {
         circleId: "circle",
-        [field]: "target",
+        ...(relation === "proof" || relation === "review"
+          ? {
+              OR: [
+                { proofId: relation === "proof" ? "target" : "proof" },
+                {
+                  review: {
+                    proofId: relation === "proof" ? "target" : "proof",
+                  },
+                },
+              ],
+            }
+          : { [field]: "target" }),
         createdAt: { lte: createdAt },
         authorId: { not: "actor" },
       },
       distinct: ["authorId"],
       select: { authorId: true },
     });
-    expect(create).toHaveBeenCalledTimes(relation === "review" ? 3 : 2);
-    for (const recipientId of relation === "review"
+    expect(create).toHaveBeenCalledTimes(
+      relation === "review" || relation === "proof" ? 3 : 2,
+    );
+    for (const recipientId of relation === "review" || relation === "proof"
       ? ["owner", "reviewer", "participant"]
       : ["owner", "participant"]) {
       expect(create).toHaveBeenCalledWith(
@@ -333,7 +353,7 @@ for (const [relation, field, target] of [
               relation === "proof"
                 ? "/posts/proof/target?circle=circle#comments"
                 : relation === "review"
-                  ? "/posts/proof/proof?circle=circle&focus=target#thread-target"
+                  ? "/posts/proof/proof?circle=circle&focus=target#comments"
                   : relation === "checkInUpdate"
                     ? "/posts/check-in/target?circle=circle#comments"
                     : "/squad?circle=circle&focus=target",

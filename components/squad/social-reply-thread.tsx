@@ -18,6 +18,7 @@ import {
   useUploadStatus,
 } from "@/components/media/upload-status";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -33,6 +34,8 @@ import { uploadMedia } from "@/lib/media-upload";
 import { formatReplyTime } from "@/lib/time";
 
 export type ThreadReply = {
+  verdict?: "APPROVED" | "CHALLENGED";
+  replyContext?: string;
   mediaIds?: string[];
   id: string;
   body: string;
@@ -85,7 +88,7 @@ function ReplyItem({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const editable = mine && withinEditWindow(reply.createdAt);
+  const editable = !reply.verdict && mine && withinEditWindow(reply.createdAt);
   const edited = reply.updatedAt != null && reply.updatedAt !== reply.createdAt;
 
   async function saveEdit() {
@@ -143,7 +146,10 @@ function ReplyItem({
   }
 
   return (
-    <div className="flex gap-2.5">
+    <div
+      id={reply.verdict ? `verdict-${reply.id}` : `reply-${reply.id}`}
+      className="flex scroll-mt-6 gap-2.5"
+    >
       <Avatar className="size-7 shrink-0">
         <AvatarImage src={reply.author.image ?? undefined} alt="" />
         <AvatarFallback className="text-[11px]">
@@ -155,6 +161,13 @@ function ReplyItem({
           <span className="break-words text-[13px] font-medium">
             {reply.author.name}
           </span>
+          {reply.verdict && (
+            <Badge
+              variant={reply.verdict === "APPROVED" ? "success" : "destructive"}
+            >
+              {reply.verdict === "APPROVED" ? "Approved" : "Challenged"}
+            </Badge>
+          )}
           <time
             dateTime={reply.createdAt}
             className="shrink-0 text-[11px] text-muted-foreground tabular-nums"
@@ -204,6 +217,11 @@ function ReplyItem({
             </span>
           ) : null}
         </div>
+        {reply.replyContext && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {reply.replyContext}
+          </p>
+        )}
         {editing ? (
           <div className="mt-1.5 flex flex-col gap-1.5">
             <Textarea
@@ -262,6 +280,9 @@ export function SocialReplyThread({
   targetType,
   targetId,
   initialReplies,
+  initialVerdicts,
+  initialHasMore,
+  focusId,
   compact = false,
   currentUserId,
   defaultExpanded = false,
@@ -274,6 +295,9 @@ export function SocialReplyThread({
   targetType: ReplyTargetType;
   targetId: string;
   initialReplies: SocialReply[];
+  initialVerdicts?: SocialReply[];
+  initialHasMore?: boolean;
+  focusId?: string;
   compact?: boolean;
   currentUserId?: string;
   defaultExpanded?: boolean;
@@ -287,7 +311,13 @@ export function SocialReplyThread({
   const threadId = `reply-thread-${generatedId.replaceAll(":", "")}`;
   const inputId = `${threadId}-input`;
   const [replies, setReplies] = useState(() => chronological(initialReplies));
-  const [hasMore, setHasMore] = useState(initialReplies.length === 50);
+  const [hasMore, setHasMore] = useState(
+    initialHasMore ?? initialReplies.length === 50,
+  );
+  const [verdicts, setVerdicts] = useState(initialVerdicts ?? []);
+  useEffect(() => {
+    if (initialVerdicts) setVerdicts(initialVerdicts);
+  }, [initialVerdicts]);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
   useEffect(() => {
     const fresh = chronological(initialReplies);
@@ -320,6 +350,16 @@ export function SocialReplyThread({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const replyButtonRef = useRef<HTMLButtonElement>(null);
   const hiddenCount = Math.max(0, replies.length - visibleCount);
+  const visibleReplies = chronological([
+    ...replies.slice(-visibleCount),
+    ...verdicts,
+  ]);
+  useEffect(() => {
+    if (focusId)
+      document
+        .getElementById(`verdict-${focusId}`)
+        ?.scrollIntoView({ block: "center" });
+  }, [focusId]);
 
   useEffect(() => {
     if (expanded && composing) inputRef.current?.focus();
@@ -333,9 +373,13 @@ export function SocialReplyThread({
         cache: "no-store",
       });
       if (!response.ok) return;
-      const data: { replies: SocialReply[]; hasMore: boolean } =
-        await response.json();
+      const data: {
+        replies: SocialReply[];
+        hasMore: boolean;
+        verdicts?: SocialReply[];
+      } = await response.json();
       if (signal.aborted) return;
+      if (data.verdicts) setVerdicts(data.verdicts);
       const fresh = chronological(data.replies);
       setReplies((current) => {
         const oldest = fresh[0];
@@ -545,11 +589,11 @@ export function SocialReplyThread({
                 {loadError}
               </p>
             ) : null}
-            {replies.length > 0 ? (
+            {visibleReplies.length > 0 ? (
               <div className="flex flex-col gap-4" aria-live="polite">
-                {replies.slice(-visibleCount).map((reply) => (
+                {visibleReplies.map((reply) => (
                   <ReplyItem
-                    key={reply.id}
+                    key={`${reply.verdict ? "verdict" : "reply"}-${reply.id}`}
                     reply={reply}
                     mine={
                       currentUserId != null && reply.author.id === currentUserId
@@ -557,7 +601,9 @@ export function SocialReplyThread({
                     onEdited={(updated) =>
                       setReplies((current) =>
                         current.map((item) =>
-                          item.id === updated.id ? updated : item,
+                          item.id === updated.id
+                            ? { ...item, ...updated }
+                            : item,
                         ),
                       )
                     }

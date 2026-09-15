@@ -36,7 +36,7 @@ export async function resolveLegacyFocus(
     }),
   ]);
   if (proof)
-    return `${postHref(circleId, "proof", proof.id)}${proof.id === focusId ? "" : `&focus=${encodeURIComponent(focusId)}#verdicts`}`;
+    return `${postHref(circleId, "proof", proof.id)}${proof.id === focusId ? "" : `&focus=${encodeURIComponent(focusId)}#comments`}`;
   if (task)
     return `${memberHref(circleId, task.userId, "tasks", task.day.toISOString().slice(0, 10))}&focus=${encodeURIComponent(task.id)}#task-${encodeURIComponent(task.id)}`;
   if (update) return postHref(circleId, "check-in", update.id);

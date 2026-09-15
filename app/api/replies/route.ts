@@ -3,6 +3,7 @@ import { z } from "zod";
 import { jsonError, readJson } from "@/lib/api";
 import { notifyReplyReceived } from "@/lib/background";
 import { getPrisma } from "@/lib/prisma";
+import { getProofDiscussion } from "@/lib/proof-discussion";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { createSocialReply } from "@/lib/social-replies";
@@ -68,6 +69,11 @@ export async function GET(request: Request) {
     );
   try {
     const { targetType, targetId, before } = query.data;
+    if (targetType === "PROOF") {
+      return NextResponse.json(
+        await getProofDiscussion(auth.membership.circleId, targetId, before),
+      );
+    }
     const field = {
       COMMITMENT: "commitmentId",
       CHECK_IN: "checkInId",

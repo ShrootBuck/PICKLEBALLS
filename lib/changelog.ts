@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1789448031007,
+    title: "One conversation per proof",
+    description:
+      "Verdict comments and replies now appear together in the post’s discussion, with approval or challenge labels for context. Approve with or without a comment. Challenges still need a reason.",
+  },
+  {
     timestamp: 1789447548778,
     title: "Replan your whole week in chat",
     description:

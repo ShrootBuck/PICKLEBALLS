@@ -65,6 +65,7 @@ export function toProofCard(
     note: review.note,
     createdAt: review.createdAt.toISOString(),
     reviewerName: review.reviewer.name,
+    reviewerId: review.reviewerId,
     replies: review.replies.map(toThreadReply),
   }));
   const reviewerByReviewId = new Map(

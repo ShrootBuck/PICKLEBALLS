@@ -265,6 +265,8 @@ async function readPosts({
           select: {
             reviewerId: true,
             decision: true,
+            note: true,
+            _count: { select: { replies: true } },
             reviewer: { select: { name: true } },
           },
           orderBy: { createdAt: "asc" },
@@ -359,7 +361,13 @@ async function readPosts({
             .join(", ") || null,
         likeCount: p._count.likes,
         likedByMe: p.likes.length > 0,
-        commentCount: p._count.replies,
+        commentCount:
+          p._count.replies +
+          p.reviews.reduce(
+            (count, review) =>
+              count + (review.note ? 1 : 0) + review._count.replies,
+            0,
+          ),
       }),
     ),
     ...updates.map(

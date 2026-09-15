@@ -7,13 +7,13 @@ import { BackButton } from "@/components/social/back-button";
 import { PostCard } from "@/components/social/post-card";
 import { AiRetryButton } from "@/components/squad/ai-retry-button";
 import { toThreadReply } from "@/components/squad/proof-helpers";
-import { ProofReviewList } from "@/components/squad/proof-review-list";
 import { SocialReplyThread } from "@/components/squad/social-reply-thread";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import type { Prisma } from "@/generated/prisma/client";
 import { postHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
+import { getProofDiscussion } from "@/lib/proof-discussion";
 import { requirePageMembership } from "@/lib/request";
 import { getFeedPage, socialAuthorSelect } from "@/lib/social-data";
 
@@ -125,18 +125,11 @@ export default async function PostPage({
   const proof = await getPrisma().taskProof.findFirst({
     where: { id, circleId },
     include: {
-      replies: replyInclude,
       replaces: { select: { id: true } },
-      reviews: {
-        orderBy: { createdAt: "asc" },
-        include: {
-          reviewer: { select: { id: true, name: true } },
-          replies: replyInclude,
-        },
-      },
     },
   });
   if (!proof) notFound();
+  const discussion = await getProofDiscussion(circleId, id);
   const stalled =
     proof.aiStatus === "PENDING" &&
     Date.now() - proof.submittedAt.getTime() > 120_000;
@@ -159,6 +152,24 @@ export default async function PostPage({
         </Alert>
       )}
       <PostCard post={post} detail />
+      <section id="comments" className="scroll-mt-6">
+        <h2 className="mb-4 text-base font-semibold">Comments</h2>
+        <SocialReplyThread
+          key={id}
+          targetType="PROOF"
+          targetId={id}
+          initialReplies={discussion.replies}
+          initialVerdicts={discussion.verdicts}
+          initialHasMore={discussion.hasMore}
+          focusId={typeof query.focus === "string" ? query.focus : undefined}
+          currentUserId={session.user.id}
+          contextLabel={`Commenting on ${post.title}`}
+          replyLabel="Add a comment"
+          defaultExpanded
+          composerVisible
+          scrollOnExpand={false}
+        />
+      </section>
       <section className="post-detail-section">
         <h2 className="mb-2 text-base font-semibold">What counts as done</h2>
         <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
@@ -218,38 +229,6 @@ export default async function PostPage({
             Reading the evidence. Your friends can review it already.
           </p>
         )}
-      </section>
-      {proof.reviews.length > 0 && (
-        <section id="verdicts" className="post-detail-section">
-          <h2 className="mb-4 text-base font-semibold">Verdicts</h2>
-          <ProofReviewList
-            reviews={proof.reviews.map((review) => ({
-              id: review.id,
-              decision: review.decision,
-              note: review.note,
-              reviewerId: review.reviewerId,
-              reviewerName: review.reviewer.name,
-              replies: review.replies.map(toThreadReply),
-            }))}
-            currentUserId={session.user.id}
-            focusId={typeof query.focus === "string" ? query.focus : undefined}
-          />
-        </section>
-      )}
-      <section id="comments" className="scroll-mt-6">
-        <h2 className="mb-4 text-base font-semibold">Comments</h2>
-        <SocialReplyThread
-          key={id}
-          targetType="PROOF"
-          targetId={id}
-          initialReplies={proof.replies.map(toThreadReply)}
-          currentUserId={session.user.id}
-          contextLabel={`Commenting on ${post.title}`}
-          replyLabel="Add a comment"
-          defaultExpanded
-          composerVisible
-          scrollOnExpand={false}
-        />
       </section>
     </>
   );

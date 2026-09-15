@@ -363,10 +363,10 @@ test("challenge, deliberate replacement restrictions, and old URLs preserve proo
       posted.id,
       ids.peer,
       ids.circle,
-      { decision: "APPROVED", note: "" },
+      { decision: "CHALLENGED", note: "" },
       now,
     ),
-  ).rejects.toThrow("comment");
+  ).rejects.toThrow("reason");
   await expect(
     reviewProof(
       posted.id,
@@ -1039,4 +1039,74 @@ test("pending queue pagination is newest first and cannot reuse timeline cursors
       cursor: first.nextCursor ?? undefined,
     }),
   ).rejects.toThrow("Invalid feed cursor");
+});
+
+test("proof discussion includes verdict conversations, paginates replies, and isolates circles", async () => {
+  const { getProofDiscussion } = await import("@/lib/proof-discussion");
+  const posted = await proof();
+  const review = await reviewProof(
+    posted.id,
+    ids.peer,
+    ids.circle,
+    { decision: "APPROVED" },
+    now,
+  );
+  expect(review.note).toBeNull();
+  const later = new Date(now.getTime() + 1000);
+  await prisma.socialReply.createMany({
+    data: Array.from({ length: 55 }, (_, index) => ({
+      id: `discussion-${posted.id}-${String(index).padStart(2, "0")}`,
+      circleId: ids.circle,
+      authorId: ids.owner,
+      body: `Comment ${index}`,
+      ...(index % 2 ? { reviewId: review.id } : { proofId: posted.id }),
+      createdAt: later,
+    })),
+  });
+  const first = await getProofDiscussion(ids.circle, posted.id);
+  expect(first.replies).toHaveLength(50);
+  expect(first.hasMore).toBe(true);
+  expect(first.verdicts).toHaveLength(1);
+  expect(first.verdicts[0]).toMatchObject({ body: "", verdict: "APPROVED" });
+  expect(first.replies.some((reply) => reply.replyContext)).toBe(true);
+  const second = await getProofDiscussion(
+    ids.circle,
+    posted.id,
+    first.replies.at(-1)?.id,
+  );
+  expect(second.replies).toHaveLength(5);
+  expect(second.hasMore).toBe(false);
+  expect(
+    new Set([...first.replies, ...second.replies].map((reply) => reply.id))
+      .size,
+  ).toBe(55);
+  const other = await getProofDiscussion(ids.other, posted.id);
+  expect(other.replies).toEqual([]);
+  expect(other.verdicts).toEqual([]);
+  await expect(
+    getProofDiscussion(ids.other, posted.id, first.replies[0].id),
+  ).rejects.toThrow("Reply not found");
+  const feed = await getFeedPage({
+    viewerId: ids.owner,
+    circleId: ids.circle,
+    proofIds: [posted.id],
+    checkInIds: [],
+  });
+  expect(feed.items[0].commentCount).toBe(55);
+  await prisma.taskProofReview.update({
+    where: { id: review.id },
+    data: { note: "Nice work" },
+  });
+  const withNote = await getProofDiscussion(ids.circle, posted.id);
+  expect(withNote.verdicts[0].body).toBe("Nice work");
+  const updated = await getFeedPage({
+    viewerId: ids.owner,
+    circleId: ids.circle,
+    proofIds: [posted.id],
+    checkInIds: [],
+  });
+  expect(updated.items[0].commentCount).toBe(56);
+  expect(await resolveLegacyFocus(ids.circle, review.id)).toContain(
+    "#comments",
+  );
 });

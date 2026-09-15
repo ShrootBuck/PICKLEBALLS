@@ -361,7 +361,9 @@ export async function reviewProof(
 ) {
   const parsed = proofReviewSchema.safeParse(input);
   if (!parsed.success)
-    throw new DomainError("Every verdict needs a comment of 1–500 characters.");
+    throw new DomainError(
+      "Challenges need a reason. Comments must be 500 characters or fewer.",
+    );
 
   try {
     return await serializable(async (transaction) => {
