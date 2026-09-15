@@ -207,7 +207,7 @@ export function ScreenTimeUpload({
               </FieldDescription>
               <FieldDescription>
                 Valid screenshots post automatically to the leaderboard and your
-                story. Keep this page open until background reading starts.
+                timeline. Keep this page open until background reading starts.
               </FieldDescription>
             </Field>
           </FieldGroup>

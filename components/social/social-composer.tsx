@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Camera,
-  Check,
   ClipboardList,
   Clock3,
   MessageCircle,
@@ -23,6 +22,7 @@ import {
   UploadStatus,
   useUploadStatus,
 } from "@/components/media/upload-status";
+import { MoodCheckIn } from "@/components/social/mood-check-in";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,10 +50,8 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { appFetch, holdAppRefresh } from "@/lib/app-refresh";
 import { uploadMedia } from "@/lib/media-upload";
-import { postHref } from "@/lib/navigation";
 import { proofFetch } from "@/lib/proof-fetch";
 import type { SocialTask } from "@/lib/social-types";
 import {
@@ -64,18 +62,16 @@ import {
   phoenixLocalDateTimeValue,
 } from "@/lib/time";
 
-type Mode = "choose" | "story" | "task" | "proof" | "check-in";
+type Mode = "choose" | "task" | "proof" | "check-in";
 export type ComposerRequest = {
   mode: Mode;
   task?: SocialTask;
-  source?: "story";
 };
 export type ComposerDraft = {
   title: string;
   definition: string;
   files: File[];
   note: string;
-  signal: string;
   startedAt: string;
   completedAt: string;
   step: "media" | "details";
@@ -102,7 +98,6 @@ export function SocialComposer(props: ComposerProps) {
   const [pending, setPending] = useState(false);
   const heading = {
     choose: "What’s happening?",
-    story: "Add to your story",
     task: task ? "Edit your task" : "Make a commitment",
     proof: task?.proof ? "Another look. Better proof." : "Show the work",
     "check-in": "How’s it going?",
@@ -122,23 +117,30 @@ export function SocialComposer(props: ComposerProps) {
         <SheetHeader>
           <SheetTitle>{heading}</SheetTitle>
           <SheetDescription>
-            {mode === "story"
-              ? "Share proof or a check-in. In stories for 24 hours, saved in your posts."
-              : mode === "choose"
-                ? "A little accountability goes a long way."
-                : mode === "task"
-                  ? "Set a clear finish line. Due tonight at midnight, Phoenix time."
-                  : mode === "proof"
-                    ? (task?.title ?? "Pick the task you finished.")
-                    : "A quick update for your circle."}
+            {mode === "choose"
+              ? "A little accountability goes a long way."
+              : mode === "task"
+                ? "Set a clear finish line. Due tonight at midnight, Phoenix time."
+                : mode === "proof"
+                  ? (task?.title ?? "Pick the task you finished.")
+                  : "A quick update for your circle."}
           </SheetDescription>
         </SheetHeader>
-        <ComposerForm
-          key={props.draftKey}
-          {...props}
-          pending={pending}
-          setPending={setPending}
-        />
+        {mode === "check-in" ? (
+          <div className="min-h-0 overflow-y-auto px-5 pb-5">
+            <MoodCheckIn
+              onShared={props.onClose}
+              onPendingChange={setPending}
+            />
+          </div>
+        ) : (
+          <ComposerForm
+            key={props.draftKey}
+            {...props}
+            pending={pending}
+            setPending={setPending}
+          />
+        )}
       </SheetContent>
     </Sheet>
   );
@@ -147,7 +149,6 @@ export function SocialComposer(props: ComposerProps) {
 function ComposerForm({
   request,
   tasks,
-  circleId,
   day,
   onClose,
   draft,
@@ -163,8 +164,7 @@ function ComposerForm({
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
-  const onRequestChange = (next: ComposerRequest) =>
-    changeRequest({ ...next, source: request.source });
+  const onRequestChange = (next: ComposerRequest) => changeRequest(next);
   const mode = request.mode;
   const task = request.task ?? null;
   const [title, setTitle] = useState(
@@ -177,7 +177,6 @@ function ComposerForm({
   );
   const [files, setFiles] = useState<File[]>(draft?.files ?? []);
   const [note, setNote] = useState(draft?.note ?? "");
-  const [signal, setSignal] = useState(draft?.signal ?? "YAY");
   const [startedAt, setStartedAt] = useState(
     () =>
       draft?.startedAt ??
@@ -212,7 +211,6 @@ function ComposerForm({
           definition,
           files,
           note,
-          signal,
           startedAt,
           completedAt,
           step,
@@ -225,7 +223,6 @@ function ComposerForm({
     definition,
     files,
     note,
-    signal,
     startedAt,
     completedAt,
     step,
@@ -239,9 +236,7 @@ function ComposerForm({
       (!item.proof || item.proof.reviewStatus === "CHALLENGED"),
   );
   const ready =
-    mode === "task" ||
-    mode === "check-in" ||
-    (mode === "proof" && task && step === "details");
+    mode === "task" || (mode === "proof" && task && step === "details");
   const start = parsePhoenixLocalDateTime(startedAt);
   const finish = parsePhoenixLocalDateTime(completedAt);
 
@@ -272,12 +267,6 @@ function ComposerForm({
             body: JSON.stringify({ title, definitionOfDone: definition }),
           },
         );
-      } else if (mode === "check-in") {
-        response = await appFetch("/api/check-in", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ signal, blocker: note }),
-        });
       } else {
         if (!task || !files.length)
           throw new Error("Choose a task and attach your proof first.");
@@ -321,17 +310,7 @@ function ComposerForm({
               : "Check-in posted.",
         type: "success",
       });
-      router.push(
-        mode === "task"
-          ? "/profile?tab=tasks"
-          : request.source === "story"
-            ? "/"
-            : postHref(
-                circleId,
-                mode === "proof" ? "proof" : "check-in",
-                mode === "proof" ? data.proof.id : data.update.id,
-              ),
-      );
+      router.push(mode === "task" ? "/profile?tab=tasks" : "/");
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -354,7 +333,7 @@ function ComposerForm({
         aria-busy={pending}
         className="min-h-0 overflow-y-auto px-5 pb-4 outline-none"
       >
-        {(mode === "choose" || mode === "story") && (
+        {mode === "choose" && (
           <div className="flex flex-col gap-3">
             {(
               [
@@ -373,29 +352,27 @@ function ComposerForm({
                 {
                   mode: "check-in",
                   title: "Check in",
-                  description: "Going well, or need a hand?",
+                  description: "Share your mood and what’s on your mind.",
                   icon: MessageCircle,
                 },
               ] as const
-            )
-              .filter((item) => mode !== "story" || item.mode !== "task")
-              .map((item) => (
-                <Button
-                  key={item.mode}
-                  variant="outline"
-                  className="composer-choice"
-                  onClick={() => onRequestChange({ mode: item.mode })}
-                >
-                  <item.icon data-icon="inline-start" />
-                  <span className="flex flex-1 flex-col items-start gap-1">
-                    <span>{item.title}</span>
-                    <span className="font-normal text-muted-foreground">
-                      {item.description}
-                    </span>
+            ).map((item) => (
+              <Button
+                key={item.mode}
+                variant="outline"
+                className="composer-choice"
+                onClick={() => onRequestChange({ mode: item.mode })}
+              >
+                <item.icon data-icon="inline-start" />
+                <span className="flex flex-1 flex-col items-start gap-1">
+                  <span>{item.title}</span>
+                  <span className="font-normal text-muted-foreground">
+                    {item.description}
                   </span>
-                  <ArrowRight data-icon="inline-end" />
-                </Button>
-              ))}
+                </span>
+                <ArrowRight data-icon="inline-end" />
+              </Button>
+            ))}
           </div>
         )}
         {mode === "task" && (
@@ -431,46 +408,6 @@ function ComposerForm({
               <FieldDescription>
                 Give your friends something specific to verify.
               </FieldDescription>
-            </Field>
-          </FieldGroup>
-        )}
-        {mode === "check-in" && (
-          <FieldGroup>
-            <Field>
-              <FieldLabel id="social-signal-label">Today feels…</FieldLabel>
-              <ToggleGroup
-                disabled={pending}
-                value={[signal]}
-                onValueChange={(value) => {
-                  if (value[0]) setSignal(value[0]);
-                }}
-                aria-labelledby="social-signal-label"
-                variant="outline"
-                spacing={2}
-              >
-                <ToggleGroupItem value="YAY" className="flex-1">
-                  <Check /> Going well
-                </ToggleGroupItem>
-                <ToggleGroupItem value="NAY" className="flex-1">
-                  <MessageCircle /> Need a hand
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="social-check-in">
-                Tell your circle{" "}
-                <span className="font-normal text-muted-foreground">
-                  (optional)
-                </span>
-              </FieldLabel>
-              <Textarea
-                id="social-check-in"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                maxLength={500}
-                disabled={pending}
-                placeholder="Finally understood that one problem. You know the one."
-              />
             </Field>
           </FieldGroup>
         )}
@@ -611,7 +548,7 @@ function ComposerForm({
           <UploadStatus status={uploadStatus} percent={uploadPercent} />
         )}
       </form>
-      {mode !== "choose" && mode !== "story" && (
+      {mode !== "choose" && (
         <SheetFooter className="flex-row border-t">
           <Button
             variant="outline"
@@ -624,7 +561,7 @@ function ComposerForm({
                 onClose();
               } else {
                 onRequestChange({
-                  mode: request.source === "story" ? "story" : "choose",
+                  mode: "choose",
                 });
               }
             }}

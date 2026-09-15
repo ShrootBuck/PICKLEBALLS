@@ -18,9 +18,11 @@ export function squadHref(circleId: string, focusId?: string | null) {
 
 export function postHref(
   circleId: string,
-  kind: "proof" | "check-in",
+  kind: "proof" | "check-in" | "screen-time",
   id: string,
 ) {
+  if (kind === "screen-time")
+    return `/screen-time?${new URLSearchParams({ circle: circleId })}`;
   return `/posts/${kind}/${encodeURIComponent(id)}?${new URLSearchParams({ circle: circleId })}`;
 }
 

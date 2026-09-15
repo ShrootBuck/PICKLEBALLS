@@ -36,9 +36,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { appFetch } from "@/lib/app-refresh";
 import { memberHref, postHref } from "@/lib/navigation";
-import type { FeedPost } from "@/lib/social-types";
+import type { InteractivePost } from "@/lib/social-types";
 
-async function copyPostLink(post: FeedPost) {
+async function copyPostLink(post: InteractivePost) {
   try {
     await navigator.clipboard.writeText(
       new URL(
@@ -58,7 +58,7 @@ async function copyPostLink(post: FeedPost) {
   }
 }
 
-export function PostMenu({ post }: { post: FeedPost }) {
+export function PostMenu({ post }: { post: InteractivePost }) {
   const { viewer } = useSocial();
   return (
     <DropdownMenu>
@@ -106,8 +106,8 @@ export function PostInteractions({
   onChange,
   onCommentsOpenChange,
 }: {
-  post: FeedPost;
-  onChange?: (patch: Partial<FeedPost>) => void;
+  post: InteractivePost;
+  onChange?: (patch: Partial<InteractivePost>) => void;
   onCommentsOpenChange?: (open: boolean) => void;
 }) {
   const { viewer, patchPost } = useSocial();
@@ -199,7 +199,7 @@ function PostComments({
   onOpenChange,
   onCountChange,
 }: {
-  post: FeedPost;
+  post: InteractivePost;
   viewerId: string;
   count: number;
   onOpenChange?: (open: boolean) => void;

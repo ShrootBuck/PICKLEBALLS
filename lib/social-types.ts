@@ -5,7 +5,7 @@ export type SocialAuthor = {
   initials: string;
 };
 
-export type PostKind = "proof" | "check-in";
+export type PostKind = "proof" | "check-in" | "screen-time";
 export type LikeTarget = "PROOF" | "CHECK_IN_UPDATE";
 export type ProofStatus = "PENDING" | "APPROVED" | "CHALLENGED";
 export type TaskStatus =
@@ -41,30 +41,22 @@ export type ProofPost = PostBase & {
 export type CheckInPost = PostBase & {
   kind: "check-in";
   signal: string;
+  mood?: number | null;
+  feelings?: string[];
   day: string;
   checkInId: string;
   legacyCommentCount: number;
 };
 
-export type FeedPost = ProofPost | CheckInPost;
-export type FeedPage = { items: FeedPost[]; nextCursor: string | null };
-
-export type ScreenTimeStory = PostBase & {
+export type InteractivePost = ProofPost | CheckInPost;
+export type ScreenTimePost = PostBase & {
   kind: "screen-time";
   mediaId: string;
   weekStart: string;
   dailyAverageMinutes: number;
 };
-export type StoryContent = FeedPost | ScreenTimeStory;
-export type StoryPost = { post: StoryContent; seenFrames: number[] };
-export type StoryGroup = { author: SocialAuthor; posts: StoryPost[] };
-export type StoryFrame = {
-  key: string;
-  post: StoryContent;
-  frame: number;
-  seen: boolean;
-  media: { src: string; video: boolean } | null;
-};
+export type FeedPost = InteractivePost | ScreenTimePost;
+export type FeedPage = { items: FeedPost[]; nextCursor: string | null };
 
 export type SocialTask = {
   id: string;
@@ -82,8 +74,9 @@ export type SocialMember = SocialAuthor & {
   tasks: SocialTask[];
   signal: string | null;
   note: string | null;
+  mood: number | null;
 };
 
-export function postKey(post: Pick<StoryContent, "kind" | "id">) {
+export function postKey(post: Pick<FeedPost, "kind" | "id">) {
   return `${post.kind}:${post.id}`;
 }

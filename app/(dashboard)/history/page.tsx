@@ -5,8 +5,6 @@ import { HistoryNav } from "@/components/history/history-nav";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProofCard } from "@/components/squad/proof-card";
 import {
-  signalLabel,
-  signalVariant,
   taskStatusLabel,
   taskStatusVariant,
   toProofCard,
@@ -27,6 +25,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { moodLabel } from "@/lib/mood";
 import { postHref, squadHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
@@ -221,6 +220,9 @@ export default async function HistoryPage({
                 : fallbackCheckIn
                   ? [
                       {
+                        mood: null,
+                        feelings: [] as string[],
+                        journal: null,
                         id: fallbackCheckIn.id,
                         signal: fallbackCheckIn.signal,
                         blocker: fallbackCheckIn.blocker,
@@ -314,16 +316,31 @@ export default async function HistoryPage({
                           className="flex flex-col gap-1.5 rounded-xl bg-muted/60 px-3 py-2.5"
                         >
                           <div className="flex items-center gap-2">
-                            <Badge variant={signalVariant(item.signal)}>
-                              {signalLabel(item.signal)}
+                            <Badge
+                              variant={
+                                item.mood != null && item.mood < 3
+                                  ? "outline"
+                                  : "secondary"
+                              }
+                            >
+                              {moodLabel(item.mood)}
                             </Badge>
                             <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
                               {formatHistoryTime(item.createdAt)}
                             </span>
                           </div>
-                          {item.blocker ? (
-                            <p className="text-sm leading-snug text-pretty">
-                              {item.blocker}
+                          {!!item.feelings.length && (
+                            <div className="flex flex-wrap gap-2">
+                              {item.feelings.map((feeling) => (
+                                <Badge key={feeling} variant="outline">
+                                  {feeling}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          {item.journal || item.blocker ? (
+                            <p className="whitespace-pre-wrap break-words text-sm leading-snug text-pretty">
+                              {item.journal ?? item.blocker}
                             </p>
                           ) : (
                             <p className="text-[13px] text-muted-foreground italic">

@@ -85,7 +85,15 @@ export async function getSocialMembers(
           checkIns: {
             where: { circleId, day },
             take: 1,
-            select: { signal: true, blocker: true },
+            select: {
+              signal: true,
+              blocker: true,
+              updates: {
+                orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+                take: 1,
+                select: { mood: true, journal: true },
+              },
+            },
           },
         },
       },
@@ -100,7 +108,11 @@ export async function getSocialMembers(
     joinedAt: createdAt.toISOString(),
     tasks: user.commitments.map(toSocialTask),
     signal: user.checkIns[0]?.signal ?? null,
-    note: user.checkIns[0]?.blocker ?? null,
+    note:
+      user.checkIns[0]?.updates[0]?.journal ??
+      user.checkIns[0]?.blocker ??
+      null,
+    mood: user.checkIns[0]?.updates[0]?.mood ?? null,
   }));
 }
 
@@ -158,18 +170,6 @@ export async function getFeedPage({
   };
 }
 
-// Stories read the whole recent window, independently of feed pagination, so
-// a prolific member cannot hide another person's story beyond the first page.
-export async function getRecentPosts(
-  viewerId: string,
-  circleId: string,
-  since: Date,
-  until: Date,
-) {
-  await assertCircleMember(viewerId, circleId);
-  return readPosts({ viewerId, circleId, since, until });
-}
-
 async function readPosts({
   viewerId,
   circleId,
@@ -196,7 +196,7 @@ async function readPosts({
   until?: Date;
 }): Promise<FeedPost[]> {
   const prisma = getPrisma();
-  const [proofs, updates, members] = await Promise.all([
+  const [proofs, updates, screenTimes, members] = await Promise.all([
     prisma.taskProof.findMany({
       where: {
         circleId,
@@ -259,9 +259,36 @@ async function readPosts({
         _count: { select: { likes: true, replies: true } },
       },
     }),
+    prisma.screenTimeSubmission.findMany({
+      where: {
+        circleId,
+        ...(memberId ? { userId: memberId } : {}),
+        ...(pendingOnly || proofIds || checkInIds ? { id: { in: [] } } : {}),
+        ...feedBoundary("screen-time", "submittedAt", cursor),
+      },
+      orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
+      take,
+      include: { user: { select: socialAuthorSelect }, reading: true },
+    }),
     prisma.membership.count({ where: { circleId } }),
   ]);
   const items: FeedPost[] = [
+    ...screenTimes.map(
+      (submission): FeedPost => ({
+        kind: "screen-time",
+        id: submission.id,
+        circleId,
+        createdAt: submission.submittedAt.toISOString(),
+        author: submission.user,
+        body: null,
+        likeCount: 0,
+        likedByMe: false,
+        commentCount: 0,
+        mediaId: submission.reading.mediaId,
+        weekStart: submission.weekStart.toISOString().slice(0, 10),
+        dailyAverageMinutes: submission.reading.dailyAverageMinutes,
+      }),
+    ),
     ...proofs.map(
       (p): FeedPost => ({
         kind: "proof",
@@ -296,7 +323,9 @@ async function readPosts({
         circleId,
         createdAt: u.createdAt.toISOString(),
         author: u.user,
-        body: u.blocker,
+        body: u.journal ?? u.blocker,
+        mood: u.mood,
+        feelings: u.feelings,
         signal: u.signal,
         day: u.day.toISOString().slice(0, 10),
         checkInId: u.checkInId,

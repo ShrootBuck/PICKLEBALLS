@@ -20,9 +20,9 @@ New videos use multipart R2 uploads, with 32 MiB chunks, per-chunk retries, visi
 
 - `process-media`: FFprobe inspection, FFmpeg encoding, a Sharp WebP poster, output verification, and deletion of the original after the ready record is saved. Uses `medium-2x`, two concurrent encodes, three attempts, and a 24-hour compute safety limit per attempt. Media is streamed from R2 through FFmpeg into a multipart R2 output, without buffering the whole file or using worker disk for the video.
 - The single playback rendition is H.264/AAC MP4, CRF 20, capped at 8 Mbps video and 192 kbps stereo audio, up to 1080p (1920×1080 landscape or 1080×1920 portrait) and 60 fps. Smaller inputs are not enlarged. Rotation and aspect ratio are preserved; HDR is tone-mapped to SDR. The MP4 is fragmented with playback metadata first and two-second keyframes. It is a single quality file, with no HLS playlist or adaptive quality ladder.
-- `publish-media-proof`: waits durably for all attachments, then creates the proof and claims its media in one transaction. The private `PendingProof` reservation records the acceptance time for deadline checks. Feed/story time starts at publication. Retried publication returns the same proof.
+- `publish-media-proof`: waits durably for all attachments, then creates the proof and claims its media in one transaction. The private `PendingProof` reservation records the acceptance time for deadline checks. Timeline time starts at publication. Retried publication returns the same proof.
 - `recover-media-posts`: every five minutes, retries dispatch for saved submissions and retries original-file cleanup. Failed encodes keep the original for the user's retry. The owner can see progress, retry, or remove a failed submission; friends see only published proof.
-- Photos retain the existing Sharp resize/WebP pipeline. Video replies wait for processing before posting; the background publication flow applies to proof/story submissions.
+- Photos retain the existing Sharp resize/WebP pipeline. Video replies wait for processing before posting; the background publication flow applies to proof submissions.
 
 Video uploads require `TRIGGER_SECRET_KEY`, including local development. Run the app and `bun run dev:trigger` together. The worker image installs FFmpeg with the build extension. Locally, install an FFmpeg build with libx264, AAC, PNG, zscale and tonemap support (for example, Homebrew's `ffmpeg-full`); `FFMPEG_PATH` and `FFPROBE_PATH` can point to that build. Plain Homebrew FFmpeg may omit zscale, which is required for HDR phone footage.
 
@@ -30,7 +30,7 @@ R2 browser CORS must allow the app origin, `PUT`, `GET` and `HEAD`, and the uplo
 
 Apply the migration before deploying the new app and worker together. It expands media byte counts to BIGINT and adds processing metadata and private pending submissions. Existing media remains readable; this change does not backfill old videos.
 
-Validation: `bun test`, `bun run test:social` (Docker and FFmpeg required), `bun run typecheck`, `bun run lint`, `bun run build`, and `npx trigger.dev@4.5.16 deploy --dry-run`. `bun scripts/test-social.ts --serve --video` adds two encoded video attachments to Eddie's disposable story for browser checks.
+Validation: `bun test`, `bun run test:social` (Docker and FFmpeg required), `bun run typecheck`, `bun run lint`, `bun run build`, and `npx trigger.dev@4.5.16 deploy --dry-run`. `bun scripts/test-social.ts --serve --video` adds two encoded video attachments to Eddie's disposable timeline for browser checks.
 
 The web app uses Trigger.dev when `TRIGGER_SECRET_KEY` is present. Without it, existing local execution remains available. Proof completion is observed through the existing response stream; the task survives a disconnected client or an expired web request. Screen-time callers can retry after a lost response and recover the saved reading. Authorization remains in the API routes. Task payloads contain IDs, not image bytes or credentials.
 

@@ -8,6 +8,7 @@ import { Feed } from "@/components/social/feed";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { moodLabel } from "@/lib/mood";
 import { memberHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
@@ -133,14 +134,12 @@ export default async function SquadPage({
                     <Badge
                       className="mt-2"
                       variant={
-                        ["NAY", "AT_RISK"].includes(member.signal)
+                        member.mood != null && member.mood < 3
                           ? "outline"
                           : "secondary"
                       }
                     >
-                      {["NAY", "AT_RISK"].includes(member.signal)
-                        ? "Needs a hand"
-                        : "Going well"}
+                      {moodLabel(member.mood)}
                     </Badge>
                   )}
                 </div>

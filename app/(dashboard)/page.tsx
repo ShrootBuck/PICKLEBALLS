@@ -3,7 +3,7 @@ import { LandingPage } from "@/components/landing/landing-page";
 import { ScreenTimeReminder } from "@/components/screen-time/reminder";
 import { Feed } from "@/components/social/feed";
 import { HomeActions } from "@/components/social/home-actions";
-import { StoryTray } from "@/components/social/story-tray";
+import { MoodCheckIn } from "@/components/social/mood-check-in";
 import { getPageSession, requirePageMembership } from "@/lib/request";
 import { getFeedPage } from "@/lib/social-data";
 
@@ -19,7 +19,7 @@ export default async function HomePage() {
   return (
     <>
       <h1 className="sr-only">Home</h1>
-      <StoryTray />
+      <MoodCheckIn />
       <HomeActions />
       <ScreenTimeReminder
         userId={session.user.id}

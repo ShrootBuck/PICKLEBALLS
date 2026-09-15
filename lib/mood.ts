@@ -1,0 +1,200 @@
+import { z } from "zod";
+
+export const moods = [
+  {
+    value: 1,
+    label: "Very bad",
+    face: "😞",
+    feelings: [
+      "Overwhelmed",
+      "Hopeless",
+      "Lonely",
+      "Exhausted",
+      "Anxious",
+      "Sad",
+      "Frustrated",
+      "Hurt",
+      "Afraid",
+      "Helpless",
+      "Drained",
+      "Numb",
+      "Grieving",
+      "Rejected",
+      "Ashamed",
+      "Guilty",
+      "Isolated",
+      "Angry",
+      "Insecure",
+      "Disappointed",
+      "Powerless",
+      "Vulnerable",
+      "Discouraged",
+      "Lost",
+      "Unsettled",
+      "Supported",
+    ],
+  },
+  {
+    value: 2,
+    label: "Bad",
+    face: "🙁",
+    feelings: [
+      "Stressed",
+      "Worried",
+      "Disappointed",
+      "Irritated",
+      "Tired",
+      "Insecure",
+      "Sad",
+      "Lonely",
+      "Frustrated",
+      "Anxious",
+      "Overwhelmed",
+      "Jealous",
+      "Embarrassed",
+      "Guilty",
+      "Hurt",
+      "Restless",
+      "Discouraged",
+      "Confused",
+      "Bored",
+      "Drained",
+      "Nervous",
+      "Sensitive",
+      "Unmotivated",
+      "Uneasy",
+      "Vulnerable",
+      "Hopeful",
+    ],
+  },
+  {
+    value: 3,
+    label: "Okay",
+    face: "😐",
+    feelings: [
+      "Calm",
+      "Thoughtful",
+      "Indifferent",
+      "Restless",
+      "Uncertain",
+      "Tired",
+      "Content",
+      "Hopeful",
+      "Reflective",
+      "Distracted",
+      "Curious",
+      "Bored",
+      "Quiet",
+      "Balanced",
+      "Nostalgic",
+      "Patient",
+      "Reserved",
+      "Focused",
+      "Disconnected",
+      "Sensitive",
+      "Accepting",
+      "Unmotivated",
+      "Pensive",
+      "Grounded",
+      "Nervous",
+      "Grateful",
+    ],
+  },
+  {
+    value: 4,
+    label: "Good",
+    face: "🙂",
+    feelings: [
+      "Content",
+      "Grateful",
+      "Hopeful",
+      "Relaxed",
+      "Proud",
+      "Connected",
+      "Motivated",
+      "Happy",
+      "Calm",
+      "Confident",
+      "Loved",
+      "Supported",
+      "Inspired",
+      "Curious",
+      "Focused",
+      "Relieved",
+      "Peaceful",
+      "Optimistic",
+      "Appreciated",
+      "Playful",
+      "Energized",
+      "Fulfilled",
+      "Grounded",
+      "Present",
+      "Nervous",
+      "Excited",
+    ],
+  },
+  {
+    value: 5,
+    label: "Very good",
+    face: "😄",
+    feelings: [
+      "Excited",
+      "Joyful",
+      "Confident",
+      "Inspired",
+      "Loved",
+      "Grateful",
+      "Energized",
+      "Proud",
+      "Thrilled",
+      "Delighted",
+      "Hopeful",
+      "Optimistic",
+      "Connected",
+      "Fulfilled",
+      "Peaceful",
+      "Free",
+      "Enthusiastic",
+      "Creative",
+      "Playful",
+      "Amused",
+      "Amazed",
+      "Appreciated",
+      "Motivated",
+      "Relieved",
+      "Adventurous",
+      "Nervous",
+    ],
+  },
+] as const;
+
+export function moodDetails(value: number) {
+  return moods.find((mood) => mood.value === value);
+}
+
+export function moodLabel(value?: number | null) {
+  const mood = value == null ? undefined : moodDetails(value);
+  return mood ? `${mood.face} Feeling ${mood.label.toLowerCase()}` : "Check-in";
+}
+
+export const moodCheckInSchema = z
+  .object({
+    mood: z.number().int().min(1).max(5),
+    feelings: z.array(z.string().max(40)).max(30).default([]),
+    journal: z.string().trim().max(5000).default(""),
+  })
+  .strict()
+  .superRefine((input, ctx) => {
+    const allowed: readonly string[] = moodDetails(input.mood)?.feelings ?? [];
+    if (
+      new Set(input.feelings).size !== input.feelings.length ||
+      input.feelings.some((feeling) => !allowed.includes(feeling))
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["feelings"],
+        message: "Choose feelings that match your mood.",
+      });
+    }
+  });
+export type MoodCheckInInput = z.infer<typeof moodCheckInSchema>;

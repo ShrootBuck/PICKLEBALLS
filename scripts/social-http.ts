@@ -122,23 +122,9 @@ assert(
   canonical.headers.get("location")?.includes(`/posts/proof/${proof.id}`) ||
     canonicalHtml.includes(`/posts/proof/${proof.id}`),
 );
-assert.equal((await get("/api/stories", "")).status, 401);
-const storyGroups = await (await get("/api/stories")).json();
-assert(storyGroups.length > 0);
-assert(
-  storyGroups.every((group: { posts: { post: { circleId: string } }[] }) =>
-    group.posts.every(({ post }) => post.circleId === "test-circle"),
-  ),
-);
-assert.deepEqual(await (await get("/api/stories", outside)).json(), []);
-const story = storyGroups[0].posts[0].post;
-async function viewStory(
-  body: unknown,
-  session = mine,
-  requestOrigin = origin,
-) {
-  return fetch(`${origin}/api/stories`, {
-    method: "PUT",
+async function postMood(body: unknown, session = mine, requestOrigin = origin) {
+  return fetch(`${origin}/api/mood`, {
+    method: "POST",
     headers: {
       cookie: session,
       origin: requestOrigin,
@@ -147,33 +133,38 @@ async function viewStory(
     body: JSON.stringify(body),
   });
 }
-const receipt = {
-  circleId: "test-circle",
-  kind: story.kind,
-  id: story.id,
-  frame: 0,
+const moodInput = {
+  mood: 4,
+  feelings: ["Grateful", "Nervous"],
+  journal: "A full reflection.\n".repeat(80),
 };
-assert.equal((await viewStory(receipt, "")).status, 401);
+assert.equal((await postMood(moodInput, "")).status, 401);
 assert.equal(
-  (await viewStory(receipt, mine, "https://untrusted.example")).status,
+  (await postMood(moodInput, mine, "https://untrusted.example")).status,
   403,
 );
-assert.equal((await viewStory(receipt, outside)).status, 404);
-assert.equal((await viewStory({ ...receipt, frame: -1 })).status, 400);
-assert.equal((await viewStory({ ...receipt, frame: 100 })).status, 404);
-assert.equal((await viewStory(receipt)).status, 200);
-assert.equal((await viewStory(receipt)).status, 200);
-const updatedStories = await (await get("/api/stories")).json();
-assert(
-  updatedStories
-    .flatMap((group: { posts: unknown[] }) => group.posts)
-    .find(
-      (item: { post: { kind: string; id: string } }) =>
-        item.post.kind === story.kind && item.post.id === story.id,
-    )
-    .seenFrames.includes(0),
+assert.equal(
+  (await postMood({ ...moodInput, feelings: ["fake"] })).status,
+  400,
 );
-await prisma.$disconnect();
+assert.equal(
+  (await postMood({ ...moodInput, journal: "x".repeat(5001) })).status,
+  400,
+);
+const moodResponse = await postMood(moodInput);
+assert.equal(moodResponse.status, 200);
+const moodPost = (await moodResponse.json()).update;
+const refreshedFeed = await (await get("/api/feed")).json();
+const savedMood = refreshedFeed.items.find(
+  (item: { id: string }) => item.id === moodPost.id,
+);
+assert.equal(savedMood.mood, 4);
+assert.deepEqual(savedMood.feelings, moodInput.feelings);
+assert.equal(savedMood.body, moodInput.journal.trim());
+const outsideFeed = await (await get("/api/feed", outside)).json();
+assert(
+  !outsideFeed.items.some((item: { id: string }) => item.id === moodPost.id),
+);
 console.log(
-  "HTTP checks passed: auth, profile/post/media/story isolation, legacy links, duplicate likes and story views, CSRF, and comment pagination.",
+  "HTTP checks passed: auth, profile/post/media isolation, legacy links, duplicate likes, CSRF, comment pagination, and mood validation/persistence.",
 );

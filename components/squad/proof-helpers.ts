@@ -121,12 +121,3 @@ export function taskStatusVariant(status: string) {
   if (status === "AWAITING_REVIEW") return "secondary" as const;
   return "outline" as const;
 }
-
-export function signalVariant(signal: string) {
-  if (signal === "NAY" || signal === "AT_RISK") return "destructive" as const;
-  return "success" as const;
-}
-
-export function signalLabel(signal: string) {
-  return signal === "NAY" || signal === "AT_RISK" ? "Nay" : "Yay";
-}

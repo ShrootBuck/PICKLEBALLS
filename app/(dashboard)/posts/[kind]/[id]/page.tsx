@@ -68,7 +68,7 @@ export default async function PostPage({
     includeReplaced: true,
   });
   const post = feed.items[0];
-  if (!post) notFound();
+  if (!post || post.kind === "screen-time") notFound();
   if (post.kind === "check-in") {
     const update = await getPrisma().checkInUpdate.findFirst({
       where: { id, circleId },

@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1789439878969,
+    title: "One timeline, and room for how you feel",
+    description:
+      "Stories are gone. Posts stay in one timeline, newest first, with older posts loading as you scroll. Share how you feel, choose words that fit your mood, and add an optional journal entry for your circle.",
+  },
+  {
     timestamp: 1789410277604,
     title: "School and sleep in your timeblock",
     description:

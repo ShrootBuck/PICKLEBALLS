@@ -1,3 +1,4 @@
+import { type MoodCheckInInput, moodCheckInSchema } from "@/lib/mood";
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -469,7 +470,9 @@ export async function setCheckIn(
   signal: "YAY" | "NAY",
   blocker?: string,
   now = new Date(),
+  wellbeing?: MoodCheckInInput,
 ) {
+  const mood = wellbeing ? moodCheckInSchema.parse(wellbeing) : null;
   const day = requireDateKey(phoenixDateKey(now));
   const cleanBlocker = blocker?.trim() ? blocker.trim().slice(0, 500) : null;
   const result = await serializable(async (transaction) => {
@@ -487,6 +490,13 @@ export async function setCheckIn(
         day,
         signal,
         blocker: cleanBlocker,
+        ...(mood
+          ? {
+              mood: mood.mood,
+              feelings: mood.feelings,
+              journal: mood.journal || null,
+            }
+          : {}),
       },
     });
     await transaction.activityEvent.create({
@@ -495,7 +505,7 @@ export async function setCheckIn(
         actorId: userId,
         kind: "CHECK_IN_SET",
         entityId: checkIn.id,
-        summary: `checked in ${signal.toLowerCase().replaceAll("_", " ")}`,
+        summary: mood ? "shared a mood check-in" : "checked in",
         metadata: { updateId: update.id, signal },
       },
     });
