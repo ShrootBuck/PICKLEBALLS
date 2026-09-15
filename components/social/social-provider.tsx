@@ -106,7 +106,10 @@ export function SocialProvider({
             )
             .filter(
               (item) =>
-                key !== "!review" || (item.kind === "proof" && item.canReview),
+                (key !== "!review" ||
+                  (item.kind === "proof" && item.canReview)) &&
+                (key !== "!pending" ||
+                  (item.kind === "proof" && item.reviewStatus === "PENDING")),
             ),
         });
       }

@@ -143,7 +143,7 @@ function InteractivePostCard({
               ) : post.reviewStatus === "CHALLENGED" ? (
                 "Challenged"
               ) : (
-                "Needs review"
+                `${post.approvalCount}/${post.requiredApprovals} approvals`
               )}
             </Badge>
           </div>
@@ -196,11 +196,12 @@ function InteractivePostCard({
                 compact
               />
             }
-            onReviewed={(_, decision) => {
+            onReviewed={(_, _decision, result) => {
               const patch = {
                 canReview: false,
-                reviewStatus: decision,
-                verifiedBy: decision === "APPROVED" ? viewer.name : null,
+                reviewStatus: result.proofStatus,
+                approvalCount: result.approvalCount,
+                requiredApprovals: result.requiredApprovals,
               };
               patchPost(post, patch);
               onChange?.(patch);

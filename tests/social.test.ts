@@ -31,6 +31,7 @@ function post(id: string, minute = 0): FeedPost {
     reviewStatus: "PENDING",
     canReview: true,
     requiredApprovals: 1,
+    approvalCount: 0,
     verifiedBy: null,
   };
 }

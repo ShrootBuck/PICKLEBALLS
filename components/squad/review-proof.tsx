@@ -46,7 +46,15 @@ export function ReviewProof({
   evidence?: ReactNode;
   definitionOfDone?: string;
   requiredApprovals: number;
-  onReviewed?: (proofId: string, decision: "APPROVED" | "CHALLENGED") => void;
+  onReviewed?: (
+    proofId: string,
+    decision: "APPROVED" | "CHALLENGED",
+    result: {
+      proofStatus: "PENDING" | "APPROVED" | "CHALLENGED";
+      approvalCount: number;
+      requiredApprovals: number;
+    },
+  ) => void;
 }) {
   const id = useId();
   const noteRef = useRef<HTMLTextAreaElement>(null);
@@ -95,9 +103,14 @@ export function ReviewProof({
         setPending(false);
         return;
       }
+      const { review } = await response.json();
       toast.add({
         title:
-          decision === "APPROVED" ? "Proof approved." : "Proof challenged.",
+          decision === "APPROVED"
+            ? review.proofStatus === "APPROVED"
+              ? "Everyone approved. Proof verified."
+              : "Your approval is saved. Waiting for the rest of the circle."
+            : "Proof challenged.",
         type: decision === "APPROVED" ? "success" : "warning",
       });
       setOpen(false);
@@ -107,7 +120,7 @@ export function ReviewProof({
       setConfirmChallenge(false);
       // Remove the reviewed card immediately, then reconcile the board,
       // history, and counts with the committed server state.
-      onReviewed?.(proofId, decision);
+      onReviewed?.(proofId, decision, review);
     } catch {
       setError("Could not reach the server. Check your wifi and try again.");
       setPending(false);

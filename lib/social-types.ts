@@ -35,6 +35,7 @@ export type ProofPost = PostBase & {
   reviewStatus: ProofStatus;
   canReview: boolean;
   requiredApprovals: number;
+  approvalCount: number;
   verifiedBy: string | null;
 };
 

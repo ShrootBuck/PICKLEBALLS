@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1789441367956,
+    title: "Everyone signs off",
+    description:
+      "Pending and new proofs need approval from every other member of your circle. Already verified proofs stay verified. Home now separates Needs approval from the Timeline, both newest first, and opens Needs approval when there are proofs waiting on the group.",
+  },
+  {
     timestamp: 1789439878969,
     title: "One timeline, and room for how you feel",
     description:

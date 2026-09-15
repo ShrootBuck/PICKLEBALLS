@@ -9,6 +9,7 @@ import {
 } from "@/lib/device-push";
 
 type PushState =
+  | "install"
   | "unsupported"
   | "denied"
   | "subscribed"
@@ -36,6 +37,17 @@ export function PushToggle() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const ios =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (
+      ios &&
+      !window.matchMedia("(display-mode: standalone)").matches &&
+      !(navigator as Navigator & { standalone?: boolean }).standalone
+    ) {
+      setState("install");
+      return;
+    }
     if (
       !("Notification" in window) ||
       !("serviceWorker" in navigator) ||
@@ -110,6 +122,15 @@ export function PushToggle() {
     }
   }, []);
 
+  if (state === "install") {
+    return (
+      <p className="px-2 py-1.5 text-xs text-muted-foreground">
+        To receive alerts on iPhone or iPad, open this site in Safari, tap
+        Share, then Add to Home Screen. Open the installed app and turn on push
+        here.
+      </p>
+    );
+  }
   if (state === "unsupported") {
     return (
       <p className="px-2 py-1.5 text-xs text-muted-foreground">

@@ -94,6 +94,7 @@ export default async function PostPage({
             contextLabel={`Commenting on ${post.author.name}’s check-in`}
             replyLabel="Add a comment"
             defaultExpanded
+            composerVisible
             scrollOnExpand={false}
           />
         </section>
@@ -246,6 +247,7 @@ export default async function PostPage({
           contextLabel={`Commenting on ${post.title}`}
           replyLabel="Add a comment"
           defaultExpanded
+          composerVisible
           scrollOnExpand={false}
         />
       </section>

@@ -182,7 +182,7 @@ export async function notifyReplyReceived(input: {
       recipientId: reply.checkInUpdate.userId,
       context: "your check-in",
       entityId: reply.checkInUpdate.id,
-      url: postHref(input.circleId, "check-in", reply.checkInUpdate.id),
+      url: `${postHref(input.circleId, "check-in", reply.checkInUpdate.id)}#comments`,
     });
   } else if (reply.checkIn) {
     jobs.push({
@@ -195,14 +195,14 @@ export async function notifyReplyReceived(input: {
       recipientId: reply.proof.ownerId,
       context: `your proof for “${reply.proof.commitment.title}”`,
       entityId: reply.proof.id,
-      url: postHref(input.circleId, "proof", reply.proof.id),
+      url: `${postHref(input.circleId, "proof", reply.proof.id)}#comments`,
     });
   } else if (reply.review) {
     jobs.push({
       recipientId: reply.review.reviewerId,
       context: "your review",
       entityId: reply.review.proof.id,
-      url: postHref(input.circleId, "proof", reply.review.proof.id),
+      url: `${postHref(input.circleId, "proof", reply.review.proof.id)}&focus=${encodeURIComponent(reply.review.id)}#thread-${encodeURIComponent(reply.review.id)}`,
     });
     // A reply to a review is also aimed at the proof owner.
     if (reply.review.proof.ownerId !== reply.review.reviewerId) {
@@ -210,7 +210,7 @@ export async function notifyReplyReceived(input: {
         recipientId: reply.review.proof.ownerId,
         context: `a review on your proof for “${reply.review.proof.commitment.title}”`,
         entityId: reply.review.proof.id,
-        url: postHref(input.circleId, "proof", reply.review.proof.id),
+        url: `${postHref(input.circleId, "proof", reply.review.proof.id)}&focus=${encodeURIComponent(reply.review.id)}#thread-${encodeURIComponent(reply.review.id)}`,
       });
     }
   }

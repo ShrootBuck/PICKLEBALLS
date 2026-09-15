@@ -351,7 +351,7 @@ test("each check-in has independent comments and likes, while day comments stay 
     where: { recipientId: ids.owner, entityId: first.update.id },
   });
   expect(notice.data).toMatchObject({
-    url: `/posts/check-in/${first.update.id}?circle=${ids.circle}`,
+    url: `/posts/check-in/${first.update.id}?circle=${ids.circle}#comments`,
     replyId: a.id,
   });
 });
@@ -836,4 +836,207 @@ test("mood posts preserve full journals and feelings in circle timelines without
   await expect(
     getFeedPage({ viewerId: ids.outsider, circleId: ids.circle }),
   ).rejects.toThrow("Member not found");
+});
+
+test("everyone must approve; partial approvals stay in the group queue and concurrent final votes verify once", async () => {
+  const circleId = `unanimous-${randomUUID()}`;
+  const fourth = `fourth-${randomUUID()}`;
+  await prisma.user.create({
+    data: { id: fourth, email: `${fourth}@example.invalid`, name: "Fourth" },
+  });
+  await prisma.circle.create({
+    data: { id: circleId, slug: circleId, name: "Everyone" },
+  });
+  await prisma.membership.createMany({
+    data: [ids.owner, ids.peer, ids.outsider, fourth].map((userId) => ({
+      userId,
+      circleId,
+    })),
+  });
+  const commitment = await task(ids.owner, circleId);
+  const posted = await submitProof(
+    commitment.id,
+    ids.owner,
+    circleId,
+    [await media(ids.owner, circleId)],
+    null,
+    start,
+    now,
+    now,
+  );
+  const verdict = {
+    decision: "APPROVED",
+    note: "All the required work is visible.",
+  };
+  await expect(
+    reviewProof(posted.id, ids.owner, circleId, verdict, now),
+  ).rejects.toThrow("own homework");
+  const first = await reviewProof(posted.id, ids.peer, circleId, verdict, now);
+  expect(first).toMatchObject({
+    proofStatus: "PENDING",
+    approvalCount: 1,
+    requiredApprovals: 3,
+  });
+  expect(
+    (
+      await prisma.commitment.findUniqueOrThrow({
+        where: { id: commitment.id },
+      })
+    ).status,
+  ).toBe("AWAITING_REVIEW");
+  for (const viewerId of [ids.owner, ids.peer, ids.outsider]) {
+    const pending = await getFeedPage({
+      viewerId,
+      circleId,
+      awaitingOnly: true,
+    });
+    expect(pending.items).toHaveLength(1);
+    expect(pending.items[0]).toMatchObject({
+      id: posted.id,
+      reviewStatus: "PENDING",
+      approvalCount: 1,
+      requiredApprovals: 3,
+      canReview: viewerId === ids.outsider,
+    });
+  }
+  expect(
+    (await getFeedPage({ viewerId: ids.peer, circleId, pendingOnly: true }))
+      .items,
+  ).toHaveLength(0);
+  await expect(
+    reviewProof(posted.id, ids.peer, circleId, verdict, now),
+  ).rejects.toThrow("already reviewed");
+  const results = await Promise.all([
+    reviewProof(posted.id, ids.outsider, circleId, verdict, now),
+    reviewProof(posted.id, fourth, circleId, verdict, now),
+  ]);
+  expect(results.map((r) => r.proofStatus).sort()).toEqual([
+    "APPROVED",
+    "PENDING",
+  ]);
+  expect(
+    (
+      await prisma.commitment.findUniqueOrThrow({
+        where: { id: commitment.id },
+      })
+    ).status,
+  ).toBe("VERIFIED");
+  expect(
+    (await getFeedPage({ viewerId: ids.owner, circleId, awaitingOnly: true }))
+      .items,
+  ).toHaveLength(0);
+  expect(
+    (await getFeedPage({ viewerId: ids.owner, circleId })).items[0],
+  ).toMatchObject({
+    id: posted.id,
+    reviewStatus: "APPROVED",
+    createdAt: posted.submittedAt.toISOString(),
+  });
+  // New members affect pending work, never reopen an already verified proof.
+  const extra = `extra-${randomUUID()}`;
+  await prisma.user.create({
+    data: { id: extra, email: `${extra}@example.invalid`, name: "New member" },
+  });
+  await prisma.membership.create({ data: { userId: extra, circleId } });
+  expect(
+    (await getFeedPage({ viewerId: extra, circleId, awaitingOnly: true }))
+      .items,
+  ).toHaveLength(0);
+});
+
+test("removing the last missing reviewer verifies pending proof without reopening old verdicts", async () => {
+  const { removeCircleMember } = await import("@/lib/circles");
+  const circleId = `departing-${randomUUID()}`;
+  await prisma.circle.create({
+    data: { id: circleId, slug: circleId, name: "Departure" },
+  });
+  await prisma.membership.createMany({
+    data: [ids.owner, ids.peer, ids.outsider].map((userId) => ({
+      userId,
+      circleId,
+      role: userId === ids.owner ? ("OWNER" as const) : ("MEMBER" as const),
+    })),
+  });
+  const commitment = await task(ids.owner, circleId);
+  const posted = await submitProof(
+    commitment.id,
+    ids.owner,
+    circleId,
+    [await media(ids.owner, circleId)],
+    null,
+    start,
+    now,
+    now,
+  );
+  await reviewProof(
+    posted.id,
+    ids.peer,
+    circleId,
+    { decision: "APPROVED", note: "Complete." },
+    now,
+  );
+  expect(
+    (await prisma.taskProof.findUniqueOrThrow({ where: { id: posted.id } }))
+      .reviewStatus,
+  ).toBe("PENDING");
+  await removeCircleMember(ids.outsider, circleId, ids.owner);
+  expect(
+    (await prisma.taskProof.findUniqueOrThrow({ where: { id: posted.id } }))
+      .reviewStatus,
+  ).toBe("APPROVED");
+  expect(
+    (
+      await prisma.commitment.findUniqueOrThrow({
+        where: { id: commitment.id },
+      })
+    ).status,
+  ).toBe("VERIFIED");
+});
+
+test("pending queue pagination is newest first and cannot reuse timeline cursors", async () => {
+  const circleId = `queue-${randomUUID()}`;
+  await prisma.circle.create({
+    data: { id: circleId, slug: circleId, name: "Queue" },
+  });
+  await prisma.membership.createMany({
+    data: [ids.owner, ids.peer].map((userId) => ({ userId, circleId })),
+  });
+  const commitment = await task(ids.owner, circleId);
+  await prisma.taskProof.createMany({
+    data: Array.from({ length: 25 }, (_, i) => ({
+      id: `${circleId}-${String(i).padStart(2, "0")}`,
+      circleId,
+      ownerId: ids.owner,
+      commitmentId: commitment.id,
+      isLate: false,
+      submittedAt: new Date(now.getTime() + i * 1000),
+      startedAt: start,
+      completedAt: now,
+    })),
+  });
+  const first = await getFeedPage({
+    viewerId: ids.owner,
+    circleId,
+    awaitingOnly: true,
+  });
+  const next = await getFeedPage({
+    viewerId: ids.owner,
+    circleId,
+    awaitingOnly: true,
+    cursor: first.nextCursor ?? undefined,
+  });
+  expect([...first.items, ...next.items].map((p) => p.id)).toEqual(
+    Array.from(
+      { length: 25 },
+      (_, i) => `${circleId}-${String(24 - i).padStart(2, "0")}`,
+    ),
+  );
+  expect(next.nextCursor).toBeNull();
+  await expect(
+    getFeedPage({
+      viewerId: ids.owner,
+      circleId,
+      cursor: first.nextCursor ?? undefined,
+    }),
+  ).rejects.toThrow("Invalid feed cursor");
 });

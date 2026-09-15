@@ -54,7 +54,17 @@ self.addEventListener("push", (event) => {
     tag: typeof payload.tag === "string" ? payload.tag : undefined,
     data: { url },
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(title, options),
+      self.clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((windows) => {
+          for (const client of windows)
+            client.postMessage({ type: "pb:push-received" });
+        }),
+    ]),
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {

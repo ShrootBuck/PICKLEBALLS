@@ -14,7 +14,7 @@ import type {
   SocialMember,
   SocialTask,
 } from "@/lib/social-types";
-import { requiredApprovalsForCircle } from "@/lib/task-policy";
+import { proofApprovalProgress } from "@/lib/task-policy";
 import { phoenixDateKey, requireDateKey } from "@/lib/time";
 
 export const socialAuthorSelect = {
@@ -126,6 +126,7 @@ export async function getFeedPage({
   checkInIds,
   includeReplaced = false,
   pendingOnly = false,
+  awaitingOnly = false,
 }: {
   viewerId: string;
   circleId: string;
@@ -136,12 +137,17 @@ export async function getFeedPage({
   checkInIds?: string[];
   includeReplaced?: boolean;
   pendingOnly?: boolean;
+  awaitingOnly?: boolean;
 }): Promise<FeedPage> {
   await assertCircleMember(viewerId, circleId);
   if (memberId && memberId !== viewerId)
     await assertCircleMember(memberId, circleId);
   const cursor = rawCursor
-    ? parseFeedCursor(rawCursor, circleId, pendingOnly ? "!review" : memberId)
+    ? parseFeedCursor(
+        rawCursor,
+        circleId,
+        pendingOnly ? "!review" : awaitingOnly ? "!pending" : memberId,
+      )
     : null;
   if (rawCursor && !cursor) throw new DomainError("Invalid feed cursor.");
   const size = Math.max(1, Math.min(limit, 50));
@@ -155,6 +161,7 @@ export async function getFeedPage({
     checkInIds,
     includeReplaced,
     pendingOnly,
+    awaitingOnly,
   });
   const page = items.slice(0, size);
   return {
@@ -164,7 +171,7 @@ export async function getFeedPage({
         ? encodeFeedCursor(
             page[page.length - 1],
             circleId,
-            pendingOnly ? "!review" : memberId,
+            pendingOnly ? "!review" : awaitingOnly ? "!pending" : memberId,
           )
         : null,
   };
@@ -180,6 +187,7 @@ async function readPosts({
   checkInIds,
   includeReplaced = false,
   pendingOnly = false,
+  awaitingOnly = false,
   since,
   until,
 }: {
@@ -192,6 +200,7 @@ async function readPosts({
   checkInIds?: string[];
   includeReplaced?: boolean;
   pendingOnly?: boolean;
+  awaitingOnly?: boolean;
   since?: Date;
   until?: Date;
 }): Promise<FeedPost[]> {
@@ -201,6 +210,7 @@ async function readPosts({
       where: {
         circleId,
         ...(!includeReplaced ? { replacedById: null } : {}),
+        ...(awaitingOnly ? { reviewStatus: "PENDING" as const } : {}),
         ...(pendingOnly
           ? {
               reviewStatus: "PENDING" as const,
@@ -242,7 +252,7 @@ async function readPosts({
       where: {
         circleId,
         ...(memberId ? { userId: memberId } : {}),
-        ...(pendingOnly
+        ...(pendingOnly || awaitingOnly
           ? { id: { in: [] } }
           : checkInIds
             ? { id: { in: checkInIds } }
@@ -263,14 +273,19 @@ async function readPosts({
       where: {
         circleId,
         ...(memberId ? { userId: memberId } : {}),
-        ...(pendingOnly || proofIds || checkInIds ? { id: { in: [] } } : {}),
+        ...(pendingOnly || awaitingOnly || proofIds || checkInIds
+          ? { id: { in: [] } }
+          : {}),
         ...feedBoundary("screen-time", "submittedAt", cursor),
       },
       orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
       take,
       include: { user: { select: socialAuthorSelect }, reading: true },
     }),
-    prisma.membership.count({ where: { circleId } }),
+    prisma.membership.findMany({
+      where: { circleId },
+      select: { userId: true },
+    }),
   ]);
   const items: FeedPost[] = [
     ...screenTimes.map(
@@ -307,10 +322,16 @@ async function readPosts({
           p.reviewStatus === "PENDING" &&
           p.ownerId !== viewerId &&
           !p.reviews.some((r) => r.reviewerId === viewerId),
-        requiredApprovals: requiredApprovalsForCircle(members),
+        ...proofApprovalProgress(
+          p.ownerId,
+          members.map((m) => m.userId),
+          p.reviews,
+        ),
         verifiedBy:
-          p.reviews.find((r) => r.decision === "APPROVED")?.reviewer.name ??
-          null,
+          p.reviews
+            .filter((r) => r.decision === "APPROVED")
+            .map((r) => r.reviewer.name)
+            .join(", ") || null,
         likeCount: p._count.likes,
         likedByMe: p.likes.length > 0,
         commentCount: p._count.replies,

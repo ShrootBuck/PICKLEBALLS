@@ -13,6 +13,7 @@ import { commitmentInputSchema, proofReviewSchema } from "@/lib/schemas";
 import {
   canEditTask,
   isLateProof,
+  proofApprovalProgress,
   requiredApprovalsForCircle,
   shouldMarkMissed,
 } from "@/lib/task-policy";
@@ -380,6 +381,17 @@ export async function reviewProof(
       if (proof.reviews.some((r) => r.reviewerId === reviewerId)) {
         throw new DomainError("You already reviewed this proof.", 409);
       }
+      const members = await transaction.membership.findMany({
+        where: { circleId },
+        select: { userId: true },
+      });
+      if (!members.some((member) => member.userId === reviewerId))
+        throw new DomainError("You are no longer in this circle.", 403);
+      const progress = proofApprovalProgress(
+        proof.ownerId,
+        members.map((m) => m.userId),
+        [...proof.reviews, { reviewerId, decision: parsed.data.decision }],
+      );
       const isChallenge = parsed.data.decision === "CHALLENGED";
 
       const review = await transaction.taskProofReview.create({
@@ -411,15 +423,10 @@ export async function reviewProof(
             summary: `challenged proof for “${proof.commitment.title}”`,
           },
         });
-        return review;
+        return { ...review, ...progress, proofStatus: "CHALLENGED" as const };
       }
 
-      const approvals =
-        proof.reviews.filter((r) => r.decision === "APPROVED").length + 1;
-      const memberCount = await transaction.membership.count({
-        where: { circleId },
-      });
-      const needed = requiredApprovalsForCircle(memberCount);
+      const { approvalCount: approvals, requiredApprovals: needed } = progress;
 
       if (approvals >= needed) {
         await transaction.taskProof.update({
@@ -451,7 +458,12 @@ export async function reviewProof(
           },
         });
       }
-      return review;
+      return {
+        ...review,
+        ...progress,
+        proofStatus:
+          approvals >= needed ? ("APPROVED" as const) : ("PENDING" as const),
+      };
     });
   } catch (error) {
     if (

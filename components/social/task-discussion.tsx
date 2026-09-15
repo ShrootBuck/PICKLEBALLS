@@ -74,6 +74,7 @@ export function TaskDiscussion({
               contextLabel={`Discussing ${title}`}
               replyLabel="Add a comment"
               defaultExpanded
+              composerVisible
               scrollOnExpand={false}
             />
           ) : (

@@ -331,11 +331,11 @@ for (const [relation, field, target] of [
           data: expect.objectContaining({
             url:
               relation === "proof"
-                ? "/posts/proof/target?circle=circle"
+                ? "/posts/proof/target?circle=circle#comments"
                 : relation === "review"
-                  ? "/posts/proof/proof?circle=circle"
+                  ? "/posts/proof/proof?circle=circle&focus=target#thread-target"
                   : relation === "checkInUpdate"
-                    ? "/posts/check-in/target?circle=circle"
+                    ? "/posts/check-in/target?circle=circle#comments"
                     : "/squad?circle=circle&focus=target",
           }),
         }),

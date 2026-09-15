@@ -214,7 +214,6 @@ function PostComments({
   useEffect(() => {
     if (!open) return;
     const controller = new AbortController();
-    setReplies(null);
     setError(false);
     const query = new URLSearchParams({ targetType, targetId: post.id });
     void fetch(`/api/replies?${query}`, {
@@ -280,6 +279,7 @@ function PostComments({
             contextLabel="Visible to everyone in your circle"
             replyLabel="Add a comment"
             defaultExpanded
+            composerVisible
             scrollOnExpand={false}
             onReplyCountChange={onCountChange}
           />

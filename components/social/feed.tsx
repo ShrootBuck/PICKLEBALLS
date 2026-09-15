@@ -23,13 +23,19 @@ export function Feed({
   initial,
   memberId,
   reviewOnly = false,
+  awaitingOnly = false,
 }: {
   initial: FeedPage;
   memberId?: string;
   reviewOnly?: boolean;
+  awaitingOnly?: boolean;
 }) {
   const { feeds, openComposer, postRevision } = useSocial();
-  const key = reviewOnly ? "!review" : (memberId ?? "home");
+  const key = reviewOnly
+    ? "!review"
+    : awaitingOnly
+      ? "!pending"
+      : (memberId ?? "home");
   const signature = JSON.stringify(initial);
   const previousSignature = useRef(signature);
   const [page, setPage] = useState<FeedPage>(() => {
@@ -83,6 +89,7 @@ export function Feed({
         const query = new URLSearchParams();
         if (memberId) query.set("memberId", memberId);
         if (reviewOnly) query.set("filter", "review");
+        if (awaitingOnly) query.set("filter", "pending");
         if (cursor) query.set("cursor", cursor);
         const response = await fetch(`/api/feed?${query}`, {
           cache: "no-store",
@@ -148,15 +155,23 @@ export function Feed({
     >
       <section
         className="flex flex-col"
-        aria-label={memberId ? "Member posts" : "Circle timeline"}
+        aria-label={
+          awaitingOnly
+            ? "Proofs needing approval"
+            : memberId
+              ? "Member posts"
+              : "Circle timeline"
+        }
       >
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold tracking-tight">
-            {reviewOnly
-              ? "Waiting for your verdict"
-              : memberId
-                ? "Posts"
-                : "Timeline"}
+            {awaitingOnly
+              ? "Waiting for everyone’s approval"
+              : reviewOnly
+                ? "Waiting for your verdict"
+                : memberId
+                  ? "Posts"
+                  : "Timeline"}
           </h2>
           <div className="flex shrink-0 items-center gap-2">
             <Button
@@ -190,9 +205,12 @@ export function Feed({
                 setPage((current) => ({
                   ...current,
                   items:
-                    reviewOnly &&
-                    "canReview" in patch &&
-                    patch.canReview === false
+                    (reviewOnly &&
+                      "canReview" in patch &&
+                      patch.canReview === false) ||
+                    (awaitingOnly &&
+                      "reviewStatus" in patch &&
+                      patch.reviewStatus !== "PENDING")
                       ? current.items.filter(
                           (item) => postKey(item) !== postKey(post),
                         )
@@ -212,17 +230,21 @@ export function Feed({
                 <Camera />
               </EmptyMedia>
               <EmptyTitle>
-                {reviewOnly ? "You’re all caught up" : "Good things start here"}
+                {reviewOnly || awaitingOnly
+                  ? "You’re all caught up"
+                  : "Good things start here"}
               </EmptyTitle>
               <EmptyDescription>
-                {reviewOnly
-                  ? "No proof needs your verdict. Thanks for showing up for your friends."
-                  : memberId
-                    ? "Their proof and check-ins will appear here."
-                    : "Post some proof or check in. Your circle is built by showing up."}
+                {awaitingOnly
+                  ? "No proofs are waiting for approval. Check the timeline for your circle’s latest posts."
+                  : reviewOnly
+                    ? "No proof needs your verdict. Thanks for showing up for your friends."
+                    : memberId
+                      ? "Their proof and check-ins will appear here."
+                      : "Post some proof or check in. Your circle is built by showing up."}
               </EmptyDescription>
             </EmptyHeader>
-            {!memberId && !reviewOnly && (
+            {!memberId && !reviewOnly && !awaitingOnly && (
               <Button onClick={() => openComposer()}>
                 Make the first move
               </Button>

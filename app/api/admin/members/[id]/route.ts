@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { jsonError, readJson } from "@/lib/api";
+import { removeCircleMember } from "@/lib/circles";
 import { getInitials } from "@/lib/names";
 import { getPrisma } from "@/lib/prisma";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
@@ -73,9 +74,11 @@ export async function DELETE(
     );
   }
   const { id } = await context.params;
-  const deleted = await getPrisma().membership.deleteMany({
-    where: { userId: id, circleId: auth.membership.circleId, role: "MEMBER" },
-  });
+  const deleted = await removeCircleMember(
+    id,
+    auth.membership.circleId,
+    auth.session.user.id,
+  );
   if (!deleted.count) {
     return NextResponse.json(
       { error: "Member not found. Owners cannot be deleted." },

@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { MediaGallery } from "@/components/media/media-gallery";
 import { MediaPicker } from "@/components/media/media-picker";
 import {
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { useLivePoll } from "@/hooks/use-live-poll";
 import { appFetch } from "@/lib/app-refresh";
 import { uploadMedia } from "@/lib/media-upload";
 import { formatReplyTime } from "@/lib/time";
@@ -264,6 +266,7 @@ export function SocialReplyThread({
   currentUserId,
   defaultExpanded = false,
   scrollOnExpand = true,
+  composerVisible = false,
   contextLabel,
   replyLabel = targetType === "PROOF" ? "Comment on proof" : "Reply",
   onReplyCountChange,
@@ -275,6 +278,7 @@ export function SocialReplyThread({
   currentUserId?: string;
   defaultExpanded?: boolean;
   scrollOnExpand?: boolean;
+  composerVisible?: boolean;
   contextLabel: string;
   replyLabel?: string;
   onReplyCountChange?: (delta: number) => void;
@@ -321,9 +325,42 @@ export function SocialReplyThread({
     if (expanded && composing) inputRef.current?.focus();
   }, [expanded, composing]);
 
+  useLivePoll(
+    async (signal) => {
+      const query = new URLSearchParams({ targetType, targetId });
+      const response = await fetch(`/api/replies?${query}`, {
+        signal,
+        cache: "no-store",
+      });
+      if (!response.ok) return;
+      const data: { replies: SocialReply[]; hasMore: boolean } =
+        await response.json();
+      if (signal.aborted) return;
+      const fresh = chronological(data.replies);
+      setReplies((current) => {
+        const oldest = fresh[0];
+        const older =
+          data.hasMore && oldest
+            ? current.filter(
+                (row) =>
+                  row.createdAt < oldest.createdAt ||
+                  (row.createdAt === oldest.createdAt && row.id < oldest.id),
+              )
+            : [];
+        return [...older, ...fresh];
+      });
+      setHasMore(data.hasMore);
+    },
+    5_000,
+    expanded && !pending && !loadingEarlier,
+  );
+
   function openComposer() {
-    setExpanded(true);
-    setComposing(true);
+    // Mount during the tap so mobile browsers can open the keyboard.
+    flushSync(() => {
+      setExpanded(true);
+      setComposing(true);
+    });
     inputRef.current?.focus();
   }
 
@@ -435,58 +472,60 @@ export function SocialReplyThread({
       id={`thread-${targetId}`}
       className="flex w-full min-w-0 scroll-mt-20 flex-col"
     >
-      <div className="-ml-2 flex flex-wrap items-center gap-x-1 text-muted-foreground">
-        {replies.length > 0 ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={toggleThread}
-            aria-expanded={expanded}
-            aria-controls={threadId}
-            aria-label={`${expanded ? "Hide" : "View"} ${replies.length}${hasMore ? "+" : ""} ${replies.length === 1 ? "reply" : "replies"}. ${contextLabel}`}
-          >
-            <MessageCircle data-icon="inline-start" />
-            {replies.length}
-            {hasMore ? "+" : ""} {replies.length === 1 ? "reply" : "replies"}
-            <ChevronDown
-              data-icon="inline-end"
-              className={expanded ? "rotate-180" : undefined}
-            />
-          </Button>
-        ) : null}
-        <Button
-          ref={replyButtonRef}
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={openComposer}
-          aria-label={`${replyLabel}. ${contextLabel}`}
-          aria-controls={threadId}
-        >
-          {replies.length === 0 ? (
-            <MessageCircle data-icon="inline-start" />
+      {!composerVisible && (
+        <div className="-ml-2 flex flex-wrap items-center gap-x-1 text-muted-foreground">
+          {replies.length > 0 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={toggleThread}
+              aria-expanded={expanded}
+              aria-controls={threadId}
+              aria-label={`${expanded ? "Hide" : "View"} ${replies.length}${hasMore ? "+" : ""} ${replies.length === 1 ? "reply" : "replies"}. ${contextLabel}`}
+            >
+              <MessageCircle data-icon="inline-start" />
+              {replies.length}
+              {hasMore ? "+" : ""} {replies.length === 1 ? "reply" : "replies"}
+              <ChevronDown
+                data-icon="inline-end"
+                className={expanded ? "rotate-180" : undefined}
+              />
+            </Button>
           ) : null}
-          <span className="truncate">{replyLabel}</span>
-        </Button>
-        {expanded && replies.length === 0 ? (
           <Button
+            ref={replyButtonRef}
             type="button"
             variant="ghost"
             size="sm"
-            onClick={toggleThread}
-            aria-expanded={expanded}
+            onClick={openComposer}
+            aria-label={`${replyLabel}. ${contextLabel}`}
             aria-controls={threadId}
           >
-            Hide
+            {replies.length === 0 ? (
+              <MessageCircle data-icon="inline-start" />
+            ) : null}
+            <span className="truncate">{replyLabel}</span>
           </Button>
-        ) : null}
-      </div>
+          {expanded && replies.length === 0 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={toggleThread}
+              aria-expanded={expanded}
+              aria-controls={threadId}
+            >
+              Hide
+            </Button>
+          ) : null}
+        </div>
+      )}
 
       <div id={threadId} hidden={!expanded}>
         {expanded ? (
           <div className="my-2 ml-1 flex min-w-0 flex-col gap-4 border-l-2 border-border pl-3 sm:pl-4">
-            {!composing ? (
+            {!composing && !composerVisible ? (
               <p className="text-xs text-muted-foreground">{contextLabel}</p>
             ) : null}
             {hiddenCount > 0 || hasMore ? (
@@ -533,7 +572,7 @@ export function SocialReplyThread({
               </div>
             ) : null}
 
-            {composing ? (
+            {composing || composerVisible ? (
               <form onSubmit={submit} className="w-full">
                 <FieldGroup className="gap-2">
                   <Field data-invalid={Boolean(error)}>
@@ -545,6 +584,7 @@ export function SocialReplyThread({
                       onChange={(event) => setBody(event.target.value)}
                       onKeyDown={(event) => {
                         if (
+                          !event.nativeEvent.isComposing &&
                           event.key === "Enter" &&
                           (event.metaKey || event.ctrlKey)
                         ) {
@@ -595,19 +635,21 @@ export function SocialReplyThread({
                     <span className="ml-auto text-xs text-muted-foreground tabular-nums">
                       {body.trim().length}/500
                     </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={pending}
-                      onClick={() => {
-                        setComposing(false);
-                        if (replies.length === 0) setExpanded(false);
-                        replyButtonRef.current?.focus();
-                      }}
-                    >
-                      Close
-                    </Button>
+                    {!composerVisible && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={pending}
+                        onClick={() => {
+                          setComposing(false);
+                          if (replies.length === 0) setExpanded(false);
+                          replyButtonRef.current?.focus();
+                        }}
+                      >
+                        Close
+                      </Button>
+                    )}
                     <Button
                       type="submit"
                       size="sm"
