@@ -857,7 +857,6 @@
   .social-nav-link.is-active {
     font-weight: 650;
     background: color-mix(in srgb, var(--primary) 10%, var(--sidebar));
-    box-shadow: inset 3px 0 var(--primary);
   }
   .social-bottom-nav {
     display: none;
