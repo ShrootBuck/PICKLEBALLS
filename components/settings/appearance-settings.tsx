@@ -51,7 +51,7 @@ export function AppearanceSettings() {
                 <span
                   data-primary-color={color}
                   aria-hidden="true"
-                  className="size-4 shrink-0 rounded-full border border-foreground/20 bg-primary"
+                  className="size-4 shrink-0 rounded-full border border-current/40 bg-primary"
                 />
                 {label}
                 {primaryColor === color ? (
