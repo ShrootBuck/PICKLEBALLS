@@ -131,7 +131,13 @@ export const auth = betterAuth({
       });
     }),
     after: createAuthMiddleware(async (ctx) => {
-      if (ctx.path !== "/callback/discord" || !ctx.context.newSession) return;
+      // Better Auth hooks receive the route pattern, not the resolved URL.
+      if (
+        ctx.path !== "/callback/:id" ||
+        ctx.params?.id !== "discord" ||
+        !ctx.context.newSession
+      )
+        return;
       const claim = oauthClaim(await getOAuthState());
       if (!claim) return;
       const invite = await findReservedInvite(claim.inviteId, claim.claimNonce);
