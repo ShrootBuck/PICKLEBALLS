@@ -134,7 +134,10 @@ try {
   console.log(
     "Migrated a populated disposable database, including legacy check-ins.",
   );
-  console.log(await run(["bun", "test", "./tests/social.integration.ts"], env));
+  if (!process.argv.includes("--media-only"))
+    console.log(
+      await run(["bun", "test", "./tests/social.integration.ts"], env),
+    );
   console.log(await run(["bun", "test", "./tests/media.integration.ts"], env));
   if (process.argv.includes("--serve")) {
     console.log(await run(["bun", "scripts/social-fixtures.ts"], env));
@@ -193,29 +196,43 @@ try {
           });
           return new Response(null, { headers });
         }
-        const object = url.pathname.startsWith("/media/fixture-video-")
+        const hlsName = url.pathname.startsWith("/media/fixture-hls/")
+          ? url.pathname.slice("/media/fixture-hls/".length)
+          : "";
+        const object = /^(?:master|v\d+|v\d+_\d+)\.(?:m3u8|ts)$/.test(hlsName)
           ? {
               data: new Uint8Array(
                 await Bun.file(
-                  url.pathname.endsWith("poster")
-                    ? "/private/tmp/pb-video-fixture.webp"
-                    : "/private/tmp/pb-video-fixture.mp4",
+                  join(root, "node_modules/.cache/media-fixture", hlsName),
                 ).arrayBuffer(),
               ),
-              type: url.pathname.endsWith("poster")
-                ? "image/webp"
-                : "video/mp4",
+              type: hlsName.endsWith(".m3u8")
+                ? "application/vnd.apple.mpegurl"
+                : "video/mp2t",
             }
-          : url.pathname.startsWith("/media/fixture-screen-")
+          : url.pathname.startsWith("/media/fixture-video-")
             ? {
                 data: new Uint8Array(
                   await Bun.file(
-                    "/private/tmp/pb-proof-fixture.png",
+                    url.pathname.endsWith("poster")
+                      ? "/private/tmp/pb-video-fixture.webp"
+                      : "/private/tmp/pb-video-fixture.mp4",
                   ).arrayBuffer(),
                 ),
-                type: "image/png",
+                type: url.pathname.endsWith("poster")
+                  ? "image/webp"
+                  : "video/mp4",
               }
-            : objects.get(url.pathname);
+            : url.pathname.startsWith("/media/fixture-screen-")
+              ? {
+                  data: new Uint8Array(
+                    await Bun.file(
+                      "/private/tmp/pb-proof-fixture.png",
+                    ).arrayBuffer(),
+                  ),
+                  type: "image/png",
+                }
+              : objects.get(url.pathname);
         if (!object)
           return new Response("Missing fixture media", {
             status: 404,

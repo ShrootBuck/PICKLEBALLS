@@ -23,12 +23,15 @@ if (process.env.VERCEL_ENV === "production" && process.env.TRIGGER_SECRET_KEY) {
     }
     variables[name] = value;
   }
+  // Keep the build's read-only migration check aligned when runtime DB
+  // credentials rotate. Trigger strips TRIGGER_BUILD_ during Git builds.
+  variables.TRIGGER_BUILD_MIGRATION_CHECK_DATABASE_URL = variables.DATABASE_URL;
   await envvars.upload("proj_xyssxtuhmwrlrkqotyxb", "prod", {
     variables,
     override: true,
     isSecret: true,
   });
   console.log(
-    `Synced ${names.length} production worker variables to Trigger.dev.`,
+    `Synced ${Object.keys(variables).length} production worker variables to Trigger.dev.`,
   );
 }

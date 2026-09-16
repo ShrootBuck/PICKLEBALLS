@@ -10,7 +10,7 @@ import { notification } from "@/src/trigger/notification";
 export const processMedia = schemaTask({
   id: "process-media",
   schema: z.object({ id: z.string() }),
-  machine: "medium-2x",
+  machine: "large-1x",
   maxDuration: 24 * 3600,
   queue: { concurrencyLimit: 2 },
   retry: { maxAttempts: 3 },

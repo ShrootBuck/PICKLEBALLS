@@ -5,6 +5,8 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
+let storage: { config: string; bucket: string; client: S3Client } | undefined;
+
 export function r2() {
   const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET } =
     process.env;
@@ -24,7 +26,18 @@ export function r2() {
       new URL(testEndpoint).hostname !== "127.0.0.1")
   )
     throw new Error("R2 test endpoint requires the isolated test runner.");
-  return {
+  const config = JSON.stringify([
+    R2_ACCOUNT_ID,
+    R2_ACCESS_KEY_ID,
+    R2_SECRET_ACCESS_KEY,
+    R2_BUCKET,
+    testEndpoint,
+  ]);
+  if (storage?.config === config)
+    return { bucket: storage.bucket, client: storage.client };
+  storage?.client.destroy();
+  storage = {
+    config,
     bucket: R2_BUCKET,
     client: new S3Client({
       region: "auto",
@@ -37,13 +50,16 @@ export function r2() {
       },
       requestChecksumCalculation: "WHEN_REQUIRED",
       responseChecksumValidation: "WHEN_REQUIRED",
+      requestHandler: { connectionTimeout: 10_000, requestTimeout: 120_000 },
     }),
   };
+  return { bucket: storage.bucket, client: storage.client };
 }
 export async function putMedia(
   key: string,
   data: Uint8Array,
   mimeType: string,
+  signal?: AbortSignal,
 ) {
   const { client, bucket } = r2();
   await client.send(
@@ -53,6 +69,7 @@ export async function putMedia(
       Body: data,
       ContentType: mimeType,
     }),
+    { abortSignal: signal },
   );
 }
 export async function getMediaBytes(key: string) {

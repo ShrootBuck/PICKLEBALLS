@@ -7,6 +7,7 @@ import {
   Maximize,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { VideoPlayer } from "@/components/media/video-player";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -105,20 +106,11 @@ export function MediaGallery({
             >
               {item.video ? (
                 <>
-                  {/* biome-ignore lint/a11y/useMediaCaption: member-uploaded evidence has no caption track */}
-                  <video
-                    data-slide={i}
+                  <VideoPlayer
                     src={item.src}
-                    poster={`${item.src}?poster=1`}
-                    controls
-                    playsInline
-                    preload="none"
-                    onPlay={(event) => {
-                      for (const video of document.querySelectorAll("video")) {
-                        if (video !== event.currentTarget) video.pause();
-                      }
-                    }}
-                    aria-label={`Video ${i + 1} of ${items.length}`}
+                    slide={i}
+                    active={slide === i}
+                    label={`Video ${i + 1} of ${items.length}`}
                   />
                   <DialogTrigger
                     render={
@@ -210,15 +202,11 @@ export function MediaGallery({
           </DialogDescription>
         </DialogHeader>
         {items[index].video ? (
-          // biome-ignore lint/a11y/useMediaCaption: member-uploaded evidence has no caption track
-          <video
+          <VideoPlayer
             key={items[index].id}
             src={items[index].src}
-            poster={`${items[index].src}?poster=1`}
-            controls
-            playsInline
-            preload="metadata"
-            aria-label="Full video evidence"
+            eager
+            label="Full video evidence"
           />
         ) : (
           // biome-ignore lint/performance/noImgElement: private authenticated media

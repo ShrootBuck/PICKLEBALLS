@@ -3,8 +3,10 @@ import { DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { jsonError, readJson } from "@/lib/api";
 import { DomainError } from "@/lib/errors";
 import { sanitizeImage } from "@/lib/image";
+import { authorizedMedia } from "@/lib/media-access";
 import { startMediaProcessing } from "@/lib/media-dispatch";
 import { completeMediaUpload, signMediaPart } from "@/lib/media-multipart";
+import { playbackTicket } from "@/lib/media-playback";
 import { uploadLifetimeMs } from "@/lib/media-policy";
 import { getPrisma } from "@/lib/prisma";
 import {
@@ -102,48 +104,14 @@ export async function POST(request: Request, context: Context) {
   }
 }
 export async function GET(request: Request, context: Context) {
-  const auth = await getRequestMembership(request.headers);
-  if (!auth) return Response.json({ error: "Not found." }, { status: 404 });
   try {
     const { id } = await context.params;
-    const circleId = auth.membership.circleId;
-    const media = await getPrisma().mediaUpload.findFirst({
-      where: { id, circleId, ready: true },
-    });
-    const [proof, reply, screenTime] = media
-      ? await Promise.all([
-          getPrisma().taskProof.findFirst({
-            where: { circleId, mediaIds: { has: id } },
-            select: { id: true },
-          }),
-          getPrisma().socialReply.findFirst({
-            where: { circleId, mediaIds: { has: id } },
-            select: { id: true },
-          }),
-          getPrisma().screenTimeReading.findFirst({
-            where: {
-              mediaId: id,
-              circleId,
-              OR: [
-                { userId: auth.session.user.id },
-                { submission: { isNot: null } },
-              ],
-            },
-            select: { id: true },
-          }),
-        ])
-      : [null, null, null];
-    if (!media || (!proof && !reply && !screenTime))
-      return Response.json({ error: "Not found." }, { status: 404 });
+    const media = await authorizedMedia(request.headers, id);
+    if (!media) return Response.json({ error: "Not found." }, { status: 404 });
     if (new URL(request.url).searchParams.get("playback") === "1") {
-      return Response.json(
-        {
-          url: await mediaDownloadUrl(media.objectKey, media.mimeType),
-          duration: media.duration,
-          poster: media.posterKey ? `/api/media/${id}?poster=1` : null,
-        },
-        { headers: { "cache-control": "private, no-store" } },
-      );
+      return Response.json(await playbackTicket(media), {
+        headers: { "cache-control": "private, no-store" },
+      });
     }
     if (new URL(request.url).searchParams.get("poster") === "1") {
       if (!media.posterKey)

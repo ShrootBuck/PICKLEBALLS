@@ -528,6 +528,7 @@ model MediaUpload {
   encodeAttempt Int @default(0)
   progress Int @default(0)
   posterKey String?
+  hlsKey String?
   duration Float?
   pendingProofId String?
   @@index([ownerId, circleId])

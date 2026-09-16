@@ -1,0 +1,14 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "pickleballs-media",
+  "account_id": "69a5112e0fc688445ced3c45ba1ba57a",
+  "main": "index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true, "logs": { "invocation_logs": false } },
+  "routes": [{ "pattern": "media.pickle-balls.com", "custom_domain": true }],
+  "vars": { "APP_ORIGIN": "https://pickle-balls.com" },
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "pickleballs-media" }]
+  // Set MEDIA_CDN_SECRET with `wrangler secret put`, never in this file.
+}

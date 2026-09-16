@@ -21,9 +21,11 @@ const { completeMediaUpload, signMediaPart } = await import(
   "@/lib/media-multipart"
 );
 const { processVideoMedia } = await import("@/lib/media-processing");
+const { hlsPlaylistResponse } = await import("@/lib/media-playback");
 const objects = new Map<string, { bytes: Uint8Array; type: string }>();
 const uploads = new Map<string, Map<number, Uint8Array>>();
 let failDelete = false;
+let failHls = false;
 const xml = (body: string, status = 200) =>
   new Response(body, {
     status,
@@ -82,6 +84,8 @@ const server = Bun.serve({
       );
     }
     if (request.method === "PUT") {
+      if (failHls && key.endsWith(".ts"))
+        return xml("<Error><Code>AccessDenied</Code></Error>", 403);
       objects.set(key, {
         bytes: new Uint8Array(await request.arrayBuffer()),
         type: request.headers.get("content-type") || "video/mp4",
@@ -209,9 +213,88 @@ test("multipart completion verifies storage, tolerates repeated finalization, an
   expect(encoded.duration).toBeGreaterThan(1.9);
   expect(objects.has(`/media/${encoded.objectKey}`)).toBe(true);
   expect(objects.has(`/media/${encoded.posterKey}`)).toBe(true);
+  expect(encoded.hlsKey).toBeTruthy();
+  const playlist = await hlsPlaylistResponse(
+    media.id,
+    encoded.hlsKey as string,
+    "master.m3u8",
+  );
+  expect(await playlist.text()).toContain(`/api/media/${media.id}/hls/v0.m3u8`);
+  const variant = await hlsPlaylistResponse(
+    media.id,
+    encoded.hlsKey as string,
+    "v0.m3u8",
+  );
+  const segmentUrl = (await variant.text())
+    .split("\n")
+    .find((line) => line.startsWith("http"));
+  expect(segmentUrl).toBeTruthy();
+  const range = await fetch(segmentUrl as string, {
+    headers: { range: "bytes=0-187" },
+  });
+  expect(range.status).toBe(206);
+  expect((await range.arrayBuffer()).byteLength).toBe(188);
   expect(objects.has(`/media/${media.objectKey}`)).toBe(false);
   await processVideoMedia(media.id, new AbortController().signal);
   expect(objects.has(`/media/${encoded.objectKey}`)).toBe(true);
+}, 30_000);
+
+test("a failed adaptive upload retains the source and removes unpublished outputs", async () => {
+  const media = await ticket(bytes);
+  await completeMediaUpload(media);
+  await prisma.mediaUpload.update({
+    where: { id: media.id },
+    data: { uploadedAt: new Date() },
+  });
+  failHls = true;
+  try {
+    await expect(
+      processVideoMedia(media.id, new AbortController().signal),
+    ).rejects.toThrow();
+  } finally {
+    failHls = false;
+  }
+  const current = await prisma.mediaUpload.findUniqueOrThrow({
+    where: { id: media.id },
+  });
+  expect(current.ready).toBe(false);
+  expect(current.hlsKey).toBeNull();
+  expect(objects.has(`/media/${media.objectKey}`)).toBe(true);
+  expect(
+    [...objects.keys()].some((key) =>
+      key.startsWith(`/media/media/${media.id}/`),
+    ),
+  ).toBe(false);
+}, 30_000);
+
+test("backfill preserves existing playback on failure and replaces it only after successful verification", async () => {
+  const media = await ticket(bytes);
+  await completeMediaUpload(media);
+  await prisma.mediaUpload.update({
+    where: { id: media.id },
+    data: { uploadedAt: new Date(), ready: true, uploadId: null },
+  });
+  failHls = true;
+  try {
+    await expect(
+      processVideoMedia(media.id, new AbortController().signal),
+    ).rejects.toThrow();
+  } finally {
+    failHls = false;
+  }
+  const failed = await prisma.mediaUpload.findUniqueOrThrow({
+    where: { id: media.id },
+  });
+  expect(failed.ready).toBe(true);
+  expect(failed.objectKey).toBe(media.objectKey);
+  await processVideoMedia(media.id, new AbortController().signal);
+  const upgraded = await prisma.mediaUpload.findUniqueOrThrow({
+    where: { id: media.id },
+  });
+  expect(upgraded.ready).toBe(true);
+  expect(upgraded.hlsKey).toBeTruthy();
+  expect(upgraded.objectKey).not.toBe(media.objectKey);
+  expect(objects.has(`/media/${media.objectKey}`)).toBe(true);
 }, 30_000);
 
 test("invalid media retains its source for retry and never becomes ready", async () => {

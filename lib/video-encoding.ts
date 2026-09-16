@@ -9,7 +9,7 @@ export type VideoInfo = {
   hdr: boolean;
   fps: number;
 };
-const networkArgs = [
+export const networkArgs = [
   "-format_whitelist",
   "mov,matroska,webm,avi,mpeg,mpegts",
   "-protocol_whitelist",
@@ -19,7 +19,7 @@ const networkArgs = [
 ];
 
 // Keep subprocess diagnostics out of task logs: input URLs carry storage credentials.
-function processExit(child: ReturnType<typeof spawn>, label: string) {
+export function processExit(child: ReturnType<typeof spawn>, label: string) {
   return new Promise<void>((resolve, reject) => {
     child.once("error", () => reject(new Error(`${label} could not start.`)));
     child.once("close", (code) =>
@@ -135,21 +135,29 @@ export function encodeVideo(
       "-c:v",
       "libx264",
       "-preset",
-      "medium",
+      "fast",
       "-crf",
-      "20",
+      "22",
+      "-profile:v",
+      "high",
+      "-level:v",
+      "4.2",
       "-maxrate",
-      "8M",
+      "6M",
       "-bufsize",
-      "16M",
+      "12M",
       "-threads",
-      "2",
+      "4",
+      "-flags",
+      "+cgop",
+      "-sc_threshold",
+      "0",
       "-force_key_frames",
       "expr:gte(t,n_forced*2)",
       "-c:a",
       "aac",
       "-b:a",
-      "192k",
+      "128k",
       "-ac",
       "2",
       "-movflags",
