@@ -24,9 +24,9 @@ export function UploadStatus({
   status: string;
   percent: number | null;
 }) {
-  // Action buttons already show pending state. Only add a separate indicator
-  // when there is measurable upload progress to display.
-  if (percent === null) return null;
+  // Preparation, retries, and finalization may not have a percentage. Keep
+  // the indicator mounted through those stages so the upload UI stays stable.
+  if (!status) return null;
 
   return (
     <div className="flex min-w-0 flex-col gap-2 rounded-lg border bg-muted/30 p-3">
@@ -34,7 +34,7 @@ export function UploadStatus({
         <ProgressLabel className="min-w-0 flex-1 break-words">
           {status}
         </ProgressLabel>
-        <ProgressValue />
+        {percent !== null && <ProgressValue />}
       </Progress>
     </div>
   );
