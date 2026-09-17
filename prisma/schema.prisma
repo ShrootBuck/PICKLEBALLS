@@ -350,6 +350,7 @@ model CheckInUpdate {
   feelings  String[]    @default([])
   mood      Int?
   journal   String?     @db.VarChar(5000)
+  mediaIds  String[]    @default([])
   createdAt DateTime    @default(now())
 
   checkIn CheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)

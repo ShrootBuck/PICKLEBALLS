@@ -378,6 +378,7 @@ async function readPosts({
         createdAt: u.createdAt.toISOString(),
         author: u.user,
         body: u.journal ?? u.blocker,
+        mediaIds: u.mediaIds,
         mood: u.mood,
         feelings: u.feelings,
         signal: u.signal,

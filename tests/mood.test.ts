@@ -41,3 +41,22 @@ test("invalid moods, mismatched or duplicate feelings, and oversized journals ar
   ])
     expect(moodCheckInSchema.safeParse(input).success).toBe(false);
 });
+
+test("check-ins accept optional media and reject invalid attachments", () => {
+  const id = "i_00000000-0000-0000-0000-000000000001";
+  expect(moodCheckInSchema.parse({ mood: 3, mediaIds: [id] }).mediaIds).toEqual(
+    [id],
+  );
+  for (const mediaIds of [
+    [id, id],
+    ["invalid"],
+    Array.from(
+      { length: 7 },
+      (_, i) => `i_00000000-0000-0000-0000-00000000000${i}`,
+    ),
+  ]) {
+    expect(moodCheckInSchema.safeParse({ mood: 3, mediaIds }).success).toBe(
+      false,
+    );
+  }
+});

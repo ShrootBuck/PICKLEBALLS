@@ -70,6 +70,11 @@ export function PostBody({ post }: { post: InteractivePost }) {
               ))}
             </ul>
           )}
+          {!!post.mediaIds?.length && (
+            <div className="feed-media mt-3">
+              <MediaGallery ids={post.mediaIds} />
+            </div>
+          )}
           <p className="social-check-in whitespace-pre-wrap break-words">
             {post.body || "Taking a moment to check in."}
           </p>

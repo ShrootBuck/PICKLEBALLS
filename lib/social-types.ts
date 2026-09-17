@@ -41,6 +41,7 @@ export type ProofPost = PostBase & {
 
 export type CheckInPost = PostBase & {
   kind: "check-in";
+  mediaIds: string[];
   signal: string;
   mood?: number | null;
   feelings?: string[];

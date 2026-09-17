@@ -1,6 +1,11 @@
 "use client";
 
 import { type FormEvent, useId, useRef, useState } from "react";
+import { MediaPicker } from "@/components/media/media-picker";
+import {
+  UploadStatus,
+  useUploadStatus,
+} from "@/components/media/upload-status";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { appFetch } from "@/lib/app-refresh";
+import { uploadMedia } from "@/lib/media-upload";
 import { moodDetails, moods } from "@/lib/mood";
 
 export function MoodCheckIn({
@@ -38,6 +44,9 @@ export function MoodCheckIn({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const saving = useRef(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const uploadedIds = useRef<string[] | null>(null);
+  const [uploadStatus, setUploadStatus, uploadPercent] = useUploadStatus();
   const selected = mood === null ? null : moodDetails(mood);
 
   async function submit(event: FormEvent) {
@@ -48,14 +57,20 @@ export function MoodCheckIn({
     onPendingChange?.(true);
     setError(null);
     try {
+      const mediaIds =
+        uploadedIds.current ??
+        (files.length ? await uploadMedia(files, setUploadStatus) : []);
+      uploadedIds.current = mediaIds;
       const response = await appFetch("/api/mood", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mood, feelings, journal }),
+        body: JSON.stringify({ mood, feelings, journal, mediaIds }),
       });
       const result = await response.json();
       if (!response.ok)
         throw new Error(result.error ?? "Could not post your check-in.");
+      setFiles([]);
+      uploadedIds.current = null;
       setMood(null);
       setFeelings([]);
       setJournal("");
@@ -68,6 +83,7 @@ export function MoodCheckIn({
           : "Could not connect. Your draft is still here.",
       );
     } finally {
+      setUploadStatus("");
       saving.current = false;
       setPending(false);
       onPendingChange?.(false);
@@ -168,6 +184,15 @@ export function MoodCheckIn({
                     {journal.length.toLocaleString()}/5,000
                   </FieldDescription>
                 </Field>
+                <MediaPicker
+                  files={files}
+                  disabled={pending}
+                  onChange={(next) => {
+                    setFiles(next);
+                    uploadedIds.current = null;
+                  }}
+                />
+                <UploadStatus status={uploadStatus} percent={uploadPercent} />
               </>
             )}
             {error && (

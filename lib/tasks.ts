@@ -490,6 +490,7 @@ export async function setCheckIn(
   const day = requireDateKey(phoenixDateKey(now));
   const cleanBlocker = blocker?.trim() ? blocker.trim().slice(0, 500) : null;
   const result = await serializable(async (transaction) => {
+    await claimMedia(transaction, mood?.mediaIds ?? [], userId, circleId);
     const checkIn = await transaction.checkIn.upsert({
       where: { userId_circleId_day: { userId, circleId, day } },
       update: { signal, blocker: cleanBlocker },
@@ -506,6 +507,7 @@ export async function setCheckIn(
         blocker: cleanBlocker,
         ...(mood
           ? {
+              mediaIds: mood.mediaIds ?? [],
               mood: mood.mood,
               feelings: mood.feelings,
               journal: mood.journal || null,

@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1789604712976,
+    title: "Photos and videos in check-ins",
+    description:
+      "Attach up to six photos or videos to a mood check-in, alongside your feelings and reflection. Your circle can view them directly in your post.",
+  },
+  {
     timestamp: 1789448031007,
     title: "One conversation per proof",
     description:

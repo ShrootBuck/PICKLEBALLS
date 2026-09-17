@@ -1110,3 +1110,69 @@ test("proof discussion includes verdict conversations, paginates replies, and is
     "#comments",
   );
 });
+
+test("check-in media is claimed atomically and included in the feed", async () => {
+  const photo = await media();
+  const video = `v_${randomUUID()}`;
+  await prisma.mediaUpload.create({
+    data: {
+      id: video,
+      ownerId: ids.owner,
+      circleId: ids.circle,
+      mimeType: "video/mp4",
+      sizeBytes: 100,
+      objectKey: video,
+      ready: true,
+    },
+  });
+  const { update } = await setCheckIn(
+    ids.owner,
+    ids.circle,
+    "YAY",
+    undefined,
+    now,
+    {
+      mood: 4,
+      feelings: [],
+      journal: "Today",
+      mediaIds: [photo, video],
+    },
+  );
+  const feed = await getFeedPage({
+    viewerId: ids.peer,
+    circleId: ids.circle,
+    proofIds: [],
+    checkInIds: [update.id],
+  });
+  expect(feed.items[0].kind === "check-in" && feed.items[0].mediaIds).toEqual([
+    photo,
+    video,
+  ]);
+  expect(
+    await prisma.mediaUpload.count({
+      where: { id: { in: [photo, video] }, claimed: true },
+    }),
+  ).toBe(2);
+  for (const invalid of [
+    photo,
+    await media(ids.peer),
+    await media(ids.owner, ids.other),
+    await media(ids.owner, ids.circle, false),
+  ]) {
+    const fresh = await media();
+    const before = await prisma.checkInUpdate.count();
+    await expect(
+      setCheckIn(ids.owner, ids.circle, "YAY", undefined, now, {
+        mood: 4,
+        feelings: [],
+        journal: "",
+        mediaIds: [fresh, invalid],
+      }),
+    ).rejects.toThrow("Attachments are unavailable");
+    expect(await prisma.checkInUpdate.count()).toBe(before);
+    expect(
+      (await prisma.mediaUpload.findUniqueOrThrow({ where: { id: fresh } }))
+        .claimed,
+    ).toBe(false);
+  }
+});

@@ -135,7 +135,7 @@ export function MediaPicker({
         capture="environment"
         className="sr-only"
         tabIndex={-1}
-        aria-label="Take a proof photo"
+        aria-label="Take a photo"
         disabled={disabled}
         onChange={(event) => {
           addFiles(Array.from(event.target.files ?? []));

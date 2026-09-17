@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { mediaIdsSchema } from "@/lib/media-policy";
 
 export const moods = [
   {
@@ -215,6 +216,7 @@ export function moodLabel(value?: number | null) {
 export const moodCheckInSchema = z
   .object({
     mood: z.number().int().min(1).max(5),
+    mediaIds: mediaIdsSchema.optional(),
     feelings: z.array(z.string().max(40)).max(33).default([]),
     journal: z.string().trim().max(5000).default(""),
   })

@@ -12,7 +12,7 @@ export async function authorizedMedia(headers: Headers, id: string) {
     where: { id, circleId, ready: true },
   });
   if (!media) return null;
-  const [proof, reply, screenTime] = await Promise.all([
+  const [proof, reply, screenTime, checkIn] = await Promise.all([
     prisma.taskProof.findFirst({
       where: { circleId, mediaIds: { has: id } },
       select: { id: true },
@@ -29,6 +29,10 @@ export async function authorizedMedia(headers: Headers, id: string) {
       },
       select: { id: true },
     }),
+    prisma.checkInUpdate.findFirst({
+      where: { circleId, mediaIds: { has: id } },
+      select: { id: true },
+    }),
   ]);
-  return proof || reply || screenTime ? media : null;
+  return proof || reply || screenTime || checkIn ? media : null;
 }
