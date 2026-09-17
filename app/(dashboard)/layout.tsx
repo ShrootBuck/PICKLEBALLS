@@ -6,7 +6,8 @@ import { listMyCircles } from "@/lib/circles";
 import { getPrisma } from "@/lib/prisma";
 import { getPageSession, requirePageMembership } from "@/lib/request";
 import { socialTaskInclude, toSocialTask } from "@/lib/social-data";
-import { phoenixDateKey, requireDateKey } from "@/lib/time";
+import { currentTaskFilter } from "@/lib/task-policy";
+import { phoenixDateKey } from "@/lib/time";
 
 export default async function DashboardLayout({
   children,
@@ -24,7 +25,7 @@ export default async function DashboardLayout({
       where: {
         userId: session.user.id,
         circleId: membership.circleId,
-        day: requireDateKey(day),
+        ...currentTaskFilter(),
       },
       orderBy: { createdAt: "asc" },
       include: socialTaskInclude,

@@ -12,7 +12,7 @@ const steps = [
   {
     icon: Lock,
     title: "Lock a promise",
-    body: "Name real work with a finish line. Due at midnight, no extensions.",
+    body: "Name real work with a finish line. You have 24 hours from creation.",
   },
   {
     icon: Camera,

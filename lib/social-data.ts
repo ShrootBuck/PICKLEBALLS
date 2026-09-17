@@ -14,7 +14,7 @@ import type {
   SocialMember,
   SocialTask,
 } from "@/lib/social-types";
-import { proofApprovalProgress } from "@/lib/task-policy";
+import { currentTaskFilter, proofApprovalProgress } from "@/lib/task-policy";
 import { phoenixDateKey, requireDateKey } from "@/lib/time";
 
 export const socialAuthorSelect = {
@@ -78,7 +78,10 @@ export async function getSocialMembers(
         select: {
           ...socialAuthorSelect,
           commitments: {
-            where: { circleId, day },
+            where: {
+              circleId,
+              ...(dayKey === phoenixDateKey() ? currentTaskFilter() : { day }),
+            },
             orderBy: { createdAt: "asc" },
             include: socialTaskInclude,
           },

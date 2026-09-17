@@ -202,7 +202,7 @@ export function AppSidebar({
             {todayLabel}
           </p>
           <p className="truncate text-[11px] text-muted-foreground">
-            Deadline at midnight. No mercy.
+            24 hours. Make it count.
           </p>
         </div>
       </SidebarHeader>

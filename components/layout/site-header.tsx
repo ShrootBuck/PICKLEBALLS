@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { MidnightCountdown } from "@/components/today/midnight-countdown";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
 export function SiteHeader({ bell }: { bell: ReactNode }) {
@@ -27,7 +26,6 @@ export function SiteHeader({ bell }: { bell: ReactNode }) {
       </span>
       <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5">
         {bell}
-        <MidnightCountdown compact />
       </div>
     </header>
   );

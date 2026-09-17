@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import {
+  canEditTask,
+  currentTaskFilter,
   proofApprovalProgress,
   requiredApprovalsForCircle,
+  shouldMarkMissed,
+  taskDeadline,
 } from "@/lib/task-policy";
 
 test("solo, pair, and larger groups require every peer", () => {
@@ -24,4 +28,16 @@ test("only distinct approvals from current peers count", () => {
       ],
     ),
   ).toEqual({ approvalCount: 1, requiredApprovals: 3 });
+});
+
+test("late-night tasks keep their full 24 hours across midnight", () => {
+  const created = new Date("2026-09-17T06:00:00Z"); // 11 pm Phoenix
+  const due = taskDeadline(created);
+  expect(due.toISOString()).toBe("2026-09-18T06:00:00.000Z");
+  expect(canEditTask(due, new Date("2026-09-17T16:00:00Z"))).toBe(true);
+  expect(canEditTask(due, due)).toBe(false);
+  expect(
+    shouldMarkMissed("OPEN", due, 0, new Date("2026-09-17T16:00:00Z")),
+  ).toBe(false);
+  expect(currentTaskFilter(created).OR[0]).toEqual({ dueAt: { gt: created } });
 });

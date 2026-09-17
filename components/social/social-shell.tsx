@@ -326,7 +326,7 @@ export function SocialShell({
               {children}
             </main>
             {!wide && (
-              <aside className="social-day-panel" aria-label="Your day">
+              <aside className="social-day-panel" aria-label="Your tasks">
                 <div className="flex items-center gap-3">
                   <Avatar className="size-10">
                     <AvatarImage src={viewer.image ?? undefined} alt="" />
@@ -340,7 +340,7 @@ export function SocialShell({
                   </div>
                 </div>
                 <div className="mt-7 flex items-baseline justify-between">
-                  <h2 className="font-semibold">Your day</h2>
+                  <h2 className="font-semibold">Your tasks</h2>
                   <span className="text-sm tabular-nums text-muted-foreground">
                     {verified}/{tasks.length}
                   </span>
@@ -395,7 +395,7 @@ export function SocialShell({
                   <ArrowRight data-icon="inline-end" />
                 </Link>
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Due at midnight · Phoenix time
+                  24 hours per task · Reviews stay open
                 </p>
                 {pendingVerdicts > 0 && (
                   <Link href="/squad" className="review-nudge">

@@ -58,7 +58,6 @@ import {
   formatDayShort,
   formatHistoryTime,
   parsePhoenixLocalDateTime,
-  phoenixDateKey,
   phoenixLocalDateTimeValue,
 } from "@/lib/time";
 
@@ -120,7 +119,7 @@ export function SocialComposer(props: ComposerProps) {
             {mode === "choose"
               ? "A little accountability goes a long way."
               : mode === "task"
-                ? "Set a clear finish line. Due tonight at midnight, Phoenix time."
+                ? "Set a clear finish line. Each task is due 24 hours after creation. Reviews stay open."
                 : mode === "proof"
                   ? (task?.title ?? "Pick the task you finished.")
                   : "A quick update for your circle."}
@@ -149,7 +148,6 @@ export function SocialComposer(props: ComposerProps) {
 function ComposerForm({
   request,
   tasks,
-  day,
   onClose,
   draft,
   onSaveDraft,
@@ -231,7 +229,6 @@ function ComposerForm({
   ]);
   const eligible = tasks.filter(
     (item) =>
-      item.day === day &&
       new Date(item.dueAt).getTime() > Date.now() &&
       (!item.proof || item.proof.reviewStatus === "CHALLENGED"),
   );
@@ -245,12 +242,6 @@ function ComposerForm({
     if (pending) return;
     if (mode === "task" && (!title.trim() || !definition.trim())) {
       setError("Give your task a title and a clear definition of done.");
-      return;
-    }
-    if (day !== phoenixDateKey()) {
-      setError(
-        "This day has closed. Close this draft and refresh before starting a new one.",
-      );
       return;
     }
     setError(null);

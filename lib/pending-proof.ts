@@ -4,7 +4,6 @@ import { mediaIdsSchema } from "@/lib/media-policy";
 import { getPrisma } from "@/lib/prisma";
 import { canEditTask } from "@/lib/task-policy";
 import { validateProofTimes } from "@/lib/tasks";
-import { phoenixDateKey } from "@/lib/time";
 import { serializable } from "@/lib/transaction";
 
 export async function queueProof(
@@ -35,12 +34,9 @@ export async function queueProof(
       include: { proofs: { where: { replacedById: null }, take: 1 } },
     });
     if (!task) throw new DomainError("Task not found.", 404);
-    if (
-      !canEditTask(task.dueAt, now) ||
-      task.day.toISOString().slice(0, 10) !== phoenixDateKey(now)
-    )
+    if (!canEditTask(task.dueAt, now))
       throw new DomainError(
-        "This day is closed. Missed tasks cannot receive new or replacement proof.",
+        "The submission window is closed. Missed tasks cannot receive new or replacement proof.",
         409,
       );
     if (task.proofs[0] && task.proofs[0].reviewStatus !== "CHALLENGED")

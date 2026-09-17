@@ -26,7 +26,7 @@ export function AuthScreen({ children }: { children: ReactNode }) {
           <div className="hidden flex-col gap-4 pt-5 lg:flex">
             {[
               "Make a promise for today.",
-              "Share proof before midnight.",
+              "Share proof within 24 hours.",
               "Get a verdict from your circle.",
             ].map((text) => (
               <p key={text} className="flex items-center gap-3 text-sm">

@@ -427,7 +427,7 @@ test("challenge, deliberate replacement restrictions, and old URLs preserve proo
   ).rejects.toThrow("promise stays fixed");
 });
 
-test("solo circles verify immediately; midnight closes new and replacement proof", async () => {
+test("solo circles verify immediately; task deadlines close new and replacement proof", async () => {
   const solo = await task(ids.owner, ids.solo);
   const posted = await submitProof(
     solo.id,
@@ -456,7 +456,7 @@ test("solo circles verify immediately; midnight closes new and replacement proof
       now,
       now,
     ),
-  ).rejects.toThrow("day is closed");
+  ).rejects.toThrow("window is closed");
   const challenged = await proof();
   await reviewProof(
     challenged.id,
@@ -474,9 +474,9 @@ test("solo circles verify immediately; midnight closes new and replacement proof
       "",
       start,
       now,
-      new Date("2026-09-09T07:00:00Z"),
+      new Date("2026-09-09T20:00:00Z"),
     ),
-  ).rejects.toThrow("day is closed");
+  ).rejects.toThrow("window is closed");
 });
 
 test("unready or wrong-circle media rolls back proof creation and preserves retry", async () => {
@@ -727,7 +727,7 @@ test("pending proof rejects foreign media and late submissions atomically", asyn
       null,
       start,
       now,
-      new Date("2026-09-09T08:00:00Z"),
+      new Date("2026-09-09T20:00:00Z"),
     ),
   ).rejects.toThrow("closed");
   expect(
@@ -1175,4 +1175,44 @@ test("check-in media is claimed atomically and included in the feed", async () =
         .claimed,
     ).toBe(false);
   }
+});
+
+test("overnight tasks remain visible and accept queued proof after midnight", async () => {
+  const { getSocialMembers } = await import("@/lib/social-data");
+  const { queueProof } = await import("@/lib/pending-proof");
+  const { phoenixDateKey } = await import("@/lib/time");
+  const morning = new Date();
+  const yesterday = new Date(morning.getTime() - 23 * 60 * 60 * 1000);
+  const commitment = await task(ids.owner, ids.circle, yesterday);
+  expect(commitment.dueAt.getTime() - commitment.createdAt.getTime()).toBe(
+    86400000,
+  );
+  const members = await getSocialMembers(ids.circle, phoenixDateKey(morning));
+  expect(
+    members
+      .find((m) => m.id === ids.owner)
+      ?.tasks.some((t) => t.id === commitment.id),
+  ).toBe(true);
+  const queued = await queueProof(
+    commitment.id,
+    ids.owner,
+    ids.circle,
+    [await media()],
+    null,
+    new Date(morning.getTime() - 60000),
+    morning,
+    morning,
+  );
+  const posted = await submitProof(
+    commitment.id,
+    ids.owner,
+    ids.circle,
+    queued.mediaIds,
+    null,
+    queued.startedAt,
+    queued.completedAt,
+    queued.createdAt,
+    queued.id,
+  );
+  expect(posted.isLate).toBe(false);
 });

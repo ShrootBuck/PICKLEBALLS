@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1789623597805,
+    title: "A full 24 hours for each task",
+    description:
+      "New tasks are due 24 hours after creation, so late-night work carries into tomorrow. Active tasks stay on your board across midnight, and submitted proof stays available until reviewed. Editing does not reset the clock.",
+  },
+  {
     timestamp: 1789604712976,
     title: "Photos and videos in check-ins",
     description:

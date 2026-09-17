@@ -20,6 +20,7 @@ import {
   socialTaskInclude,
   toSocialTask,
 } from "@/lib/social-data";
+import { currentTaskFilter } from "@/lib/task-policy";
 import {
   formatDayShort,
   parseDateKey,
@@ -92,7 +93,13 @@ export async function MemberProfile({
       : null,
     tab === "tasks"
       ? getPrisma().commitment.findMany({
-          where: { userId: id, circleId, day: requireDateKey(day) },
+          where: {
+            userId: id,
+            circleId,
+            ...(day === today
+              ? currentTaskFilter()
+              : { day: requireDateKey(day) }),
+          },
           orderBy: { createdAt: "asc" },
           include: socialTaskInclude,
         })
@@ -231,7 +238,7 @@ export async function MemberProfile({
           </div>
           {day === today && (
             <p className="text-xs text-muted-foreground">
-              Due tonight at midnight, Phoenix time.
+              Each task is due 24 hours after creation. Reviews stay open.
             </p>
           )}
           <TaskList

@@ -1,3 +1,21 @@
+export function taskDeadline(createdAt: Date) {
+  return new Date(createdAt.getTime() + 24 * 60 * 60 * 1000);
+}
+
+// Keep active tasks and outstanding reviews visible across calendar days.
+export function currentTaskFilter(now = new Date()) {
+  return {
+    OR: [
+      { dueAt: { gt: now } },
+      {
+        proofs: {
+          some: { replacedById: null, reviewStatus: "PENDING" as const },
+        },
+      },
+    ],
+  };
+}
+
 // Every other current member must approve. Solo circles verify on post.
 export function requiredApprovalsForCircle(circleSize: number) {
   return Math.max(0, circleSize - 1);

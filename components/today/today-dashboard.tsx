@@ -284,7 +284,7 @@ function TaskDialog({
         <div className="flex min-h-0 max-h-[inherit] flex-col">
           <DialogHeader className="shrink-0 p-4 pb-0 sm:p-6 sm:pb-0">
             <DialogTitle className="text-xl tracking-tight">
-              {task ? "Renegotiate before midnight" : "Make a real promise"}
+              {task ? "Renegotiate before the deadline" : "Make a real promise"}
             </DialogTitle>
             <DialogDescription className="text-sm leading-relaxed">
               Specific enough that the squad can verify it from one photo. No
@@ -341,9 +341,9 @@ function TaskDialog({
                 </Field>
                 <Alert>
                   <CalendarClock />
-                  <AlertTitle>Due tonight at midnight</AlertTitle>
+                  <AlertTitle>Due 24 hours after creation</AlertTitle>
                   <AlertDescription>
-                    Same deadline for everyone. No extensions.
+                    Editing a task does not extend its deadline.
                   </AlertDescription>
                 </Alert>
               </FieldGroup>

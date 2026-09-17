@@ -101,6 +101,17 @@ export function TaskList({
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
                   {task.definitionOfDone}
                 </p>
+                <p className="text-xs text-muted-foreground">
+                  Due{" "}
+                  {new Date(task.dueAt).toLocaleString("en-US", {
+                    timeZone: "America/Phoenix",
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}{" "}
+                  · Phoenix time
+                </p>
                 <Badge
                   variant={
                     task.proof?.reviewStatus === "CHALLENGED"

@@ -16,8 +16,9 @@ import {
   proofApprovalProgress,
   requiredApprovalsForCircle,
   shouldMarkMissed,
+  taskDeadline,
 } from "@/lib/task-policy";
-import { phoenixDateKey, phoenixDayDueAt, requireDateKey } from "@/lib/time";
+import { phoenixDateKey, requireDateKey } from "@/lib/time";
 import { serializable } from "@/lib/transaction";
 
 export { DomainError };
@@ -85,11 +86,7 @@ export async function createCommitment(
   if (!parsed.success) throw new DomainError("Fix the task fields.");
   const dayKey = phoenixDateKey(now);
   const day = requireDateKey(dayKey);
-  const dueAt = phoenixDayDueAt(dayKey);
-  if (!dueAt) throw new DomainError("Could not compute midnight deadline.");
-  if (dueAt <= now) {
-    throw new DomainError("Too late; today's board is locked at midnight.");
-  }
+  const dueAt = taskDeadline(now);
 
   return serializable(async (transaction) => {
     const task = await transaction.commitment.create({
@@ -100,6 +97,7 @@ export async function createCommitment(
         title: parsed.data.title,
         definitionOfDone: parsed.data.definitionOfDone,
         dueAt,
+        createdAt: now,
       },
     });
     await transaction.activityEvent.create({
@@ -132,7 +130,10 @@ export async function updateCommitment(
     });
     if (!current) throw new DomainError("Task not found.", 404);
     if (!canEditTask(current.dueAt, now)) {
-      throw new DomainError("Midnight passed; the edit window is closed.", 409);
+      throw new DomainError(
+        "The task deadline passed; the edit window is closed.",
+        409,
+      );
     }
     // No-op edit: same text in, no shame badge out.
     if (
@@ -166,7 +167,7 @@ export async function updateCommitment(
         actorId: userId,
         kind: "TASK_RENEGOTIATED",
         entityId: task.id,
-        summary: `renegotiated “${task.title}” before midnight`,
+        summary: `renegotiated “${task.title}” before its deadline`,
       },
     });
     return { task, changed: true };
@@ -264,12 +265,9 @@ export async function submitProof(
       },
     });
     if (!task) throw new DomainError("Task not found.", 404);
-    if (
-      !canEditTask(task.dueAt, now) ||
-      task.day.toISOString().slice(0, 10) !== phoenixDateKey(now)
-    ) {
+    if (!canEditTask(task.dueAt, now)) {
       throw new DomainError(
-        "This day is closed. Missed tasks cannot receive new or replacement proof.",
+        "The submission window is closed. Missed tasks cannot receive new or replacement proof.",
         409,
       );
     }
