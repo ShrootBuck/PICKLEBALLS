@@ -780,6 +780,9 @@
   flex-direction: column;
   top: 0;
   left: 0;
+  /* Reset the centering variables too: production CSS can remove translate: none. */
+  --tw-translate-x: 0px;
+  --tw-translate-y: 0px;
   translate: none;
   transform: none;
   width: 100vw;
