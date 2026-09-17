@@ -95,9 +95,7 @@ export function MoodCheckIn({
       <Card>
         <CardHeader>
           <CardTitle>How are you feeling?</CardTitle>
-          <CardDescription>
-            Take a moment to check in with yourself. Shared with your circle.
-          </CardDescription>
+          <CardDescription>Shared with your circle.</CardDescription>
         </CardHeader>
         <CardContent>
           <FieldGroup>
@@ -144,11 +142,8 @@ export function MoodCheckIn({
               <>
                 <Field>
                   <FieldLabel id={`${formId}-feelings-label`}>
-                    What words fit?
+                    What words fit? (optional)
                   </FieldLabel>
-                  <FieldDescription>
-                    Choose any that resonate, or skip this.
-                  </FieldDescription>
                   <ToggleGroup
                     multiple
                     aria-labelledby={`${formId}-feelings-label`}
@@ -180,7 +175,6 @@ export function MoodCheckIn({
                     aria-describedby={`${formId}-journal-help`}
                   />
                   <FieldDescription id={`${formId}-journal-help`}>
-                    Optional. Your circle can read this.{" "}
                     {journal.length.toLocaleString()}/5,000
                   </FieldDescription>
                 </Field>

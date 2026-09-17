@@ -243,10 +243,10 @@ export function Feed({
                 {awaitingOnly
                   ? "No proofs are waiting for your approval. Check the timeline for your circle’s latest posts."
                   : reviewOnly
-                    ? "No proof needs your verdict. Thanks for showing up for your friends."
+                    ? "No proof needs your verdict."
                     : memberId
                       ? "Their proof and check-ins will appear here."
-                      : "Post some proof or check in. Your circle is built by showing up."}
+                      : "Post some proof or check in."}
               </EmptyDescription>
             </EmptyHeader>
             {!memberId && !reviewOnly && !awaitingOnly && (

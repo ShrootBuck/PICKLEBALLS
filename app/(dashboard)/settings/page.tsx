@@ -12,7 +12,7 @@ export default async function SettingsPage() {
   await requireSession();
   return (
     <>
-      <PageHeader title="Settings" description="Make yourself at home." />
+      <PageHeader title="Settings" />
       <AppearanceSettings />
       <Card className="max-w-2xl">
         <CardHeader>

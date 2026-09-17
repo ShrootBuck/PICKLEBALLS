@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -196,10 +195,6 @@ export function MediaGallery({
           <DialogTitle>
             Attachment {index + 1} of {items.length}
           </DialogTitle>
-          <DialogDescription>
-            Full evidence, without cropping.
-            {items.length > 1 && " Use the arrows to browse."}
-          </DialogDescription>
         </DialogHeader>
         {items[index].video ? (
           <VideoPlayer

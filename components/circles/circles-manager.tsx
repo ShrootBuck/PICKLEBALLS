@@ -134,8 +134,7 @@ export function CirclesManager({
         <CardHeader>
           <CardTitle>Your circles</CardTitle>
           <CardDescription>
-            Each circle is its own private world. Switch anytime; nobody sees
-            across circles.
+            Posts are only visible to members of their circle.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
@@ -145,7 +144,7 @@ export function CirclesManager({
                 <EmptyMedia variant="icon">🎾</EmptyMedia>
                 <EmptyTitle>No circles yet</EmptyTitle>
                 <EmptyDescription>
-                  Create one below; it takes ten seconds.
+                  Create a circle or ask a friend for an invite.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

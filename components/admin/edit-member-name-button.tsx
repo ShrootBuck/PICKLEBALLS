@@ -93,8 +93,7 @@ export function EditMemberNameButton({
           <DialogHeader>
             <DialogTitle>Edit member name</DialogTitle>
             <DialogDescription>
-              This name appears across the app and on future PDF exports. Use
-              the full name you want on the sheet.
+              This name appears across the app and on future PDF exports.
             </DialogDescription>
           </DialogHeader>
           <FieldGroup>

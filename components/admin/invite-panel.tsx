@@ -58,8 +58,7 @@ export function InvitePanel() {
         <CardHeader>
           <CardTitle>One-time Discord invite</CardTitle>
           <CardDescription>
-            Create a one-time link for your friend. Copy it before leaving this
-            page; it cannot be shown again.
+            Copy the link before leaving this page; it cannot be shown again.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex min-w-0 flex-col gap-4">

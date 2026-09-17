@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { ProofCard, type ProofCardData } from "@/components/squad/proof-card";
 import {
   Empty,
-  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
@@ -34,10 +33,6 @@ export function VerdictList({
             <ClockAlert />
           </EmptyMedia>
           <EmptyTitle>Nothing to judge</EmptyTitle>
-          <EmptyDescription>
-            Either everyone is grinding or nobody posted shit. Very different
-            situations.
-          </EmptyDescription>
         </EmptyHeader>
       </Empty>
     );

@@ -27,7 +27,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
-  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
@@ -115,15 +114,13 @@ export function SocialComposer(props: ComposerProps) {
       >
         <SheetHeader>
           <SheetTitle>{heading}</SheetTitle>
-          <SheetDescription>
-            {mode === "choose"
-              ? "A little accountability goes a long way."
-              : mode === "task"
-                ? "Set a clear finish line. Each task is due 24 hours after creation. Reviews stay open."
-                : mode === "proof"
-                  ? (task?.title ?? "Pick the task you finished.")
-                  : "A quick update for your circle."}
-          </SheetDescription>
+          {(mode === "task" || mode === "proof") && (
+            <SheetDescription>
+              {mode === "task"
+                ? "Each task is due 24 hours after creation. Reviews stay open."
+                : (task?.title ?? "Pick the task you finished.")}
+            </SheetDescription>
+          )}
         </SheetHeader>
         {mode === "check-in" ? (
           <div className="min-h-0 overflow-y-auto px-5 pb-5">
@@ -425,9 +422,6 @@ function ComposerForm({
                     <ClipboardList />
                   </EmptyMedia>
                   <EmptyTitle>No tasks waiting for proof</EmptyTitle>
-                  <EmptyDescription>
-                    Create a task to give your work a finish line.
-                  </EmptyDescription>
                 </EmptyHeader>
                 <Button onClick={() => onRequestChange({ mode: "task" })}>
                   <Plus data-icon="inline-start" /> Add a task
@@ -491,8 +485,7 @@ function ComposerForm({
                 <span>{editTimes ? "Done" : "Edit"}</span>
               </Button>
               <FieldDescription>
-                Adjust these times to match when you worked. They appear on your
-                timeblock.
+                These times appear on your timeblock.
               </FieldDescription>
             </Field>
             {editTimes && (

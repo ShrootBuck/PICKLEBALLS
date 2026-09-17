@@ -256,10 +256,6 @@ export function ReviewProof({
               <Alert ref={feedbackRef}>
                 <MessageSquareWarning />
                 <AlertTitle>This sends it back to open. Sure?</AlertTitle>
-                <AlertDescription>
-                  Choose Confirm challenge to send the proof back. Switch to
-                  approve to back out.
-                </AlertDescription>
               </Alert>
             ) : null}
             {error && (

@@ -89,7 +89,7 @@ export default function ChangelogPage() {
 
   return (
     <>
-      <PageHeader title="Changelog" description="Every change, newest first." />
+      <PageHeader title="Changelog" />
       {groups.length === 0 ? (
         <Empty>
           <EmptyHeader>
@@ -97,9 +97,7 @@ export default function ChangelogPage() {
               <ScrollText />
             </EmptyMedia>
             <EmptyTitle>Nothing yet</EmptyTitle>
-            <EmptyDescription>
-              No changes logged. Enjoy the calm before the commits.
-            </EmptyDescription>
+            <EmptyDescription>No updates yet.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (

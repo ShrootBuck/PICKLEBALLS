@@ -184,8 +184,8 @@ export default async function HistoryPage({
         title="History"
         description={
           tasks.length === 0
-            ? "Nothing locked in that day."
-            : `${verified}/${tasks.length} verified across the squad. Receipts below.`
+            ? undefined
+            : `${verified}/${tasks.length} verified across the squad.`
         }
         actions={<HistoryNav day={dayKey} today={todayKey} />}
       >
@@ -200,8 +200,7 @@ export default async function HistoryPage({
             </EmptyMedia>
             <EmptyTitle>Quiet day</EmptyTitle>
             <EmptyDescription>
-              Nobody locked anything in. Either rest day or collective bullshit.
-              You decide which story to tell.
+              No tasks for this day. Choose another date.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

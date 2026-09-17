@@ -1,12 +1,6 @@
 import { Camera, Gavel, Lock } from "lucide-react";
 import type { ReactNode } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const steps = [
   {
@@ -31,9 +25,6 @@ export function OnboardingCard({ action }: { action: ReactNode }) {
     <Card size="sm">
       <CardHeader>
         <CardTitle className="text-lg tracking-tight">How this works</CardTitle>
-        <CardDescription>
-          A blank board is just procrastination with extra steps.
-        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <ol className="flex flex-col gap-2.5">

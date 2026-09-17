@@ -67,7 +67,7 @@ export default async function SquadPage({
     <>
       <PageHeader
         title="Show up for each other."
-        description={`${memberCount} people. A little shared accountability.`}
+        description={`${memberCount} members`}
         actions={
           <Button
             nativeButton={false}

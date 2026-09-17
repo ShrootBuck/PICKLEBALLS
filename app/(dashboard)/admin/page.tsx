@@ -30,10 +30,7 @@ export default async function AdminPage() {
   });
   return (
     <>
-      <PageHeader
-        title="Owner tools"
-        description="Invite friends and manage your circle."
-      >
+      <PageHeader title="Owner tools">
         <Badge variant="secondary" className="w-fit">
           Owner only
         </Badge>

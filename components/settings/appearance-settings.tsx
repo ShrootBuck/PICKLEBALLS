@@ -5,7 +5,6 @@ import { useAppearance } from "@/components/settings/appearance-provider";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -21,7 +20,6 @@ export function AppearanceSettings() {
     <Card className="max-w-2xl">
       <CardHeader>
         <CardTitle>Appearance</CardTitle>
-        <CardDescription>A little more you. Same Pickle Balls.</CardDescription>
       </CardHeader>
       <CardContent>
         <FieldSet disabled={saving}>

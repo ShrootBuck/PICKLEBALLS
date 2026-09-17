@@ -247,13 +247,6 @@ export function SocialShell({
           <Plus data-icon="inline-start" /> Create
         </Button>
         <div className="mt-auto flex flex-col gap-4 pt-8">
-          <p className="px-3 text-xs leading-relaxed text-muted-foreground">
-            Make a promise.
-            <br />
-            Show the work.
-            <br />
-            Back your friends.
-          </p>
           <Link
             href="/settings"
             className={cn(

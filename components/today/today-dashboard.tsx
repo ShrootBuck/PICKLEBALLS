@@ -287,8 +287,7 @@ function TaskDialog({
               {task ? "Renegotiate before the deadline" : "Make a real promise"}
             </DialogTitle>
             <DialogDescription className="text-sm leading-relaxed">
-              Specific enough that the squad can verify it from one photo. No
-              vague bullshit.
+              Describe a result your squad can verify from a photo.
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="min-h-0 flex-1">
@@ -335,16 +334,15 @@ function TaskDialog({
                       error ? `task-error-${task?.id ?? "new"}` : undefined
                     }
                   />
-                  <FieldDescription>
-                    “Study math” proves nothing. Name the finish line.
-                  </FieldDescription>
                 </Field>
                 <Alert>
                   <CalendarClock />
                   <AlertTitle>Due 24 hours after creation</AlertTitle>
-                  <AlertDescription>
-                    Editing a task does not extend its deadline.
-                  </AlertDescription>
+                  {task && (
+                    <AlertDescription>
+                      Editing a task does not extend its deadline.
+                    </AlertDescription>
+                  )}
                 </Alert>
               </FieldGroup>
               {error && (
@@ -589,8 +587,7 @@ function ProofDialog({
                   </Field>
                 </div>
                 <FieldDescription>
-                  Prefilled as the last 30 minutes. Fix it now so Monday&apos;s
-                  timeblock writes itself.
+                  These times appear on your timeblock.
                 </FieldDescription>
                 <Field>
                   <FieldLabel htmlFor={`proof-note-${task.id}`}>
@@ -754,9 +751,6 @@ function CheckInCard({
         <CardTitle className="text-lg tracking-tight">
           How is today really going?
         </CardTitle>
-        <CardDescription>
-          Post it. Old posts stay below. No rewriting history.
-        </CardDescription>
         {initial ? (
           <CardAction>
             <Badge variant="outline">Posted</Badge>
@@ -1007,7 +1001,6 @@ export function TodayDashboard({
     <>
       <PageHeader
         title="Today"
-        description="Make a promise, show the work, and get a friend’s verdict."
         actions={<TaskDialog onSaved={handleTaskSaved} />}
       >
         <div className="flex flex-wrap items-center gap-2">

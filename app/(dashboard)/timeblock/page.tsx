@@ -74,7 +74,7 @@ export default async function TimeblockPage({
     <>
       <PageHeader
         title="Timeblock"
-        description={`Your printable report for Ms. Merrill, ${formatDayShort(week.startKey)} through ${formatDayShort(week.endKey)}. School, sleep, and work in one schedule.`}
+        description={`Report for Ms. Merrill, ${formatDayShort(week.startKey)} through ${formatDayShort(week.endKey)}.`}
         actions={
           <TimeblockNav
             dueMonday={dueMonday}
