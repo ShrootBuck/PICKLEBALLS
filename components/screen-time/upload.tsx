@@ -46,6 +46,8 @@ export function ScreenTimeUpload({
   const [file, setFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadedId = useRef<string | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [statusCheck, setStatusCheck] = useState(0);
   const [runId, setRunId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [status, setStatus, uploadPercent] = useUploadStatus();
@@ -60,16 +62,18 @@ export function ScreenTimeUpload({
     } catch {}
   }, [storageKey]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: The explicit Check status action starts one new request.
   useEffect(() => {
     if (!runId) return;
     const activeRunId = runId;
     let disposed = false;
-    let timer: ReturnType<typeof setTimeout>;
-    async function poll() {
+    const controller = new AbortController();
+    setCheckingStatus(true);
+    async function checkStatus() {
       try {
         const response = await fetch(
           `/api/screen-time/read?runId=${encodeURIComponent(activeRunId)}`,
-          { cache: "no-store" },
+          { cache: "no-store", signal: controller.signal },
         );
         const result = await response.json();
         if (disposed) return;
@@ -78,7 +82,6 @@ export function ScreenTimeUpload({
           response.status >= 500 ||
           response.status === 429
         ) {
-          timer = setTimeout(poll, 2000);
           return;
         }
         if (response.ok && result.reading) {
@@ -97,15 +100,17 @@ export function ScreenTimeUpload({
         } catch {}
         setRunId(null);
       } catch {
-        if (!disposed) timer = setTimeout(poll, 5000);
+        // Preserve the run so returning or checking manually can retry.
+      } finally {
+        if (!disposed) setCheckingStatus(false);
       }
     }
-    void poll();
+    void checkStatus();
     return () => {
       disposed = true;
-      clearTimeout(timer);
+      controller.abort();
     };
-  }, [runId, storageKey]);
+  }, [runId, storageKey, statusCheck]);
 
   const busy = pending || runId !== null;
 
@@ -264,7 +269,16 @@ export function ScreenTimeUpload({
             <AlertTitle>Reading in the background</AlertTitle>
             <AlertDescription>
               You can leave this page. Valid screenshots post automatically.
-              Return here to see the result or any problem with your screenshot.
+              Return here or check the status to see the result.
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={checkingStatus}
+                onClick={() => setStatusCheck((value) => value + 1)}
+              >
+                {checkingStatus ? "Checking…" : "Check status"}
+              </Button>
             </AlertDescription>
           </Alert>
         )}

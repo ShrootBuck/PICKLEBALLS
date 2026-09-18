@@ -94,24 +94,20 @@ function isFatalUploadError(error: unknown) {
     message,
   );
 }
-async function waitForMedia(
-  id: string,
-  status?: (message: string, percent?: number) => void,
-) {
-  for (;;) {
-    const response = await fetch(
-      `/api/media/status?id=${encodeURIComponent(id)}`,
-      { cache: "no-store" },
+async function checkMediaReady(id: string) {
+  const response = await fetch(
+    `/api/media/status?id=${encodeURIComponent(id)}`,
+    { cache: "no-store" },
+  );
+  if (!response.ok)
+    throw new Error("Could not check video processing. Try again.");
+  const media = (await response.json()).media?.[0];
+  if (!media) throw new Error("Upload no longer available.");
+  if (media.processingError) throw new Error(media.processingError);
+  if (!media.ready)
+    throw new Error(
+      "Your video is still processing. Try posting again shortly. Your upload is saved.",
     );
-    if (!response.ok)
-      throw new Error("Could not check video processing. Try again.");
-    const media = (await response.json()).media?.[0];
-    if (!media) throw new Error("Upload no longer available.");
-    if (media.ready) return;
-    if (media.processingError) throw new Error(media.processingError);
-    status?.("Processing video…", media.progress);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-  }
 }
 
 export async function uploadMedia(
@@ -253,7 +249,7 @@ export async function uploadMedia(
     window.removeEventListener("beforeunload", warn);
     if (!options?.deferProcessing)
       for (const id of ids.filter((id) => id.startsWith("v_")))
-        await waitForMedia(id, onProgress);
+        await checkMediaReady(id);
     onProgress?.("Posting…");
     return ids;
   } finally {

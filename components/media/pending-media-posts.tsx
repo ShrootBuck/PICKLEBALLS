@@ -2,6 +2,7 @@
 
 import { CircleCheckIcon, XIcon } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -22,53 +23,45 @@ type PendingPost = {
   progress: number;
 };
 export function PendingMediaPosts({ circleId }: { circleId: string }) {
+  const pathname = usePathname();
   const [posts, setPosts] = useState<PendingPost[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Recheck once on navigation because this shell persists across pages.
   useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-    let active = false;
+    const controller = new AbortController();
+    let requestVersion = 0;
     const completed = new Set<string>();
     async function refresh() {
+      const version = ++requestVersion;
       try {
         const response = await fetch("/api/media/pending", {
           cache: "no-store",
+          signal: controller.signal,
         });
         if (!response.ok) return;
         const { pending } = (await response.json()) as {
           pending: PendingPost[];
         };
-        if (cancelled) return;
+        if (controller.signal.aborted || version !== requestVersion) return;
         setPosts(pending);
-        active = pending.some((post) => !post.proofId && !post.error);
         for (const post of pending)
           if (post.proofId && !completed.has(post.id)) {
             completed.add(post.id);
             requestAppRefresh();
           }
       } catch {
-        /* Retry after temporary connection failures. */
-      } finally {
-        if (!cancelled)
-          timer = setTimeout(
-            refresh,
-            document.hidden ? 60_000 : active ? 5000 : 30_000,
-          );
+        // Try again on navigation or an explicit media action.
       }
     }
-    const wake = () => {
-      clearTimeout(timer);
-      void refresh();
-    };
+    const wake = () => void refresh();
     void refresh();
     window.addEventListener("pb:media-pending", wake);
     return () => {
-      cancelled = true;
-      clearTimeout(timer);
+      controller.abort();
       window.removeEventListener("pb:media-pending", wake);
     };
-  }, []);
+  }, [pathname]);
   async function act(id: string, action: "retry" | "dismiss") {
     setBusy(id);
     try {
@@ -125,7 +118,7 @@ export function PendingMediaPosts({ circleId }: { circleId: string }) {
               </Link>
             ) : (
               post.error ||
-              "You can keep browsing. Your proof will post automatically."
+              "Your proof will post automatically. Navigate to another page or refresh to check its status."
             )}
             {post.error && (
               <div className="flex flex-wrap gap-2 pt-2">

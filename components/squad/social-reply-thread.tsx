@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { useLivePoll } from "@/hooks/use-live-poll";
 import { appFetch } from "@/lib/app-refresh";
 import { uploadMedia } from "@/lib/media-upload";
 import { formatReplyTime } from "@/lib/time";
@@ -380,40 +379,6 @@ export function SocialReplyThread({
   useEffect(() => {
     if (expanded && composing) inputRef.current?.focus();
   }, [expanded, composing]);
-
-  useLivePoll(
-    async (signal) => {
-      const query = new URLSearchParams({ targetType, targetId });
-      const response = await fetch(`/api/replies?${query}`, {
-        signal,
-        cache: "no-store",
-      });
-      if (!response.ok) return;
-      const data: {
-        replies: SocialReply[];
-        hasMore: boolean;
-        verdicts?: SocialReply[];
-      } = await response.json();
-      if (signal.aborted) return;
-      if (data.verdicts) setVerdicts(data.verdicts);
-      const fresh = chronological(data.replies);
-      setReplies((current) => {
-        const oldest = fresh[0];
-        const older =
-          data.hasMore && oldest
-            ? current.filter(
-                (row) =>
-                  row.createdAt < oldest.createdAt ||
-                  (row.createdAt === oldest.createdAt && row.id < oldest.id),
-              )
-            : [];
-        return [...older, ...fresh];
-      });
-      setHasMore(data.hasMore);
-    },
-    5_000,
-    expanded && !pending && !loadingEarlier,
-  );
 
   function openComposer() {
     // Mount during the tap so mobile browsers can open the keyboard.

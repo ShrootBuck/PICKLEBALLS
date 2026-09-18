@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast";
-import { useLivePoll } from "@/hooks/use-live-poll";
 import { appFetch } from "@/lib/app-refresh";
 import { safeAppPath, squadHref } from "@/lib/navigation";
 import { formatReplyTime } from "@/lib/time";
@@ -93,27 +92,6 @@ export function NotificationBell({
       });
     return () => controller.abort();
   }, [open]);
-
-  useLivePoll(async (signal) => {
-    if (busy || markingAll || pendingReads.current.size) return;
-    const version = requestVersion.current;
-    const response = await fetch("/api/notifications", {
-      signal,
-      cache: "no-store",
-    });
-    if (!response.ok) return;
-    const data = await response.json();
-    if (signal.aborted || version !== requestVersion.current) return;
-    setUnread(data.unreadCount);
-    // Do not discard older pages while someone is reading the inbox.
-    setInbox((current) => {
-      const fresh = data.notifications as InboxNotification[];
-      if (!open) return fresh;
-      const ids = new Set(fresh.map((item) => item.id));
-      return [...fresh, ...current.filter((item) => !ids.has(item.id))];
-    });
-    if (!open) setNextCursor(data.nextCursor);
-  }, 15_000);
 
   async function markRead(id?: string) {
     if (markingAll || (id && pendingReads.current.has(id))) return;

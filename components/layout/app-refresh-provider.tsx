@@ -13,7 +13,6 @@ import {
   refreshBusyEvent,
   refreshEvent,
 } from "@/lib/app-refresh";
-import { startLivePoll } from "@/lib/live-poll";
 import { RefreshScheduler } from "@/lib/refresh-scheduler";
 
 const RefreshVersion = createContext("");
@@ -88,21 +87,6 @@ function RefreshDriver({
         // A closed or unavailable channel must never break a saved action.
       }
     };
-    const stopLive = userId
-      ? startLivePoll(async () => {
-          // Leave an active composer and its keyboard undisturbed.
-          if (
-            document.activeElement?.matches(
-              "textarea, input, [contenteditable=true]",
-            ) ||
-            document.querySelector(
-              '[data-slot="dialog-content"], [data-slot="popover-content"]',
-            )
-          )
-            return;
-          queue.request();
-        }, 30_000)
-      : undefined;
     updateBlocked();
     window.addEventListener(refreshEvent, changed);
     window.addEventListener(refreshBusyEvent, updateBlocked);
@@ -111,7 +95,6 @@ function RefreshDriver({
     window.addEventListener("pageshow", updateBlocked);
     document.addEventListener("visibilitychange", updateBlocked);
     return () => {
-      stopLive?.();
       queue.dispose();
       channel?.close();
       window.removeEventListener(refreshEvent, changed);

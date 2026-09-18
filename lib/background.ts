@@ -27,7 +27,12 @@ export async function assessProofInBackground(
     },
   );
   // The response observes completion; the worker continues if the client disconnects.
-  await runs.poll(handle.id, { pollIntervalMs: 1500 });
+  for await (const run of runs.subscribeToRun(handle.id, {
+    skipColumns: ["payload", "output"],
+    signal: AbortSignal.timeout(110_000),
+  })) {
+    if (run.isCompleted) break;
+  }
 }
 
 export async function notifyProofSubmitted(
