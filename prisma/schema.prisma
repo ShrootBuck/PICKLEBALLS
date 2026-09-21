@@ -313,6 +313,7 @@ model TaskProofReview {
   reviewer User      @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
   circle   Circle    @relation(fields: [circleId], references: [id], onDelete: Cascade)
   replies  SocialReply[]
+  likes    PostLike[]
 
   @@unique([proofId, reviewerId])
   @@index([proofId])
@@ -387,6 +388,7 @@ model SocialReply {
   checkInUpdate CheckInUpdate? @relation(fields: [checkInUpdateId], references: [id], onDelete: Cascade)
   proof      TaskProof?       @relation(fields: [proofId], references: [id], onDelete: Cascade)
   review     TaskProofReview? @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  likes      PostLike[]
 
   @@index([commitmentId, createdAt])
   @@index([checkInId, createdAt])
@@ -403,18 +405,26 @@ model PostLike {
   circleId        String
   proofId         String?
   checkInUpdateId String?
+  replyId         String?
+  reviewId        String?
   createdAt       DateTime @default(now())
 
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  circle        Circle         @relation(fields: [circleId], references: [id], onDelete: Cascade)
-  proof         TaskProof?     @relation(fields: [proofId], references: [id], onDelete: Cascade)
-  checkInUpdate CheckInUpdate? @relation(fields: [checkInUpdateId], references: [id], onDelete: Cascade)
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle        Circle           @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  proof         TaskProof?       @relation(fields: [proofId], references: [id], onDelete: Cascade)
+  checkInUpdate CheckInUpdate?   @relation(fields: [checkInUpdateId], references: [id], onDelete: Cascade)
+  reply         SocialReply?     @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  review        TaskProofReview? @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
   @@unique([userId, proofId])
   @@unique([userId, checkInUpdateId])
+  @@unique([userId, replyId])
+  @@unique([userId, reviewId])
   @@index([circleId])
   @@index([proofId])
   @@index([checkInUpdateId])
+  @@index([replyId])
+  @@index([reviewId])
 }
 
 model ActivityEvent {

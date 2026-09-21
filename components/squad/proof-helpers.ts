@@ -1,7 +1,8 @@
 import type { ProofCardData } from "@/components/squad/proof-card";
 import type { ThreadReply } from "@/components/squad/social-reply-thread";
+import { type LikeRow, likeSummary } from "@/lib/like-summary";
 
-export type ReplyRow = {
+export type ReplyRow = LikeRow & {
   mediaIds?: string[];
   id: string;
   body: string;
@@ -17,6 +18,7 @@ export type ReplyRow = {
 
 export function toThreadReply(reply: ReplyRow): ThreadReply {
   return {
+    ...likeSummary(reply),
     id: reply.id,
     mediaIds: reply.mediaIds,
     body: reply.body,

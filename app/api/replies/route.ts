@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { jsonError, readJson } from "@/lib/api";
 import { notifyReplyReceived } from "@/lib/background";
+import { likeInclude, likeSummary } from "@/lib/like-summary";
 import { getPrisma } from "@/lib/prisma";
 import { getProofDiscussion } from "@/lib/proof-discussion";
 import { limitAction } from "@/lib/rate-limit";
@@ -71,7 +72,12 @@ export async function GET(request: Request) {
     const { targetType, targetId, before } = query.data;
     if (targetType === "PROOF") {
       return NextResponse.json(
-        await getProofDiscussion(auth.membership.circleId, targetId, before),
+        await getProofDiscussion(
+          auth.membership.circleId,
+          targetId,
+          before,
+          auth.session.user.id,
+        ),
       );
     }
     const field = {
@@ -105,13 +111,16 @@ export async function GET(request: Request) {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 51,
       include: {
+        ...likeInclude(auth.session.user.id),
         author: {
           select: { id: true, name: true, image: true, initials: true },
         },
       },
     });
     return NextResponse.json({
-      replies: rows.slice(0, 50),
+      replies: rows
+        .slice(0, 50)
+        .map((row) => ({ ...row, ...likeSummary(row) })),
       hasMore: rows.length > 50,
     });
   } catch (error) {

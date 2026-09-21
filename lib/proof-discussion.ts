@@ -1,5 +1,6 @@
 import "server-only";
 import { DomainError } from "@/lib/errors";
+import { likeInclude, likeSummary } from "@/lib/like-summary";
 import { getPrisma } from "@/lib/prisma";
 import { socialAuthorSelect } from "@/lib/social-data";
 
@@ -8,6 +9,7 @@ export async function getProofDiscussion(
   circleId: string,
   proofId: string,
   before?: string,
+  viewerId = "",
 ) {
   const prisma = getPrisma();
   const where = { circleId, OR: [{ proofId }, { review: { proofId } }] };
@@ -38,6 +40,7 @@ export async function getProofDiscussion(
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 51,
       include: {
+        ...likeInclude(viewerId),
         author: { select: socialAuthorSelect },
         review: { select: { reviewer: { select: { name: true } } } },
       },
@@ -45,12 +48,16 @@ export async function getProofDiscussion(
     prisma.taskProofReview.findMany({
       where: { circleId, proofId },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-      include: { reviewer: { select: socialAuthorSelect } },
+      include: {
+        ...likeInclude(viewerId),
+        reviewer: { select: socialAuthorSelect },
+      },
     }),
   ]);
   return {
     replies: rows.slice(0, 50).map(({ review, ...reply }) => ({
       ...reply,
+      ...likeSummary(reply),
       createdAt: reply.createdAt.toISOString(),
       updatedAt: reply.updatedAt.toISOString(),
       replyContext: review
@@ -59,6 +66,7 @@ export async function getProofDiscussion(
     })),
     hasMore: rows.length > 50,
     verdicts: reviews.map((review) => ({
+      ...likeSummary(review),
       id: review.id,
       body: review.note ?? "",
       createdAt: review.createdAt.toISOString(),

@@ -25,6 +25,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { likeInclude } from "@/lib/like-summary";
 import { moodLabel } from "@/lib/mood";
 import { postHref, squadHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
@@ -78,6 +79,7 @@ export default async function HistoryPage({
               orderBy: [{ createdAt: "desc" }, { id: "desc" }],
               take: 50,
               include: {
+                ...likeInclude(session.user.id),
                 author: {
                   select: { id: true, name: true, image: true, initials: true },
                 },
@@ -91,6 +93,7 @@ export default async function HistoryPage({
                   orderBy: [{ createdAt: "desc" }, { id: "desc" }],
                   take: 50,
                   include: {
+                    ...likeInclude(session.user.id),
                     author: {
                       select: {
                         id: true,

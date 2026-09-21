@@ -105,9 +105,46 @@ await prisma.socialReply.createMany({
     createdAt: equal,
   })),
 });
+const commentLike = {
+  targetType: "REPLY",
+  targetId: "http-reply-60",
+  liked: true,
+};
+assert.equal((await put(commentLike, "")).status, 401);
+assert.equal(
+  (await put(commentLike, mine, "https://untrusted.example")).status,
+  403,
+);
+assert.equal((await put(commentLike, outside)).status, 404);
+assert.deepEqual(await (await put(commentLike)).json(), {
+  likeCount: 1,
+  likedByMe: true,
+});
+assert.deepEqual(await (await put(commentLike)).json(), {
+  likeCount: 1,
+  likedByMe: true,
+});
 const query = `/api/replies?targetType=CHECK_IN_UPDATE&targetId=${checkIn.id}`;
 const first = await (await get(query)).json();
 assert.equal(first.replies.length, 50);
+assert.equal(
+  first.replies.find(
+    (reply: { id: string; likedByMe: boolean; likeCount: number }) =>
+      reply.id === "http-reply-60",
+  ).likedByMe,
+  true,
+);
+assert.equal(
+  first.replies.find(
+    (reply: { id: string; likedByMe: boolean; likeCount: number }) =>
+      reply.id === "http-reply-60",
+  ).likeCount,
+  1,
+);
+assert.deepEqual(await (await put({ ...commentLike, liked: false })).json(), {
+  likeCount: 0,
+  likedByMe: false,
+});
 assert(first.hasMore);
 const second = await (
   await get(`${query}&before=${first.replies.at(-1).id}`)

@@ -275,6 +275,94 @@ test("likes are idempotent, unique per target, isolated, and do not notify", asy
   ).rejects.toThrow();
 });
 
+test("comment and verdict likes persist, isolate circles, and cascade on deletion", async () => {
+  const { getProofDiscussion } = await import("@/lib/proof-discussion");
+  const posted = await proof();
+  const reply = await createSocialReply(ids.owner, ids.circle, {
+    targetType: "PROOF",
+    targetId: posted.id,
+    body: "A comment worth liking",
+  });
+  const review = await reviewProof(
+    posted.id,
+    ids.peer,
+    ids.circle,
+    { decision: "APPROVED", note: "Looks good" },
+    now,
+  );
+  for (const [targetType, targetId] of [
+    ["REPLY", reply.id],
+    ["REVIEW", review.id],
+  ] as const) {
+    const input = { targetType, targetId, liked: true };
+    expect(
+      await Promise.all([
+        setPostLike(ids.peer, ids.circle, input),
+        setPostLike(ids.peer, ids.circle, input),
+      ]),
+    ).toEqual([
+      { likeCount: 1, likedByMe: true },
+      { likeCount: 1, likedByMe: true },
+    ]);
+    expect(await setPostLike(ids.owner, ids.circle, input)).toEqual({
+      likeCount: 2,
+      likedByMe: true,
+    });
+    await expect(setPostLike(ids.outsider, ids.circle, input)).rejects.toThrow(
+      "Member not found",
+    );
+    await expect(setPostLike(ids.outsider, ids.other, input)).rejects.toThrow(
+      "Post not found",
+    );
+    await setPostLike(ids.owner, ids.circle, { ...input, liked: false });
+    expect(
+      await setPostLike(ids.owner, ids.circle, { ...input, liked: false }),
+    ).toEqual({ likeCount: 1, likedByMe: false });
+  }
+  const peer = await getProofDiscussion(
+    ids.circle,
+    posted.id,
+    undefined,
+    ids.peer,
+  );
+  const owner = await getProofDiscussion(
+    ids.circle,
+    posted.id,
+    undefined,
+    ids.owner,
+  );
+  for (const rows of [peer.replies, peer.verdicts])
+    expect(rows[0]).toMatchObject({ likeCount: 1, likedByMe: true });
+  for (const rows of [owner.replies, owner.verdicts])
+    expect(rows[0]).toMatchObject({ likeCount: 1, likedByMe: false });
+  await expect(
+    Promise.resolve(
+      prisma.postLike.create({
+        data: {
+          userId: ids.owner,
+          circleId: ids.circle,
+          proofId: posted.id,
+          replyId: reply.id,
+        },
+      }),
+    ),
+  ).rejects.toThrow();
+  await prisma.socialReply.delete({ where: { id: reply.id } });
+  await prisma.taskProofReview.delete({ where: { id: review.id } });
+  expect(
+    await prisma.postLike.count({
+      where: { OR: [{ replyId: reply.id }, { reviewId: review.id }] },
+    }),
+  ).toBe(0);
+  await expect(
+    setPostLike(ids.peer, ids.circle, {
+      targetType: "REPLY",
+      targetId: reply.id,
+      liked: true,
+    }),
+  ).rejects.toThrow("Post not found");
+});
+
 test("each check-in has independent comments and likes, while day comments stay intact", async () => {
   const first = await setCheckIn(
     ids.owner,

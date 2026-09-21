@@ -11,6 +11,7 @@ import { SocialReplyThread } from "@/components/squad/social-reply-thread";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import type { Prisma } from "@/generated/prisma/client";
+import { likeInclude } from "@/lib/like-summary";
 import { postHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
 import { getProofDiscussion } from "@/lib/proof-discussion";
@@ -18,11 +19,6 @@ import { requirePageMembership } from "@/lib/request";
 import { getFeedPage, socialAuthorSelect } from "@/lib/social-data";
 
 export const metadata: Metadata = { title: "Post" };
-const replyInclude = {
-  orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-  take: 50,
-  include: { author: { select: socialAuthorSelect } },
-} satisfies Prisma.SocialReplyFindManyArgs;
 
 export default async function PostPage({
   params,
@@ -36,6 +32,14 @@ export default async function PostPage({
   }>;
 }) {
   const { session, membership } = await requirePageMembership();
+  const replyInclude = {
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: 50,
+    include: {
+      ...likeInclude(session.user.id),
+      author: { select: socialAuthorSelect },
+    },
+  } satisfies Prisma.SocialReplyFindManyArgs;
   const { kind, id } = await params;
   const query = await searchParams;
   if ((kind !== "proof" && kind !== "check-in") || id.length > 100) notFound();
@@ -129,7 +133,12 @@ export default async function PostPage({
     },
   });
   if (!proof) notFound();
-  const discussion = await getProofDiscussion(circleId, id);
+  const discussion = await getProofDiscussion(
+    circleId,
+    id,
+    undefined,
+    session.user.id,
+  );
   const stalled =
     proof.aiStatus === "PENDING" &&
     Date.now() - proof.submittedAt.getTime() > 120_000;

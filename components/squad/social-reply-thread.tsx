@@ -2,6 +2,7 @@
 
 import {
   ChevronDown,
+  Heart,
   MessageCircle,
   Paperclip,
   Pencil,
@@ -33,6 +34,8 @@ import { uploadMedia } from "@/lib/media-upload";
 import { formatReplyTime } from "@/lib/time";
 
 export type ThreadReply = {
+  likeCount?: number;
+  likedByMe?: boolean;
   verdict?: "APPROVED" | "CHALLENGED";
   replyContext?: string;
   mediaIds?: string[];
@@ -76,11 +79,13 @@ function ReplyItem({
   mine,
   onEdited,
   onDeleted,
+  onLiked,
 }: {
   reply: SocialReply;
   mine: boolean;
   onEdited: (reply: SocialReply) => void;
   onDeleted: (id: string) => void;
+  onLiked: (state: { likeCount: number; likedByMe: boolean }) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(reply.body);
@@ -89,6 +94,52 @@ function ReplyItem({
   const [error, setError] = useState<string | null>(null);
   const editable = !reply.verdict && mine && withinEditWindow(reply.createdAt);
   const edited = reply.updatedAt != null && reply.updatedAt !== reply.createdAt;
+
+  const [likePending, setLikePending] = useState(false);
+  const likeLock = useRef(false);
+  const [optimisticLike, setOptimisticLike] = useState<{
+    likeCount: number;
+    likedByMe: boolean;
+  } | null>(null);
+  const liked = optimisticLike?.likedByMe ?? reply.likedByMe ?? false;
+  const likeCount = optimisticLike?.likeCount ?? reply.likeCount ?? 0;
+
+  async function toggleLike() {
+    if (likeLock.current) return;
+    likeLock.current = true;
+    setLikePending(true);
+    setError(null);
+    const next = !liked;
+    setOptimisticLike({
+      likedByMe: next,
+      likeCount: Math.max(0, likeCount + (next ? 1 : -1)),
+    });
+    try {
+      const response = await appFetch("/api/likes", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          targetType: reply.verdict ? "REVIEW" : "REPLY",
+          targetId: reply.id,
+          liked: next,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error ?? "Could not save your like. Try again.");
+      onLiked(result);
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Could not save your like. Try again.",
+      );
+    } finally {
+      setOptimisticLike(null);
+      setLikePending(false);
+      likeLock.current = false;
+    }
+  }
 
   async function saveEdit() {
     const trimmed = draft.trim();
@@ -267,6 +318,25 @@ function ReplyItem({
           </p>
         )}
         {reply.mediaIds?.length ? <MediaGallery ids={reply.mediaIds} /> : null}
+        {!editing && (
+          <Button
+            type="button"
+            variant={liked ? "secondary" : "ghost"}
+            size="sm"
+            className="mt-1"
+            aria-label={`${liked ? "Unlike" : "Like"} comment by ${reply.author.name}`}
+            aria-pressed={liked}
+            disabled={likePending}
+            onClick={toggleLike}
+          >
+            <Heart
+              data-icon="inline-start"
+              fill={liked ? "currentColor" : "none"}
+            />
+            {liked ? "Liked" : "Like"}
+            {likeCount > 0 && <span className="tabular-nums">{likeCount}</span>}
+          </Button>
+        )}
         {error && !editing ? (
           <p className="mt-1 text-xs text-destructive">{error}</p>
         ) : null}
@@ -579,6 +649,14 @@ export function SocialReplyThread({
                     mine={
                       currentUserId != null && reply.author.id === currentUserId
                     }
+                    onLiked={(state) => {
+                      const update = (current: SocialReply[]) =>
+                        current.map((item) =>
+                          item.id === reply.id ? { ...item, ...state } : item,
+                        );
+                      if (reply.verdict) setVerdicts(update);
+                      else setReplies(update);
+                    }}
                     onEdited={(updated) =>
                       setReplies((current) =>
                         current.map((item) =>

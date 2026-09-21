@@ -5,7 +5,7 @@ import { serializable } from "@/lib/transaction";
 
 export const postLikeSchema = z
   .object({
-    targetType: z.enum(["PROOF", "CHECK_IN_UPDATE"]),
+    targetType: z.enum(["PROOF", "CHECK_IN_UPDATE", "REPLY", "REVIEW"]),
     targetId: z.string().min(1).max(100),
     liked: z.boolean(),
   })
@@ -21,20 +21,26 @@ export async function setPostLike(
       where: { userId_circleId: { userId, circleId } },
     });
     if (!membership) throw new DomainError("Member not found.", 404);
-    const isProof = input.targetType === "PROOF";
-    const target = isProof
-      ? await tx.taskProof.findFirst({
-          where: { id: input.targetId, circleId },
-          select: { id: true },
-        })
-      : await tx.checkInUpdate.findFirst({
-          where: { id: input.targetId, circleId },
-          select: { id: true },
-        });
+    const where = {
+      [{
+        PROOF: "proofId",
+        CHECK_IN_UPDATE: "checkInUpdateId",
+        REPLY: "replyId",
+        REVIEW: "reviewId",
+      }[input.targetType]]: input.targetId,
+    };
+    const query = {
+      where: { id: input.targetId, circleId },
+      select: { id: true },
+    } as const;
+    const target = await (input.targetType === "PROOF"
+      ? tx.taskProof.findFirst(query)
+      : input.targetType === "CHECK_IN_UPDATE"
+        ? tx.checkInUpdate.findFirst(query)
+        : input.targetType === "REPLY"
+          ? tx.socialReply.findFirst(query)
+          : tx.taskProofReview.findFirst(query));
     if (!target) throw new DomainError("Post not found.", 404);
-    const where = isProof
-      ? { proofId: target.id }
-      : { checkInUpdateId: target.id };
     if (input.liked) {
       await tx.postLike.createMany({
         data: [{ userId, circleId, ...where }],
