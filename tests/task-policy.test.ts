@@ -8,9 +8,9 @@ import {
   taskDeadline,
 } from "@/lib/task-policy";
 
-test("solo, pair, and larger groups require every peer", () => {
-  expect([0, 1, 2, 4, 12].map(requiredApprovalsForCircle)).toEqual([
-    0, 0, 1, 3, 11,
+test("circles require half their members rounded down", () => {
+  expect([0, 1, 2, 3, 4, 5, 6, 7, 12].map(requiredApprovalsForCircle)).toEqual([
+    0, 0, 1, 1, 2, 2, 3, 3, 6,
   ]);
 });
 
@@ -27,7 +27,7 @@ test("only distinct approvals from current peers count", () => {
         { reviewerId: "b", decision: "CHALLENGED" },
       ],
     ),
-  ).toEqual({ approvalCount: 1, requiredApprovals: 3 });
+  ).toEqual({ approvalCount: 1, requiredApprovals: 2 });
 });
 
 test("late-night tasks keep their full 24 hours across midnight", () => {

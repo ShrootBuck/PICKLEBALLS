@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1790042138979,
+    title: "Half the circle can verify",
+    description:
+      "Proof now needs approvals from half your circle, rounded down: 4 or 5 members need 2 approvals, and 6 or 7 need 3. You still cannot approve your own proof.",
+  },
+  {
     timestamp: 1790041565502,
     title: "One-sheet weekly timeblocks",
     description:

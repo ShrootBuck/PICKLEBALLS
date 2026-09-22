@@ -184,7 +184,7 @@ export async function createTimeblockPdf(input: {
   // the full name in PDF metadata. Full task titles appear on the front.
   const headerName = nameLines[0] + (nameLines.length > 1 ? "..." : "");
 
-  const header = (title: string, subtitle: string, landscape = false) => {
+  const header = (title: string, landscape = false) => {
     const height = landscape ? PAGE_WIDTH : PAGE_HEIGHT;
     const page = document.addPage(
       landscape ? [PAGE_HEIGHT, PAGE_WIDTH] : [PAGE_WIDTH, PAGE_HEIGHT],
@@ -210,22 +210,12 @@ export async function createTimeblockPdf(input: {
       font: regular,
       color: MUTED,
     });
-    page.drawText(subtitle, {
-      x: MARGIN,
-      y: height - 96,
-      size: 8,
-      font: regular,
-      color: MUTED,
-    });
     return page;
   };
   const tasks = orderedPrintTasks(input.tasks);
-  const front = header(
-    "WEEKLY TASKS",
-    `Due ${dateFormatter.format(week.endAtExclusive)} | For Ms. Merrill`,
-  );
-  const listTop = 672;
-  const listBottom = 48;
+  const front = header("WEEKLY TASKS");
+  const listTop = 688;
+  const listBottom = 32;
   const gap = 16;
   const taskDay = new Intl.DateTimeFormat("en-US", {
     timeZone: appTimeZone,
@@ -251,30 +241,31 @@ export async function createTimeblockPdf(input: {
       }
     | undefined;
   for (const size of [10, 9, 8]) {
-    for (const columns of [1, 2, 3]) {
-      const width = (PAGE_WIDTH - MARGIN * 2 - gap * (columns - 1)) / columns;
-      let column = 0;
-      let available = listTop - listBottom;
-      const rows = entries.map((entry) => {
-        const title = wrapPdfText(entry.title, width - 8, bold, size);
-        const time = wrapPdfText(entry.time, width - 8, regular, size - 1);
-        const height = title.length * (size + 2) + time.length * (size + 1) + 3;
-        if (height > available) {
-          column++;
-          available = listTop - listBottom;
-        }
-        available -= height;
-        return { title, time, height, column };
-      });
-      if (
-        column < columns &&
-        rows.every((row) => row.height <= listTop - listBottom)
-      ) {
-        layout = { columns, size, width, rows };
-        break;
+    const columns = 2;
+    const width = (PAGE_WIDTH - MARGIN * 2 - gap) / columns;
+    const rows = entries.map((entry) => {
+      const title = wrapPdfText(entry.title, width - 8, bold, size);
+      const time = wrapPdfText(entry.time, width - 8, regular, size - 1);
+      const height = title.length * (size + 2) + time.length * (size + 1) + 3;
+      return { title, time, height, column: 0 };
+    });
+    // Fill the left column before flowing into the right. Keep each task
+    // together, moving it only when its full row cannot fit below the last.
+    const capacity = listTop - listBottom;
+    let column = 0;
+    let remaining = capacity;
+    for (const row of rows) {
+      if (row.height > remaining) {
+        column++;
+        remaining = capacity;
       }
+      row.column = column;
+      remaining -= row.height;
     }
-    if (layout) break;
+    if (column < columns && rows.every((row) => row.height <= capacity)) {
+      layout = { columns, size, width, rows };
+      break;
+    }
   }
   if (!layout)
     throw new DomainError(
@@ -315,15 +306,11 @@ export async function createTimeblockPdf(input: {
     });
   }
 
-  const back = header(
-    "WEEKLY CALENDAR",
-    "Phoenix time | Task numbers match the front. Shaded blocks: school and sleep.",
-    true,
-  );
+  const back = header("WEEKLY CALENDAR", true);
   const gridLeft = MARGIN + 38;
   const gridRight = PAGE_HEIGHT - MARGIN;
-  const gridTop = 482;
-  const gridBottom = 46;
+  const gridTop = 498;
+  const gridBottom = 32;
   const gridHeight = gridTop - gridBottom;
   const dayWidth = (gridRight - gridLeft) / 7;
   const minuteY = (minute: number) => gridTop - (minute / 1440) * gridHeight;
@@ -345,7 +332,7 @@ export async function createTimeblockPdf(input: {
     ][index];
     back.drawText(label, {
       x: x + (dayWidth - bold.widthOfTextAtSize(label, 8)) / 2,
-      y: 502,
+      y: 518,
       size: 8,
       font: bold,
       color: INK,
@@ -353,7 +340,7 @@ export async function createTimeblockPdf(input: {
     const date = shortDate.format(day.date);
     back.drawText(date, {
       x: x + (dayWidth - regular.widthOfTextAtSize(date, 7)) / 2,
-      y: 491,
+      y: 507,
       size: 7,
       font: regular,
       color: MUTED,
@@ -513,20 +500,5 @@ export async function createTimeblockPdf(input: {
       back.drawText(label, { x, y, size: 6, font: bold, color: INK });
     }
   }
-  document.getPages().forEach((page, index) => {
-    page.drawText(
-      index === 0
-        ? "Read columns top to bottom. Print double-sided, flip on the long edge."
-        : "Half-hour grid. Short blocks use leader lines. Full task titles and times are on the front.",
-      { x: MARGIN, y: 24, size: 7, font: regular, color: MUTED },
-    );
-    page.drawText(`${index + 1} / 2`, {
-      x: page.getWidth() - MARGIN - 20,
-      y: 24,
-      size: 7,
-      font: regular,
-      color: MUTED,
-    });
-  });
   return document.save();
 }

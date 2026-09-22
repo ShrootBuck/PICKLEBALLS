@@ -926,14 +926,14 @@ test("mood posts preserve full journals and feelings in circle timelines without
   ).rejects.toThrow("Member not found");
 });
 
-test("everyone must approve; partial approvals stay in the group queue and concurrent final votes verify once", async () => {
-  const circleId = `unanimous-${randomUUID()}`;
+test("half the circle must approve; partial approvals stay queued and concurrent final votes verify once", async () => {
+  const circleId = `half-circle-${randomUUID()}`;
   const fourth = `fourth-${randomUUID()}`;
   await prisma.user.create({
     data: { id: fourth, email: `${fourth}@example.invalid`, name: "Fourth" },
   });
   await prisma.circle.create({
-    data: { id: circleId, slug: circleId, name: "Everyone" },
+    data: { id: circleId, slug: circleId, name: "Half the circle" },
   });
   await prisma.membership.createMany({
     data: [ids.owner, ids.peer, ids.outsider, fourth].map((userId) => ({
@@ -963,7 +963,7 @@ test("everyone must approve; partial approvals stay in the group queue and concu
   expect(first).toMatchObject({
     proofStatus: "PENDING",
     approvalCount: 1,
-    requiredApprovals: 3,
+    requiredApprovals: 2,
   });
   expect(
     (
@@ -976,14 +976,13 @@ test("everyone must approve; partial approvals stay in the group queue and concu
     const pending = await getFeedPage({
       viewerId,
       circleId,
-      awaitingOnly: true,
     });
     expect(pending.items).toHaveLength(1);
     expect(pending.items[0]).toMatchObject({
       id: posted.id,
       reviewStatus: "PENDING",
       approvalCount: 1,
-      requiredApprovals: 3,
+      requiredApprovals: 2,
       canReview: viewerId === ids.outsider,
     });
   }
@@ -994,14 +993,16 @@ test("everyone must approve; partial approvals stay in the group queue and concu
   await expect(
     reviewProof(posted.id, ids.peer, circleId, verdict, now),
   ).rejects.toThrow("already reviewed");
-  const results = await Promise.all([
+  const results = await Promise.allSettled([
     reviewProof(posted.id, ids.outsider, circleId, verdict, now),
     reviewProof(posted.id, fourth, circleId, verdict, now),
   ]);
-  expect(results.map((r) => r.proofStatus).sort()).toEqual([
-    "APPROVED",
-    "PENDING",
-  ]);
+  const fulfilled = results.filter((result) => result.status === "fulfilled");
+  const rejected = results.filter((result) => result.status === "rejected");
+  expect(fulfilled).toHaveLength(1);
+  expect(fulfilled[0].value.proofStatus).toBe("APPROVED");
+  expect(rejected).toHaveLength(1);
+  expect(rejected[0].reason.message).toBe("This proof already has a verdict.");
   expect(
     (
       await prisma.commitment.findUniqueOrThrow({
@@ -1032,14 +1033,18 @@ test("everyone must approve; partial approvals stay in the group queue and concu
   ).toHaveLength(0);
 });
 
-test("removing the last missing reviewer verifies pending proof without reopening old verdicts", async () => {
+test("removing a member lowers the threshold and verifies pending proof", async () => {
   const { removeCircleMember } = await import("@/lib/circles");
   const circleId = `departing-${randomUUID()}`;
   await prisma.circle.create({
     data: { id: circleId, slug: circleId, name: "Departure" },
   });
+  const fourth = `departing-fourth-${randomUUID()}`;
+  await prisma.user.create({
+    data: { id: fourth, email: `${fourth}@example.invalid`, name: "Fourth" },
+  });
   await prisma.membership.createMany({
-    data: [ids.owner, ids.peer, ids.outsider].map((userId) => ({
+    data: [ids.owner, ids.peer, ids.outsider, fourth].map((userId) => ({
       userId,
       circleId,
       role: userId === ids.owner ? ("OWNER" as const) : ("MEMBER" as const),

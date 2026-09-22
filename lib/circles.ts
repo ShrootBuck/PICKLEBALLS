@@ -58,7 +58,7 @@ export async function listMyCircles(userId: string) {
   });
 }
 
-// Removing a reviewer must not strand proofs that all remaining peers approved.
+// Removing a member can lower the approval threshold for pending proofs.
 export async function removeCircleMember(
   userId: string,
   circleId: string,
@@ -105,7 +105,7 @@ export async function removeCircleMember(
           kind: "PROOF_APPROVED",
           entityId: proof.id,
           summary:
-            "verified proof after the circle changed; all remaining members approved",
+            "verified proof after the circle changed; the approval threshold was met",
         },
       });
     }

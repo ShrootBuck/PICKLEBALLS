@@ -16,9 +16,9 @@ export function currentTaskFilter(now = new Date()) {
   };
 }
 
-// Every other current member must approve. Solo circles verify on post.
+// Half the current circle, rounded down. Solo circles verify on post.
 export function requiredApprovalsForCircle(circleSize: number) {
-  return Math.max(0, circleSize - 1);
+  return Math.max(0, Math.floor(circleSize / 2));
 }
 
 export function canEditTask(dueAt: Date, now = new Date()) {
@@ -62,5 +62,8 @@ export function proofApprovalProgress(
       )
       .map((review) => review.reviewerId),
   );
-  return { approvalCount: approved.size, requiredApprovals: peers.size };
+  return {
+    approvalCount: approved.size,
+    requiredApprovals: requiredApprovalsForCircle(new Set(memberIds).size),
+  };
 }
