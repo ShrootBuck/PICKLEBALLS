@@ -82,6 +82,7 @@ model User {
   initials        String   @default("PB")
   primaryColor    String   @default("neutral")
   timeblockRoutine Json?
+  timeblockChat TimeblockChat?
   discordId       String?  @unique
   discordUsername String?
   createdAt       DateTime @default(now())
@@ -598,4 +599,31 @@ model ScreenTimeSubmission {
 
   @@unique([userId, circleId, weekStart])
   @@index([circleId, weekStart])
+}
+
+// One private conversation per user, replaced only by New chat.
+model TimeblockChat {
+  id String @id @default(cuid())
+  userId String @unique
+  messages Json @default("[]")
+  revision Int @default(0)
+  runId String?
+  runExpiresAt DateTime?
+  error String?
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attachments TimeblockChatAttachment[]
+}
+
+model TimeblockChatAttachment {
+  id String @id @default(cuid())
+  chatId String
+  filename String
+  mediaType String
+  sizeBytes Int
+  objectKey String @unique
+  ready Boolean @default(false)
+  createdAt DateTime @default(now())
+  chat TimeblockChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  @@index([chatId])
 }

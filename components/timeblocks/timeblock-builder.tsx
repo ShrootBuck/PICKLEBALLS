@@ -322,9 +322,19 @@ export function TimeblockBuilder({
       )
         return false;
       commit(next, nextRoutine);
+      // Save rows before the chat acknowledges the tool result. Refreshing
+      // between effects must not keep the receipt while losing the edit.
+      try {
+        localStorage.setItem(
+          draftKey,
+          JSON.stringify({ version: 1, rows: next }),
+        );
+      } catch {
+        setSavedLocally(false);
+      }
       return true;
     },
-    [commit],
+    [commit, draftKey],
   );
   useEffect(() => {
     let current = rowsRef.current;
@@ -785,6 +795,7 @@ export function TimeblockBuilder({
           </CardFooter>
         </Card>
         <TimeblockChat
+          draftKey={draftKey}
           dueMonday={dueMonday}
           getRows={getRows}
           getRoutine={getRoutine}

@@ -12,8 +12,8 @@ Accuracy beats the bit. Never invent facts or completed work for a punchline. In
 export function openRouterModelSettings(userId: string) {
   return {
     // No token cap: reasoning shares the model's output budget.
-    // Meta rejects literal "max" despite OpenRouter advertising it. xhigh
-    // is its highest working effort and has the same maximum allocation.
+    // Contributor supports at most xhigh. Literal max returns HTTP 400;
+    // Meta reserves it for standard muse-spark-1.3 (dev.meta.ai/docs/reasoning).
     reasoning: { effort: aiReasoningEffort, exclude: true },
     provider: {
       allow_fallbacks: false,

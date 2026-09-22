@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1790040113695,
+    title: "A saved conversation for your week",
+    description:
+      "Timeblock AI keeps your conversation when you refresh or come back later. Attach schedules, screenshots, PDFs, audio, video, or text files, then work through changes together. Start fresh with New chat whenever you want.",
+  },
+  {
     timestamp: 1790031876245,
     title: "Like a comment",
     description:

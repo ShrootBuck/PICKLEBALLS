@@ -1,10 +1,24 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
-import { ArrowUp, Check, RotateCcw, Sparkles, Square } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { DefaultChatTransport, type FileUIPart } from "ai";
+import {
+  ArrowUp,
+  Check,
+  Copy,
+  Maximize2,
+  Minimize2,
+  Paperclip,
+  Plus,
+  RotateCcw,
+  Sparkles,
+  Square,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChatAttachment } from "@/components/timeblocks/chat-attachment";
+import { ChatMarkdown } from "@/components/timeblocks/chat-markdown";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AttachmentGroup } from "@/components/ui/attachment";
 import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
@@ -16,6 +30,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Field, FieldLabel } from "@/components/ui/field";
 import {
   Message,
@@ -33,25 +53,26 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import type { TimeblockAgentMessage } from "@/lib/timeblock-agent";
+import {
+  CHAT_FILE_LIMIT,
+  chatFileAccept,
+  chatFileType,
+  chatUploadSchema,
+  type TimeblockChatSnapshot,
+} from "@/lib/timeblock-chat";
 import type { TimeblockDraftRow } from "@/lib/timeblock-draft";
-
+import { reportFingerprint } from "@/lib/timeblock-editor";
 import type { TimeblockRoutine } from "@/lib/timeblock-routine";
+import { cn } from "@/lib/utils";
 
 const suggestions = [
-  "Reorganize my whole week around school and sleep",
-  "Group my tasks by category and spread out the work",
-  "Set school 7:30 AM to 2 PM, then lunch until 3 PM",
+  "Reorganize my week around school and sleep",
+  "Check my schedule for conflicts",
+  "Group my tasks and spread out the work",
 ];
-
-export function TimeblockChat({
-  dueMonday,
-  getRows,
-  getRoutine,
-  applyEdit,
-  onBusyChange,
-  ready,
-}: {
+type Props = {
   dueMonday: string;
+  draftKey: string;
   getRows: () => TimeblockDraftRow[];
   getRoutine: () => TimeblockRoutine;
   applyEdit: (
@@ -61,145 +82,505 @@ export function TimeblockChat({
   ) => boolean;
   onBusyChange: (busy: boolean) => void;
   ready: boolean;
+};
+type PendingFile = {
+  id: string;
+  part: FileUIPart;
+  state: "uploading" | "done" | "error";
+  error?: string;
+};
+async function responseJson<T>(response: Response): Promise<T> {
+  const data = await response.json();
+  if (!response.ok)
+    throw new Error(data.error || "Couldn't reach your chat. Try again.");
+  return data;
+}
+
+export function TimeblockChat(props: Props) {
+  const [snapshot, setSnapshot] = useState<TimeblockChatSnapshot | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    try {
+      setLoadError(null);
+      setSnapshot(
+        await responseJson<TimeblockChatSnapshot>(
+          await fetch("/api/timeblocks/chat", { cache: "no-store" }),
+        ),
+      );
+    } catch (error) {
+      setLoadError(
+        error instanceof Error ? error.message : "Couldn't load the chat.",
+      );
+    }
+  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  if (!snapshot)
+    return (
+      <Card className="timeblock-assistant">
+        <CardHeader>
+          <CardTitle>Timeblock AI</CardTitle>
+          <CardDescription>Your week, one conversation.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadError ? (
+            <Alert variant="destructive">
+              <AlertTitle>Couldn't load your conversation</AlertTitle>
+              <AlertDescription>
+                {loadError}
+                <Button variant="outline" onClick={() => void load()}>
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <output className="flex items-center gap-2">
+              <Spinner />
+              Loading your conversation…
+            </output>
+          )}
+        </CardContent>
+      </Card>
+    );
+  return (
+    <Conversation
+      key={snapshot.id}
+      {...props}
+      initial={snapshot}
+      onReplace={setSnapshot}
+    />
+  );
+}
+
+function Conversation({
+  initial,
+  onReplace,
+  dueMonday,
+  draftKey,
+  getRows,
+  getRoutine,
+  applyEdit,
+  onBusyChange,
+  ready,
+}: Props & {
+  initial: TimeblockChatSnapshot;
+  onReplace: (snapshot: TimeblockChatSnapshot) => void;
 }) {
   const [input, setInput] = useState("");
-  const handled = useRef(new Set<string>());
+  const [files, setFiles] = useState<PendingFile[]>([]);
+  const [remoteRunning, setRemoteRunning] = useState(initial.running);
+  const [notice, setNotice] = useState<string | null>(initial.error);
+  const [expanded, setExpanded] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [outcomes, setOutcomes] = useState<Record<string, boolean>>({});
+  const [copied, setCopied] = useState<string | null>(null);
+  const revision = useRef(initial.revision);
+  const handled = useRef<Record<string, boolean>>({});
+  const fileInput = useRef<HTMLInputElement>(null);
+  const syncingRef = useRef(false);
+  const live = useRef(false);
+  const pendingRequests = useRef<string[]>([]);
+  const receiptsKey = `${draftKey}:chat:${initial.id}:edits`;
+  const requestsKey = `${receiptsKey}:requests`;
+  const composerKey = `pb-chat:${initial.id}:composer`;
+  const refreshRef = useRef<() => Promise<void>>(async () => {});
   const transport = useMemo(
     () =>
       new DefaultChatTransport<TimeblockAgentMessage>({
         api: "/api/timeblocks/chat",
-        prepareSendMessagesRequest: ({ messages }) => ({
-          body: {
-            dueMonday,
-            rows: getRows(),
-            routine: getRoutine(),
-            messages: messages
-              .map((message) => ({
-                id: message.id,
-                role: message.role,
-                parts: message.parts
-                  .filter((part) => part.type === "text")
-                  .map((part) => ({
-                    type: "text",
-                    text: part.text.slice(0, 8000),
-                  })),
-              }))
-              .filter((message) => message.parts.length > 0)
-              .slice(-24),
-          },
-        }),
+        prepareSendMessagesRequest: ({ messages, trigger }) => {
+          const message = messages.findLast(
+            (message) => message.role === "user",
+          );
+          if (message && !pendingRequests.current.includes(message.id)) {
+            pendingRequests.current.push(message.id);
+            try {
+              localStorage.setItem(
+                requestsKey,
+                JSON.stringify(pendingRequests.current),
+              );
+            } catch {
+              /* A live response can still apply edits. */
+            }
+          }
+          return {
+            body: {
+              id: initial.id,
+              revision: revision.current,
+              trigger,
+              dueMonday,
+              rows: getRows(),
+              routine: getRoutine(),
+              message,
+            },
+          };
+        },
         fetch: (async (url, options) => {
           const response = await fetch(url, options);
           if (!response.ok) {
             const body = await response.json().catch(() => ({}));
-            throw new Error(
-              body.error || "Couldn't reach the AI editor. Try again.",
-            );
+            throw new Error(body.error || "Couldn't reach the AI. Try again.");
           }
+          revision.current += 1;
+          setRemoteRunning(true);
+          setInput("");
+          setFiles([]);
+          setNotice(null);
           return response;
         }) as typeof fetch,
       }),
-    [dueMonday, getRows, getRoutine],
+    [initial.id, dueMonday, getRows, getRoutine, requestsKey],
   );
   const {
     messages,
     sendMessage,
+    regenerate,
     status,
     stop,
     error,
     clearError,
     setMessages,
-  } = useChat<TimeblockAgentMessage>({ transport });
-  const busy = status === "submitted" || status === "streaming";
+  } = useChat<TimeblockAgentMessage>({
+    id: initial.id,
+    messages: initial.messages,
+    transport,
+    onFinish: () => {
+      live.current = false;
+      void refreshRef.current();
+    },
+    onError: () => {
+      live.current = false;
+      void refreshRef.current();
+    },
+  });
+  const streaming = status === "submitted" || status === "streaming";
+  const busy = streaming || remoteRunning || syncing;
+
+  const refresh = useCallback(async () => {
+    if (live.current || syncingRef.current) return;
+    syncingRef.current = true;
+    try {
+      const snapshot = await responseJson<TimeblockChatSnapshot>(
+        await fetch("/api/timeblocks/chat", { cache: "no-store" }),
+      );
+      if (live.current) return;
+      if (snapshot.id !== initial.id) {
+        onReplace(snapshot);
+        return;
+      }
+      revision.current = snapshot.revision;
+      setMessages(snapshot.messages);
+      setRemoteRunning(snapshot.running);
+      setNotice(snapshot.error);
+    } catch (error) {
+      setNotice(
+        error instanceof Error ? error.message : "Couldn't sync the chat.",
+      );
+    } finally {
+      syncingRef.current = false;
+    }
+  }, [initial.id, onReplace, setMessages]);
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (remoteRunning && !live.current) void refresh();
+    }, 2000);
+    const onFocus = () => {
+      void refresh();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [remoteRunning, refresh]);
   useEffect(() => {
     onBusyChange(busy);
+    return () => onBusyChange(false);
   }, [busy, onBusyChange]);
   useEffect(() => {
-    for (const message of messages)
+    try {
+      pendingRequests.current = JSON.parse(
+        localStorage.getItem(requestsKey) || "[]",
+      );
+      handled.current = JSON.parse(localStorage.getItem(receiptsKey) || "{}");
+      setOutcomes(handled.current);
+      const saved = JSON.parse(localStorage.getItem(composerKey) || "{}");
+      setInput(typeof saved.input === "string" ? saved.input : "");
+      setFiles(Array.isArray(saved.files) ? saved.files : []);
+    } catch {
+      setNotice(
+        "Device storage is unavailable. Sent messages still save to your account.",
+      );
+    }
+    setHydrated(true);
+  }, [receiptsKey, composerKey, requestsKey]);
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(
+        composerKey,
+        JSON.stringify({
+          input,
+          files: files.filter((file) => file.state === "done"),
+        }),
+      );
+    } catch {
+      /* Server history remains available. */
+    }
+  }, [input, files, hydrated, composerKey]);
+  useEffect(() => {
+    if (!ready || !hydrated) return;
+    let changed = false;
+    let requestId = "";
+    for (const message of messages) {
+      if (message.role === "user") requestId = message.id;
       for (const part of message.parts) {
         if (
           part.type !== "tool-editBlocks" ||
           part.state !== "output-available" ||
-          handled.current.has(part.toolCallId)
+          !part.output.ok ||
+          part.output.draftKey !== draftKey ||
+          !pendingRequests.current.includes(requestId) ||
+          part.toolCallId in handled.current
         )
           continue;
-        handled.current.add(part.toolCallId);
-        if (part.output.ok) {
-          const applied = applyEdit(
-            part.output.before,
-            part.output.rows,
-            part.output.routine,
-          );
-          setOutcomes((current) => ({
-            ...current,
-            [part.toolCallId]: applied,
-          }));
-        }
+        const output = part.output;
+        const alreadyApplied =
+          reportFingerprint(getRows(), getRoutine()) ===
+          reportFingerprint(output.rows, output.routine);
+        handled.current[part.toolCallId] =
+          alreadyApplied ||
+          applyEdit(output.before, output.rows, output.routine);
+        changed = true;
       }
-  }, [messages, applyEdit]);
+    }
+    if (changed) {
+      setOutcomes({ ...handled.current });
+      try {
+        localStorage.setItem(receiptsKey, JSON.stringify(handled.current));
+      } catch {
+        /* Fingerprints still prevent duplicate mutations. */
+      }
+    }
+  }, [
+    messages,
+    ready,
+    hydrated,
+    applyEdit,
+    draftKey,
+    receiptsKey,
+    getRows,
+    getRoutine,
+  ]);
 
+  async function action(action: "stop" | "reset") {
+    setSyncing(true);
+    try {
+      const snapshot = await responseJson<TimeblockChatSnapshot>(
+        await fetch("/api/timeblocks/chat", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id: initial.id, action }),
+        }),
+      );
+      await stop();
+      live.current = false;
+      if (action === "reset") {
+        try {
+          localStorage.removeItem(composerKey);
+        } catch {
+          /* Reset already saved on the server. */
+        }
+        onReplace(snapshot);
+      } else {
+        setMessages(snapshot.messages);
+        setRemoteRunning(false);
+        revision.current = snapshot.revision;
+      }
+      clearError();
+      setNotice(null);
+    } catch (error) {
+      setNotice(
+        error instanceof Error ? error.message : "Couldn't update the chat.",
+      );
+    } finally {
+      setSyncing(false);
+    }
+  }
   function send(text: string) {
-    if (busy || !ready || !text.trim()) return;
+    if (
+      busy ||
+      !ready ||
+      !hydrated ||
+      files.some((file) => file.state !== "done") ||
+      (!text.trim() && !files.length)
+    )
+      return;
     clearError();
-    setInput("");
-    void sendMessage({ text: text.trim() });
+    setNotice(null);
+    live.current = true;
+    void sendMessage({
+      ...(text.trim() ? { text: text.trim() } : {}),
+      files: files.map((file) => file.part),
+    });
+  }
+  async function attach(selected: File[]) {
+    if (busy) return;
+    if (selected.length + files.length > CHAT_FILE_LIMIT) {
+      setNotice(`Attach up to ${CHAT_FILE_LIMIT} files per message.`);
+      return;
+    }
+    const batch = selected.map((file) => ({
+      file,
+      id: crypto.randomUUID(),
+      mediaType: chatFileType(file),
+    }));
+    for (const item of batch) {
+      const parsed = chatUploadSchema.safeParse({
+        chatId: initial.id,
+        filename: item.file.name,
+        mediaType: item.mediaType,
+        sizeBytes: item.file.size,
+      });
+      if (!parsed.success) {
+        setNotice(
+          "Choose images, PDFs, audio, video, or text files up to 100 MB each (text up to 1 MB).",
+        );
+        return;
+      }
+    }
+    setNotice(null);
+    setFiles((current) => [
+      ...current,
+      ...batch.map(({ file, id, mediaType }) => ({
+        id,
+        part: {
+          type: "file" as const,
+          url: "",
+          filename: file.name,
+          mediaType,
+        },
+        state: "uploading" as const,
+      })),
+    ]);
+    await Promise.all(
+      batch.map(async ({ file, id, mediaType }) => {
+        try {
+          const ticket = await responseJson<{
+            uploadUrl: string;
+            part: FileUIPart;
+          }>(
+            await fetch("/api/timeblocks/chat/files", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                chatId: initial.id,
+                filename: file.name,
+                mediaType,
+                sizeBytes: file.size,
+              }),
+            }),
+          );
+          const uploaded = await fetch(ticket.uploadUrl, {
+            method: "PUT",
+            headers: { "content-type": mediaType },
+            body: file,
+          });
+          if (!uploaded.ok)
+            throw new Error("Upload failed. Remove this file and try again.");
+          setFiles((current) =>
+            current.map((item) =>
+              item.id === id ? { id, part: ticket.part, state: "done" } : item,
+            ),
+          );
+        } catch (error) {
+          setFiles((current) =>
+            current.map((item) =>
+              item.id === id
+                ? {
+                    ...item,
+                    state: "error",
+                    error:
+                      error instanceof Error ? error.message : "Upload failed",
+                  }
+                : item,
+            ),
+          );
+        }
+      }),
+    );
   }
 
   return (
-    <Card className="timeblock-assistant">
+    <Card
+      className={cn(
+        "timeblock-assistant",
+        expanded && "timeblock-assistant-expanded",
+      )}
+    >
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
           <Badge variant="secondary">
             <Sparkles data-icon="inline-start" />
-            AI editor
+            Timeblock AI
           </Badge>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Clear conversation"
-            disabled={busy || messages.length === 0}
-            onClick={() => {
-              setMessages([]);
-              clearError();
-              handled.current.clear();
-              setOutcomes({});
-            }}
-          >
-            <RotateCcw />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={expanded ? "Shrink chat" : "Expand chat"}
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? <Minimize2 /> : <Maximize2 />}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={syncing || !messages.length}
+              onClick={() => void action("reset")}
+            >
+              <Plus data-icon="inline-start" />
+              New chat
+            </Button>
+          </div>
         </div>
-        <CardTitle>Talk your week into shape.</CardTitle>
+        <CardTitle>Your week, worked out together.</CardTitle>
         <CardDescription>
-          Rebuild your week, change routines, or group tasks for printing. Every
-          draft edit can be undone.
+          One saved conversation. Plan, attach context, and refine as you go.
         </CardDescription>
       </CardHeader>
       <CardContent className="min-h-0 flex-1 px-4">
-        <MessageScrollerProvider autoScroll>
+        <MessageScrollerProvider autoScroll defaultScrollPosition="end">
           <MessageScroller>
             <MessageScrollerViewport>
               <MessageScrollerContent className="gap-5 py-3">
                 {messages.length === 0 && (
                   <MessageScrollerItem messageId="welcome">
-                    <Message>
-                      <MessageContent>
-                        <Bubble variant="ghost">
-                          <BubbleContent>
-                            Describe the week you want. I can rearrange the
-                            whole schedule, check conflicts, and revise it with
-                            you.
-                          </BubbleContent>
-                        </Bubble>
-                      </MessageContent>
-                    </Message>
-                    <div className="mt-5 flex flex-col items-start gap-2">
+                    <Empty className="px-1 py-5">
+                      <EmptyHeader>
+                        <EmptyTitle>What does your week need?</EmptyTitle>
+                        <EmptyDescription>
+                          Describe a change, drop in a schedule or screenshot,
+                          or work through a plan together. You can undo every
+                          schedule edit.
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                    <div className="flex flex-col items-start gap-2">
                       {suggestions.map((text) => (
                         <Button
                           key={text}
                           variant="outline"
                           size="sm"
-                          disabled={!ready}
+                          className="h-auto min-h-9 whitespace-normal py-2 text-left"
+                          disabled={!ready || busy}
                           onClick={() => send(text)}
                         >
                           {text}
@@ -207,10 +588,6 @@ export function TimeblockChat({
                         </Button>
                       ))}
                     </div>
-                    <p className="mt-6 text-xs leading-relaxed text-muted-foreground">
-                      Try “I studied physics Tuesday from 4 to 5:30, then read
-                      for 30 minutes.”
-                    </p>
                   </MessageScrollerItem>
                 )}
                 {messages.map((message) => (
@@ -220,15 +597,16 @@ export function TimeblockChat({
                     scrollAnchor={message.role === "user"}
                   >
                     <Message align={message.role === "user" ? "end" : "start"}>
-                      <MessageContent>
+                      <MessageContent className="min-w-0 max-w-full">
                         <MessageHeader>
-                          {message.role === "user" ? "You" : "AI editor"}
+                          {message.role === "user" ? "You" : "Timeblock AI"}
                         </MessageHeader>
                         {message.parts.map((part, index) => {
+                          const key = `${message.id}-${index}`;
                           if (part.type === "text")
                             return (
                               <Bubble
-                                key={`${message.id}-${index}`}
+                                key={key}
                                 variant={
                                   message.role === "user"
                                     ? "secondary"
@@ -238,10 +616,50 @@ export function TimeblockChat({
                                   message.role === "user" ? "end" : "start"
                                 }
                               >
-                                <BubbleContent className="whitespace-pre-wrap">
-                                  {part.text}
+                                <BubbleContent>
+                                  {message.role === "user" ? (
+                                    <p className="whitespace-pre-wrap break-words">
+                                      {part.text}
+                                    </p>
+                                  ) : (
+                                    <ChatMarkdown text={part.text} />
+                                  )}
                                 </BubbleContent>
                               </Bubble>
+                            );
+                          if (part.type === "file")
+                            return <ChatAttachment key={key} part={part} />;
+                          if (part.type === "reasoning" && part.text)
+                            return (
+                              <details
+                                key={key}
+                                className="text-sm text-muted-foreground"
+                              >
+                                <summary>Reasoning summary</summary>
+                                <ChatMarkdown text={part.text} />
+                              </details>
+                            );
+                          if (part.type === "source-url")
+                            return (
+                              <a
+                                key={key}
+                                href={
+                                  /^https?:\/\//i.test(part.url)
+                                    ? part.url
+                                    : undefined
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs underline"
+                              >
+                                {part.title || part.url}
+                              </a>
+                            );
+                          if (part.type === "source-document")
+                            return (
+                              <Badge key={key} variant="outline">
+                                {part.title}
+                              </Badge>
                             );
                           if (part.type === "tool-inspectSchedule")
                             return (
@@ -267,44 +685,74 @@ export function TimeblockChat({
                                     part.output.ok ? "outline" : "destructive"
                                   }
                                 >
-                                  {part.output.ok ? (
+                                  {part.output.ok && (
                                     <Check data-icon="inline-start" />
-                                  ) : null}
+                                  )}
                                   {part.output.ok
-                                    ? outcomes[part.toolCallId] === false
-                                      ? "Not applied"
-                                      : outcomes[part.toolCallId] === true
-                                        ? "Draft updated"
-                                        : "Applying draft…"
+                                    ? part.output.draftKey !== draftKey
+                                      ? "Saved schedule edit"
+                                      : outcomes[part.toolCallId] === false
+                                        ? "Not applied"
+                                        : outcomes[part.toolCallId] === true
+                                          ? "Draft updated"
+                                          : "Saved schedule edit"
                                     : "Edit needs a fix"}
                                 </Badge>
                                 <p className="text-xs text-muted-foreground">
                                   {part.output.ok
                                     ? outcomes[part.toolCallId] === false
-                                      ? "You edited the draft while I was working. Ask me to try that change again."
+                                      ? "Your draft changed while I was working. Ask me to try this change again."
                                       : part.output.summary
                                     : part.output.error}
                                 </p>
                               </div>
                             );
-                          if (part.state === "output-error")
-                            return (
-                              <Badge
-                                key={part.toolCallId}
-                                variant="destructive"
-                              >
-                                Could not edit blocks
-                              </Badge>
-                            );
                           return (
-                            <Badge key={part.toolCallId} variant="secondary">
-                              {busy ? (
-                                <Spinner data-icon="inline-start" />
-                              ) : null}
-                              {busy ? "Editing blocks…" : "Edit interrupted"}
+                            <Badge
+                              key={part.toolCallId}
+                              variant={
+                                part.state === "output-error"
+                                  ? "destructive"
+                                  : "secondary"
+                              }
+                            >
+                              {part.state === "output-error"
+                                ? "Could not edit blocks"
+                                : busy
+                                  ? "Editing blocks…"
+                                  : "Edit interrupted"}
                             </Badge>
                           );
                         })}
+                        {message.role === "assistant" &&
+                          message.parts.some(
+                            (part) => part.type === "text" && part.text,
+                          ) && (
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label={
+                                copied === message.id
+                                  ? "Copied response"
+                                  : "Copy response"
+                              }
+                              onClick={() => {
+                                void navigator.clipboard
+                                  .writeText(
+                                    message.parts
+                                      .filter((part) => part.type === "text")
+                                      .map((part) => part.text)
+                                      .join("\n\n"),
+                                  )
+                                  .then(() => setCopied(message.id))
+                                  .catch(() =>
+                                    setNotice("Couldn't copy the response."),
+                                  );
+                              }}
+                            >
+                              {copied === message.id ? <Check /> : <Copy />}
+                            </Button>
+                          )}
                       </MessageContent>
                     </Message>
                   </MessageScrollerItem>
@@ -312,8 +760,10 @@ export function TimeblockChat({
                 {busy && (
                   <MessageScrollerItem messageId="working">
                     <output className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Spinner className="size-3" />
-                      Working on your week…
+                      <Spinner />
+                      {remoteRunning && !streaming
+                        ? "Continuing your response…"
+                        : "Working on your week…"}
                     </output>
                   </MessageScrollerItem>
                 )}
@@ -324,10 +774,23 @@ export function TimeblockChat({
         </MessageScrollerProvider>
       </CardContent>
       <CardFooter className="flex-col items-stretch gap-3">
-        {error && (
+        {(error || notice) && (
           <Alert variant="destructive">
-            <AlertTitle>Couldn't finish</AlertTitle>
-            <AlertDescription>{error.message}</AlertDescription>
+            <AlertTitle>Chat update</AlertTitle>
+            <AlertDescription>
+              {error?.message || notice}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  clearError();
+                  void refresh();
+                }}
+              >
+                Reload chat
+              </Button>
+            </AlertDescription>
           </Alert>
         )}
         <form
@@ -336,18 +799,53 @@ export function TimeblockChat({
             send(input);
           }}
           className="flex flex-col gap-3"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            event.preventDefault();
+            void attach(Array.from(event.dataTransfer.files));
+          }}
         >
+          {!!files.length && (
+            <AttachmentGroup>
+              {files.map((file) => (
+                <ChatAttachment
+                  key={file.id}
+                  part={file.part}
+                  state={file.state}
+                  error={file.error}
+                  onRemove={() =>
+                    setFiles((current) =>
+                      current.filter((item) => item.id !== file.id),
+                    )
+                  }
+                />
+              ))}
+            </AttachmentGroup>
+          )}
+          {files.some((file) => file.part.mediaType.startsWith("audio/")) && (
+            <p className="text-xs text-muted-foreground">
+              Muse Spark's audio understanding is currently limited. Attach a
+              transcript for details that need to be exact.
+            </p>
+          )}
           <Field>
             <FieldLabel htmlFor="timeblock-prompt" className="sr-only">
-              Message the AI editor
+              Message Timeblock AI
             </FieldLabel>
             <Textarea
               id="timeblock-prompt"
               value={input}
+              disabled={!hydrated || busy}
               onChange={(event) => setInput(event.target.value)}
-              maxLength={4000}
-              placeholder="Add, change, rethink…"
-              className="min-h-24 resize-none"
+              maxLength={32000}
+              placeholder="Message, paste an image, or drop a file…"
+              className="min-h-28 max-h-48 resize-y"
+              onPaste={(event) => {
+                if (event.clipboardData.files.length) {
+                  event.preventDefault();
+                  void attach(Array.from(event.clipboardData.files));
+                }
+              }}
               onKeyDown={(event) => {
                 if (
                   event.key === "Enter" &&
@@ -360,17 +858,57 @@ export function TimeblockChat({
               }}
             />
           </Field>
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">
-              Undo any edit. Recurring routines save across weeks.
-            </p>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1">
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                accept={chatFileAccept}
+                className="sr-only"
+                aria-label="Attach files"
+                disabled={busy}
+                onChange={(event) => {
+                  void attach(Array.from(event.target.files || []));
+                  event.target.value = "";
+                }}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Add attachments"
+                disabled={busy || !hydrated || files.length >= CHAT_FILE_LIMIT}
+                onClick={() => fileInput.current?.click()}
+              >
+                <Paperclip />
+              </Button>
+              {messages.some((message) => message.role === "user") && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy || !ready}
+                  onClick={() => {
+                    clearError();
+                    setNotice(null);
+                    live.current = true;
+                    void regenerate();
+                  }}
+                >
+                  <RotateCcw data-icon="inline-start" />
+                  Retry
+                </Button>
+              )}
+            </div>
             {busy ? (
               <Button
                 type="button"
                 size="icon"
                 variant="secondary"
                 aria-label="Stop AI response"
-                onClick={() => void stop()}
+                disabled={syncing}
+                onClick={() => void action("stop")}
               >
                 <Square />
               </Button>
@@ -379,12 +917,21 @@ export function TimeblockChat({
                 type="submit"
                 size="icon"
                 aria-label="Send message"
-                disabled={!ready || !input.trim()}
+                disabled={
+                  !ready ||
+                  !hydrated ||
+                  (!input.trim() && !files.length) ||
+                  files.some((file) => file.state !== "done")
+                }
               >
                 <ArrowUp />
               </Button>
             )}
           </div>
+          <p className="text-xs text-muted-foreground">
+            Images, PDF, audio, video, and text. Up to 6 files, 100 MB each.
+            Text files up to 1 MB. Sent messages save to your account.
+          </p>
         </form>
       </CardFooter>
     </Card>
