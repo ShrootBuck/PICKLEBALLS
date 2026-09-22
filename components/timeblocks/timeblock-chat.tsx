@@ -30,12 +30,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
 import { Field, FieldLabel } from "@/components/ui/field";
 import {
   Message,
@@ -65,11 +59,6 @@ import { reportFingerprint } from "@/lib/timeblock-editor";
 import type { TimeblockRoutine } from "@/lib/timeblock-routine";
 import { cn } from "@/lib/utils";
 
-const suggestions = [
-  "Reorganize my week around school and sleep",
-  "Check my schedule for conflicts",
-  "Group my tasks and spread out the work",
-];
 type Props = {
   dueMonday: string;
   draftKey: string;
@@ -424,6 +413,7 @@ function Conversation({
     clearError();
     setNotice(null);
     live.current = true;
+    onBusyChange(true);
     void sendMessage({
       ...(text.trim() ? { text: text.trim() } : {}),
       files: files.map((file) => file.part),
@@ -561,35 +551,6 @@ function Conversation({
           <MessageScroller>
             <MessageScrollerViewport>
               <MessageScrollerContent className="gap-5 py-3">
-                {messages.length === 0 && (
-                  <MessageScrollerItem messageId="welcome">
-                    <Empty className="px-1 py-5">
-                      <EmptyHeader>
-                        <EmptyTitle>What does your week need?</EmptyTitle>
-                        <EmptyDescription>
-                          Describe a change, drop in a schedule or screenshot,
-                          or work through a plan together. You can undo every
-                          schedule edit.
-                        </EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
-                    <div className="flex flex-col items-start gap-2">
-                      {suggestions.map((text) => (
-                        <Button
-                          key={text}
-                          variant="outline"
-                          size="sm"
-                          className="h-auto min-h-9 whitespace-normal py-2 text-left"
-                          disabled={!ready || busy}
-                          onClick={() => send(text)}
-                        >
-                          {text}
-                          <ArrowUp data-icon="inline-end" />
-                        </Button>
-                      ))}
-                    </div>
-                  </MessageScrollerItem>
-                )}
                 {messages.map((message) => (
                   <MessageScrollerItem
                     key={message.id}
@@ -674,39 +635,23 @@ function Conversation({
                               </Badge>
                             );
                           if (part.type !== "tool-editBlocks") return null;
-                          if (part.state === "output-available")
+                          if (part.state === "output-available") {
+                            if (
+                              part.output.ok &&
+                              outcomes[part.toolCallId] !== false
+                            )
+                              return null;
                             return (
-                              <div
+                              <p
                                 key={part.toolCallId}
-                                className="flex flex-col items-start gap-2"
+                                className="text-xs text-destructive"
                               >
-                                <Badge
-                                  variant={
-                                    part.output.ok ? "outline" : "destructive"
-                                  }
-                                >
-                                  {part.output.ok && (
-                                    <Check data-icon="inline-start" />
-                                  )}
-                                  {part.output.ok
-                                    ? part.output.draftKey !== draftKey
-                                      ? "Saved schedule edit"
-                                      : outcomes[part.toolCallId] === false
-                                        ? "Not applied"
-                                        : outcomes[part.toolCallId] === true
-                                          ? "Draft updated"
-                                          : "Saved schedule edit"
-                                    : "Edit needs a fix"}
-                                </Badge>
-                                <p className="text-xs text-muted-foreground">
-                                  {part.output.ok
-                                    ? outcomes[part.toolCallId] === false
-                                      ? "Your draft changed while I was working. Ask me to try this change again."
-                                      : part.output.summary
-                                    : part.output.error}
-                                </p>
-                              </div>
+                                {part.output.ok
+                                  ? "Your draft changed while I was working. Ask me to try this change again."
+                                  : part.output.error}
+                              </p>
                             );
+                          }
                           return (
                             <Badge
                               key={part.toolCallId}
@@ -893,6 +838,7 @@ function Conversation({
                     clearError();
                     setNotice(null);
                     live.current = true;
+                    onBusyChange(true);
                     void regenerate();
                   }}
                 >

@@ -65,6 +65,12 @@ import {
   reportFingerprint,
 } from "@/lib/timeblock-editor";
 import {
+  historyEntry,
+  parseTimeblockHistory,
+  restoreHistoryEntry,
+  type TimeblockHistory,
+} from "@/lib/timeblock-history";
+import {
   isRoutineBlock,
   routineBlocks,
   type TimeblockRoutine,
@@ -259,10 +265,7 @@ export function TimeblockBuilder({
       }
     });
   }, []);
-  const history = useRef<{
-    past: { rows: TimeblockDraftRow[]; routine: TimeblockRoutine }[];
-    future: { rows: TimeblockDraftRow[]; routine: TimeblockRoutine }[];
-  }>({ past: [], future: [] });
+  const history = useRef<TimeblockHistory>({ past: [], future: [] });
   const restored = useRef(false);
   const [ready, setReady] = useState(false);
   const [savedLocally, setSavedLocally] = useState(true);
@@ -273,6 +276,30 @@ export function TimeblockBuilder({
   const [error, setError] = useState<string | null>(null);
   const getRows = useCallback(() => rowsRef.current, []);
   const getRoutine = useCallback(() => routineRef.current, []);
+  const saveDraft = useCallback(() => {
+    try {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          version: 1,
+          rows: rowsRef.current,
+          history: history.current,
+        }),
+      );
+      setSavedLocally(true);
+    } catch {
+      // Keep the latest draft even if the browser cannot fit its history.
+      try {
+        localStorage.setItem(
+          draftKey,
+          JSON.stringify({ version: 1, rows: rowsRef.current }),
+        );
+      } catch {
+        /* The visible warning covers both failures. */
+      }
+      setSavedLocally(false);
+    }
+  }, [draftKey]);
   const commit = useCallback(
     (next: TimeblockDraftRow[], nextRoutine = routineRef.current) => {
       if (
@@ -282,8 +309,8 @@ export function TimeblockBuilder({
         return;
       history.current.past = [
         ...history.current.past,
-        { rows: rowsRef.current, routine: routineRef.current },
-      ].slice(-40);
+        historyEntry(rowsRef.current, routineRef.current, nextRoutine),
+      ];
       history.current.future = [];
       rowsRef.current = next;
       setRows(next);
@@ -292,9 +319,10 @@ export function TimeblockBuilder({
         setRoutine(nextRoutine);
         persistRoutine(nextRoutine);
       }
+      saveDraft();
       setError(null);
     },
-    [persistRoutine],
+    [persistRoutine, saveDraft],
   );
   const applyEdit = useCallback(
     (
@@ -308,27 +336,18 @@ export function TimeblockBuilder({
       )
         return false;
       commit(next, nextRoutine);
-      // Save rows before the chat acknowledges the tool result. Refreshing
-      // between effects must not keep the receipt while losing the edit.
-      try {
-        localStorage.setItem(
-          draftKey,
-          JSON.stringify({ version: 1, rows: next }),
-        );
-      } catch {
-        setSavedLocally(false);
-      }
       return true;
     },
-    [commit, draftKey],
+    [commit],
   );
   useEffect(() => {
     let current = rowsRef.current;
     if (!restored.current) {
       restored.current = true;
       try {
-        current =
-          parseTimeblockDraft(localStorage.getItem(draftKey)) ?? current;
+        const raw = localStorage.getItem(draftKey);
+        current = parseTimeblockDraft(raw) ?? current;
+        history.current = parseTimeblockHistory(raw);
       } catch {
         setSavedLocally(false);
       }
@@ -345,17 +364,9 @@ export function TimeblockBuilder({
     ].slice(0, MAX_TIMEBLOCKS);
     rowsRef.current = next;
     setRows(next);
+    saveDraft();
     setReady(true);
-  }, [draftKey, initialRows]);
-  useEffect(() => {
-    if (!ready) return;
-    try {
-      localStorage.setItem(draftKey, JSON.stringify({ version: 1, rows }));
-      setSavedLocally(true);
-    } catch {
-      setSavedLocally(false);
-    }
-  }, [rows, draftKey, ready]);
+  }, [draftKey, initialRows, saveDraft]);
 
   const included = useMemo(() => rows.filter((row) => row.included), [rows]);
   const includedCount = included.length;
@@ -378,35 +389,48 @@ export function TimeblockBuilder({
     );
   }, 0);
 
-  function undo() {
-    const previous = history.current.past.pop();
-    if (!previous) return;
-    history.current.future.push({
-      rows: rowsRef.current,
-      routine: routineRef.current,
-    });
-    rowsRef.current = previous.rows;
-    setRows(previous.rows);
-    if (JSON.stringify(routineRef.current) !== JSON.stringify(previous.routine))
-      persistRoutine(previous.routine);
-    routineRef.current = previous.routine;
-    setRoutine(previous.routine);
-    setError(null);
-  }
-  function redo() {
-    const next = history.current.future.pop();
+  function navigateHistory(direction: "past" | "future") {
+    if (!ready || busy || routineDirtyRef.current) return;
+    let next: ReturnType<typeof restoreHistoryEntry>;
+    try {
+      next = restoreHistoryEntry(
+        history.current,
+        direction,
+        rowsRef.current,
+        routineRef.current,
+        initialRows,
+      );
+    } catch (error) {
+      toast.add({
+        title:
+          error instanceof Error
+            ? error.message
+            : "Could not restore this edit.",
+        type: "error",
+      });
+      return;
+    }
     if (!next) return;
-    history.current.past.push({
-      rows: rowsRef.current,
-      routine: routineRef.current,
-    });
     rowsRef.current = next.rows;
     setRows(next.rows);
     if (JSON.stringify(routineRef.current) !== JSON.stringify(next.routine))
       persistRoutine(next.routine);
     routineRef.current = next.routine;
     setRoutine(next.routine);
+    saveDraft();
     setError(null);
+    if (next.routineConflict)
+      toast.add({
+        title: "Kept your newer recurring settings",
+        description:
+          "The block edit was restored. Recurring settings changed since this edit, so they were left as they are.",
+      });
+  }
+  function undo() {
+    navigateHistory("past");
+  }
+  function redo() {
+    navigateHistory("future");
   }
   function openEditor(row: TimeblockDraftRow) {
     if (isRoutineBlock(row.id)) {
@@ -565,12 +589,19 @@ export function TimeblockBuilder({
                   size="icon-sm"
                   aria-label="Undo last edit"
                   title={
-                    routineDirty
-                      ? "Apply routine changes before undoing"
-                      : "Undo last edit"
+                    busy
+                      ? "Wait for AI to finish before undoing"
+                      : routineDirty
+                        ? "Apply routine changes before undoing"
+                        : history.current.past.at(-1)?.routine
+                          ? "Undo last edit, including recurring settings across weeks"
+                          : "Undo last edit"
                   }
                   disabled={
-                    !ready || routineDirty || !history.current.past.length
+                    !ready ||
+                    busy ||
+                    routineDirty ||
+                    !history.current.past.length
                   }
                   onClick={undo}
                 >
@@ -581,12 +612,19 @@ export function TimeblockBuilder({
                   size="icon-sm"
                   aria-label="Redo last edit"
                   title={
-                    routineDirty
-                      ? "Apply routine changes before redoing"
-                      : "Redo last edit"
+                    busy
+                      ? "Wait for AI to finish before redoing"
+                      : routineDirty
+                        ? "Apply routine changes before redoing"
+                        : history.current.future.at(-1)?.routine
+                          ? "Redo last edit, including recurring settings across weeks"
+                          : "Redo last edit"
                   }
                   disabled={
-                    !ready || routineDirty || !history.current.future.length
+                    !ready ||
+                    busy ||
+                    routineDirty ||
+                    !history.current.future.length
                   }
                   onClick={redo}
                 >
@@ -771,8 +809,8 @@ export function TimeblockBuilder({
               {!ready
                 ? "Restoring draft…"
                 : savedLocally
-                  ? "Draft saved on this device"
-                  : "Device storage unavailable. Keep this tab open."}
+                  ? "Draft and undo history saved on this device"
+                  : "Draft or undo history could not save. Device storage may be full. Keep this tab open."}
             </p>
           </CardFooter>
         </Card>

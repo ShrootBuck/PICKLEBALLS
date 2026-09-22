@@ -170,7 +170,9 @@ try {
   await page.getByRole("button", { name: "Remove schedule.png" }).waitFor();
   await composer.fill("Add physics Tuesday 4–5 PM using this screenshot");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
-  await page.getByText("Draft updated", { exact: true }).waitFor();
+  await page.waitForFunction(
+    () => !document.querySelector('button[aria-label="Stop AI response"]'),
+  );
   await page.locator(".timeblock-chat-prose strong").waitFor();
   assert.equal(lastFileCount, 1);
   const readDraft = () =>
@@ -188,6 +190,12 @@ try {
     ).length,
     1,
   );
+  assert.equal(
+    await page.getByText("Draft updated", { exact: true }).count(),
+    0,
+  );
+  await page.reload();
+  await composer.waitFor();
   await page.getByRole("button", { name: "Undo last edit" }).click();
   await page.reload();
   await page.locator(".timeblock-chat-prose strong").waitFor();
@@ -197,6 +205,14 @@ try {
     ).length,
     0,
   );
+  await page.getByRole("button", { name: "Redo last edit" }).click();
+  assert.equal(
+    (await readDraft()).some(
+      (r: { id: string }) => r.id === "manual-chat-test",
+    ),
+    true,
+  );
+  await page.getByRole("button", { name: "Undo last edit" }).click();
   // Recover a reply after leaving the original HTTP stream mid-response.
   delayNextReply = true;
   const started = new Promise<void>((resolve) => {
@@ -205,6 +221,23 @@ try {
   await composer.fill("Add physics again, and keep working if I refresh");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await started;
+  await page.waitForFunction(() => {
+    const undo = document.querySelector(
+      'button[aria-label="Undo last edit"]',
+    ) as HTMLButtonElement | null;
+    const redo = document.querySelector(
+      'button[aria-label="Redo last edit"]',
+    ) as HTMLButtonElement | null;
+    return undo?.disabled && redo?.disabled;
+  });
+  assert.equal(
+    await page.getByRole("button", { name: "Undo last edit" }).isDisabled(),
+    true,
+  );
+  assert.equal(
+    await page.getByRole("button", { name: "Redo last edit" }).isDisabled(),
+    true,
+  );
   await page.reload();
   await page.waitForFunction(() =>
     JSON.parse(
@@ -254,7 +287,16 @@ try {
   });
   await page.getByText(/audio understanding is currently limited/).waitFor();
   await page.getByRole("button", { name: "New chat", exact: true }).click();
-  await page.getByText("What does your week need?", { exact: true }).waitFor();
+  await page.waitForFunction(() => {
+    const input = document.querySelector(
+      "#timeblock-prompt",
+    ) as HTMLTextAreaElement | null;
+    return input !== null && !input.disabled && input.value === "";
+  });
+  assert.equal(
+    await page.getByText("What does your week need?", { exact: true }).count(),
+    0,
+  );
   assert.equal(await composer.inputValue(), "");
   assert.equal(chat.messages.length, 0);
   assert.equal(
