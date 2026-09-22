@@ -106,7 +106,6 @@ function BlockEditor({
             const next = {
               ...draft,
               title: String(values.get("title") ?? "").trim(),
-              category: String(values.get("category") ?? "").trim(),
               startedAt: String(values.get("startedAt") ?? ""),
               completedAt: String(values.get("completedAt") ?? ""),
             };
@@ -137,19 +136,6 @@ function BlockEditor({
                 maxLength={160}
                 required
                 aria-invalid={!!error && !draft.title.trim()}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="block-category">Category</FieldLabel>
-              <Input
-                id="block-category"
-                name="category"
-                value={draft.category ?? ""}
-                onChange={(event) =>
-                  setDraft({ ...draft, category: event.target.value })
-                }
-                placeholder="Physics, applications, exercise…"
-                maxLength={80}
               />
             </Field>
             <Field data-invalid={!!error}>
@@ -491,11 +477,10 @@ export function TimeblockBuilder({
     try {
       const tasks = rows
         .filter((row) => row.included && row.title.trim())
-        .sort((a, b) => compareTimeblockRows(a, b, routine.listOrder))
-        .map(({ id, title, category, startedAt, completedAt }) => ({
+        .sort((a, b) => compareTimeblockRows(a, b))
+        .map(({ id, title, startedAt, completedAt }) => ({
           id,
           title: title.trim(),
-          category,
           startedAt,
           completedAt,
         }));
@@ -663,9 +648,7 @@ export function TimeblockBuilder({
                     </Empty>
                   ) : (
                     [...calendarRows]
-                      .sort((a, b) =>
-                        compareTimeblockRows(a, b, routine.listOrder),
-                      )
+                      .sort((a, b) => compareTimeblockRows(a, b))
                       .map((row) => (
                         <div
                           key={row.id}
@@ -694,7 +677,6 @@ export function TimeblockBuilder({
                             onClick={() => openEditor(row)}
                           >
                             <strong>{row.title || "Untitled block"}</strong>
-                            {row.category && <span>{row.category}</span>}
                             <span>
                               {formatDayShort(row.startedAt.slice(0, 10))} ·{" "}
                               {blockTime(row.startedAt)} to{" "}
@@ -818,7 +800,7 @@ export function TimeblockBuilder({
                 ? "Fix the flagged blocks before exporting."
                 : busy
                   ? "Wait for the AI editor to finish before exporting."
-                  : "Landscape PDF with school, sleep, and your work. Extra pages are added as needed."}
+                  : "Two-page Letter PDF: portrait tasks on the front, landscape calendar on the back. Print double-sided, flip on the long edge."}
           </p>
         </div>
         <Button

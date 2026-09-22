@@ -1,4 +1,12 @@
-import { grayscale, PDFDocument, type PDFFont, StandardFonts } from "pdf-lib";
+import {
+  Duplex,
+  grayscale,
+  PDFDocument,
+  type PDFFont,
+  PrintScaling,
+  StandardFonts,
+} from "pdf-lib";
+import { DomainError } from "@/lib/errors";
 import { appTimeZone, parsePhoenixLocalDateTime } from "@/lib/time";
 import {
   EMPTY_ROUTINE,
@@ -10,14 +18,13 @@ import { timeblockWeek } from "@/lib/timeblocks";
 export type TimeblockPdfTask = {
   id: string;
   title: string;
-  category?: string;
   startedAt: Date;
   completedAt: Date;
 };
 
-const PAGE_WIDTH = 792;
-const PAGE_HEIGHT = 612;
-const MARGIN = 32;
+const PAGE_WIDTH = 612;
+const PAGE_HEIGHT = 792;
+const MARGIN = 28;
 const INK = grayscale(0.12);
 const MUTED = grayscale(0.4);
 
@@ -60,12 +67,6 @@ export function wrapPdfText(
   return lines.length ? lines : [""];
 }
 
-const dayFormatter = new Intl.DateTimeFormat("en-US", {
-  timeZone: appTimeZone,
-  weekday: "long",
-  month: "short",
-  day: "numeric",
-});
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: appTimeZone,
   month: "short",
@@ -78,18 +79,18 @@ const timeFormatter = new Intl.DateTimeFormat("en-US", {
   minute: "2-digit",
 });
 
-type PrintBlock = { label: string; time: string; routine: boolean };
+type PrintBlock = {
+  label: string;
+  time: string;
+  routine: boolean;
+  startMinute: number;
+  endMinute: number;
+};
 
-export function orderedPrintTasks(tasks: TimeblockPdfTask[], order = "time") {
+export function orderedPrintTasks(tasks: TimeblockPdfTask[]) {
   return [...tasks].sort(
     (a, b) =>
-      (order === "category"
-        ? (a.category || "Uncategorized").localeCompare(
-            b.category || "Uncategorized",
-          )
-        : 0) ||
-      a.startedAt.getTime() - b.startedAt.getTime() ||
-      a.id.localeCompare(b.id),
+      a.startedAt.getTime() - b.startedAt.getTime() || a.id.localeCompare(b.id),
   );
 }
 
@@ -99,7 +100,7 @@ export function timeblockPrintDays(input: {
   routine?: TimeblockRoutine;
 }) {
   const week = timeblockWeek(input.dueMonday);
-  const tasks = orderedPrintTasks(input.tasks, input.routine?.listOrder);
+  const tasks = orderedPrintTasks(input.tasks);
   const blocks = [
     ...tasks.map((task, index) => ({
       ...task,
@@ -139,6 +140,10 @@ export function timeblockPrintDays(input: {
         )
         .map(
           (block): PrintBlock => ({
+            startMinute:
+              (Math.max(start, block.startedAt.getTime()) - start) / 60_000,
+            endMinute:
+              (Math.min(end, block.completedAt.getTime()) - start) / 60_000,
             label: block.label,
             routine: block.routine,
             time: `${timeFormatter.format(new Date(Math.max(start, block.startedAt.getTime())))} - ${block.completedAt.getTime() >= end ? "midnight" : timeFormatter.format(block.completedAt)}${block.startedAt.getTime() < start ? " (continued)" : ""}`,
@@ -162,6 +167,9 @@ export async function createTimeblockPdf(input: {
     "Weekly school, sleep, and work schedule for Ms. Merrill",
   );
   document.setCreator("Pickle Balls");
+  const viewer = document.catalog.getOrCreateViewerPreferences();
+  viewer.setDuplex(Duplex.DuplexFlipLongEdge);
+  viewer.setPrintScaling(PrintScaling.None);
   const regular = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
   const days = timeblockPrintDays(input);
@@ -173,219 +181,348 @@ export async function createTimeblockPdf(input: {
     11,
   );
   // Keep headers bounded for exceptionally long account names while preserving
-  // the full name in PDF metadata. Work and class titles are never shortened.
+  // the full name in PDF metadata. Full task titles appear on the front.
   const headerName = nameLines[0] + (nameLines.length > 1 ? "..." : "");
 
-  if (input.routine?.listOrder === "category" && input.tasks.length) {
-    let page = document.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    let top = 0;
-    const header = () => {
-      page.drawText("TASKS BY CATEGORY", {
-        x: MARGIN,
-        y: 578,
-        size: 22,
-        font: bold,
-        color: INK,
+  const header = (title: string, subtitle: string, landscape = false) => {
+    const height = landscape ? PAGE_WIDTH : PAGE_HEIGHT;
+    const page = document.addPage(
+      landscape ? [PAGE_HEIGHT, PAGE_WIDTH] : [PAGE_WIDTH, PAGE_HEIGHT],
+    );
+    page.drawText(title, {
+      x: MARGIN,
+      y: height - 44,
+      size: 20,
+      font: bold,
+      color: INK,
+    });
+    page.drawText(headerName, {
+      x: MARGIN,
+      y: height - 64,
+      size: 11,
+      font: bold,
+      color: INK,
+    });
+    page.drawText(weekLabel, {
+      x: MARGIN,
+      y: height - 80,
+      size: 9,
+      font: regular,
+      color: MUTED,
+    });
+    page.drawText(subtitle, {
+      x: MARGIN,
+      y: height - 96,
+      size: 8,
+      font: regular,
+      color: MUTED,
+    });
+    return page;
+  };
+  const tasks = orderedPrintTasks(input.tasks);
+  const front = header(
+    "WEEKLY TASKS",
+    `Due ${dateFormatter.format(week.endAtExclusive)} | For Ms. Merrill`,
+  );
+  const listTop = 672;
+  const listBottom = 48;
+  const gap = 16;
+  const taskDay = new Intl.DateTimeFormat("en-US", {
+    timeZone: appTimeZone,
+    weekday: "short",
+  });
+  const entries = tasks.map((task, index) => ({
+    title: `#${index + 1}  ${task.title}`,
+    time: `${taskDay.format(task.startedAt)} | ${timeFormatter.format(task.startedAt)} - ${dateFormatter.format(task.startedAt) === dateFormatter.format(task.completedAt) ? "" : `${taskDay.format(task.completedAt)} `}${timeFormatter.format(task.completedAt)}`,
+  }));
+  // Keep full titles, and never create overflow pages or silently omit work.
+  // Try readable layouts before rejecting an overfull sheet.
+  let layout:
+    | {
+        columns: number;
+        size: number;
+        width: number;
+        rows: {
+          title: string[];
+          time: string[];
+          height: number;
+          column: number;
+        }[];
+      }
+    | undefined;
+  for (const size of [10, 9, 8]) {
+    for (const columns of [1, 2, 3]) {
+      const width = (PAGE_WIDTH - MARGIN * 2 - gap * (columns - 1)) / columns;
+      let column = 0;
+      let available = listTop - listBottom;
+      const rows = entries.map((entry) => {
+        const title = wrapPdfText(entry.title, width - 8, bold, size);
+        const time = wrapPdfText(entry.time, width - 8, regular, size - 1);
+        const height = title.length * (size + 2) + time.length * (size + 1) + 3;
+        if (height > available) {
+          column++;
+          available = listTop - listBottom;
+        }
+        available -= height;
+        return { title, time, height, column };
       });
-      page.drawText(headerName, {
-        x: MARGIN,
-        y: 557,
-        size: 11,
-        font: bold,
-        color: INK,
-      });
-      page.drawText(weekLabel, {
-        x: MARGIN,
-        y: 540,
-        size: 8.5,
+      if (
+        column < columns &&
+        rows.every((row) => row.height <= listTop - listBottom)
+      ) {
+        layout = { columns, size, width, rows };
+        break;
+      }
+    }
+    if (layout) break;
+  }
+  if (!layout)
+    throw new DomainError(
+      "This task list is too long to fit legibly on one sheet. Shorten task titles or exclude some tasks, then export again.",
+    );
+  if (!tasks.length)
+    front.drawText("No tasks included for this week.", {
+      x: MARGIN,
+      y: listTop - 12,
+      size: 10,
+      font: regular,
+      color: MUTED,
+    });
+  const tops = Array.from({ length: layout.columns }, () => listTop);
+  for (const row of layout.rows) {
+    const x = MARGIN + row.column * (layout.width + gap);
+    let y = tops[row.column] - layout.size;
+    for (const line of row.title) {
+      front.drawText(line, { x, y, size: layout.size, font: bold, color: INK });
+      y -= layout.size + 2;
+    }
+    for (const line of row.time) {
+      front.drawText(line, {
+        x,
+        y,
+        size: layout.size - 1,
         font: regular,
         color: MUTED,
       });
-      top = 510;
-    };
-    header();
-    let previousCategory = "";
-    orderedPrintTasks(input.tasks, "category").forEach((task, index) => {
-      const category = task.category || "Uncategorized";
-      const lines = wrapPdfText(
-        `#${index + 1} - ${task.title}`,
-        PAGE_WIDTH - MARGIN * 2 - 16,
-        regular,
-        10,
-      );
-      const categoryLines = wrapPdfText(
-        category,
-        PAGE_WIDTH - MARGIN * 2,
-        bold,
-        12,
-      );
-      const headingHeight = categoryLines.length * 15 + 10;
-      const rowHeight = lines.length * 13 + 24;
-      let showCategory = category !== previousCategory;
-      if (top - rowHeight - (showCategory ? headingHeight : 0) < 40) {
-        page = document.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-        header();
-        showCategory = true;
-      }
-      if (showCategory) {
-        for (const line of categoryLines) {
-          page.drawText(line, {
-            x: MARGIN,
-            y: top,
-            size: 12,
-            font: bold,
-            color: INK,
-          });
-          top -= 15;
-        }
-        top -= 10;
-      }
-      for (const line of lines) {
-        page.drawText(line, {
-          x: MARGIN + 8,
-          y: top,
-          size: 10,
-          font: regular,
-          color: INK,
-        });
-        top -= 13;
-      }
-      page.drawText(
-        `${dayFormatter.format(task.startedAt)}, ${timeFormatter.format(task.startedAt)} to ${dayFormatter.format(task.completedAt)}, ${timeFormatter.format(task.completedAt)}`,
-        {
-          x: MARGIN + 8,
-          y: top,
-          size: 8,
-          font: regular,
-          color: MUTED,
-        },
-      );
-      top -= 24;
-      previousCategory = category;
+      y -= layout.size + 1;
+    }
+    tops[row.column] -= row.height;
+    front.drawLine({
+      start: { x, y: tops[row.column] + 1 },
+      end: { x: x + layout.width - 8, y: tops[row.column] + 1 },
+      color: grayscale(0.86),
+      thickness: 0.4,
     });
   }
 
-  // Four wide day columns, then three. Text determines block height, so even a
-  // five-minute activity has room for its full title. Dense days continue onto
-  // additional calendar pages instead of shrinking the font or dropping text.
-  for (const group of [days.slice(0, 4), days.slice(4)]) {
-    const gap = 10;
-    const width =
-      (PAGE_WIDTH - 2 * MARGIN - gap * (group.length - 1)) / group.length;
-    const cursors = group.map(() => 0);
-    let continuation = false;
-    do {
-      const page = document.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-      page.drawText("WEEKLY TIMEBLOCK", {
-        x: MARGIN,
-        y: 578,
-        size: 22,
-        font: bold,
-        color: INK,
+  const back = header(
+    "WEEKLY CALENDAR",
+    "Phoenix time | Task numbers match the front. Shaded blocks: school and sleep.",
+    true,
+  );
+  const gridLeft = MARGIN + 38;
+  const gridRight = PAGE_HEIGHT - MARGIN;
+  const gridTop = 482;
+  const gridBottom = 46;
+  const gridHeight = gridTop - gridBottom;
+  const dayWidth = (gridRight - gridLeft) / 7;
+  const minuteY = (minute: number) => gridTop - (minute / 1440) * gridHeight;
+  const shortDate = new Intl.DateTimeFormat("en-US", {
+    timeZone: appTimeZone,
+    month: "numeric",
+    day: "numeric",
+  });
+  days.forEach((day, index) => {
+    const x = gridLeft + index * dayWidth;
+    const label = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ][index];
+    back.drawText(label, {
+      x: x + (dayWidth - bold.widthOfTextAtSize(label, 8)) / 2,
+      y: 502,
+      size: 8,
+      font: bold,
+      color: INK,
+    });
+    const date = shortDate.format(day.date);
+    back.drawText(date, {
+      x: x + (dayWidth - regular.widthOfTextAtSize(date, 7)) / 2,
+      y: 491,
+      size: 7,
+      font: regular,
+      color: MUTED,
+    });
+  });
+  for (let slot = 0; slot <= 48; slot++) {
+    const y = minuteY(slot * 30);
+    const hour = Math.floor(slot / 2) % 24;
+    const label = `${hour % 12 || 12}:${slot % 2 ? "30" : "00"}${hour < 12 ? "a" : "p"}`;
+    back.drawText(label, {
+      x: gridLeft - 5 - regular.widthOfTextAtSize(label, 6),
+      y: y - 2,
+      size: 6,
+      font: regular,
+      color: MUTED,
+    });
+    back.drawLine({
+      start: { x: gridLeft, y },
+      end: { x: gridRight, y },
+      thickness: slot % 2 ? 0.25 : 0.5,
+      color: grayscale(slot % 2 ? 0.88 : 0.7),
+    });
+  }
+  for (let day = 0; day <= 7; day++)
+    back.drawLine({
+      start: { x: gridLeft + day * dayWidth, y: gridBottom },
+      end: { x: gridLeft + day * dayWidth, y: gridTop },
+      thickness: 0.5,
+      color: grayscale(0.65),
+    });
+
+  for (const [dayIndex, day] of days.entries()) {
+    // Partition connected overlap groups, then assign a separate lane to each
+    // simultaneous block. Adjacent blocks can reuse a lane.
+    const sorted = [...day.blocks].sort(
+      (a, b) => a.startMinute - b.startMinute || b.endMinute - a.endMinute,
+    );
+    const groups: PrintBlock[][] = [];
+    let end = -1;
+    for (const block of sorted) {
+      if (block.startMinute >= end) {
+        groups.push([]);
+        end = -1;
+      }
+      groups[groups.length - 1].push(block);
+      end = Math.max(end, block.endMinute);
+    }
+    const callouts: { block: PrintBlock; anchorX: number; anchorY: number }[] =
+      [];
+    for (const group of groups) {
+      const laneEnds: number[] = [];
+      const assigned = group.map((block) => {
+        let lane = laneEnds.findIndex((end) => end <= block.startMinute);
+        if (lane < 0) lane = laneEnds.length;
+        laneEnds[lane] = block.endMinute;
+        return { block, lane };
       });
-      page.drawText(headerName, {
-        x: MARGIN,
-        y: 557,
-        size: 11,
-        font: bold,
-        color: INK,
-      });
-      page.drawText(
-        `${weekLabel} | Due Monday, ${dateFormatter.format(week.endAtExclusive)}`,
-        { x: MARGIN, y: 540, size: 8.5, font: regular, color: MUTED },
+      const width = dayWidth / laneEnds.length;
+      for (const { block, lane } of assigned) {
+        const x = gridLeft + dayIndex * dayWidth + lane * width + 0.6;
+        const top = minuteY(block.startMinute);
+        const height =
+          ((block.endMinute - block.startMinute) / 1440) * gridHeight;
+        back.drawRectangle({
+          x,
+          y: top - height,
+          width: width - 1.2,
+          height,
+          color: grayscale(block.routine ? 0.92 : 1),
+          borderColor: grayscale(block.routine ? 0.65 : 0.25),
+          borderWidth: 0.45,
+        });
+        // Titles stay within their actual time interval. Compact blocks use a
+        // single label; full task titles and exact times remain on the front.
+        const size = 6.5;
+        const lineHeight = 7.5;
+        const maxLines = Math.floor((height - 1) / lineHeight);
+        if (maxLines < 1 || width < 12) {
+          callouts.push({
+            block,
+            anchorX: x + (width - 1.2) / 2,
+            anchorY: top - height / 2,
+          });
+          continue;
+        }
+        const lines = wrapPdfText(block.label, width - 5, bold, size);
+        const visible = lines.slice(0, maxLines);
+        if (lines.length > maxLines) {
+          let last = visible[visible.length - 1];
+          while (last && bold.widthOfTextAtSize(`${last}...`, size) > width - 5)
+            last = last.slice(0, -1);
+          visible[visible.length - 1] = `${last}...`;
+        }
+        visible.forEach((line, index) => {
+          back.drawText(line, {
+            x: x + 2,
+            y: top - size - 1 - index * lineHeight,
+            size,
+            font: bold,
+            color: INK,
+          });
+        });
+      }
+    }
+    // Very short or narrow blocks cannot contain readable text at true scale.
+    // Place their names in the nearest free time interval with a leader line.
+    const occupied = sorted.map((block) => ({
+      start: (block.startMinute / 1440) * gridHeight,
+      end: (block.endMinute / 1440) * gridHeight,
+    }));
+    for (const { block, anchorX, anchorY } of callouts) {
+      occupied.sort((a, b) => a.start - b.start);
+      const gaps: { start: number; end: number }[] = [];
+      let cursor = 0;
+      for (const interval of occupied) {
+        if (interval.start - cursor >= 9)
+          gaps.push({ start: cursor, end: interval.start });
+        cursor = Math.max(cursor, interval.end);
+      }
+      if (gridHeight - cursor >= 9)
+        gaps.push({ start: cursor, end: gridHeight });
+      const target = gridTop - anchorY;
+      const positions = gaps.map((gap) =>
+        Math.max(gap.start, Math.min(target - 4.5, gap.end - 9)),
       );
-      page.drawText(`For Ms. Merrill${continuation ? " | Continued" : ""}`, {
-        x: 610,
-        y: 580,
-        size: 8,
-        font: regular,
+      positions.sort(
+        (a, b) => Math.abs(a + 4.5 - target) - Math.abs(b + 4.5 - target),
+      );
+      const position = positions[0];
+      if (position === undefined)
+        throw new DomainError(
+          "This calendar is too crowded to label on one page. Reduce overlapping or very short blocks, then export again.",
+        );
+      occupied.push({ start: position, end: position + 9 });
+      const x = gridLeft + dayIndex * dayWidth + 2;
+      const y = gridTop - position - 6.5;
+      const width = dayWidth - 7;
+      let label = safePdfText(block.label);
+      if (bold.widthOfTextAtSize(label, 6) > width) {
+        while (label && bold.widthOfTextAtSize(`${label}...`, 6) > width)
+          label = label.slice(0, -1);
+        label += "...";
+      }
+      back.drawLine({
+        start: { x: anchorX, y: anchorY },
+        end: { x: x + width, y: y + 2 },
+        thickness: 0.4,
         color: MUTED,
       });
-      group.forEach((day, index) => {
-        const x = MARGIN + index * (width + gap);
-        page.drawRectangle({
-          x,
-          y: 510,
-          width,
-          height: 22,
-          color: grayscale(0.9),
-        });
-        page.drawText(dayFormatter.format(day.date), {
-          x: x + 8,
-          y: 518,
-          size: 9,
-          font: bold,
-          color: INK,
-        });
-        let top = 502;
-        if (day.blocks.length === 0 || cursors[index] >= day.blocks.length) {
-          page.drawText(
-            day.blocks.length === 0
-              ? "No blocks added."
-              : "Complete on previous page.",
-            { x: x + 8, y: top - 14, size: 8, font: regular, color: MUTED },
-          );
-        }
-        while (cursors[index] < day.blocks.length) {
-          const block = day.blocks[cursors[index]];
-          const titleLines = wrapPdfText(block.label, width - 16, bold, 9);
-          const timeLines = wrapPdfText(block.time, width - 16, regular, 7.5);
-          const height = 11 + titleLines.length * 10 + timeLines.length * 8;
-          if (top - height < 40) break;
-          page.drawRectangle({
-            x,
-            y: top - height,
-            width,
-            height,
-            color: grayscale(block.routine ? 0.96 : 1),
-            borderColor: grayscale(0.68),
-            borderWidth: 0.5,
-          });
-          let baseline = top - 12;
-          for (const line of titleLines) {
-            page.drawText(line, {
-              x: x + 8,
-              y: baseline,
-              size: 9,
-              font: bold,
-              color: INK,
-            });
-            baseline -= 10;
-          }
-          for (const line of timeLines) {
-            page.drawText(line, {
-              x: x + 8,
-              y: baseline,
-              size: 7.5,
-              font: regular,
-              color: MUTED,
-            });
-            baseline -= 8;
-          }
-          top -= height + 3;
-          cursors[index]++;
-        }
-        if (cursors[index] < day.blocks.length)
-          page.drawText("Continues on next page", {
-            x: x + 8,
-            y: 29,
-            size: 7,
-            font: bold,
-            color: MUTED,
-          });
+      back.drawRectangle({
+        x,
+        y: y - 1,
+        width,
+        height: 8,
+        color: grayscale(1),
       });
-      continuation = true;
-    } while (group.some((day, index) => cursors[index] < day.blocks.length));
+      back.drawText(label, { x, y, size: 6, font: bold, color: INK });
+    }
   }
-  const pages = document.getPages();
-  pages.forEach((page, index) => {
+  document.getPages().forEach((page, index) => {
     page.drawText(
-      "Phoenix time | Calendar blocks in time order; heights fit titles. Shaded blocks: recurring routine.",
-      { x: MARGIN, y: 18, size: 7, font: regular, color: MUTED },
+      index === 0
+        ? "Read columns top to bottom. Print double-sided, flip on the long edge."
+        : "Half-hour grid. Short blocks use leader lines. Full task titles and times are on the front.",
+      { x: MARGIN, y: 24, size: 7, font: regular, color: MUTED },
     );
-    page.drawText(`Page ${index + 1} of ${pages.length}`, {
-      x: PAGE_WIDTH - 85,
-      y: 18,
+    page.drawText(`${index + 1} / 2`, {
+      x: page.getWidth() - MARGIN - 20,
+      y: 24,
       size: 7,
       font: regular,
       color: MUTED,

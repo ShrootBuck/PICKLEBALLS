@@ -209,26 +209,88 @@ describe("printed calendar", () => {
       ).toBe(true);
     }
   });
-  test("crowded reports paginate instead of losing titles", async () => {
-    const tasks = Array.from({ length: 56 }, (_, i) => ({
+  test("exports exactly two Letter pages with a portrait front and landscape back", async () => {
+    for (const count of [0, 14, 56]) {
+      const tasks = Array.from({ length: count }, (_, i) => ({
+        id: `manual-${i}`,
+        title: `Assignment ${i}: finish physics problem set`,
+        startedAt: new Date(
+          Date.parse("2026-09-07T21:00:00Z") + i * 60_000 * 30,
+        ),
+        completedAt: new Date(
+          Date.parse("2026-09-07T21:00:00Z") + (i + 1) * 60_000 * 30,
+        ),
+      }));
+      const pdf = await PDFDocument.load(
+        await createTimeblockPdf({
+          studentName: "Test Student",
+          dueMonday: due,
+          routine,
+          tasks,
+        }),
+      );
+      expect(pdf.getPageCount()).toBe(2);
+      expect(pdf.getPages().map((page) => page.getSize())).toEqual([
+        { width: 612, height: 792 },
+        { width: 792, height: 612 },
+      ]);
+    }
+  });
+  test("overfull sheets report a useful error instead of adding pages or losing titles", async () => {
+    const tasks = Array.from({ length: 280 }, (_, i) => ({
       id: `manual-${i}`,
-      title: `Task ${i}: ${"Detailed assignment instructions ".repeat(4)}`,
+      title: "W".repeat(160),
       startedAt: new Date("2026-09-07T21:00:00Z"),
-      completedAt: new Date("2026-09-07T21:05:00Z"),
+      completedAt: new Date("2026-09-07T22:00:00Z"),
     }));
-    const pdf = await PDFDocument.load(
-      await createTimeblockPdf({
+    expect(
+      createTimeblockPdf({
         studentName: "Test Student",
         dueMonday: due,
         routine,
         tasks,
       }),
+    ).rejects.toThrow("too long to fit legibly");
+  });
+  test("short blocks and overlapping overnight work remain a two-page report", async () => {
+    const tasks = [
+      {
+        id: "short",
+        title: "Email teacher",
+        startedAt: new Date("2026-09-13T14:00:00-07:00"),
+        completedAt: new Date("2026-09-13T14:05:00-07:00"),
+      },
+      {
+        id: "overnight",
+        title: "Overnight project",
+        startedAt: new Date("2026-09-07T23:30:00-07:00"),
+        completedAt: new Date("2026-09-08T00:30:00-07:00"),
+      },
+    ];
+    const days = timeblockPrintDays({ dueMonday: due, routine, tasks });
+    expect(days[0].blocks.find((block) => !block.routine)).toMatchObject({
+      startMinute: 1410,
+      endMinute: 1440,
+    });
+    expect(days[1].blocks.find((block) => !block.routine)).toMatchObject({
+      startMinute: 0,
+      endMinute: 30,
+    });
+    const pdf = await PDFDocument.load(
+      await createTimeblockPdf({
+        studentName: "Sample Student",
+        dueMonday: due,
+        routine,
+        tasks,
+      }),
     );
-    expect(pdf.getPageCount()).toBeGreaterThan(2);
-    expect(
-      pdf
-        .getPages()
-        .every((page) => page.getWidth() === 792 && page.getHeight() === 612),
-    ).toBe(true);
+    expect(pdf.getPageCount()).toBe(2);
+  });
+  test("legacy category preferences are stripped on load", () => {
+    const parsed = timeblockRoutineSchema.parse({
+      ...routine,
+      listOrder: "category",
+    });
+    expect(parsed).not.toHaveProperty("listOrder");
   });
 });

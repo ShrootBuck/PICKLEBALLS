@@ -44,7 +44,6 @@ export const timeblockRoutineSchema = z.object({
     .describe(
       "Complete custom weekly routine replacing ALL default school periods and lunch. Null uses default school, [] disables school. Sleep below is added separately; avoid duplicates.",
     ),
-  listOrder: z.enum(["time", "category"]).optional(),
   classes: z.object({
     "1": className,
     "2": className,

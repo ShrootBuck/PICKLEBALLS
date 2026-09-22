@@ -143,30 +143,6 @@ export function TimeblockRoutineForm({
             className="flex flex-col gap-5 pt-5"
           >
             <CardContent className="flex flex-col gap-5">
-              <div className="flex flex-wrap items-center gap-3">
-                <Badge variant="outline">
-                  {draft.listOrder === "category"
-                    ? "Tasks grouped by category"
-                    : "Tasks in time order"}
-                </Badge>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={disabled}
-                  onClick={() =>
-                    setDraft({
-                      ...draft,
-                      listOrder:
-                        draft.listOrder === "category" ? "time" : "category",
-                    })
-                  }
-                >
-                  {draft.listOrder === "category"
-                    ? "Use time order"
-                    : "Group by category"}
-                </Button>
-              </div>
               {draft.schedule != null && (
                 <div
                   id="custom-routine"

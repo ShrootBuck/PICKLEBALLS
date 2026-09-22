@@ -16,14 +16,12 @@ test("agent inspects, receives a validation error, repairs, and checks successiv
   const routine = {
     ...EMPTY_ROUTINE,
     schedule: [],
-    listOrder: "category" as const,
   };
   const edit = {
     summary: "Move and categorize physics",
     upserts: [
       {
         ...initial,
-        category: "Science",
         startedAt: "2026-09-08T16:00",
         completedAt: "2026-09-08T18:00",
       },

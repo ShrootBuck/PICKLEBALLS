@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { parsePhoenixLocalDateTime } from "@/lib/time";
 import { calendarDaySegments } from "@/lib/timeblock-calendar";
-import {
-  MAX_TIMEBLOCKS,
-  type TimeblockDraftRow,
-  timeblockCategorySchema,
-} from "@/lib/timeblock-draft";
+import { MAX_TIMEBLOCKS, type TimeblockDraftRow } from "@/lib/timeblock-draft";
 import {
   routineBlocks,
   type TimeblockRoutine,
@@ -24,9 +20,6 @@ export const blockEditSchema = z.object({
           .max(100)
           .describe("Existing ID to edit; a new unique manual- ID to add."),
         title: z.string().trim().min(1).max(160),
-        category: timeblockCategorySchema.describe(
-          "Category for grouping the task list, such as Physics, Applications, or Exercise. Omit to preserve; empty string clears.",
-        ),
         startedAt: z.string().describe("Phoenix local YYYY-MM-DDTHH:mm"),
         completedAt: z.string().describe("Phoenix local YYYY-MM-DDTHH:mm"),
         included: z.boolean(),
@@ -41,7 +34,7 @@ export const reportEditSchema = blockEditSchema.extend({
   routine: timeblockRoutineSchema
     .nullable()
     .describe(
-      "Updated recurring settings, or null to keep them. Preserve unspecified settings. schedule replaces default school and lunch; listOrder controls category grouping in the list and PDF task index. These settings also apply to future reports.",
+      "Updated recurring settings, or null to keep them. Preserve unspecified settings. schedule replaces default school and lunch. Tasks always appear chronologically. These settings also apply to future reports.",
     ),
 });
 
@@ -70,7 +63,6 @@ export function draftFingerprint(rows: TimeblockDraftRow[]) {
     rows.map((r) => [
       r.id,
       r.title,
-      r.category ?? "",
       r.startedAt,
       r.completedAt,
       r.status,

@@ -1,12 +1,10 @@
 import { z } from "zod";
 
 export const MAX_TIMEBLOCKS = 280;
-export const timeblockCategorySchema = z.string().trim().max(80).optional();
 
 const rowSchema = z.object({
   id: z.string().min(1).max(100),
   title: z.string().max(160),
-  category: timeblockCategorySchema,
   startedAt: z.string().max(30),
   completedAt: z.string().max(30),
   status: z
@@ -23,17 +21,8 @@ export type TimeblockDraftRow = z.infer<typeof rowSchema>;
 export function compareTimeblockRows(
   a: TimeblockDraftRow,
   b: TimeblockDraftRow,
-  order = "time",
 ) {
-  return (
-    (order === "category"
-      ? (a.category || "Uncategorized").localeCompare(
-          b.category || "Uncategorized",
-        )
-      : 0) ||
-    a.startedAt.localeCompare(b.startedAt) ||
-    a.id.localeCompare(b.id)
-  );
+  return a.startedAt.localeCompare(b.startedAt) || a.id.localeCompare(b.id);
 }
 
 export function parseTimeblockDraft(

@@ -39,12 +39,10 @@ const custom: TimeblockRoutine = {
     },
   ],
   sleep: { bedtime: "22:00", wakeTime: "06:00" },
-  listOrder: "category",
 };
 const row: TimeblockDraftRow = {
   id: "proof-1",
   title: "Physics",
-  category: "Science",
   status: "VERIFIED",
   included: true,
   startedAt: "2026-09-07T16:00",
@@ -127,7 +125,7 @@ describe("whole-week replanning", () => {
     expect(reportFingerprint([row], custom)).toBe(before);
   });
 
-  test("large rewrites preserve proof status, categories, and omitted routine settings", () => {
+  test("large rewrites preserve proof status and omitted routine settings", () => {
     const upserts = Array.from({ length: 100 }, (_, i) => ({
       ...row,
       id: `manual-${i}`,
@@ -154,7 +152,6 @@ describe("whole-week replanning", () => {
     expect(next.rows).toHaveLength(101);
     expect(next.rows[0].status).toBe("VERIFIED");
     expect(next.routine.schedule).toEqual(custom.schedule);
-    expect(next.routine.listOrder).toBe("category");
     const restored = parseTimeblockDraft(
       JSON.stringify({ version: 1, rows: next.rows }),
     );
@@ -178,41 +175,52 @@ describe("whole-week replanning", () => {
       },
       due,
     );
-    expect(renamed.rows[0].category).toBe("Science");
+    expect(renamed.rows[0].title).toBe("New title");
     expect(reportFingerprint([row], custom)).not.toBe(
-      reportFingerprint([{ ...row, category: "Other" }], custom),
+      reportFingerprint([{ ...row, title: "Other" }], custom),
     );
   });
 
-  test("category ordering reaches PDF input and uses matching calendar numbers", () => {
+  test("chronological ordering reaches PDF input and uses matching calendar numbers", () => {
     const rows = [
       row,
       {
         ...row,
         id: "manual-2",
         title: "Essay",
-        category: "Applications",
         startedAt: "2026-09-09T16:00",
         completedAt: "2026-09-09T17:00",
       },
     ];
-    expect(
-      [...rows].sort((a, b) => compareTimeblockRows(a, b, "category"))[0].title,
-    ).toBe("Essay");
+    expect([...rows].sort((a, b) => compareTimeblockRows(a, b))[0].title).toBe(
+      "Physics",
+    );
     const parsed = timeblockPdfSchema.parse({
       dueMonday: due,
       routine: custom,
       tasks: rows,
     });
-    expect(parsed.tasks[1].category).toBe("Applications");
     const tasks = parsed.tasks.map((task) => ({
       ...task,
       startedAt: new Date(`${task.startedAt}:00-07:00`),
       completedAt: new Date(`${task.completedAt}:00-07:00`),
     }));
-    expect(orderedPrintTasks(tasks, "category")[0].title).toBe("Essay");
+    expect(orderedPrintTasks(tasks)[0].title).toBe("Physics");
     const days = timeblockPrintDays({ dueMonday: due, routine: custom, tasks });
-    expect(days[0].blocks.some((b) => b.label === "#2 - Physics")).toBe(true);
-    expect(days[2].blocks.some((b) => b.label === "#1 - Essay")).toBe(true);
+    expect(days[0].blocks.some((b) => b.label === "#1 - Physics")).toBe(true);
+    expect(days[2].blocks.some((b) => b.label === "#2 - Essay")).toBe(true);
+  });
+  test("old saved categories are discarded without losing tasks or routine", () => {
+    const restored = parseTimeblockDraft(
+      JSON.stringify({ version: 1, rows: [{ ...row, category: "Science" }] }),
+    );
+    expect(restored).toEqual([row]);
+    const parsed = timeblockPdfSchema.parse({
+      dueMonday: due,
+      routine: { ...custom, listOrder: "category" },
+      tasks: [{ ...row, category: "Science" }],
+    });
+    expect(parsed.routine).toEqual(custom);
+    expect(parsed.tasks[0]).not.toHaveProperty("category");
   });
 });

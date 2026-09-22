@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1790041565502,
+    title: "One-sheet weekly timeblocks",
+    description:
+      "Print a chronological task list on the portrait front and your full Monday-to-Sunday calendar on the landscape back. Reports stay at two pages, with half-hour rows across the whole day. Category grouping has been removed.",
+  },
+  {
     timestamp: 1790040113695,
     title: "A saved conversation for your week",
     description:
@@ -41,7 +47,7 @@ export const changelogEntries: ChangelogEntry[] = [
     timestamp: 1789447548778,
     title: "Replan your whole week in chat",
     description:
-      "Ask the timeblock editor to rebuild your week, change school and meal times, or create custom recurring routines. Group work by category in the task list and printable report, and undo any draft edit.",
+      "Ask the timeblock editor to rebuild your week, change school and meal times, or create custom recurring routines. Undo any draft edit.",
   },
   {
     timestamp: 1789441367956,

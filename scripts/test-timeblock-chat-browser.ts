@@ -45,7 +45,6 @@ try {
     const row = {
       id: "manual-chat-test",
       title: "Physics with AI",
-      category: "Study",
       included: true,
       status: null,
       startedAt: "2026-09-15T16:00",
