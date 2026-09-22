@@ -2,7 +2,10 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 import { getPrisma } from "@/lib/prisma";
-import { proofApprovalProgress } from "@/lib/task-policy";
+import {
+  proofApprovalProgress,
+  reviewableCommitmentFilter,
+} from "@/lib/task-policy";
 import { serializable } from "@/lib/transaction";
 
 export { ACTIVE_CIRCLE_COOKIE, parseActiveCircleId } from "@/lib/circle-cookie";
@@ -72,7 +75,12 @@ export async function removeCircleMember(
     const [members, proofs] = await Promise.all([
       tx.membership.findMany({ where: { circleId }, select: { userId: true } }),
       tx.taskProof.findMany({
-        where: { circleId, reviewStatus: "PENDING", replacedById: null },
+        where: {
+          circleId,
+          reviewStatus: "PENDING",
+          replacedById: null,
+          commitment: reviewableCommitmentFilter(),
+        },
         select: {
           id: true,
           ownerId: true,

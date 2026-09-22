@@ -1,4 +1,11 @@
-import { afterAll, beforeAll, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  expect,
+  mock,
+  setSystemTime,
+  test,
+} from "bun:test";
 import { randomUUID } from "node:crypto";
 
 if (
@@ -19,6 +26,7 @@ const {
   reviewProof,
   updateCommitment,
   setCheckIn,
+  reconcileMissedTasks,
 } = await import("@/lib/tasks");
 const { resolveLegacyFocus } = await import("@/lib/social-routing");
 const { notifyReplyReceived } = await import("@/lib/notifications");
@@ -28,6 +36,7 @@ const { requireDateKey } = await import("@/lib/time");
 const prisma = getPrisma();
 const now = new Date("2026-09-08T20:00:00Z");
 const start = new Date("2026-09-08T19:00:00Z");
+setSystemTime(now);
 const ids = {
   circle: "test-circle",
   other: "other-circle",
@@ -101,6 +110,7 @@ beforeAll(async () => {
   });
 });
 afterAll(async () => {
+  setSystemTime();
   await prisma.$disconnect();
 });
 
@@ -600,10 +610,6 @@ test("unready or wrong-circle media rolls back proof creation and preserves retr
     now,
   );
   expect(posted.ownerNote).toBe("Keep this caption");
-  await prisma.taskProof.update({
-    where: { id: posted.id },
-    data: { aiStatus: "FAILED" },
-  });
   await reviewProof(
     posted.id,
     ids.peer,
@@ -878,17 +884,17 @@ test("mood posts preserve full journals and feelings in circle timelines without
     now,
     {
       mood: 2,
-      feelings: ["Worried", "Hopeful"],
+      feelings: ["Worried", "Tired"],
       journal,
     },
   );
   const later = await setCheckIn(ids.owner, ids.circle, "YAY", undefined, now, {
     mood: 5,
-    feelings: ["Excited", "Nervous"],
+    feelings: ["Excited", "Joyful"],
     journal: "",
   });
   expect(update.journal).toBe(journal.trim());
-  expect(update.feelings).toEqual(["Worried", "Hopeful"]);
+  expect(update.feelings).toEqual(["Worried", "Tired"]);
   const feed = await getFeedPage({
     viewerId: ids.peer,
     circleId: ids.circle,
@@ -901,7 +907,7 @@ test("mood posts preserve full journals and feelings in circle timelines without
   expect(saved?.kind === "check-in" && saved.mood).toBe(2);
   expect(saved?.kind === "check-in" && saved.feelings).toEqual([
     "Worried",
-    "Hopeful",
+    "Tired",
   ]);
   const first = await getFeedPage({
     viewerId: ids.peer,
@@ -1107,13 +1113,17 @@ test("pending queue pagination is newest first and cannot reuse timeline cursors
       completedAt: now,
     })),
   });
+  expect(
+    (await getFeedPage({ viewerId: ids.owner, circleId, awaitingOnly: true }))
+      .items,
+  ).toHaveLength(0);
   const first = await getFeedPage({
-    viewerId: ids.owner,
+    viewerId: ids.peer,
     circleId,
     awaitingOnly: true,
   });
   const next = await getFeedPage({
-    viewerId: ids.owner,
+    viewerId: ids.peer,
     circleId,
     awaitingOnly: true,
     cursor: first.nextCursor ?? undefined,
@@ -1127,7 +1137,7 @@ test("pending queue pagination is newest first and cannot reuse timeline cursors
   expect(next.nextCursor).toBeNull();
   await expect(
     getFeedPage({
-      viewerId: ids.owner,
+      viewerId: ids.peer,
       circleId,
       cursor: first.nextCursor ?? undefined,
     }),
@@ -1308,4 +1318,248 @@ test("overnight tasks remain visible and accept queued proof after midnight", as
     queued.id,
   );
   expect(posted.isLate).toBe(false);
+});
+
+test("hourly reconciliation expires all unverified tasks, including queued media, exactly once", async () => {
+  const { queueProof } = await import("@/lib/pending-proof");
+  const circle = await prisma.circle.create({
+    data: { slug: `expiration-${randomUUID()}`, name: "Expiration" },
+  });
+  await prisma.membership.createMany({
+    data: [ids.owner, ids.peer].map((userId) => ({
+      userId,
+      circleId: circle.id,
+    })),
+  });
+  const createdAt = new Date(now.getTime() - 86_400_000);
+  const postedAt = new Date(now.getTime() - 60_000);
+  const open = await task(ids.owner, circle.id, createdAt);
+  const renegotiated = await task(ids.owner, circle.id, createdAt);
+  await updateCommitment(
+    renegotiated.id,
+    ids.owner,
+    circle.id,
+    {
+      title: "Changed promise",
+      definitionOfDone: "Complete the revised work.",
+    },
+    postedAt,
+  );
+  const awaiting = await task(ids.owner, circle.id, createdAt);
+  const pending = await submitProof(
+    awaiting.id,
+    ids.owner,
+    circle.id,
+    [await media(ids.owner, circle.id)],
+    null,
+    createdAt,
+    postedAt,
+    postedAt,
+  );
+  const verified = await task(ids.owner, circle.id, createdAt);
+  const approved = await submitProof(
+    verified.id,
+    ids.owner,
+    circle.id,
+    [await media(ids.owner, circle.id)],
+    null,
+    createdAt,
+    postedAt,
+    postedAt,
+  );
+  await reviewProof(
+    approved.id,
+    ids.peer,
+    circle.id,
+    { decision: "APPROVED" },
+    postedAt,
+  );
+  const encoding = await task(ids.owner, circle.id, createdAt);
+  const attachment = await media(ids.owner, circle.id);
+  const queued = await queueProof(
+    encoding.id,
+    ids.owner,
+    circle.id,
+    [attachment],
+    null,
+    createdAt,
+    postedAt,
+    postedAt,
+  );
+  const fresh = await task(
+    ids.owner,
+    circle.id,
+    new Date(createdAt.getTime() + 1),
+  );
+
+  // Deadline enforcement does not wait for cron to update the stored status.
+  await expect(
+    reviewProof(pending.id, ids.peer, circle.id, { decision: "APPROVED" }, now),
+  ).rejects.toThrow("expired");
+  expect(
+    (
+      await getFeedPage({
+        viewerId: ids.peer,
+        circleId: circle.id,
+        awaitingOnly: true,
+      })
+    ).items,
+  ).toHaveLength(0);
+  const history = await getFeedPage({
+    viewerId: ids.peer,
+    circleId: circle.id,
+    timelineOnly: true,
+  });
+  expect(history.items.find((post) => post.id === pending.id)).toMatchObject({
+    expired: true,
+    canReview: false,
+  });
+
+  expect((await reconcileMissedTasks(circle.id, now)).count).toBe(4);
+  expect((await reconcileMissedTasks(circle.id, now)).count).toBe(0);
+  const missedIds = [open.id, renegotiated.id, awaiting.id, encoding.id];
+  expect(
+    await prisma.commitment.count({
+      where: {
+        id: { in: missedIds },
+        status: "MISSED",
+      },
+    }),
+  ).toBe(4);
+  expect(
+    await prisma.activityEvent.count({
+      where: {
+        circleId: circle.id,
+        kind: "TASK_MISSED",
+      },
+    }),
+  ).toBe(4);
+  expect(
+    (await prisma.commitment.findUniqueOrThrow({ where: { id: verified.id } }))
+      .status,
+  ).toBe("VERIFIED");
+  expect(
+    (await prisma.commitment.findUniqueOrThrow({ where: { id: fresh.id } }))
+      .status,
+  ).toBe("OPEN");
+
+  // A previously accepted submission still publishes, without reviving a missed task.
+  const published = await submitProof(
+    encoding.id,
+    ids.owner,
+    circle.id,
+    queued.mediaIds,
+    null,
+    queued.startedAt,
+    queued.completedAt,
+    queued.createdAt,
+    queued.id,
+  );
+  expect(
+    (await prisma.commitment.findUniqueOrThrow({ where: { id: encoding.id } }))
+      .status,
+  ).toBe("MISSED");
+  await expect(
+    reviewProof(
+      published.id,
+      ids.peer,
+      circle.id,
+      { decision: "APPROVED" },
+      now,
+    ),
+  ).rejects.toThrow("expired");
+  expect(
+    await prisma.notification.count({ where: { entityId: published.id } }),
+  ).toBe(0);
+});
+
+test("reconciliation drains multiple batches and never duplicates missed activity", async () => {
+  const circle = await prisma.circle.create({
+    data: { slug: `batches-${randomUUID()}`, name: "Batches" },
+  });
+  const createdAt = new Date(now.getTime() - 86_400_000);
+  await prisma.commitment.createMany({
+    data: Array.from({ length: 31 }, (_, index) => ({
+      userId: ids.owner,
+      circleId: circle.id,
+      day: requireDateKey("2026-09-07"),
+      createdAt,
+      dueAt: now,
+      title: `Task ${index}`,
+      definitionOfDone: "Done",
+      status: "AWAITING_REVIEW" as const,
+    })),
+  });
+  const firstBatch = await reconcileMissedTasks(circle.id, now);
+  expect(firstBatch.count).toBe(25);
+  expect(firstBatch.hasMore).toBe(true);
+  const secondBatch = await reconcileMissedTasks(circle.id, now);
+  expect(secondBatch.count).toBe(6);
+  expect(secondBatch.hasMore).toBe(false);
+  expect((await reconcileMissedTasks(circle.id, now)).count).toBe(0);
+  expect(
+    await prisma.activityEvent.count({
+      where: { circleId: circle.id, kind: "TASK_MISSED" },
+    }),
+  ).toBe(31);
+});
+
+test("inbox rows commit with mutations and roll back with a failed transaction", async () => {
+  const { createNotificationAndPush, withNotifications } = await import(
+    "@/lib/notifications"
+  );
+  const posted = await proof();
+  const submitted = await prisma.notification.findUnique({
+    where: { dedupeKey: `proof:${posted.id}:${ids.peer}` },
+  });
+  expect(submitted?.kind).toBe("PROOF_SUBMITTED");
+  const review = await reviewProof(
+    posted.id,
+    ids.peer,
+    ids.circle,
+    { decision: "APPROVED" },
+    now,
+  );
+  expect(
+    (
+      await prisma.notification.findUnique({
+        where: { dedupeKey: `review:${review.id}:${ids.owner}` },
+      })
+    )?.kind,
+  ).toBe("PROOF_APPROVED");
+  const reply = await createSocialReply(ids.peer, ids.circle, {
+    targetType: "PROOF",
+    targetId: posted.id,
+    body: "A comment with an inbox entry",
+  });
+  expect(
+    (
+      await prisma.notification.findUnique({
+        where: { dedupeKey: `reply:${reply.id}:${ids.owner}` },
+      })
+    )?.kind,
+  ).toBe("REPLY_POSTED");
+
+  const dedupeKey = `rollback:${randomUUID()}`;
+  await expect(
+    withNotifications(async (_tx, context) => {
+      await createNotificationAndPush(
+        {
+          recipientId: ids.owner,
+          actorId: ids.peer,
+          circleId: ids.circle,
+          kind: "REPLY_POSTED",
+          title: "Should roll back",
+          body: "Test",
+          dedupeKey,
+        },
+        context,
+      );
+      expect(context.pushes).toHaveLength(1);
+      throw new Error("Mutation failed");
+    }),
+  ).rejects.toThrow("Mutation failed");
+  expect(
+    await prisma.notification.findUnique({ where: { dedupeKey } }),
+  ).toBeNull();
 });

@@ -46,7 +46,6 @@ export async function PUT(request: Request) {
     return NextResponse.json({
       preferences: {
         proofsSubmitted: prefs.proofsSubmitted,
-        screenTime: prefs.screenTime,
       } satisfies NotificationPrefs,
     });
   } catch (error) {

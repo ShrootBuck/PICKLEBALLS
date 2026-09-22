@@ -2,6 +2,7 @@ import "server-only";
 
 import { DomainError } from "@/lib/errors";
 import { claimMedia } from "@/lib/media";
+import { notifyReplyReceived, withNotifications } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
 import { replyEditSchema, socialReplySchema } from "@/lib/schemas";
 import { canEditReply } from "@/lib/task-policy";
@@ -27,7 +28,7 @@ export async function createSocialReply(
 
   const { targetType, targetId, body, mediaIds } = parsed.data;
 
-  return getPrisma().$transaction(async (transaction) => {
+  return withNotifications(async (transaction, notifications) => {
     await claimMedia(transaction, mediaIds, authorId, circleId);
     if (targetType === "COMMITMENT") {
       const task = await transaction.commitment.findFirst({
@@ -56,6 +57,10 @@ export async function createSocialReply(
           metadata: { targetType, replyId: reply.id },
         },
       });
+      await notifyReplyReceived(
+        { replyId: reply.id, authorId, circleId },
+        notifications,
+      );
       return reply;
     }
 
@@ -86,6 +91,10 @@ export async function createSocialReply(
           metadata: { targetType, replyId: reply.id },
         },
       });
+      await notifyReplyReceived(
+        { replyId: reply.id, authorId, circleId },
+        notifications,
+      );
       return reply;
     }
 
@@ -116,6 +125,10 @@ export async function createSocialReply(
           metadata: { targetType, replyId: reply.id },
         },
       });
+      await notifyReplyReceived(
+        { replyId: reply.id, authorId, circleId },
+        notifications,
+      );
       return reply;
     }
 
@@ -150,6 +163,10 @@ export async function createSocialReply(
           metadata: { targetType, replyId: reply.id },
         },
       });
+      await notifyReplyReceived(
+        { replyId: reply.id, authorId, circleId },
+        notifications,
+      );
       return reply;
     }
 
@@ -186,6 +203,10 @@ export async function createSocialReply(
         metadata: { targetType, replyId: reply.id },
       },
     });
+    await notifyReplyReceived(
+      { replyId: reply.id, authorId, circleId },
+      notifications,
+    );
     return reply;
   });
 }

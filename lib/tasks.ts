@@ -7,6 +7,11 @@ import { DomainError } from "@/lib/errors";
 import { sanitizeImage } from "@/lib/image";
 import { claimMedia } from "@/lib/media";
 import { mediaIdsSchema } from "@/lib/media-policy";
+import {
+  notifyProofReviewed,
+  notifyProofSubmitted,
+  withNotifications,
+} from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
 import { putMedia } from "@/lib/r2";
 import { commitmentInputSchema, proofReviewSchema } from "@/lib/schemas";
@@ -24,25 +29,27 @@ import { serializable } from "@/lib/transaction";
 export { DomainError };
 
 export async function reconcileMissedTasks(circleId: string, now = new Date()) {
-  const processing = await getPrisma().pendingProof.findMany({
-    where: { circleId, proofId: null, dismissed: false },
-    select: { commitmentId: true },
-  });
+  const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const candidates = await getPrisma().commitment.findMany({
     where: {
       circleId,
-      id: { notIn: processing.map((p) => p.commitmentId) },
-      dueAt: { lt: now },
-      status: { in: ["OPEN", "RENEGOTIATED"] },
-      proofs: { none: {} },
+      createdAt: { lte: cutoff },
+      status: { in: ["OPEN", "RENEGOTIATED", "AWAITING_REVIEW"] },
     },
-    orderBy: { dueAt: "asc" },
+    orderBy: { createdAt: "asc" },
     take: 25,
-    select: { id: true, userId: true, title: true, status: true, dueAt: true },
+    select: {
+      id: true,
+      userId: true,
+      title: true,
+      status: true,
+      createdAt: true,
+    },
   });
   if (candidates.length === 0)
     return {
       count: 0,
+      hasMore: false,
       missed: [] as Array<{ id: string; userId: string; title: string }>,
     };
   return serializable(async (transaction) => {
@@ -50,12 +57,13 @@ export async function reconcileMissedTasks(circleId: string, now = new Date()) {
     const missed: Array<{ id: string; userId: string; title: string }> = [];
     for (const task of candidates) {
       // Single source of truth for the miss rule (also unit-tested).
-      if (!shouldMarkMissed(task.status, task.dueAt, 0, now)) continue;
+      if (!shouldMarkMissed(task.status, taskDeadline(task.createdAt), now))
+        continue;
       const updated = await transaction.commitment.updateMany({
         where: {
           id: task.id,
-          status: { in: ["OPEN", "RENEGOTIATED"] },
-          proofs: { none: {} },
+          createdAt: { lte: cutoff },
+          status: { in: ["OPEN", "RENEGOTIATED", "AWAITING_REVIEW"] },
         },
         data: { status: "MISSED" },
       });
@@ -68,11 +76,11 @@ export async function reconcileMissedTasks(circleId: string, now = new Date()) {
           actorId: task.userId,
           kind: "TASK_MISSED",
           entityId: task.id,
-          summary: `missed “${task.title}” with no proof`,
+          summary: `missed “${task.title}”: not verified within 24 hours`,
         },
       });
     }
-    return { count, missed };
+    return { count, missed, hasMore: candidates.length === 25 };
   });
 }
 
@@ -219,7 +227,7 @@ export async function submitProof(
   const objectKey = image ? `proofs/${randomUUID()}` : null;
   if (image && objectKey) await putMedia(objectKey, image.data, image.mimeType);
 
-  return serializable(async (transaction) => {
+  return withNotifications(async (transaction, notifications) => {
     if (pendingProofId) {
       const pending = await transaction.pendingProof.findFirst({
         where: {
@@ -239,10 +247,15 @@ export async function submitProof(
           "You are no longer a member of this circle.",
           403,
         );
-      if (pending.proofId)
+      if (pending.proofId) {
+        await notifyProofSubmitted(
+          { proofId: pending.proofId, actorId: userId, circleId },
+          notifications,
+        );
         return transaction.taskProof.findUniqueOrThrow({
           where: { id: pending.proofId },
         });
+      }
     }
     const otherPending = await transaction.pendingProof.findFirst({
       where: {
@@ -311,7 +324,17 @@ export async function submitProof(
       where: { circleId },
     });
     const needed = requiredApprovalsForCircle(memberCount);
-    if (needed === 0) {
+    // Timely queued media may finish later. Preserve its history without reopening
+    // or auto-verifying an expired task.
+    const expired =
+      task.status === "MISSED" ||
+      !canEditTask(task.dueAt, pendingProofId ? new Date() : now);
+    if (!expired)
+      await notifyProofSubmitted(
+        { proofId: proof.id, actorId: userId, circleId },
+        notifications,
+      );
+    if (needed === 0 && !expired) {
       // Solo circle: no peers to review, so the proof verifies on post.
       await transaction.taskProof.update({
         where: { id: proof.id },
@@ -334,7 +357,7 @@ export async function submitProof(
     }
     await transaction.commitment.update({
       where: { id: task.id },
-      data: { status: "AWAITING_REVIEW" },
+      data: { status: task.status === "MISSED" ? "MISSED" : "AWAITING_REVIEW" },
     });
     await transaction.activityEvent.create({
       data: {
@@ -364,7 +387,7 @@ export async function reviewProof(
     );
 
   try {
-    return await serializable(async (transaction) => {
+    return await withNotifications(async (transaction, notifications) => {
       const proof = await transaction.taskProof.findFirst({
         where: { id: proofId, circleId, replacedById: null },
         include: { commitment: true, reviews: true },
@@ -374,6 +397,14 @@ export async function reviewProof(
         throw new DomainError(
           "You cannot review your own homework. Nice try.",
           403,
+        );
+      if (
+        proof.commitment.status === "MISSED" ||
+        !canEditTask(proof.commitment.dueAt, now)
+      )
+        throw new DomainError(
+          "This task expired without verification within 24 hours.",
+          409,
         );
       if (proof.reviewStatus !== "PENDING") {
         throw new DomainError("This proof already has a verdict.", 409);
@@ -404,6 +435,11 @@ export async function reviewProof(
           createdAt: now,
         },
       });
+
+      await notifyProofReviewed(
+        { reviewId: review.id, reviewerId, circleId },
+        notifications,
+      );
 
       if (isChallenge) {
         await transaction.taskProof.update({

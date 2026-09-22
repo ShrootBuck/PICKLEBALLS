@@ -2,17 +2,15 @@ export function taskDeadline(createdAt: Date) {
   return new Date(createdAt.getTime() + 24 * 60 * 60 * 1000);
 }
 
-// Keep active tasks and outstanding reviews visible across calendar days.
+// The board only contains tasks within their 24-hour window.
 export function currentTaskFilter(now = new Date()) {
+  return { dueAt: { gt: now }, status: { not: "MISSED" as const } };
+}
+
+export function reviewableCommitmentFilter(now = new Date()) {
   return {
-    OR: [
-      { dueAt: { gt: now } },
-      {
-        proofs: {
-          some: { replacedById: null, reviewStatus: "PENDING" as const },
-        },
-      },
-    ],
+    dueAt: { gt: now },
+    status: { notIn: ["MISSED" as const, "VERIFIED" as const] },
   };
 }
 
@@ -38,13 +36,10 @@ export function canEditReply(createdAt: Date, now = new Date()) {
 export function shouldMarkMissed(
   status: string,
   dueAt: Date,
-  proofCount: number,
   now = new Date(),
 ) {
   return (
-    (status === "OPEN" || status === "RENEGOTIATED") &&
-    dueAt < now &&
-    proofCount === 0
+    ["OPEN", "RENEGOTIATED", "AWAITING_REVIEW"].includes(status) && dueAt <= now
   );
 }
 

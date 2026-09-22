@@ -59,7 +59,6 @@ import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { appFetch } from "@/lib/app-refresh";
 import { uploadMedia } from "@/lib/media-upload";
-import { proofFetch } from "@/lib/proof-fetch";
 import {
   formatDayLong,
   formatDayShort,
@@ -89,7 +88,6 @@ type Task = {
     isLate: boolean;
     ownerNote: string | null;
     reviewStatus: "PENDING" | "APPROVED" | "CHALLENGED";
-    aiStatus: "PENDING" | "SUCCEEDED" | "FAILED";
     reviews: ProofReview[];
   };
 };
@@ -337,12 +335,11 @@ function TaskDialog({
                 </Field>
                 <Alert>
                   <CalendarClock />
-                  <AlertTitle>Due 24 hours after creation</AlertTitle>
-                  {task && (
-                    <AlertDescription>
-                      Editing a task does not extend its deadline.
-                    </AlertDescription>
-                  )}
+                  <AlertTitle>Verify within 24 hours of creation</AlertTitle>
+                  <AlertDescription>
+                    Post proof early enough for friends to review it.
+                    {task ? " Editing does not extend the deadline." : ""}
+                  </AlertDescription>
                 </Alert>
               </FieldGroup>
               {error && (
@@ -422,7 +419,7 @@ function ProofDialog({
         uploadedIds.current ??
         (await uploadMedia(files, setUploadStatus, { deferProcessing: true }));
       uploadedIds.current = mediaIds;
-      const response = await proofFetch(`/api/commitments/${task.id}/proof`, {
+      const response = await appFetch(`/api/commitments/${task.id}/proof`, {
         method: "POST",
         // Reuse the FormData captured above: the React synthetic event's
         // currentTarget can be detached after the setPending re-render.
@@ -446,7 +443,6 @@ function ProofDialog({
           isLate: boolean;
           ownerNote: string | null;
           reviewStatus: NonNullable<Task["proof"]>["reviewStatus"];
-          aiStatus: NonNullable<Task["proof"]>["aiStatus"];
         };
       };
       if (body.pending) {
@@ -472,7 +468,6 @@ function ProofDialog({
           isLate: body.proof.isLate,
           ownerNote: body.proof.ownerNote,
           reviewStatus: body.proof.reviewStatus,
-          aiStatus: body.proof.aiStatus,
           reviews: [],
         },
         status,

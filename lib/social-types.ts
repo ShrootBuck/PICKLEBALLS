@@ -34,6 +34,7 @@ export type ProofPost = PostBase & {
   mediaIds: string[];
   reviewStatus: ProofStatus;
   canReview: boolean;
+  expired: boolean;
   requiredApprovals: number;
   approvalCount: number;
   verifiedBy: string | null;

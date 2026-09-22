@@ -14,7 +14,12 @@ import type {
   SocialMember,
   SocialTask,
 } from "@/lib/social-types";
-import { currentTaskFilter, proofApprovalProgress } from "@/lib/task-policy";
+import {
+  currentTaskFilter,
+  proofApprovalProgress,
+  reviewableCommitmentFilter,
+  shouldMarkMissed,
+} from "@/lib/task-policy";
 import { phoenixDateKey, requireDateKey } from "@/lib/time";
 
 export const socialAuthorSelect = {
@@ -55,12 +60,7 @@ export function toSocialTask(task: {
     definitionOfDone: task.definitionOfDone,
     day: task.day.toISOString().slice(0, 10),
     dueAt: task.dueAt.toISOString(),
-    status:
-      !task.proofs.length &&
-      task.dueAt < new Date() &&
-      ["OPEN", "RENEGOTIATED"].includes(task.status)
-        ? "MISSED"
-        : task.status,
+    status: shouldMarkMissed(task.status, task.dueAt) ? "MISSED" : task.status,
     proof: task.proofs[0] ?? null,
   };
 }
@@ -234,6 +234,7 @@ async function readPosts({
           ? {
               NOT: {
                 reviewStatus: "PENDING" as const,
+                commitment: reviewableCommitmentFilter(),
                 ownerId: { not: viewerId },
                 reviews: { none: { reviewerId: viewerId } },
               },
@@ -242,6 +243,7 @@ async function readPosts({
         ...(pendingOnly || awaitingOnly
           ? {
               reviewStatus: "PENDING" as const,
+              commitment: reviewableCommitmentFilter(),
               ownerId: { not: viewerId },
               reviews: { none: { reviewerId: viewerId } },
             }
@@ -263,7 +265,14 @@ async function readPosts({
         replacedById: true,
         ownerId: true,
         owner: { select: socialAuthorSelect },
-        commitment: { select: { title: true, definitionOfDone: true } },
+        commitment: {
+          select: {
+            title: true,
+            definitionOfDone: true,
+            dueAt: true,
+            status: true,
+          },
+        },
         reviews: {
           select: {
             reviewerId: true,
@@ -347,7 +356,13 @@ async function readPosts({
         definitionOfDone: p.commitment.definitionOfDone,
         mediaIds: p.mediaIds,
         reviewStatus: p.reviewStatus,
+        expired:
+          p.commitment.status === "MISSED" ||
+          shouldMarkMissed(p.commitment.status, p.commitment.dueAt),
         canReview:
+          !shouldMarkMissed(p.commitment.status, p.commitment.dueAt) &&
+          p.commitment.status !== "MISSED" &&
+          p.commitment.status !== "VERIFIED" &&
           p.replacedById === null &&
           p.reviewStatus === "PENDING" &&
           p.ownerId !== viewerId &&

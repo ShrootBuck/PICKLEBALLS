@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1790044966895,
+    title: "Verification closes after 24 hours",
+    description:
+      "Tasks must be verified within 24 hours of creation, including time for friends to review proof. Unverified tasks expire, with status reconciled hourly. Photos no longer receive AI descriptions, and weekly screen-time reminders stay in the app instead of your notifications.",
+  },
+  {
     timestamp: 1790042138979,
     title: "Half the circle can verify",
     description:

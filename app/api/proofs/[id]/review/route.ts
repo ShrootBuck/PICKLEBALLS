@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { jsonError, readJson } from "@/lib/api";
-import { notifyProofReviewed } from "@/lib/background";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { reviewProof } from "@/lib/tasks";
 
@@ -23,18 +22,6 @@ export async function POST(
       auth.membership.circleId,
       await readJson(request),
     );
-    const reviewerId = auth.session.user.id;
-    const circleId = auth.membership.circleId;
-    const reviewId = review.id;
-    try {
-      await notifyProofReviewed({ reviewId, reviewerId, circleId });
-    } catch (error) {
-      console.warn("Review notification fan-out failed", {
-        reviewId,
-        circleId,
-        error,
-      });
-    }
     return NextResponse.json({ review }, { status: 201 });
   } catch (error) {
     return jsonError(error);

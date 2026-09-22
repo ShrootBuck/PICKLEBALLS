@@ -1,5 +1,6 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { getPrisma } from "@/lib/prisma";
+import { reviewableCommitmentFilter } from "@/lib/task-policy";
 
 export async function SidebarSlot({
   userId,
@@ -20,6 +21,7 @@ export async function SidebarSlot({
     where: {
       circleId,
       reviewStatus: "PENDING",
+      commitment: reviewableCommitmentFilter(),
       replacedById: null,
       ownerId: { not: userId },
       reviews: { none: { reviewerId: userId } },

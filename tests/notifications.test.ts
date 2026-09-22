@@ -17,6 +17,7 @@ const membersFind = mock(async () => [
   { userId: "actor" },
 ]);
 const create = mock(async () => ({ id: "notification-1" }));
+const upsert = mock(async () => ({ id: "notification-1" }));
 const findMany = mock(async () => []);
 const count = mock(async () => 0);
 const updateMany = mock(async () => ({ count: 2 }));
@@ -58,6 +59,7 @@ mock.module("@/lib/prisma", () => ({
     notificationPreference: { findUnique: async () => storedPrefs },
     notification: {
       create,
+      upsert,
       findMany,
       count,
       updateMany,
@@ -98,6 +100,7 @@ beforeEach(() => {
     participantsFind,
     membersFind,
     create,
+    upsert,
     findMany,
     count,
     updateMany,
@@ -155,8 +158,8 @@ test("direct replies and verdicts always reach inbox and push", async () => {
   expect(sendPush).toHaveBeenCalledTimes(3);
 });
 
-test("weekly reminder opt-out prevents both inbox and push", async () => {
-  storedPrefs = { proofsSubmitted: true, screenTime: false };
+test("retired weekly reminders never create inbox rows or push", async () => {
+  storedPrefs = { proofsSubmitted: true, screenTime: true };
   expect(
     await createNotificationAndPush({
       ...input,
@@ -169,22 +172,7 @@ test("weekly reminder opt-out prevents both inbox and push", async () => {
   expect(sendPush).not.toHaveBeenCalled();
 });
 
-test("screen-time destination retains its week and circle", async () => {
-  await createNotificationAndPush({
-    ...input,
-    kind: "SCREEN_TIME_REMINDER",
-    data: { url: "/screen-time?week=2026-08-30" },
-    allowSelf: true,
-  });
-  expect(sendPush).toHaveBeenCalledWith(
-    "recipient",
-    expect.objectContaining({
-      url: "/screen-time?week=2026-08-30&circle=circle",
-    }),
-  );
-});
-
-test("self activity does not notify without explicit reminder permission", async () => {
+test("self activity does not notify without explicit permission", async () => {
   expect(
     await createNotificationAndPush({
       ...input,
@@ -241,7 +229,6 @@ test("configured notifications queue push without sending inside the web request
 
 test("retry after enqueue failure reuses the inbox row and the same push key", async () => {
   process.env.TRIGGER_SECRET_KEY = "test-key";
-  const { Prisma } = await import("@/generated/prisma/client");
   triggerPush.mockRejectedValueOnce(new Error("Unavailable"));
   const notification = {
     ...input,
@@ -251,19 +238,11 @@ test("retry after enqueue failure reuses the inbox row and the same push key", a
   await expect(createNotificationAndPush(notification)).rejects.toThrow(
     "Unavailable",
   );
-  create.mockRejectedValueOnce(
-    new Prisma.PrismaClientKnownRequestError("Duplicate", {
-      code: "P2002",
-      clientVersion: "7",
-    }),
-  );
   await expect(createNotificationAndPush(notification)).resolves.toEqual({
     id: "notification-1",
   });
-  expect(existingNotification).toHaveBeenCalledWith({
-    where: { dedupeKey: notification.dedupeKey },
-    select: { id: true },
-  });
+  expect(upsert).toHaveBeenCalledTimes(2);
+  expect(upsert.mock.calls[0]).toEqual(upsert.mock.calls[1]);
   expect(triggerPush).toHaveBeenCalledTimes(2);
   expect(triggerPush.mock.calls[0]).toEqual(triggerPush.mock.calls[1]);
 });
@@ -327,15 +306,15 @@ for (const [relation, field, target] of [
       distinct: ["authorId"],
       select: { authorId: true },
     });
-    expect(create).toHaveBeenCalledTimes(
+    expect(upsert).toHaveBeenCalledTimes(
       relation === "review" || relation === "proof" ? 3 : 2,
     );
     for (const recipientId of relation === "review" || relation === "proof"
       ? ["owner", "reviewer", "participant"]
       : ["owner", "participant"]) {
-      expect(create).toHaveBeenCalledWith(
+      expect(upsert).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
+          create: expect.objectContaining({
             recipientId,
             dedupeKey: `reply:reply:${recipientId}`,
             body: "Sent an attachment",
@@ -343,9 +322,9 @@ for (const [relation, field, target] of [
         }),
       );
     }
-    expect(create).toHaveBeenCalledWith(
+    expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
+        create: expect.objectContaining({
           recipientId: "participant",
           title: "Alex replied to a thread you’re participating in",
           data: expect.objectContaining({

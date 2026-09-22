@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import { jsonError, readJson } from "@/lib/api";
-import {
-  assessProofInBackground,
-  notifyProofSubmitted,
-} from "@/lib/background";
 import { startPendingProof } from "@/lib/media-dispatch";
 import { queueProof } from "@/lib/pending-proof";
-import { proofProgressResponse } from "@/lib/proof-progress-response";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { readBoundedBody } from "@/lib/request-body";
@@ -124,27 +119,7 @@ export async function POST(
       completedAt,
     );
 
-    // Run AI assessment in the background so upload feels instant.
-    // Trigger.dev owns assessment execution when configured.
-    const uploaderId = auth.session.user.id;
-    const circleId = auth.membership.circleId;
-    const submittedProofId = proof.id;
-    try {
-      await notifyProofSubmitted({
-        proofId: submittedProofId,
-        actorId: uploaderId,
-        circleId,
-      });
-    } catch (error) {
-      console.warn("Proof notification fan-out failed", {
-        proofId: submittedProofId,
-        circleId,
-        error,
-      });
-    }
-    return proofProgressResponse(request, { proof }, 201, () =>
-      assessProofInBackground(proof.id, uploaderId, circleId),
-    );
+    return NextResponse.json({ proof }, { status: 201 });
   } catch (error) {
     return jsonError(error);
   }

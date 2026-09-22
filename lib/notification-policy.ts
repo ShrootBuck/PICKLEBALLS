@@ -7,29 +7,20 @@ export const inboxKinds: ActivityKind[] = [
   "PROOF_SUBMITTED",
   "PROOF_APPROVED",
   "PROOF_CHALLENGED",
-  "SCREEN_TIME_REMINDER",
 ];
 
 export const notificationPageSize = 30;
 
 export type NotificationPrefs = {
   proofsSubmitted: boolean;
-  screenTime: boolean;
 };
 
 export const defaultNotificationPrefs: NotificationPrefs = {
   proofsSubmitted: true,
-  screenTime: true,
 };
 
-export function shouldCreateNotification(
-  kind: ActivityKind,
-  prefs: NotificationPrefs = defaultNotificationPrefs,
-) {
-  return (
-    inboxKinds.includes(kind) &&
-    (kind !== "SCREEN_TIME_REMINDER" || prefs.screenTime)
-  );
+export function shouldCreateNotification(kind: ActivityKind) {
+  return inboxKinds.includes(kind);
 }
 
 export function shouldPushNotification(
@@ -37,7 +28,7 @@ export function shouldPushNotification(
   prefs: NotificationPrefs = defaultNotificationPrefs,
 ) {
   return (
-    shouldCreateNotification(kind, prefs) &&
+    shouldCreateNotification(kind) &&
     (kind !== "PROOF_SUBMITTED" || prefs.proofsSubmitted)
   );
 }

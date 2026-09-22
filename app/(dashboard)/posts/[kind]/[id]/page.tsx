@@ -1,11 +1,10 @@
-import { Bot, History } from "lucide-react";
+import { History } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CircleDestination } from "@/components/circles/circle-destination";
 import { BackButton } from "@/components/social/back-button";
 import { PostCard } from "@/components/social/post-card";
-import { AiRetryButton } from "@/components/squad/ai-retry-button";
 import { toThreadReply } from "@/components/squad/proof-helpers";
 import { SocialReplyThread } from "@/components/squad/social-reply-thread";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -139,9 +138,6 @@ export default async function PostPage({
     undefined,
     session.user.id,
   );
-  const stalled =
-    proof.aiStatus === "PENDING" &&
-    Date.now() - proof.submittedAt.getTime() > 120_000;
   return (
     <>
       <BackButton />
@@ -195,48 +191,6 @@ export default async function PostPage({
           >
             View earlier attempt
           </Button>
-        )}
-      </section>
-      <section className="post-detail-section">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            <Bot className="size-4" />
-            AI’s take
-          </h2>
-          <span className="text-xs text-muted-foreground">
-            A friend makes the call
-          </span>
-        </div>
-        {proof.aiStatus === "SUCCEEDED" ? (
-          <div className="flex flex-col gap-3 text-sm leading-relaxed">
-            {proof.aiOneLiner && (
-              <p className="font-medium">{proof.aiOneLiner}</p>
-            )}
-            {[
-              { label: "Visible evidence", value: proof.aiVisibleEvidence },
-              { label: "Task match", value: proof.aiTaskMatch },
-              { label: "Uncertainty", value: proof.aiUncertainty },
-              { label: "Worth checking", value: proof.aiReviewerQuestion },
-            ]
-              .filter((item) => item.value)
-              .map((item) => (
-                <p
-                  key={item.label}
-                  className="whitespace-pre-wrap text-muted-foreground"
-                >
-                  <span className="font-medium text-foreground">
-                    {item.label}:{" "}
-                  </span>
-                  {item.value}
-                </p>
-              ))}
-          </div>
-        ) : proof.aiStatus === "FAILED" || stalled ? (
-          <AiRetryButton proofId={id} />
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Reading the evidence. Your friends can review it already.
-          </p>
         )}
       </section>
     </>

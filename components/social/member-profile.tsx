@@ -238,7 +238,7 @@ export async function MemberProfile({
           </div>
           {day === today && (
             <p className="text-xs text-muted-foreground">
-              Each task is due 24 hours after creation. Reviews stay open.
+              Each task must be verified within 24 hours of creation.
             </p>
           )}
           <TaskList

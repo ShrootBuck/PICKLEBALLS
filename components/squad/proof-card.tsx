@@ -1,13 +1,10 @@
-import { Bot } from "lucide-react";
 import { MediaGallery } from "@/components/media/media-gallery";
-import { AiRetryButton } from "@/components/squad/ai-retry-button";
 import { ProofImageViewer } from "@/components/squad/proof-image-viewer";
 import { ReviewProof } from "@/components/squad/review-proof";
 import {
   SocialReplyThread,
   type ThreadReply,
 } from "@/components/squad/social-reply-thread";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -42,18 +39,13 @@ export type ProofCardData = {
   isLate: boolean;
   submittedAt: string;
   reviewStatus: "PENDING" | "APPROVED" | "CHALLENGED";
+  expired: boolean;
   approvals: number;
   requiredApprovals: number;
   alreadyReviewed: boolean;
   myReview: ProofReview | null;
   reviews: ProofReview[];
   replies: ThreadReply[];
-  aiStatus: "PENDING" | "SUCCEEDED" | "FAILED";
-  aiVisibleEvidence: string | null;
-  aiReviewerQuestion: string | null;
-  aiUncertainty: string | null;
-  aiTaskMatch: string | null;
-  aiOneLiner: string | null;
 };
 
 function statusBadge(status: ProofCardData["reviewStatus"]) {
@@ -77,9 +69,6 @@ export function ProofCard({
   focusId?: string;
 }) {
   const compact = mode === "history";
-  const aiStalled =
-    proof.aiStatus === "PENDING" &&
-    Date.now() - new Date(proof.submittedAt).getTime() > 120_000;
   const meta = [
     proof.ownerName,
     proof.isLate ? "late" : "on time",
@@ -114,13 +103,11 @@ export function ProofCard({
             <CardTitle className="leading-snug">{proof.title}</CardTitle>
             <CardDescription>{meta}</CardDescription>
             <CardAction className="flex flex-col items-end gap-1">
-              {statusBadge(proof.reviewStatus)}
-              {proof.aiStatus === "PENDING" && !aiStalled ? (
-                <Badge variant="outline">AI reading…</Badge>
-              ) : null}
-              {proof.aiStatus === "FAILED" || aiStalled ? (
-                <AiRetryButton proofId={proof.id} />
-              ) : null}
+              {proof.expired ? (
+                <Badge variant="destructive">Expired</Badge>
+              ) : (
+                statusBadge(proof.reviewStatus)
+              )}
             </CardAction>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 pb-3">
@@ -143,18 +130,7 @@ export function ProofCard({
                 {formatProofTime(proof.submittedAt)}
               </p>
             ) : null}
-            {proof.aiStatus === "SUCCEEDED" ? (
-              <Alert>
-                <Bot />
-                <AlertTitle>{proof.aiOneLiner || "AI read"}</AlertTitle>
-                {proof.aiVisibleEvidence ? (
-                  <AlertDescription className="whitespace-pre-wrap">
-                    {proof.aiVisibleEvidence}
-                  </AlertDescription>
-                ) : null}
-              </Alert>
-            ) : null}
-            {proof.reviewStatus === "PENDING" ? (
+            {!proof.expired && proof.reviewStatus === "PENDING" ? (
               proof.ownerId === viewerId ? (
                 <Badge variant="secondary" className="w-fit">
                   Your proof. Friends decide

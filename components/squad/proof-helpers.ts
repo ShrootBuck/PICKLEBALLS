@@ -1,6 +1,7 @@
 import type { ProofCardData } from "@/components/squad/proof-card";
 import type { ThreadReply } from "@/components/squad/social-reply-thread";
 import { type LikeRow, likeSummary } from "@/lib/like-summary";
+import { shouldMarkMissed } from "@/lib/task-policy";
 
 export type ReplyRow = LikeRow & {
   mediaIds?: string[];
@@ -35,15 +36,14 @@ export type ProofRow = {
   isLate: boolean;
   submittedAt: Date;
   reviewStatus: "PENDING" | "APPROVED" | "CHALLENGED";
-  aiStatus: "PENDING" | "SUCCEEDED" | "FAILED";
-  aiVisibleEvidence: string | null;
-  aiReviewerQuestion: string | null;
-  aiUncertainty: string | null;
-  aiTaskMatch: string | null;
-  aiOneLiner: string | null;
   ownerId: string;
   owner: { name: string };
-  commitment: { title: string; definitionOfDone: string };
+  commitment: {
+    title: string;
+    definitionOfDone: string;
+    dueAt: Date;
+    status: string;
+  };
   replies: ReplyRow[];
   reviews: Array<{
     id: string;
@@ -88,6 +88,9 @@ export function toProofCard(
     isLate: proof.isLate,
     submittedAt: proof.submittedAt.toISOString(),
     reviewStatus: proof.reviewStatus,
+    expired:
+      proof.commitment.status === "MISSED" ||
+      shouldMarkMissed(proof.commitment.status, proof.commitment.dueAt),
     approvals: proof.reviews.filter((review) => review.decision === "APPROVED")
       .length,
     requiredApprovals,
@@ -95,12 +98,6 @@ export function toProofCard(
     myReview: mine,
     reviews: mappedReviews,
     replies: proof.replies.map(toThreadReply),
-    aiStatus: proof.aiStatus,
-    aiVisibleEvidence: proof.aiVisibleEvidence,
-    aiReviewerQuestion: proof.aiReviewerQuestion,
-    aiUncertainty: proof.aiUncertainty,
-    aiTaskMatch: proof.aiTaskMatch,
-    aiOneLiner: proof.aiOneLiner,
   };
 }
 

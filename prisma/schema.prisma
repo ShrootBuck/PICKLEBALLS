@@ -263,12 +263,13 @@ model TaskProof {
   startedAt          DateTime
   completedAt        DateTime
   isLate             Boolean
-  aiStatus           AIAssessmentStatus @default(PENDING)
-  aiVisibleEvidence  String?
-  aiUncertainty      String?
-  aiReviewerQuestion String?
-  aiTaskMatch        String?
-  aiOneLiner         String?
+  // Retired photo descriptions: excluded from the client; retained for rolling deployments.
+  aiStatus           AIAssessmentStatus @default(PENDING) @ignore
+  aiVisibleEvidence  String? @ignore
+  aiUncertainty      String? @ignore
+  aiReviewerQuestion String? @ignore
+  aiTaskMatch        String? @ignore
+  aiOneLiner         String? @ignore
   reviewStatus       ProofReviewStatus  @default(PENDING)
   replacedById       String?            @unique
 
@@ -515,7 +516,7 @@ model NotificationPreference {
   taskMissed      Boolean @default(true)
   taskCreated     Boolean @default(false)
   checkIns        Boolean @default(false)
-  screenTime      Boolean @default(true)
+  screenTime      Boolean @default(true) @ignore
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

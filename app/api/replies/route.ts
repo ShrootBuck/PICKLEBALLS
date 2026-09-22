@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { jsonError, readJson } from "@/lib/api";
-import { notifyReplyReceived } from "@/lib/background";
 import { likeInclude, likeSummary } from "@/lib/like-summary";
 import { getPrisma } from "@/lib/prisma";
 import { getProofDiscussion } from "@/lib/proof-discussion";
@@ -27,19 +26,6 @@ export async function POST(request: Request) {
       auth.membership.circleId,
       await readJson(request),
     );
-    // Acknowledge after Trigger.dev accepts the notification job.
-    const authorId = auth.session.user.id;
-    const circleId = auth.membership.circleId;
-    const replyId = reply.id;
-    try {
-      await notifyReplyReceived({ replyId, authorId, circleId });
-    } catch (error) {
-      console.warn("Reply notification fan-out failed", {
-        replyId,
-        circleId,
-        error,
-      });
-    }
     return NextResponse.json({ reply }, { status: 201 });
   } catch (error) {
     return jsonError(error);

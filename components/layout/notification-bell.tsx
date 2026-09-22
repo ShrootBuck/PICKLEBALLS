@@ -254,8 +254,7 @@ export function NotificationBell({
                     </EmptyMedia>
                     <EmptyTitle>No notifications yet</EmptyTitle>
                     <EmptyDescription>
-                      Replies, proof photos, verdicts, and weekly reminders will
-                      appear here.
+                      Replies, proof photos, and verdicts will appear here.
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>

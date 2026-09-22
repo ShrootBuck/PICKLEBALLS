@@ -3,12 +3,10 @@ import "server-only";
 import { extractScreenTime } from "@/lib/ai";
 import { DomainError } from "@/lib/errors";
 import { claimMedia } from "@/lib/media";
-import { createNotificationAndPush } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
 import { getMediaBytes } from "@/lib/r2";
 import {
   latestScreenTimeWeek,
-  screenTimeWeekLabel,
   validateScreenTimeExtraction,
 } from "@/lib/screen-time";
 import { requireDateKey } from "@/lib/time";
@@ -117,55 +115,4 @@ export async function confirmScreenTime(
       update: { readingId },
     });
   });
-}
-
-export async function sendScreenTimeReminders(now = new Date()) {
-  const week = latestScreenTimeWeek(now);
-  const weekStart = requireDateKey(week);
-  const prisma = getPrisma();
-  const members = await prisma.membership.findMany({
-    select: {
-      userId: true,
-      circleId: true,
-      circle: { select: { name: true } },
-    },
-  });
-  let sent = 0;
-  let failed = 0;
-  for (const member of members) {
-    try {
-      if (
-        await prisma.screenTimeSubmission.findUnique({
-          where: {
-            userId_circleId_weekStart: {
-              userId: member.userId,
-              circleId: member.circleId,
-              weekStart,
-            },
-          },
-          select: { id: true },
-        })
-      )
-        continue;
-      const notification = await createNotificationAndPush({
-        recipientId: member.userId,
-        actorId: member.userId,
-        circleId: member.circleId,
-        kind: "SCREEN_TIME_REMINDER",
-        title: "Your weekly screen time is due",
-        body: `${member.circle.name}: your ${screenTimeWeekLabel(week)} entry is due. Choose Week in Screen Time, go back one week, and screenshot the average.`,
-        data: { url: `/screen-time?week=${week}` },
-        dedupeKey: `screen-time:${member.circleId}:${member.userId}:${week}`,
-        allowSelf: true,
-      });
-      if (notification) sent++;
-    } catch {
-      failed++;
-      console.warn("Screen-time reminder failed", {
-        userId: member.userId,
-        circleId: member.circleId,
-      });
-    }
-  }
-  return { sent, failed };
 }

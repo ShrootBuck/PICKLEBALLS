@@ -20,11 +20,6 @@ const PREF_META = [
     label: "Friends’ proof photos",
     hint: "Push alerts when a friend posts proof. Photos always appear in your inbox.",
   },
-  {
-    key: "screenTime",
-    label: "Weekly screen-time reminder",
-    hint: "A Sunday reminder to upload the completed week.",
-  },
 ] as const;
 
 export function NotificationPreferences() {

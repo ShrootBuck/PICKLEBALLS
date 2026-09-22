@@ -4,8 +4,6 @@ import { mediaProcessingKey, startPendingProof } from "@/lib/media-dispatch";
 import { deleteVideoOriginal, processVideoMedia } from "@/lib/media-processing";
 import { getPrisma } from "@/lib/prisma";
 import { submitProof } from "@/lib/tasks";
-import { assessProof } from "@/src/trigger/jobs";
-import { notification } from "@/src/trigger/notification";
 
 export const processMedia = schemaTask({
   id: "process-media",
@@ -82,23 +80,6 @@ export const publishMediaProof = schemaTask({
       pending.completedAt,
       pending.createdAt,
       pending.id,
-    );
-    await notification.trigger(
-      {
-        kind: "proof-submitted",
-        proofId: proof.id,
-        actorId: pending.ownerId,
-        circleId: pending.circleId,
-      },
-      { idempotencyKey: `proof:${proof.id}` },
-    );
-    await assessProof.trigger(
-      {
-        proofId: proof.id,
-        userId: pending.ownerId,
-        circleId: pending.circleId,
-      },
-      { idempotencyKey: `proof-assess:${proof.id}` },
     );
     return { proofId: proof.id };
   },

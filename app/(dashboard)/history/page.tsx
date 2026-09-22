@@ -74,7 +74,14 @@ export default async function HistoryPage({
           take: 1,
           include: {
             owner: { select: { name: true } },
-            commitment: { select: { title: true, definitionOfDone: true } },
+            commitment: {
+              select: {
+                title: true,
+                definitionOfDone: true,
+                dueAt: true,
+                status: true,
+              },
+            },
             replies: {
               orderBy: [{ createdAt: "desc" }, { id: "desc" }],
               take: 50,

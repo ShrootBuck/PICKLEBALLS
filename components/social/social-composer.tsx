@@ -51,7 +51,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { appFetch, holdAppRefresh } from "@/lib/app-refresh";
 import { uploadMedia } from "@/lib/media-upload";
-import { proofFetch } from "@/lib/proof-fetch";
 import type { SocialTask } from "@/lib/social-types";
 import {
   formatDayShort,
@@ -117,7 +116,7 @@ export function SocialComposer(props: ComposerProps) {
           {(mode === "task" || mode === "proof") && (
             <SheetDescription>
               {mode === "task"
-                ? "Each task is due 24 hours after creation. Reviews stay open."
+                ? "Each task must be verified within 24 hours of creation."
                 : (task?.title ?? "Pick the task you finished.")}
             </SheetDescription>
           )}
@@ -264,7 +263,7 @@ function ComposerForm({
             deferProcessing: true,
           }));
         uploadedIds.current = mediaIds;
-        response = await proofFetch(`/api/commitments/${task.id}/proof`, {
+        response = await appFetch(`/api/commitments/${task.id}/proof`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ mediaIds, note, startedAt, completedAt }),

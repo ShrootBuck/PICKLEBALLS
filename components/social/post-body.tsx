@@ -23,14 +23,18 @@ export function PostBody({ post }: { post: InteractivePost }) {
             </Link>
             <Badge
               variant={
-                post.reviewStatus === "APPROVED"
-                  ? "success"
-                  : post.reviewStatus === "CHALLENGED"
-                    ? "destructive"
-                    : "secondary"
+                post.expired
+                  ? "destructive"
+                  : post.reviewStatus === "APPROVED"
+                    ? "success"
+                    : post.reviewStatus === "CHALLENGED"
+                      ? "destructive"
+                      : "secondary"
               }
             >
-              {post.reviewStatus === "APPROVED" ? (
+              {post.expired ? (
+                "Expired"
+              ) : post.reviewStatus === "APPROVED" ? (
                 <>
                   <BadgeCheck data-icon="inline-start" /> Verified
                 </>

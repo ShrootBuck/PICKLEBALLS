@@ -120,7 +120,7 @@ placeholder email because the auth user table requires a unique email.
 ## AI behavior
 
 The app uses AI SDK 7 `generateText` with a bounded `Output.object` schema for
-advisory task-proof comparison.
+weekly screen-time extraction in a Trigger.dev task. Proof-photo descriptions have been removed. The interactive timeblock editor runs in Next.js.
 
 Every request uses `meta/muse-spark-1.3-contributor`, disables fallbacks, requires supported parameters, times out after 60 seconds, and retries
 once. AI never resolves proof. A friend does. Metadata-only run logs are stored;
@@ -193,7 +193,7 @@ bun -e 'const env = await Bun.file("/private/tmp/pb-social-test-env.json").json(
 These checks exercise private profile/post/media access, old URLs, duplicate
 likes, CSRF protection, and independent comment pagination. The database suite
 also covers equal feed timestamps, proof replacement, solo verification,
-midnight closure, media retry, and screen-time confirmation.
+24-hour verification deadlines, media retry, and screen-time submission.
 
 The social migration is additive. Deploy it before application traffic switches
 using the existing `vercel-build` command. It backfills one update only for daily

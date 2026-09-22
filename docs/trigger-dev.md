@@ -6,13 +6,11 @@ Run `bun run dev:trigger` alongside `bun run dev`. The development API key belon
 
 ## Jobs
 
-- `assess-proof`: proof photo AI reads, with retries and a final failure status.
-- `read-screen-time`: screenshot extraction and saved readings. The API still waits for the reading so the existing confirmation UI works.
-- `notification`: accepts proof-submitted, proof-reviewed, reply-received, or push payloads. Event runs create inbox notifications with per-recipient database deduplication and enqueue push runs on the same task. Handles push delivery with retries and stale subscription removal. Retries use the same notification tag, but delivery is at least once, so a device may receive another delivery attempt.
-- `screen-time-reminders`: Sunday at 10 a.m. Phoenix time.
-- `reconcile-missed-tasks`: daily at midnight Phoenix time, processing each circle directly in batches. Failures retry the nightly run; completed updates are skipped.
+- `read-screen-time`: extracts the screenshot and automatically saves a valid weekly entry. Requires Trigger.dev, including local development. The API returns a run ID; the UI can check its status or recover it on return.
+- `notification`: delivers push notifications for existing inbox rows. Proof, review, and reply mutations create deduplicated inbox rows in their database transaction. Only after commit do they enqueue push jobs. Push delivery retries failures and removes stale subscriptions; delivery is at least once, with the same notification tag on retries.
+- `reconcile-missed-tasks`: hourly on the hour, processing each circle in batches of 25. Tasks that are not verified 24 hours after creation become missed, including tasks with pending reviews or media still processing. Already verified tasks stay verified. The API and UI enforce the deadline immediately; persisted status and activity events catch up on the hourly run. Failures retry the run, and completed updates are skipped.
 
-Schedules are production-only.
+Schedules are production-only. The timeblock editor continues to stream and save its interactive AI conversation inside Next.js. Proof-photo AI descriptions and screen-time reminder notifications have been removed. The in-app screen-time banner remains.
 
 ## Video uploads and processing
 
@@ -20,7 +18,7 @@ New videos use multipart R2 uploads, with 8 MiB chunks, per-chunk retries, visib
 
 - `process-media`: FFprobe inspection, FFmpeg encoding, a Sharp WebP poster, output verification, and deletion of the original after the ready record is saved. Uses `large-1x`, two concurrent encodes, three attempts, and a 24-hour compute safety limit per attempt. The MP4 streams from R2 through FFmpeg into a multipart R2 output. HLS uses bounded temporary segment files, uploaded and removed in batches; whole videos are never buffered in memory or retained on worker disk.
 - Playback includes adaptive HLS (360p, 720p, and source-sized up to 1080p) plus an H.264/AAC MP4 fallback. Lower renditions are capped at 30 fps; the largest preserves up to 60 fps. See [video encoding and delivery](media-delivery.md) for settings, private edge caching, deployment, backfill and maintenance.
-- `publish-media-proof`: waits durably for all attachments, then creates the proof and claims its media in one transaction. The private `PendingProof` reservation records the acceptance time for deadline checks. Timeline time starts at publication. Retried publication returns the same proof.
+- `publish-media-proof`: waits durably for all attachments, then creates the proof and claims its media in one transaction. The private `PendingProof` reservation records the acceptance time for upload deadline checks. Timeline time starts at publication. Retried publication returns the same proof. Encoding does not extend the 24-hour verification window: a timely submission can finish publishing into history after expiry, but cannot revive or auto-verify an expired task.
 - `recover-media-posts`: every five minutes, retries dispatch for saved submissions and retries original-file cleanup. Failed encodes keep the original for the user's retry. The owner can see progress, retry, or remove a failed submission; friends see only published proof.
 - Photos retain the existing Sharp resize/WebP pipeline. Video replies wait for processing before posting; the background publication flow applies to proof submissions.
 
@@ -32,7 +30,9 @@ Apply the migration before deploying the new app and worker together. It expands
 
 Validation: `bun test`, `bun run test:social` (Docker and FFmpeg required), `bun run typecheck`, `bun run lint`, `bun run build`, and `npx trigger.dev@4.5.16 deploy --dry-run`. `bun scripts/test-social.ts --serve --video` adds two encoded video attachments to Eddie's disposable timeline for browser checks.
 
-The web app uses Trigger.dev when `TRIGGER_SECRET_KEY` is present. Without it, existing local execution remains available. Proof completion is observed through the existing response stream; the task survives a disconnected client or an expired web request. Screen-time callers can retry after a lost response and recover the saved reading. Authorization remains in the API routes. Task payloads contain IDs, not image bytes or credentials.
+Screen-time AI reads and video processing require `TRIGGER_SECRET_KEY`. Push delivery uses Trigger.dev when configured and retains direct local delivery without a worker. Authorization remains in the API routes. Task payloads contain IDs, not image bytes or credentials.
+
+Retired proof-description columns and the screen-time notification preference remain in PostgreSQL for compatibility with older running deployments, but are `@ignore`d in Prisma and are not exposed or used by the app. Historical enum values remain readable; retired reminder notifications are excluded from inbox queries, counts, and push delivery.
 
 ## Vercel pipeline (recommended)
 
@@ -49,6 +49,6 @@ Reference: https://trigger.dev/docs/vercel-integration
 1. Configure the production Trigger.dev environment with its production database URL, `OPENROUTER_API_KEY`, R2 credentials (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`), VAPID keys and subject, and `NEXT_PUBLIC_APP_URL`. Keep production database credentials out of `.env`. Do not sync local environment files into production.
 2. Run `bun run deploy:trigger`. Prisma Client is generated before bundling. The Trigger worker resolves `server-only` using the `react-server` condition and externalizes Sharp.
 3. Set the production environment's `TRIGGER_SECRET_KEY` in Vercel. Never use the development key there.
-4. After verifying the Trigger production schedules, set `TRIGGER_SCHEDULES_ENABLED=true` in Vercel. Legacy cron routes then acknowledge without executing. The Vercel cron definitions have been removed after confirming both Trigger schedules are active.
+4. After verifying the Trigger production schedules, set `TRIGGER_SCHEDULES_ENABLED=true` in Vercel. The legacy reconciliation cron route then acknowledges without executing. The screen-time reminder cron route is removed; Vercel has no cron definitions. Verify the removed `screen-time-reminders` schedule is inactive when deploying this change.
 
 GitHub repository and Vercel project are connected. Pushes to `main` deploy the app and worker through the native integration. The build sync step handles sensitive worker credentials. The development key remains local; Vercel receives its production key from the integration.

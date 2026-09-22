@@ -6,15 +6,12 @@ import {
   History,
   MessageCircle,
   PencilLine,
-  Smartphone,
   TriangleAlert,
   Upload,
 } from "lucide-react";
 
 export function activityIcon(kind: string) {
   switch (kind) {
-    case "SCREEN_TIME_REMINDER":
-      return Smartphone;
     case "TASK_CREATED":
       return PencilLine;
     case "PROOF_SUBMITTED":

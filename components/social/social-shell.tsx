@@ -388,7 +388,7 @@ export function SocialShell({
                   <ArrowRight data-icon="inline-end" />
                 </Link>
                 <p className="mt-3 text-xs text-muted-foreground">
-                  24 hours per task · Reviews stay open
+                  24 hours to complete and verify
                 </p>
                 {pendingVerdicts > 0 && (
                   <Link href="/squad" className="review-nudge">

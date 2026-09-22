@@ -36,8 +36,28 @@ test("late-night tasks keep their full 24 hours across midnight", () => {
   expect(due.toISOString()).toBe("2026-09-18T06:00:00.000Z");
   expect(canEditTask(due, new Date("2026-09-17T16:00:00Z"))).toBe(true);
   expect(canEditTask(due, due)).toBe(false);
+  expect(shouldMarkMissed("OPEN", due, new Date("2026-09-17T16:00:00Z"))).toBe(
+    false,
+  );
+  expect(currentTaskFilter(created)).toEqual({
+    dueAt: { gt: created },
+    status: { not: "MISSED" },
+  });
+});
+
+test("the verification deadline includes pending reviews and preserves verified tasks", () => {
+  const due = taskDeadline(new Date("2026-09-20T20:15:00Z"));
+  for (const status of ["OPEN", "RENEGOTIATED", "AWAITING_REVIEW"]) {
+    expect(shouldMarkMissed(status, due, new Date(due.getTime() - 1))).toBe(
+      false,
+    );
+    expect(shouldMarkMissed(status, due, due)).toBe(true);
+    expect(
+      shouldMarkMissed(status, due, new Date(due.getTime() + 3_600_000)),
+    ).toBe(true);
+  }
   expect(
-    shouldMarkMissed("OPEN", due, 0, new Date("2026-09-17T16:00:00Z")),
+    shouldMarkMissed("VERIFIED", due, new Date(due.getTime() + 86_400_000)),
   ).toBe(false);
-  expect(currentTaskFilter(created).OR[0]).toEqual({ dueAt: { gt: created } });
+  expect(shouldMarkMissed("MISSED", due, due)).toBe(false);
 });

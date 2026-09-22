@@ -2,7 +2,7 @@ import "server-only";
 
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText, Output } from "ai";
-import { z } from "zod";
+import type { z } from "zod";
 import type { AIFeature } from "@/generated/prisma/client";
 import {
   aiHourlyLimit,
@@ -17,11 +17,6 @@ import {
 import { getPrisma } from "@/lib/prisma";
 import { limitAction } from "@/lib/rate-limit";
 import { screenTimeExtractionSchema } from "@/lib/screen-time";
-
-export const proofAssessmentSchema = z.object({
-  title: z.string().min(1).max(140),
-  description: z.string().min(1).max(1200),
-});
 
 export function model(userId: string) {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -122,34 +117,6 @@ async function runStructured<S extends z.ZodType>({
       .catch(() => undefined);
     throw error;
   }
-}
-
-export function assessTaskProof(
-  userId: string,
-  circleId: string,
-  image: { data: Uint8Array; mimeType: string },
-) {
-  return runStructured({
-    schema: proofAssessmentSchema,
-    userId,
-    circleId,
-    feature: "PROOF_ASSESSMENT",
-    system: `Summarize what is visible in the image with a short title and a concise, factual description. Include the main subjects, actions, and relevant readable text. Do not judge task completion or the quality of the proof. Do not invent unseen details.
-Use commas, periods, or semicolons instead of em dashes.
-${injectionGuard}`,
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: "Describe what is in this image.",
-          },
-          { type: "file", data: image.data, mediaType: image.mimeType },
-        ],
-      },
-    ],
-  });
 }
 
 export function extractScreenTime(

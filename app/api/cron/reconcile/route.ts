@@ -19,12 +19,12 @@ export async function GET(request: Request) {
   let failedCircles = 0;
   for (const circle of circles) {
     try {
-      let batchCount: number;
+      let hasMore: boolean;
       do {
         const result = await reconcileMissedTasks(circle.id);
-        batchCount = result.count;
+        hasMore = result.hasMore;
         reconciled += result.count;
-      } while (batchCount === 25);
+      } while (hasMore);
     } catch (error) {
       failedCircles += 1;
       // Keep reconciling other circles if one fails.

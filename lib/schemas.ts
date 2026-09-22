@@ -47,7 +47,6 @@ export const pushSubscriptionSchema = z.object({
 
 export const notificationPreferencesSchema = z.object({
   proofsSubmitted: z.boolean(),
-  screenTime: z.boolean(),
 });
 export const proofReviewSchema = z
   .object({

@@ -108,11 +108,6 @@ for (const [index, owner, title, status] of [
           ? "Finally got the last one. The units were the problem the whole time."
           : "Done for today. See you tomorrow.",
       reviewStatus: status,
-      aiStatus: "SUCCEEDED",
-      aiVisibleEvidence: "A page of calculations with worked solutions.",
-      aiUncertainty: "The full assignment cannot be checked from one page.",
-      aiTaskMatch: "The photo contains physics problems.",
-      aiOneLiner: "The work is visible. Your circle makes the call.",
       image: {
         create: {
           data: proofImage,

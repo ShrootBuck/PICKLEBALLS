@@ -1416,18 +1416,65 @@
   }
 }
 
-.timeblock-assistant { min-width: 0; }
-.timeblock-studio-grid:has(.timeblock-assistant-expanded) { grid-template-columns: minmax(0, 1fr); }
-.timeblock-assistant-expanded { position: static; width: 100%; height: 900px; max-height: 90dvh; }
-.timeblock-chat-prose { font-size: 0.875rem; line-height: 1.65; overflow-wrap: anywhere; }
-.timeblock-chat-prose > * + * { margin-top: 0.7em; }
-.timeblock-chat-prose :is(ul, ol) { padding-left: 1.4em; }
-.timeblock-chat-prose ul { list-style: disc; }
-.timeblock-chat-prose ol { list-style: decimal; }
-.timeblock-chat-prose :is(h1, h2, h3, h4) { font-weight: 600; line-height: 1.3; }
-.timeblock-chat-prose a { text-decoration: underline; }
-.timeblock-chat-prose pre { overflow-x: auto; white-space: pre; padding: 0.75rem; border-radius: var(--radius-md); background: var(--muted); }
-.timeblock-chat-prose code { font-size: 0.85em; }
-.timeblock-chat-prose table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
-.timeblock-chat-prose :is(th, td) { border: 1px solid var(--border); padding: 0.35rem 0.6rem; text-align: left; }
-.timeblock-chat-prose blockquote { border-left: 2px solid var(--border); padding-left: 0.8rem; color: var(--muted-foreground); }
+.timeblock-assistant {
+  min-width: 0;
+}
+.timeblock-studio-grid:has(.timeblock-assistant-expanded) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.timeblock-assistant-expanded {
+  position: static;
+  width: 100%;
+  height: 900px;
+  max-height: 90dvh;
+}
+.timeblock-chat-prose {
+  font-size: 0.875rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.timeblock-chat-prose > * + * {
+  margin-top: 0.7em;
+}
+.timeblock-chat-prose :is(ul, ol) {
+  padding-left: 1.4em;
+}
+.timeblock-chat-prose ul {
+  list-style: disc;
+}
+.timeblock-chat-prose ol {
+  list-style: decimal;
+}
+.timeblock-chat-prose :is(h1, h2, h3, h4) {
+  font-weight: 600;
+  line-height: 1.3;
+}
+.timeblock-chat-prose a {
+  text-decoration: underline;
+}
+.timeblock-chat-prose pre {
+  overflow-x: auto;
+  white-space: pre;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--muted);
+}
+.timeblock-chat-prose code {
+  font-size: 0.85em;
+}
+.timeblock-chat-prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.timeblock-chat-prose :is(th, td) {
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+}
+.timeblock-chat-prose blockquote {
+  border-left: 2px solid var(--border);
+  padding-left: 0.8rem;
+  color: var(--muted-foreground);
+}

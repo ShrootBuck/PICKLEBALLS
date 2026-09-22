@@ -30,6 +30,7 @@ function post(id: string, minute = 0): FeedPost {
     mediaIds: [],
     reviewStatus: "PENDING",
     canReview: true,
+    expired: false,
     requiredApprovals: 1,
     approvalCount: 0,
     verifiedBy: null,
