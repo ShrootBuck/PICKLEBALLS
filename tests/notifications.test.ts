@@ -81,7 +81,9 @@ const { createNotificationAndPush, notifyReplyReceived } = await import(
 await import("@/src/trigger/notification");
 const { GET } = await import("@/app/api/notifications/route");
 const { POST } = await import("@/app/api/notifications/mark-all-read/route");
-const { inboxKinds } = await import("@/lib/notification-policy");
+const { inboxKinds, notificationInboxWindowMs } = await import(
+  "@/lib/notification-policy"
+);
 const input = {
   recipientId: "recipient",
   actorId: "actor",
@@ -183,32 +185,49 @@ test("self activity does not notify without explicit permission", async () => {
   expect(create).not.toHaveBeenCalled();
 });
 
-test("inbox pages, unread count, and mark-all-read share the recipient, circle and kind filter", async () => {
+test("inbox, unread count, and mark-all-read share the recipient, circle and kind filter, limited to the last 24 hours", async () => {
+  const before = Date.now();
   const response = await GET(
-    new Request("http://localhost/api/notifications?cursor=older&unread=1"),
+    new Request("http://localhost/api/notifications?unread=1"),
   );
   expect(response.status).toBe(200);
+  const recent = {
+    gte: expect.any(Date) as Date,
+  };
   const where = {
     recipientId: "recipient",
     circleId: "circle",
     kind: { in: inboxKinds },
+    createdAt: recent,
     readAt: null,
   };
-  expect(findMany).toHaveBeenCalledWith(
-    expect.objectContaining({
-      where,
-      cursor: { id: "older" },
-      skip: 1,
-      take: 31,
-    }),
-  );
+  expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
   expect(count).toHaveBeenCalledWith({ where });
+  const [call] = findMany.mock.calls as unknown as [
+    [{ where: { createdAt: { gte: Date } } }],
+  ];
+  const since = call[0].where.createdAt.gte;
+  expect(since.getTime()).toBeGreaterThanOrEqual(
+    before - notificationInboxWindowMs,
+  );
+  expect(since.getTime()).toBeLessThanOrEqual(
+    Date.now() - notificationInboxWindowMs,
+  );
   await POST(
     new Request("http://localhost/api/notifications/mark-all-read", {
       method: "POST",
     }),
   );
-  expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
+  expect(updateMany).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: {
+        recipientId: "recipient",
+        circleId: "circle",
+        kind: { in: inboxKinds },
+        readAt: null,
+      },
+    }),
+  );
 });
 
 afterEach(() => {

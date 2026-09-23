@@ -44,12 +44,10 @@ export function NotificationBell({
   circleId,
   initialInbox,
   initialUnreadCount,
-  initialNextCursor,
 }: {
   circleId: string;
   initialInbox: InboxNotification[];
   initialUnreadCount: number;
-  initialNextCursor: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -58,17 +56,12 @@ export function NotificationBell({
   const requestVersion = useRef(0);
   const [inbox, setInbox] = useState(initialInbox);
   const [unread, setUnread] = useState(initialUnreadCount);
-  const [nextCursor, setNextCursor] = useState<string | null>(
-    initialNextCursor,
-  );
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     setInbox(initialInbox);
     setUnread(initialUnreadCount);
-    setNextCursor(initialNextCursor);
     requestVersion.current += 1;
-  }, [initialInbox, initialUnreadCount, initialNextCursor]);
+  }, [initialInbox, initialUnreadCount]);
   useEffect(() => {
     if (!open) return;
     const controller = new AbortController();
@@ -81,7 +74,6 @@ export function NotificationBell({
         if (!controller.signal.aborted && version === requestVersion.current) {
           setInbox(data.notifications);
           setUnread(data.unreadCount);
-          setNextCursor(data.nextCursor);
         }
       })
       .catch(() => {
@@ -124,34 +116,6 @@ export function NotificationBell({
     } finally {
       if (id) pendingReads.current.delete(id);
       else setMarkingAll(false);
-    }
-  }
-
-  async function loadMore() {
-    if (!nextCursor || busy) return;
-    setBusy(true);
-    setError(null);
-    const version = requestVersion.current;
-    try {
-      const response = await appFetch(
-        `/api/notifications?cursor=${encodeURIComponent(nextCursor)}`,
-      );
-      if (!response.ok) throw new Error("Could not load more.");
-      const data = await response.json();
-      if (version !== requestVersion.current) return;
-      setInbox((items) => [
-        ...items,
-        ...data.notifications.filter(
-          (item: InboxNotification) =>
-            !items.some((existing) => existing.id === item.id),
-        ),
-      ]);
-      setNextCursor(data.nextCursor);
-      setUnread(data.unreadCount);
-    } catch {
-      setError("Could not load older notifications. Try again.");
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -314,16 +278,6 @@ export function NotificationBell({
                   })}
                 </ul>
               )}
-              {nextCursor ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={busy}
-                  onClick={loadMore}
-                >
-                  {busy ? "Loading…" : "Older notifications"}
-                </Button>
-              ) : null}
               {error ? (
                 <p role="alert" className="px-2 text-xs text-destructive">
                   {error}

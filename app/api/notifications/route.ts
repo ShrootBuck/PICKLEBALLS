@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
 import { jsonError } from "@/lib/api";
-import { DomainError } from "@/lib/errors";
-import { inboxKinds, notificationPageSize } from "@/lib/notification-policy";
+import { inboxKinds, notificationInboxSince } from "@/lib/notification-policy";
 import { getPrisma } from "@/lib/prisma";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 
 export const runtime = "nodejs";
-
-const pageSize = notificationPageSize;
 
 export async function GET(request: Request) {
   if (!hasSameOrigin(request)) {
@@ -20,21 +17,18 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const unreadOnly = url.searchParams.get("unread") === "1";
-    const cursor = url.searchParams.get("cursor");
-    if (cursor && (cursor.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(cursor)))
-      throw new DomainError("Invalid notification cursor.");
     const prisma = getPrisma();
     const userId = auth.session.user.id;
+    const recent = { gte: notificationInboxSince() };
     const notifications = await prisma.notification.findMany({
       where: {
         recipientId: userId,
         circleId: auth.membership.circleId,
         kind: { in: inboxKinds },
+        createdAt: recent,
         ...(unreadOnly ? { readAt: null } : {}),
       },
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: pageSize + 1,
       select: {
         id: true,
         kind: true,
@@ -47,10 +41,7 @@ export async function GET(request: Request) {
         actor: { select: { name: true, image: true, initials: true } },
       },
     });
-    const hasMore = notifications.length > pageSize;
-    const items = (
-      hasMore ? notifications.slice(0, pageSize) : notifications
-    ).map((item) => ({
+    const items = notifications.map((item) => ({
       ...item,
       readAt: item.readAt?.toISOString() ?? null,
       createdAt: item.createdAt.toISOString(),
@@ -60,13 +51,13 @@ export async function GET(request: Request) {
         recipientId: userId,
         circleId: auth.membership.circleId,
         kind: { in: inboxKinds },
+        createdAt: recent,
         readAt: null,
       },
     });
     return NextResponse.json({
       notifications: items,
       unreadCount,
-      nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
     });
   } catch (error) {
     return jsonError(error);

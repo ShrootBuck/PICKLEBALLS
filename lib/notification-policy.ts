@@ -9,7 +9,12 @@ export const inboxKinds: ActivityKind[] = [
   "PROOF_CHALLENGED",
 ];
 
-export const notificationPageSize = 30;
+// The bell inbox only shows the last 24 hours; nothing older is offered.
+export const notificationInboxWindowMs = 24 * 60 * 60 * 1000;
+
+export function notificationInboxSince(now = Date.now()) {
+  return new Date(now - notificationInboxWindowMs);
+}
 
 export type NotificationPrefs = {
   proofsSubmitted: boolean;
