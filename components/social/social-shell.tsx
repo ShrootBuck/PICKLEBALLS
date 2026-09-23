@@ -236,26 +236,25 @@ export function SocialShell({
           </span>
           <span>pickle balls</span>
         </Link>
-        <nav aria-label="Main navigation" className="flex flex-col gap-2">
+        <nav aria-label="Main navigation" className="flex flex-col gap-1">
           {navLinks()}
         </nav>
-        <Button
-          size="lg"
-          className="mt-6 w-full"
-          onClick={() => openComposer()}
-        >
+        <Button className="mt-5 w-full" onClick={() => openComposer()}>
           <Plus data-icon="inline-start" /> Create
         </Button>
-        <div className="mt-auto flex flex-col gap-4 pt-8">
+        <div className="mt-auto flex flex-col pt-8">
           <Link
             href="/settings"
             className={cn(
-              buttonVariants({ variant: "ghost" }),
-              "justify-start",
+              "social-nav-link",
+              pathname === "/settings" && "is-active",
             )}
             aria-current={pathname === "/settings" ? "page" : undefined}
           >
-            <Settings data-icon="inline-start" /> Settings
+            <span className="social-nav-icon">
+              <Settings className="size-6" strokeWidth={1.7} />
+            </span>
+            <span>Settings</span>
           </Link>
         </div>
       </aside>
@@ -292,6 +291,7 @@ export function SocialShell({
           <div className="ml-auto flex items-center gap-1">
             <Button
               variant="ghost"
+              className="md:hidden"
               aria-label="Create a task, proof, or check-in"
               onClick={() => openComposer()}
             >
@@ -320,22 +320,24 @@ export function SocialShell({
             </main>
             {!wide && (
               <aside className="social-day-panel" aria-label="Your tasks">
-                <div className="flex items-center gap-3">
+                <Link href="/profile" className="flex items-center gap-3">
                   <Avatar className="size-10">
                     <AvatarImage src={viewer.image ?? undefined} alt="" />
                     <AvatarFallback>{viewer.initials}</AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
-                    <p className="truncate font-semibold">{viewer.name}</p>
+                    <p className="truncate text-sm font-semibold">
+                      {viewer.name}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDayShort(day)}
                     </p>
                   </div>
-                </div>
-                <div className="mt-7 flex items-baseline justify-between">
-                  <h2 className="font-semibold">Your tasks</h2>
-                  <span className="text-sm tabular-nums text-muted-foreground">
-                    {verified}/{tasks.length}
+                </Link>
+                <div className="mt-6 flex items-baseline justify-between">
+                  <h2 className="text-sm font-semibold">Today</h2>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {verified}/{tasks.length} verified
                   </span>
                 </div>
                 <Progress
@@ -343,7 +345,7 @@ export function SocialShell({
                   aria-label={`${verified} of ${tasks.length} tasks verified`}
                   className="mt-3"
                 />
-                <div className="mt-4 flex flex-col gap-3">
+                <div className="mt-4 flex flex-col gap-2.5">
                   {tasks.slice(0, 4).map((task) => {
                     const StatusIcon =
                       task.status === "VERIFIED"
@@ -373,23 +375,21 @@ export function SocialShell({
                   })}
                   {!tasks.length && (
                     <p className="text-sm leading-relaxed text-muted-foreground">
-                      One small commitment is a good place to start.
+                      No tasks yet. One small commitment is a good place to
+                      start.
                     </p>
                   )}
                 </div>
                 <Link
                   href="/profile?tab=tasks"
                   className={cn(
-                    buttonVariants({ variant: "ghost" }),
-                    "mt-4 w-full justify-between",
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "mt-5 w-full justify-between",
                   )}
                 >
-                  Your tasks
+                  {tasks.length ? "All tasks" : "Add a task"}
                   <ArrowRight data-icon="inline-end" />
                 </Link>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  24 hours to complete and verify
-                </p>
                 {pendingVerdicts > 0 && (
                   <Link href="/squad" className="review-nudge">
                     <Users className="size-5" />

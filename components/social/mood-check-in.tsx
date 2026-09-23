@@ -92,111 +92,108 @@ export function MoodCheckIn({
 
   return (
     <form onSubmit={submit} aria-busy={pending}>
-      <Card>
-        <CardHeader>
-          <CardTitle>How are you feeling?</CardTitle>
-          <CardDescription>Shared with your circle.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FieldGroup>
-            <Field>
-              <FieldLabel id={`${formId}-mood-label`}>
-                Right now, I feel…
-              </FieldLabel>
-              <ToggleGroup
-                aria-labelledby={`${formId}-mood-label`}
-                variant="outline"
-                value={mood === null ? [] : [String(mood)]}
-                disabled={pending}
-                className="w-full flex-wrap"
-                onValueChange={(values) => {
-                  const next = values[0] ? Number(values[0]) : null;
-                  setMood(next);
-                  const allowed: readonly string[] =
-                    next === null ? [] : (moodDetails(next)?.feelings ?? []);
-                  setFeelings((current) =>
-                    current.filter((feeling) => allowed.includes(feeling)),
-                  );
-                }}
+      <Card size="sm">
+        <CardHeader className="gap-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <CardTitle id={`${formId}-mood-label`}>
+              How are you feeling?
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Shared with your circle
+            </CardDescription>
+          </div>
+          <ToggleGroup
+            aria-labelledby={`${formId}-mood-label`}
+            spacing={1}
+            value={mood === null ? [] : [String(mood)]}
+            disabled={pending}
+            className="mood-scale w-full"
+            onValueChange={(values) => {
+              const next = values[0] ? Number(values[0]) : null;
+              setMood(next);
+              const allowed: readonly string[] =
+                next === null ? [] : (moodDetails(next)?.feelings ?? []);
+              setFeelings((current) =>
+                current.filter((feeling) => allowed.includes(feeling)),
+              );
+            }}
+          >
+            {moods.map((item) => (
+              <ToggleGroupItem
+                key={item.value}
+                value={String(item.value)}
+                className="h-auto flex-1 flex-col gap-1.5 rounded-lg border border-transparent px-0 py-2.5 text-muted-foreground aria-pressed:border-primary/40 aria-pressed:bg-accent aria-pressed:text-accent-foreground aria-pressed:shadow-none aria-pressed:hover:bg-accent aria-pressed:hover:text-accent-foreground"
               >
-                {moods.map((item) => (
-                  <ToggleGroupItem
-                    key={item.value}
-                    value={String(item.value)}
-                    className="h-24 flex-1 flex-col gap-1 px-1 py-3 sm:h-20 sm:px-2.5"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="shrink-0 text-2xl leading-none"
-                    >
-                      {item.face}
-                    </span>
-                    <span className="h-[2lh] shrink-0 whitespace-normal text-center text-xs leading-tight sm:h-[1lh] sm:text-sm">
-                      {item.label}
-                    </span>
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-            </Field>
-            {selected && (
-              <>
-                <Field>
-                  <FieldLabel id={`${formId}-feelings-label`}>
-                    What words fit? (optional)
-                  </FieldLabel>
-                  <ToggleGroup
-                    multiple
-                    aria-labelledby={`${formId}-feelings-label`}
-                    variant="outline"
-                    value={feelings}
-                    onValueChange={setFeelings}
-                    disabled={pending}
-                    className="flex-wrap"
-                  >
-                    {selected.feelings.map((feeling) => (
-                      <ToggleGroupItem key={feeling} value={feeling}>
-                        {feeling}
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor={`${formId}-journal`}>
-                    Want to write about it?
-                  </FieldLabel>
-                  <Textarea
-                    id={`${formId}-journal`}
-                    placeholder="What's on your mind?"
-                    value={journal}
-                    onChange={(event) => setJournal(event.target.value)}
-                    maxLength={5000}
-                    rows={4}
-                    disabled={pending}
-                    aria-describedby={`${formId}-journal-help`}
-                  />
-                  <FieldDescription id={`${formId}-journal-help`}>
-                    {journal.length.toLocaleString()}/5,000
-                  </FieldDescription>
-                </Field>
-                <MediaPicker
-                  files={files}
+                <span aria-hidden="true" className="text-[22px] leading-none">
+                  {item.face}
+                </span>
+                <span className="text-center text-[11px] leading-tight sm:text-xs">
+                  {item.label}
+                </span>
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </CardHeader>
+        {selected && (
+          <CardContent>
+            <FieldGroup>
+              <Field>
+                <FieldLabel id={`${formId}-feelings-label`}>
+                  What words fit? (optional)
+                </FieldLabel>
+                <ToggleGroup
+                  multiple
+                  aria-labelledby={`${formId}-feelings-label`}
+                  variant="outline"
+                  size="sm"
+                  value={feelings}
+                  onValueChange={setFeelings}
                   disabled={pending}
-                  onChange={(next) => {
-                    setFiles(next);
-                    uploadedIds.current = null;
-                  }}
+                  className="flex-wrap gap-1.5"
+                >
+                  {selected.feelings.map((feeling) => (
+                    <ToggleGroupItem key={feeling} value={feeling}>
+                      {feeling}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor={`${formId}-journal`}>
+                  Want to write about it?
+                </FieldLabel>
+                <Textarea
+                  id={`${formId}-journal`}
+                  placeholder="What's on your mind?"
+                  value={journal}
+                  onChange={(event) => setJournal(event.target.value)}
+                  maxLength={5000}
+                  rows={4}
+                  disabled={pending}
+                  aria-describedby={`${formId}-journal-help`}
                 />
-                <UploadStatus status={uploadStatus} percent={uploadPercent} />
-              </>
-            )}
-            {error && (
-              <Alert variant="destructive">
-                <AlertTitle>Could not share</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-          </FieldGroup>
-        </CardContent>
+                <FieldDescription id={`${formId}-journal-help`}>
+                  {journal.length.toLocaleString()}/5,000
+                </FieldDescription>
+              </Field>
+              <MediaPicker
+                files={files}
+                disabled={pending}
+                onChange={(next) => {
+                  setFiles(next);
+                  uploadedIds.current = null;
+                }}
+              />
+              <UploadStatus status={uploadStatus} percent={uploadPercent} />
+              {error && (
+                <Alert variant="destructive">
+                  <AlertTitle>Could not share</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+            </FieldGroup>
+          </CardContent>
+        )}
         {selected && (
           <CardFooter>
             <Button type="submit" disabled={pending} className="w-full">

@@ -6,7 +6,6 @@ import {
   type TimeblockBuilderRow,
 } from "@/components/timeblocks/timeblock-builder";
 import { TimeblockNav } from "@/components/timeblocks/timeblock-nav";
-import { Badge } from "@/components/ui/badge";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
 import {
@@ -74,7 +73,7 @@ export default async function TimeblockPage({
     <>
       <PageHeader
         title="Timeblock"
-        description={`Report for Ms. Merrill, ${formatDayShort(week.startKey)} through ${formatDayShort(week.endKey)}.`}
+        description={`Weekly report for Ms. Merrill covering ${formatDayShort(week.startKey)} through ${formatDayShort(week.endKey)}. Add classes and sleep, review your work, then export the PDF.`}
         actions={
           <TimeblockNav
             dueMonday={dueMonday}
@@ -82,10 +81,8 @@ export default async function TimeblockPage({
           />
         }
       >
-        <Badge variant="secondary">
-          <CalendarRange />
-          Due {formatDayLong(dueMonday)}
-        </Badge>
+        <CalendarRange className="size-3.5" />
+        Due {formatDayLong(dueMonday)}
       </PageHeader>
       <TimeblockBuilder
         key={`${membership.circleId}:${dueMonday}`}

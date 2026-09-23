@@ -473,19 +473,19 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  min-height: 64px;
+  min-height: 56px;
   gap: 8px;
-  padding: 8px 14px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--border);
-  background: var(--sidebar);
+  background: var(--background);
 }
 .circle-trigger {
   flex-shrink: 1;
   min-width: 0;
   max-width: 65%;
-  font-size: 17px;
-  font-weight: 650;
-  letter-spacing: -0.025em;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 .social-scroll {
   flex: 1;
@@ -508,8 +508,8 @@
   min-width: 0;
   width: 100%;
   max-width: 640px;
-  padding: 24px 20px 40px;
-  gap: 24px;
+  padding: 20px 20px 40px;
+  gap: 20px;
   outline: none;
 }
 .social-content-wide {
@@ -524,7 +524,7 @@
   flex-shrink: 0;
   padding: 4px 4px max(4px, env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border);
-  background: var(--sidebar);
+  background: var(--background);
 }
 .social-nav-link {
   position: relative;
@@ -537,7 +537,7 @@
   min-height: 48px;
   color: var(--muted-foreground);
   border-radius: 10px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
   min-width: 0;
@@ -550,6 +550,10 @@
 .social-bottom-nav .social-nav-link {
   min-height: 52px;
   padding: 6px 2px;
+  border-radius: 8px;
+}
+.social-bottom-nav .social-nav-link.is-active {
+  background: transparent;
 }
 .social-nav-icon {
   position: relative;
@@ -576,32 +580,34 @@
 }
 .nav-count {
   position: absolute;
-  top: -5px;
+  top: -6px;
   right: -10px;
-  min-width: 15px;
-  height: 15px;
+  min-width: 16px;
+  height: 16px;
   padding: 0 4px;
   border: 2px solid var(--background);
-  font-size: 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1;
 }
 .social-wordmark {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 21px;
-  font-weight: 700;
-  letter-spacing: -0.05em;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
 }
 .brand-symbol {
   display: inline-flex;
   justify-content: center;
   align-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
   background: var(--primary);
   color: var(--primary-foreground);
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 800;
   line-height: 1;
 }
@@ -633,9 +639,9 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 28px;
-  padding: 18px 0;
-  border-block: 1px solid var(--border);
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
   font-size: 13px;
 }
 .social-composer {
@@ -814,22 +820,40 @@
   padding-block: 20px;
   border-bottom: 1px solid var(--border);
 }
-.profile-tab {
+/* Link-based tabs that match the line variant of the Tabs component. */
+.line-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+.line-tab {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
-  padding-block: 15px;
-  border-bottom: 2px solid transparent;
+  min-height: 44px;
+  padding: 0 10px;
   color: var(--muted-foreground);
   font-size: 14px;
   font-weight: 500;
+  white-space: nowrap;
+  transition: color 160ms ease;
 }
-.profile-tab[aria-current] {
-  color: var(--primary);
-  border-color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 5%, transparent);
+.line-tab:hover {
+  color: var(--foreground);
+}
+.line-tab[aria-current] {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.line-tab[aria-current]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--primary);
 }
 .social-profile-menu {
   display: flex;
@@ -840,32 +864,44 @@
   .social-rail {
     display: flex;
     flex-direction: column;
-    width: 210px;
+    width: 220px;
     flex-shrink: 0;
-    padding: 30px 18px 20px;
+    padding: 20px 14px 16px;
     border-right: 1px solid var(--border);
     background: var(--sidebar);
   }
   .social-wordmark {
-    margin-bottom: 44px;
-    padding-left: 8px;
+    margin-bottom: 28px;
+    padding-left: 10px;
   }
   .social-nav-link {
     flex-direction: row;
     justify-content: flex-start;
-    padding: 14px;
-    gap: 16px;
-    font-size: 15px;
+    min-height: 40px;
+    padding: 8px 10px;
+    gap: 12px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .social-nav-link .social-nav-icon {
+    width: 20px;
+    height: 20px;
+  }
+  .social-nav-link .social-nav-icon > svg,
+  .social-nav-link .social-nav-icon > [data-slot="avatar"] {
+    width: 20px;
+    height: 20px;
   }
   .social-nav-link.is-active {
-    font-weight: 650;
-    background: color-mix(in srgb, var(--primary) 10%, var(--sidebar));
+    font-weight: 600;
+    color: var(--foreground);
+    background: var(--accent);
   }
   .social-bottom-nav {
     display: none;
   }
   .social-header {
-    padding-inline: 24px;
+    padding-inline: 20px;
   }
   .social-content {
     padding: 28px 28px 60px;
@@ -885,20 +921,20 @@
 }
 @media (width >= 80rem) {
   .social-rail {
-    width: 238px;
-    padding-inline: 24px;
+    width: 240px;
+    padding-inline: 16px;
   }
   .social-day-panel {
     display: block;
     position: sticky;
-    top: 36px;
-    width: 250px;
+    top: 28px;
+    width: 260px;
     flex-shrink: 0;
-    margin-right: 32px;
-    margin-top: 36px;
-    padding: 20px;
+    margin-right: 28px;
+    margin-top: 28px;
+    padding: 18px;
     border: 1px solid var(--border);
-    border-radius: 16px;
+    border-radius: var(--radius-xl);
     background: var(--card);
   }
   .social-columns {
@@ -1093,51 +1129,45 @@
   gap: 20px;
   min-width: 0;
 }
-.timeblock-studio-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 4px 0;
-}
-.timeblock-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--primary);
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.16em;
-  margin-bottom: 8px;
-}
-.timeblock-studio-heading h2 {
-  font-size: clamp(24px, 2.4vw, 32px);
-  font-weight: 550;
-  letter-spacing: -0.055em;
-  line-height: 1.08;
-  margin-bottom: 8px;
-}
 .timeblock-stats {
-  display: flex;
-  gap: 32px;
-  padding-bottom: 5px;
-  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--border);
 }
-.timeblock-stats strong {
-  font-size: 36px;
-  font-weight: 500;
-  letter-spacing: -0.06em;
+.timeblock-stats > div {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 4px;
+  padding: 14px 18px;
+  background: var(--card);
+}
+.timeblock-stats dt {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.timeblock-stats dd {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
-.timeblock-stats strong span {
+.timeblock-stats dd span {
+  margin-left: 3px;
   font-size: 14px;
+  font-weight: 500;
   color: var(--muted-foreground);
-  margin-left: 4px;
   letter-spacing: 0;
 }
-.timeblock-stats p {
-  font-size: 11px;
-  color: var(--muted-foreground);
+@media (width >= 40rem) {
+  .timeblock-stats {
+    align-self: flex-start;
+    grid-template-columns: repeat(2, 200px);
+  }
 }
 .timeblock-studio-grid {
   display: grid;
@@ -1191,14 +1221,14 @@
   padding: 0 8px;
   background: var(--card);
   border-bottom: 1px solid var(--border);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 550;
 }
 .timeblock-calendar-corner {
   left: 0;
   z-index: 4;
   color: var(--muted-foreground);
-  font-size: 9px;
+  font-size: 10px;
 }
 .timeblock-day-heading {
   border-left: 1px solid var(--border);
@@ -1214,13 +1244,13 @@
   width: 100%;
   padding: 6px 8px 0 0;
   text-align: right;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
 }
 .timeblock-hours small {
   display: block;
-  font-size: 8px;
+  font-size: 9px;
   opacity: 0.65;
 }
 .timeblock-day-column {
@@ -1285,13 +1315,13 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.3;
   font-weight: 600;
 }
 .timeblock-calendar-block > span {
   display: block;
-  font-size: 9px;
+  font-size: 10px;
   margin-top: 3px;
   opacity: 0.7;
   white-space: nowrap;
@@ -1368,16 +1398,6 @@
   }
 }
 @media (width < 600px) {
-  .timeblock-studio-heading {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .timeblock-stats {
-    gap: 28px;
-  }
-  .timeblock-stats strong {
-    font-size: 28px;
-  }
   .timeblock-calendar-scroll {
     max-height: 520px;
   }

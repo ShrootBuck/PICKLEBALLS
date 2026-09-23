@@ -16,7 +16,7 @@ export function HomeFeed({
   const value = selection ?? (pending.items.length ? "pending" : "timeline");
   return (
     <Tabs value={value} onValueChange={(next) => setSelection(String(next))}>
-      <TabsList className="w-full" aria-label="Home feeds">
+      <TabsList variant="line" className="w-full" aria-label="Home feeds">
         <TabsTrigger value="pending">Needs approval</TabsTrigger>
         <TabsTrigger value="timeline">Timeline</TabsTrigger>
       </TabsList>

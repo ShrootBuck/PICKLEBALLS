@@ -184,8 +184,8 @@ export function ProofCard({
               focusId={focusId}
               currentUserId={viewerId}
               compact={compact}
-              defaultExpanded
-              composerVisible
+              defaultExpanded={!compact}
+              composerVisible={!compact}
             />
           </CardContent>
         </div>

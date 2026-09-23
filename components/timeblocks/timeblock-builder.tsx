@@ -537,31 +537,22 @@ export function TimeblockBuilder({
 
   return (
     <div className="timeblock-workspace">
-      <div className="timeblock-studio-heading">
+      <dl className="timeblock-stats">
         <div>
-          <p className="timeblock-eyebrow">WEEKLY REPORT</p>
-          <h2>Make the week add up.</h2>
-          <p className="text-sm text-muted-foreground">
-            Add your classes and sleep. Review your work. Export and print.
-          </p>
+          <dt>Work logged</dt>
+          <dd>
+            {hours.toLocaleString("en-US", { maximumFractionDigits: 1 })}
+            <span>h</span>
+          </dd>
         </div>
-        <div className="timeblock-stats">
-          <div>
-            <strong>
-              {hours.toLocaleString("en-US", { maximumFractionDigits: 1 })}
-              <span>h</span>
-            </strong>
-            <p>work logged</p>
-          </div>
-          <div>
-            <strong>
-              {includedCount}
-              <span>/ {MAX_TIMEBLOCKS}</span>
-            </strong>
-            <p>work blocks included</p>
-          </div>
+        <div>
+          <dt>Blocks included</dt>
+          <dd>
+            {includedCount}
+            <span>/ {MAX_TIMEBLOCKS}</span>
+          </dd>
         </div>
-      </div>
+      </dl>
       <TimeblockRoutineForm
         key={JSON.stringify(routine)}
         routine={routine}

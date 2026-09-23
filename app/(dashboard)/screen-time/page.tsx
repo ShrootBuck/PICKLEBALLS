@@ -9,7 +9,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CircleDestination } from "@/components/circles/circle-destination";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader, PageSection } from "@/components/layout/page-header";
 import { ScreenTimeUpload } from "@/components/screen-time/upload";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -131,8 +131,8 @@ export default async function ScreenTimePage({
   return (
     <>
       <PageHeader
-        title="A little less scrolling."
-        description="Make more room for everything else. Your circle’s weekly screen time."
+        title="Screen time"
+        description="Your circle’s weekly iPhone screen time, lowest daily average first."
         actions={
           week === latest ? (
             <a
@@ -156,31 +156,31 @@ export default async function ScreenTimePage({
       />
       <nav
         aria-label="Screen time weeks"
-        className="flex items-center justify-between gap-3"
+        className="flex items-center justify-between gap-3 border-b pb-3"
       >
         <Link
           href={href(previous)}
-          className={buttonVariants({ variant: "ghost", size: "icon" })}
+          className={buttonVariants({ variant: "outline", size: "icon-sm" })}
           aria-label="Previous week"
         >
           <ChevronLeft />
         </Link>
         <div className="text-center">
           <h2 className="text-sm font-semibold">{screenTimeWeekLabel(week)}</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {submitted}/{members.length} submitted · iPhone screen time
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {submitted} of {members.length} submitted
           </p>
         </div>
         {week < latest ? (
           <Link
             href={href(shiftDateKey(week, 7))}
-            className={buttonVariants({ variant: "ghost", size: "icon" })}
+            className={buttonVariants({ variant: "outline", size: "icon-sm" })}
             aria-label="Next week"
           >
             <ChevronRight />
           </Link>
         ) : (
-          <span className="size-9" />
+          <span className="size-8" />
         )}
       </nav>
       <section aria-label="Weekly leaderboard" className="flex flex-col">
@@ -277,9 +277,7 @@ export default async function ScreenTimePage({
           );
         })}
         <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-          Lowest daily average first. Equal times share a rank. Missing
-          submissions stay unranked. Screen time is a signal, not a productivity
-          score.
+          Equal times share a rank. Missing submissions stay unranked.
         </p>
       </section>
       <div className="grid min-w-0 items-start gap-8 lg:grid-cols-2">
@@ -310,11 +308,7 @@ export default async function ScreenTimePage({
             </CardContent>
           </Card>
         )}
-        <section>
-          <h2 className="text-base font-semibold">Your last 12 weeks</h2>
-          <p className="mt-1 mb-4 text-sm text-muted-foreground">
-            A little perspective on the habit.
-          </p>
+        <PageSection title="Your last 12 weeks">
           {Array.from({ length: 12 }, (_, index) => {
             const start = shiftDateKey(latest, -7 * index);
             const entry = history.find(
@@ -324,12 +318,17 @@ export default async function ScreenTimePage({
               <Link
                 key={start}
                 href={href(start)}
-                className="flex items-center justify-between gap-3 border-b py-3 text-sm"
+                aria-current={start === week ? "page" : undefined}
+                className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2.5 text-sm hover:bg-muted/60 aria-[current]:bg-muted/60"
               >
                 <span className="text-muted-foreground">
                   {screenTimeWeekLabel(start)}
                 </span>
-                <span className="tabular-nums">
+                <span
+                  className={
+                    entry ? "font-medium tabular-nums" : "text-muted-foreground"
+                  }
+                >
                   {entry
                     ? formatScreenTime(entry.reading.dailyAverageMinutes)
                     : "Not submitted"}
@@ -337,7 +336,7 @@ export default async function ScreenTimePage({
               </Link>
             );
           })}
-        </section>
+        </PageSection>
       </div>
     </>
   );

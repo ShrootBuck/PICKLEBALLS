@@ -8,45 +8,45 @@ export function HomeActions() {
   const { tasks, openComposer } = useSocial();
   const done = tasks.filter((task) => task.status === "VERIFIED").length;
   return (
-    <div className="home-compose">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-2 gap-2">
         <Button
           variant="secondary"
-          className="flex-1"
           onClick={() => openComposer({ mode: "proof" })}
         >
           <Camera data-icon="inline-start" />
           Post proof
         </Button>
         <Button
-          variant="outline"
-          className="flex-1"
+          variant="secondary"
           onClick={() => openComposer({ mode: "check-in" })}
         >
           <MessageCircle data-icon="inline-start" />
           Check in
         </Button>
       </div>
-      <div className="flex items-center justify-between gap-3 pt-3">
+      <div className="flex items-center justify-between gap-3 text-sm">
         <Link
           href="/profile?tab=tasks"
-          className="flex min-w-0 flex-1 items-center justify-between gap-3"
+          className="group flex min-w-0 items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
         >
-          <span className="flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">
-              {tasks.length === 0
-                ? "Start with one small commitment."
-                : done === tasks.length
-                  ? "All verified. You showed up."
-                  : `${done} of ${tasks.length} tasks verified today`}
-            </span>
+          <span className="truncate">
+            {tasks.length === 0
+              ? "No tasks yet today."
+              : done === tasks.length
+                ? "All tasks verified. You showed up."
+                : `${done} of ${tasks.length} tasks verified today`}
           </span>
-          <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+          <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
         </Link>
         {!tasks.length && (
-          <Button size="sm" onClick={() => openComposer({ mode: "task" })}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => openComposer({ mode: "task" })}
+          >
             <Plus data-icon="inline-start" />
-            Task
+            Add task
           </Button>
         )}
       </div>

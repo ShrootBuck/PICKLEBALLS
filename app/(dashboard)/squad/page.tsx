@@ -66,24 +66,25 @@ export default async function SquadPage({
   return (
     <>
       <PageHeader
-        title="Show up for each other."
-        description={`${memberCount} members`}
+        title="Squad"
+        description={`${memberCount} ${memberCount === 1 ? "member" : "members"} in this circle. Review each other’s proof and see who showed up.`}
         actions={
           <Button
             nativeButton={false}
-            variant="ghost"
+            variant="outline"
             size="sm"
             render={<Link href="/squad?view=log" />}
+            aria-current={view === "log" ? "page" : undefined}
           >
             <List data-icon="inline-start" />
             Activity log
           </Button>
         }
       />
-      <nav className="flex border-b" aria-label="Squad sections">
+      <nav className="line-tabs" aria-label="Squad sections">
         <Link
           href="/squad"
-          className="profile-tab"
+          className="line-tab"
           aria-current={view === "review" ? "page" : undefined}
         >
           <CheckCheck className="size-4" />
@@ -91,7 +92,7 @@ export default async function SquadPage({
         </Link>
         <Link
           href="/squad?view=members"
-          className="profile-tab"
+          className="line-tab"
           aria-current={view === "members" ? "page" : undefined}
         >
           <Users className="size-4" />

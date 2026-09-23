@@ -12,13 +12,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -190,15 +183,15 @@ export default async function HistoryPage({
   return (
     <>
       <PageHeader
-        title="History"
+        title={dayKey === todayKey ? "Today" : formatDayLong(dayKey)}
         description={
           tasks.length === 0
-            ? undefined
-            : `${verified}/${tasks.length} verified across the squad.`
+            ? "Nothing happened on this day."
+            : `${verified} of ${tasks.length} tasks verified across the squad.`
         }
         actions={<HistoryNav day={dayKey} today={todayKey} />}
       >
-        <Badge variant="secondary">{formatDayLong(dayKey)}</Badge>
+        History
       </PageHeader>
 
       {activeIds.length === 0 ? (
@@ -214,7 +207,7 @@ export default async function HistoryPage({
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col">
           {activeIds.map((userId) => {
             const user = userById.get(userId);
             if (!user) return null;
@@ -242,83 +235,68 @@ export default async function HistoryPage({
               (task) => task.status === "VERIFIED",
             ).length;
             return (
-              <Card
+              <section
                 key={user.id}
-                size="sm"
-                className="border-x-0 border-t-0 rounded-none bg-transparent shadow-none"
+                className="flex flex-col gap-4 border-b py-5 first:pt-0"
+                aria-label={`${user.name} on this day`}
               >
-                <CardHeader>
-                  <div className="flex min-w-0 items-center gap-3">
-                    <Avatar className="size-10">
-                      <AvatarImage src={user.image ?? undefined} alt="" />
-                      <AvatarFallback>{user.initials}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <CardTitle className="truncate text-[15px] tracking-tight">
-                        {user.name}
-                        {user.id === session.user.id ? " (you)" : ""}
-                      </CardTitle>
-                      <CardDescription className="truncate text-[13px]">
-                        {userTasks.length === 0
-                          ? "No promises. Suspicious."
-                          : `${userVerified}/${userTasks.length} verified`}
-                        {checkInItems.length > 0
-                          ? ` · ${checkInItems.length} ${checkInItems.length === 1 ? "post" : "posts"}`
-                          : " · no check-in"}
-                      </CardDescription>
-                    </div>
+                <div className="flex min-w-0 items-center gap-3">
+                  <Avatar className="size-10">
+                    <AvatarImage src={user.image ?? undefined} alt="" />
+                    <AvatarFallback>{user.initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <h2 className="truncate text-[15px] font-semibold tracking-tight">
+                      {user.name}
+                      {user.id === session.user.id ? " (you)" : ""}
+                    </h2>
+                    <p className="truncate text-[13px] text-muted-foreground">
+                      {userTasks.length === 0
+                        ? "No tasks"
+                        : `${userVerified}/${userTasks.length} verified`}
+                      {checkInItems.length > 0
+                        ? ` · ${checkInItems.length} ${checkInItems.length === 1 ? "check-in" : "check-ins"}`
+                        : ""}
+                    </p>
                   </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3">
+                </div>
+                <div className="flex flex-col gap-3">
                   {userTasks.map((task) => {
                     const proof = task.proofs[0] ?? null;
-                    if (!proof) {
+                    if (proof) {
+                      // The proof card already carries the title and status.
                       return (
-                        <div key={task.id} className="flex flex-col gap-2">
-                          <div className="flex items-center gap-2 px-1">
-                            <span className="truncate text-sm font-semibold">
-                              {task.title}
-                            </span>
-                            <Badge
-                              variant={taskStatusVariant(task.status)}
-                              className="ml-auto shrink-0"
-                            >
-                              {taskStatusLabel(task.status)}
-                            </Badge>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return (
-                      <div key={task.id} className="flex flex-col gap-2">
-                        <div className="flex items-center gap-2 px-1">
-                          <span className="truncate text-sm font-semibold">
-                            {task.title}
-                          </span>
-                          <Badge
-                            variant={taskStatusVariant(task.status)}
-                            className="ml-auto shrink-0"
-                          >
-                            {taskStatusLabel(task.status)}
-                          </Badge>
-                        </div>
                         <ProofCard
+                          key={task.id}
                           proof={toProofCard(proof, session.user.id, needed)}
                           viewerId={session.user.id}
                           mode="history"
                         />
+                      );
+                    }
+                    return (
+                      <div key={task.id} className="flex items-center gap-2">
+                        <span className="truncate text-sm font-medium">
+                          {task.title}
+                        </span>
+                        <Badge
+                          variant={taskStatusVariant(task.status)}
+                          className="ml-auto shrink-0"
+                        >
+                          {taskStatusLabel(task.status)}
+                        </Badge>
                       </div>
                     );
                   })}
                   {checkInItems.length > 0 ? (
                     <div className="flex flex-col gap-2">
-                      <p className="px-1 text-xs font-medium text-muted-foreground">
-                        Check-ins that day · no rewriting history
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Check-ins
                       </p>
                       {checkInItems.map((item) => (
                         <div
                           key={item.id}
-                          className="flex flex-col gap-1.5 rounded-xl bg-muted/60 px-3 py-2.5"
+                          className="flex flex-col gap-1.5 rounded-lg bg-muted/50 px-3 py-2.5"
                         >
                           <div className="flex items-center gap-2">
                             <Badge
@@ -347,11 +325,7 @@ export default async function HistoryPage({
                             <p className="whitespace-pre-wrap break-words text-sm leading-snug text-pretty">
                               {item.journal ?? item.blocker}
                             </p>
-                          ) : (
-                            <p className="text-[13px] text-muted-foreground italic">
-                              No note. Just vibes.
-                            </p>
-                          )}
+                          ) : null}
                           <Link
                             className="mt-1 inline-flex min-h-11 items-center text-xs font-medium text-muted-foreground hover:text-foreground"
                             href={
@@ -370,8 +344,8 @@ export default async function HistoryPage({
                       ))}
                     </div>
                   ) : null}
-                </CardContent>
-              </Card>
+                </div>
+              </section>
             );
           })}
         </div>

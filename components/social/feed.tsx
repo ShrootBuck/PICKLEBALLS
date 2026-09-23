@@ -168,32 +168,27 @@ export function Feed({
               : "Circle timeline"
         }
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold tracking-tight">
+        <div className="flex min-h-9 items-center justify-between gap-3">
+          <h2 className="text-xs font-medium text-muted-foreground">
             {awaitingOnly
               ? "Waiting for your approval"
               : reviewOnly
                 ? "Waiting for your verdict"
                 : memberId
                   ? "Posts"
-                  : "Timeline"}
+                  : "Latest from your circle"}
           </h2>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label="Refresh posts"
-              disabled={busy !== null}
-              onClick={() => load("refresh")}
-            >
-              {busy === "refresh" ? (
-                <Spinner data-icon="inline-start" />
-              ) : (
-                <RefreshCw data-icon="inline-start" />
-              )}
-              Refresh
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="-mr-2 text-muted-foreground"
+            aria-label="Refresh posts"
+            title="Refresh"
+            disabled={busy !== null}
+            onClick={() => load("refresh")}
+          >
+            {busy === "refresh" ? <Spinner /> : <RefreshCw />}
+          </Button>
         </div>
         {error && (
           <Alert variant="destructive" className="my-4">

@@ -205,9 +205,9 @@ export async function MemberProfile({
           </span>
         </Link>
       </section>
-      <nav className="flex border-b" aria-label="Profile sections">
+      <nav className="line-tabs" aria-label="Profile sections">
         <Link
-          className="profile-tab"
+          className="line-tab"
           href={`${base}?${profileQuery}`}
           aria-current={tab === "posts" ? "page" : undefined}
         >
@@ -215,7 +215,7 @@ export async function MemberProfile({
           Posts
         </Link>
         <Link
-          className="profile-tab"
+          className="line-tab"
           href={`${base}?${taskQuery}`}
           aria-current={tab === "tasks" ? "page" : undefined}
         >
