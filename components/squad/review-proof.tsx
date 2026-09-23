@@ -39,12 +39,10 @@ export function ReviewProof({
   requiredApprovals,
   onReviewed,
   evidence,
-  definitionOfDone,
 }: {
   proofId: string;
   taskTitle: string;
   evidence?: ReactNode;
-  definitionOfDone?: string;
   requiredApprovals: number;
   onReviewed?: (
     proofId: string,
@@ -171,12 +169,6 @@ export function ReviewProof({
             className="flex flex-1 flex-col gap-4 overflow-auto p-4 sm:p-6"
           >
             {evidence}
-            {definitionOfDone && (
-              <p className="text-sm leading-relaxed">
-                <strong>Done means: </strong>
-                {definitionOfDone}
-              </p>
-            )}
             <FieldGroup>
               <Field orientation="responsive">
                 <FieldTitle id={`decision-${id}`}>Verdict</FieldTitle>

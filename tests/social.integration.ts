@@ -51,7 +51,6 @@ async function task(ownerId = ids.owner, circleId = ids.circle, date = now) {
     circleId,
     {
       title: "Finish physics problems",
-      definitionOfDone: "Complete every question and show the working.",
     },
     date,
   );
@@ -519,7 +518,7 @@ test("challenge, deliberate replacement restrictions, and old URLs preserve proo
       posted.commitmentId,
       ids.owner,
       ids.circle,
-      { title: "Easier task", definitionOfDone: "Just start" },
+      { title: "Easier task" },
       now,
     ),
   ).rejects.toThrow("promise stays fixed");
@@ -1341,7 +1340,6 @@ test("hourly reconciliation expires all unverified tasks, including queued media
     circle.id,
     {
       title: "Changed promise",
-      definitionOfDone: "Complete the revised work.",
     },
     postedAt,
   );
@@ -1486,7 +1484,6 @@ test("reconciliation drains multiple batches and never duplicates missed activit
       createdAt,
       dueAt: now,
       title: `Task ${index}`,
-      definitionOfDone: "Done",
       status: "AWAITING_REVIEW" as const,
     })),
   });

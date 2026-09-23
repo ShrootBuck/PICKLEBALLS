@@ -29,7 +29,6 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -80,7 +79,6 @@ type Task = {
   id: string;
   day: string;
   title: string;
-  definitionOfDone: string;
   dueAt: string;
   status: "OPEN" | "AWAITING_REVIEW" | "VERIFIED" | "MISSED" | "RENEGOTIATED";
   proof: null | {
@@ -176,7 +174,6 @@ function TaskDialog({
     id: string;
     day: string;
     title: string;
-    definitionOfDone: string;
     dueAt: string;
     status: Task["status"];
   }) => void;
@@ -185,19 +182,16 @@ function TaskDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState(task?.title ?? "");
-  const [definition, setDefinition] = useState(task?.definitionOfDone ?? "");
 
   const handleOpenChange = (next: boolean) => {
     if (pending) return;
     setOpen(next);
     if (next) {
       setTitle(task?.title ?? "");
-      setDefinition(task?.definitionOfDone ?? "");
       setError(null);
     } else {
       if (!task) {
         setTitle("");
-        setDefinition("");
       }
       setError(null);
       setPending(false);
@@ -211,7 +205,6 @@ function TaskDialog({
     setError(null);
     const data = {
       title,
-      definitionOfDone: definition,
     };
     try {
       const response = await appFetch(
@@ -232,7 +225,6 @@ function TaskDialog({
           id: string;
           day: string;
           title: string;
-          definitionOfDone: string;
           dueAt: string;
           status: Task["status"];
         };
@@ -242,7 +234,6 @@ function TaskDialog({
         id: body.task.id,
         day: body.task.day.slice(0, 10),
         title: body.task.title,
-        definitionOfDone: body.task.definitionOfDone,
         dueAt: body.task.dueAt,
         status: body.task.status,
       });
@@ -308,25 +299,6 @@ function TaskDialog({
                     required
                     maxLength={100}
                     className="h-11"
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={
-                      error ? `task-error-${task?.id ?? "new"}` : undefined
-                    }
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor={`definition-${task?.id ?? "new"}`}>
-                    How do we know you did it?
-                  </FieldLabel>
-                  <Textarea
-                    id={`definition-${task?.id ?? "new"}`}
-                    name="definitionOfDone"
-                    value={definition}
-                    onChange={(event) => setDefinition(event.target.value)}
-                    placeholder="Photo of every solved page. No crop tricks."
-                    required
-                    maxLength={500}
-                    className="min-h-24"
                     aria-invalid={Boolean(error)}
                     aria-describedby={
                       error ? `task-error-${task?.id ?? "new"}` : undefined
@@ -862,9 +834,6 @@ function TaskCard({
         <CardTitle className="text-[15px] leading-snug tracking-tight text-balance">
           {task.title}
         </CardTitle>
-        <CardDescription className="whitespace-pre-wrap text-sm leading-relaxed">
-          {task.definitionOfDone}
-        </CardDescription>
         <CardAction className="flex flex-col items-end gap-1">
           {task.day !== day ? (
             <Badge variant="outline">{formatDayShort(task.day)}</Badge>
@@ -959,7 +928,6 @@ export function TodayDashboard({
     id: string;
     day: string;
     title: string;
-    definitionOfDone: string;
     dueAt: string;
     status: Task["status"];
   }) {

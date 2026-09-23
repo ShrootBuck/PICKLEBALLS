@@ -82,8 +82,6 @@ for (const [index, owner, title, status] of [
       day,
       dueAt,
       title,
-      definitionOfDone:
-        "Complete all assigned questions and show the working clearly in the photos.",
       status:
         status === "APPROVED"
           ? "VERIFIED"

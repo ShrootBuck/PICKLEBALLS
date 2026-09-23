@@ -30,7 +30,6 @@ export type ProofPost = PostBase & {
   kind: "proof";
   title: string;
   commitmentId: string;
-  definitionOfDone: string;
   mediaIds: string[];
   reviewStatus: ProofStatus;
   canReview: boolean;
@@ -64,7 +63,6 @@ export type FeedPage = { items: FeedPost[]; nextCursor: string | null };
 export type SocialTask = {
   id: string;
   title: string;
-  definitionOfDone: string;
   day: string;
   dueAt: string;
   status: TaskStatus;

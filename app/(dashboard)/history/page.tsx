@@ -77,7 +77,6 @@ export default async function HistoryPage({
             commitment: {
               select: {
                 title: true,
-                definitionOfDone: true,
                 dueAt: true,
                 status: true,
               },
@@ -287,9 +286,6 @@ export default async function HistoryPage({
                               {taskStatusLabel(task.status)}
                             </Badge>
                           </div>
-                          <p className="line-clamp-2 px-1 text-sm leading-relaxed text-muted-foreground">
-                            {task.definitionOfDone}
-                          </p>
                         </div>
                       );
                     }

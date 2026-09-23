@@ -40,7 +40,6 @@ export type ProofRow = {
   owner: { name: string };
   commitment: {
     title: string;
-    definitionOfDone: string;
     dueAt: Date;
     status: string;
   };
@@ -81,7 +80,6 @@ export function toProofCard(
     id: proof.id,
     mediaIds: proof.mediaIds,
     title: proof.commitment.title,
-    definitionOfDone: proof.commitment.definitionOfDone,
     ownerName: proof.owner.name,
     ownerId: proof.ownerId,
     ownerNote: proof.ownerNote,

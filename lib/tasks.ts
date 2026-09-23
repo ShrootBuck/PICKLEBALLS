@@ -103,7 +103,6 @@ export async function createCommitment(
         circleId,
         day,
         title: parsed.data.title,
-        definitionOfDone: parsed.data.definitionOfDone,
         dueAt,
         createdAt: now,
       },
@@ -144,10 +143,7 @@ export async function updateCommitment(
       );
     }
     // No-op edit: same text in, no shame badge out.
-    if (
-      current.title === parsed.data.title &&
-      current.definitionOfDone === parsed.data.definitionOfDone
-    ) {
+    if (current.title === parsed.data.title) {
       return { task: current, changed: false };
     }
 
@@ -165,7 +161,6 @@ export async function updateCommitment(
       where: { id: current.id },
       data: {
         title: parsed.data.title,
-        definitionOfDone: parsed.data.definitionOfDone,
         status: "RENEGOTIATED",
       },
     });

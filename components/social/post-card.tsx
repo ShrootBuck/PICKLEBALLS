@@ -124,7 +124,6 @@ function InteractivePostCard({
             proofId={post.id}
             taskTitle={post.title}
             requiredApprovals={post.requiredApprovals}
-            definitionOfDone={post.definitionOfDone}
             evidence={
               <MediaGallery
                 ids={post.mediaIds}

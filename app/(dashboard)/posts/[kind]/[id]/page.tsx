@@ -175,12 +175,8 @@ export default async function PostPage({
           scrollOnExpand={false}
         />
       </section>
-      <section className="post-detail-section">
-        <h2 className="mb-2 text-base font-semibold">What counts as done</h2>
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-          {post.definitionOfDone}
-        </p>
-        {proof.replaces && (
+      {proof.replaces && (
+        <section className="post-detail-section">
           <Button
             nativeButton={false}
             variant="link"
@@ -191,8 +187,8 @@ export default async function PostPage({
           >
             View earlier attempt
           </Button>
-        )}
-      </section>
+        </section>
+      )}
     </>
   );
 }

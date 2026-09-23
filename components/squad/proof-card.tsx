@@ -32,7 +32,6 @@ export type ProofCardData = {
   mediaIds?: string[];
   id: string;
   title: string;
-  definitionOfDone: string;
   ownerName: string;
   ownerId: string;
   ownerNote: string | null;
@@ -111,10 +110,6 @@ export function ProofCard({
             </CardAction>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 pb-3">
-            <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Done means: </span>
-              {proof.definitionOfDone}
-            </p>
             {proof.ownerNote ? (
               <p
                 className={cn(

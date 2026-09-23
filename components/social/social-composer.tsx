@@ -66,7 +66,6 @@ export type ComposerRequest = {
 };
 export type ComposerDraft = {
   title: string;
-  definition: string;
   files: File[];
   note: string;
   startedAt: string;
@@ -165,10 +164,6 @@ function ComposerForm({
     draft?.title ??
       (request.mode === "task" ? (request.task?.title ?? "") : ""),
   );
-  const [definition, setDefinition] = useState(
-    draft?.definition ??
-      (request.mode === "task" ? (request.task?.definitionOfDone ?? "") : ""),
-  );
   const [files, setFiles] = useState<File[]>(draft?.files ?? []);
   const [note, setNote] = useState(draft?.note ?? "");
   const [startedAt, setStartedAt] = useState(
@@ -202,7 +197,6 @@ function ComposerForm({
       if (!submitted.current)
         onSaveDraft({
           title,
-          definition,
           files,
           note,
           startedAt,
@@ -214,7 +208,6 @@ function ComposerForm({
     };
   }, [
     title,
-    definition,
     files,
     note,
     startedAt,
@@ -236,8 +229,8 @@ function ComposerForm({
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (pending) return;
-    if (mode === "task" && (!title.trim() || !definition.trim())) {
-      setError("Give your task a title and a clear definition of done.");
+    if (mode === "task" && !title.trim()) {
+      setError("Give your task a title.");
       return;
     }
     setError(null);
@@ -251,7 +244,7 @@ function ComposerForm({
           {
             method: task ? "PATCH" : "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ title, definitionOfDone: definition }),
+            body: JSON.stringify({ title }),
           },
         );
       } else {
@@ -378,23 +371,6 @@ function ComposerForm({
                 disabled={pending}
                 autoFocus
               />
-            </Field>
-            <Field data-disabled={pending}>
-              <FieldLabel htmlFor="social-task-definition">
-                What counts as done?
-              </FieldLabel>
-              <Textarea
-                id="social-task-definition"
-                value={definition}
-                onChange={(e) => setDefinition(e.target.value)}
-                maxLength={500}
-                placeholder="All 12 problems solved, with photos of the working."
-                required
-                disabled={pending}
-              />
-              <FieldDescription>
-                Give your friends something specific to verify.
-              </FieldDescription>
             </Field>
           </FieldGroup>
         )}

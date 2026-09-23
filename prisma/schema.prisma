@@ -236,7 +236,8 @@ model Commitment {
   circleId         String
   day              DateTime         @db.Date
   title            String           @db.VarChar(100)
-  definitionOfDone String           @db.VarChar(500)
+  // Retired task criteria: retained for rolling deployments, excluded from the client.
+  definitionOfDone String           @default("") @db.VarChar(500) @ignore
   dueAt            DateTime
   status           CommitmentStatus @default(OPEN)
   createdAt        DateTime         @default(now())

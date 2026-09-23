@@ -26,7 +26,6 @@ function post(id: string, minute = 0): FeedPost {
     commentCount: 0,
     title: "Task",
     commitmentId: id,
-    definitionOfDone: "Finish it",
     mediaIds: [],
     reviewStatus: "PENDING",
     canReview: true,

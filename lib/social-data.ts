@@ -48,7 +48,6 @@ export async function assertCircleMember(userId: string, circleId: string) {
 export function toSocialTask(task: {
   id: string;
   title: string;
-  definitionOfDone: string;
   day: Date;
   dueAt: Date;
   status: SocialTask["status"];
@@ -57,7 +56,6 @@ export function toSocialTask(task: {
   return {
     id: task.id,
     title: task.title,
-    definitionOfDone: task.definitionOfDone,
     day: task.day.toISOString().slice(0, 10),
     dueAt: task.dueAt.toISOString(),
     status: shouldMarkMissed(task.status, task.dueAt) ? "MISSED" : task.status,
@@ -268,7 +266,6 @@ async function readPosts({
         commitment: {
           select: {
             title: true,
-            definitionOfDone: true,
             dueAt: true,
             status: true,
           },
@@ -353,7 +350,6 @@ async function readPosts({
         body: p.ownerNote,
         commitmentId: p.commitmentId,
         title: p.commitment.title,
-        definitionOfDone: p.commitment.definitionOfDone,
         mediaIds: p.mediaIds,
         reviewStatus: p.reviewStatus,
         expired:

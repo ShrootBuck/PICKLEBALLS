@@ -98,9 +98,6 @@ export function TaskList({
                     task.title
                   )}
                 </h3>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-                  {task.definitionOfDone}
-                </p>
                 <p className="text-xs text-muted-foreground">
                   Due{" "}
                   {new Date(task.dueAt).toLocaleString("en-US", {

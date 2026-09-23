@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1790126601180,
+    title: "Commit with just a title",
+    description:
+      "Creating or editing a task now takes just a title. The separate definition of done is gone, and friends review proof against the task itself.",
+  },
+  {
     timestamp: 1790044966895,
     title: "Verification closes after 24 hours",
     description:
