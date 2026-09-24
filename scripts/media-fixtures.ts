@@ -1,8 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { encodeHls } from "@/lib/hls-encoding";
+import { stat, writeFile } from "node:fs/promises";
 import { getPrisma } from "@/lib/prisma";
 import { encodeVideo, probeVideo, videoPoster } from "@/lib/video-encoding";
 
@@ -38,22 +36,9 @@ if (result.status)
   throw new Error("Install ffmpeg to generate video fixtures.");
 const info = await probeVideo(input);
 const controller = new AbortController();
-const encoded = encodeVideo(input, info, controller.signal, () => {});
-const chunks: Buffer[] = [];
-encoded.stream.on("data", (chunk: Buffer) => chunks.push(chunk));
-await encoded.done;
-const bytes = Buffer.concat(chunks);
-await writeFile("/private/tmp/pb-video-fixture.mp4", bytes);
-const hlsDirectory = join(process.cwd(), "node_modules/.cache/media-fixture");
-await mkdir(hlsDirectory, { recursive: true });
-await encodeHls(
-  "/private/tmp/pb-video-fixture.mp4",
-  await probeVideo("/private/tmp/pb-video-fixture.mp4"),
-  controller.signal,
-  async (name, data) => {
-    await writeFile(join(hlsDirectory, name), data);
-  },
-);
+const output = "/private/tmp/pb-video-fixture.mp4";
+await encodeVideo(input, output, info, controller.signal, () => {});
+const { size } = await stat(output);
 await writeFile(
   "/private/tmp/pb-video-fixture.webp",
   await videoPoster(input, info, controller.signal),
@@ -68,10 +53,9 @@ for (let i = 0; i < 2; i++) {
       ownerId: "demo-eddie",
       circleId: "demo-circle",
       mimeType: "video/mp4",
-      sizeBytes: bytes.length,
+      sizeBytes: size,
       objectKey: `fixture-video-${i}`,
       posterKey: "fixture-video-poster",
-      hlsKey: i === 0 ? "fixture-hls/master.m3u8" : null,
       duration: info.duration,
       ready: true,
       claimed: true,

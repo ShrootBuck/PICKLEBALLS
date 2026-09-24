@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "prisma generate && prisma migrate deploy && bun scripts/sync-trigger-env.ts && next build && bun scripts/backfill-adaptive-media.ts --deployment --limit=25 --apply",
+    "vercel-build": "prisma generate && prisma migrate deploy && bun scripts/sync-trigger-env.ts && next build",
     "start": "next start",
     "lint": "biome check",
     "format": "biome format --write",
@@ -47,7 +47,6 @@
     "comark": "^0.6.2",
     "date-fns": "^4.4.0",
     "dotenv": "^17.4.2",
-    "hls.js": "^1.7.3",
     "katex": "^0.18.5",
     "lucide-react": "^1.38.0",
     "next": "16.3.4",

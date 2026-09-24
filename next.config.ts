@@ -9,10 +9,6 @@ const mediaOrigin =
       ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
       : "";
 
-const cdnOrigin = process.env.MEDIA_CDN_ORIGIN
-  ? new URL(process.env.MEDIA_CDN_ORIGIN).origin
-  : "";
-
 const nextConfig: NextConfig = {
   devIndicators:
     process.env.PB_TEST_DATABASE === "disposable-docker" ? false : undefined,
@@ -36,7 +32,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value: `default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https://cdn.discordapp.com https://fav.farm ${mediaOrigin}; media-src 'self' blob: ${mediaOrigin} ${cdnOrigin}; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}; connect-src 'self' ${mediaOrigin} ${cdnOrigin}; worker-src 'self'`,
+            value: `default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https://cdn.discordapp.com https://fav.farm ${mediaOrigin}; media-src 'self' blob: ${mediaOrigin}; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}; connect-src 'self' ${mediaOrigin}; worker-src 'self'`,
           },
         ],
       },

@@ -2,7 +2,7 @@ import "server-only";
 import { getPrisma } from "@/lib/prisma";
 import { getRequestMembership } from "@/lib/request";
 
-// Shared by files, playback tickets and HLS playlists. Never authorize by ID alone.
+// Shared by files and playback tickets. Never authorize by ID alone.
 export async function authorizedMedia(headers: Headers, id: string) {
   const auth = await getRequestMembership(headers);
   if (!auth) return null;

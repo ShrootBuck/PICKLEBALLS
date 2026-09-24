@@ -196,43 +196,29 @@ try {
           });
           return new Response(null, { headers });
         }
-        const hlsName = url.pathname.startsWith("/media/fixture-hls/")
-          ? url.pathname.slice("/media/fixture-hls/".length)
-          : "";
-        const object = /^(?:master|v\d+|v\d+_\d+)\.(?:m3u8|ts)$/.test(hlsName)
+        const object = url.pathname.startsWith("/media/fixture-video-")
           ? {
               data: new Uint8Array(
                 await Bun.file(
-                  join(root, "node_modules/.cache/media-fixture", hlsName),
+                  url.pathname.endsWith("poster")
+                    ? "/private/tmp/pb-video-fixture.webp"
+                    : "/private/tmp/pb-video-fixture.mp4",
                 ).arrayBuffer(),
               ),
-              type: hlsName.endsWith(".m3u8")
-                ? "application/vnd.apple.mpegurl"
-                : "video/mp2t",
+              type: url.pathname.endsWith("poster")
+                ? "image/webp"
+                : "video/mp4",
             }
-          : url.pathname.startsWith("/media/fixture-video-")
+          : url.pathname.startsWith("/media/fixture-screen-")
             ? {
                 data: new Uint8Array(
                   await Bun.file(
-                    url.pathname.endsWith("poster")
-                      ? "/private/tmp/pb-video-fixture.webp"
-                      : "/private/tmp/pb-video-fixture.mp4",
+                    "/private/tmp/pb-proof-fixture.png",
                   ).arrayBuffer(),
                 ),
-                type: url.pathname.endsWith("poster")
-                  ? "image/webp"
-                  : "video/mp4",
+                type: "image/png",
               }
-            : url.pathname.startsWith("/media/fixture-screen-")
-              ? {
-                  data: new Uint8Array(
-                    await Bun.file(
-                      "/private/tmp/pb-proof-fixture.png",
-                    ).arrayBuffer(),
-                  ),
-                  type: "image/png",
-                }
-              : objects.get(url.pathname);
+            : objects.get(url.pathname);
         if (!object)
           return new Response("Missing fixture media", {
             status: 404,

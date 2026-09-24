@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import type { Readable } from "node:stream";
 import sharp from "sharp";
 
 export type VideoInfo = {
@@ -95,19 +94,21 @@ export function videoFilters(info: VideoInfo) {
       "tonemap=tonemap=hable:desat=0",
       "zscale=t=bt709:m=bt709:r=tv",
     );
-  filters.push("scale=w=trunc(iw*sar/2)*2:h=ih", "setsar=1");
-  // FFmpeg autorotates before filtering. Fit landscape or portrait without cropping or enlargement.
+  // FFmpeg autorotates before filtering. Square pixels and even dimensions are
+  // required for browser-compatible 4:2:0 H.264; resolution is otherwise kept.
   filters.push(
-    "scale=w='if(gte(iw,ih),min(1920,iw),min(1080,iw))':h='if(gte(iw,ih),min(1080,ih),min(1920,ih))':force_original_aspect_ratio=decrease:force_divisible_by=2",
+    "scale=w=trunc(iw*sar/2)*2:h=trunc(ih/2)*2",
     "setsar=1",
+    "format=yuv420p",
   );
-  if (info.fps > 60) filters.push("fps=60");
-  filters.push("format=yuv420p");
   return filters.join(",");
 }
 
+// Resolution, frame rate and frame timing pass through. x264 chooses quality,
+// profile, level and keyframes itself within a 10 Mbps video ceiling.
 export function encodeVideo(
   input: string,
+  output: string,
   info: VideoInfo,
   signal: AbortSignal,
   onProgress: (percent: number) => void,
@@ -132,43 +133,34 @@ export function encodeVideo(
       "-1",
       "-vf",
       videoFilters(info),
+      "-fps_mode",
+      "passthrough",
       "-c:v",
       "libx264",
-      "-preset",
-      "fast",
-      "-crf",
-      "22",
-      "-profile:v",
-      "high",
-      "-level:v",
-      "4.2",
       "-maxrate",
-      "6M",
+      "10M",
       "-bufsize",
-      "12M",
+      "20M",
+      // Matches the worker's vCPUs; x264 would otherwise size threads from the host.
       "-threads",
       "4",
-      "-flags",
-      "+cgop",
-      "-sc_threshold",
-      "0",
-      "-force_key_frames",
-      "expr:gte(t,n_forced*2)",
       "-c:a",
       "aac",
       "-b:a",
       "128k",
       "-ac",
       "2",
+      // A front-loaded index lets browsers start and seek before downloading the file.
       "-movflags",
-      "+frag_keyframe+empty_moov+default_base_moof",
+      "+faststart",
       "-f",
       "mp4",
       "-progress",
       "pipe:2",
-      "pipe:1",
+      "-y",
+      output,
     ],
-    { stdio: ["ignore", "pipe", "pipe"], signal },
+    { stdio: ["ignore", "ignore", "pipe"], signal },
   );
   let pending = "";
   child.stderr.on("data", (chunk: Buffer) => {
@@ -187,10 +179,7 @@ export function encodeVideo(
           );
       }
   });
-  return {
-    stream: child.stdout as Readable,
-    done: processExit(child, "Video encoding"),
-  };
+  return processExit(child, "Video encoding");
 }
 
 export async function videoPoster(

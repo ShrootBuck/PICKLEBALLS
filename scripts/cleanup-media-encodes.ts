@@ -52,13 +52,16 @@ try {
     });
     const references = await prisma.mediaUpload.findMany({
       where: { id: { in: [...new Set(objects.map((object) => object.id))] } },
-      select: { objectKey: true, posterKey: true, hlsKey: true },
+      select: { objectKey: true, posterKey: true },
     });
     const keep = references
-      .flatMap((media) => [media.objectKey, media.posterKey, media.hlsKey])
+      .flatMap((media) => [media.objectKey, media.posterKey])
       .filter((key): key is string => !!key);
+    // HLS streaming was removed, so its segments and playlists are never read.
     const unused = objects.filter(
-      (object) => !keep.some((key) => key.startsWith(object.prefix)),
+      (object) =>
+        object.key.startsWith(`${object.prefix}hls/`) ||
+        !keep.some((key) => key.startsWith(object.prefix)),
     );
     candidates += unused.length;
     if (unused.length && process.argv.includes("--apply")) {

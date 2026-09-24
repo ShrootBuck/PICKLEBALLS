@@ -1,11 +1,10 @@
 "use client";
 
-import type Hls from "hls.js";
 import { useEffect, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
-type Playback = { url: string; hlsUrl: string | null; expiresAt: number };
+type Playback = { url: string; expiresAt: number };
 
 export function VideoPlayer({
   src,
@@ -29,11 +28,9 @@ export function VideoPlayer({
     const video = ref.current;
     if (!video || !active) return;
     const controller = new AbortController();
-    let hls: Hls | undefined;
     let playback: Playback | undefined;
     let loading = false;
     let near = eager || attempt > 0;
-    let fallback = false;
     let refreshed = false;
     let expiresTimer: ReturnType<typeof setTimeout> | undefined;
     const connection = (
@@ -52,17 +49,6 @@ export function VideoPlayer({
           Math.max(0, video.duration - 0.1),
         );
     };
-    const fallBackToMp4 = (resume = false) => {
-      if (!alive()) return;
-      position.current = video.currentTime || position.current;
-      hls?.destroy();
-      hls = undefined;
-      fallback = true;
-      video.preload = conserve ? "none" : "metadata";
-      video.src = playback?.url ?? src;
-      video.load();
-      if (resume) void video.play().catch(() => {});
-    };
     const start = async (force = false) => {
       if (loading || !alive() || (!force && playback)) return;
       loading = true;
@@ -77,9 +63,6 @@ export function VideoPlayer({
         const resume = !video.paused;
         position.current = video.currentTime || position.current;
         playback = ticket;
-        hls?.destroy();
-        hls = undefined;
-        fallback = false;
         clearTimeout(expiresTimer);
         // Refresh authorization before an hours-long viewing session expires.
         expiresTimer = setTimeout(
@@ -89,55 +72,9 @@ export function VideoPlayer({
           },
           Math.max(1000, ticket.expiresAt - Date.now() - 60_000),
         );
-        if (
-          ticket.hlsUrl &&
-          video.canPlayType("application/vnd.apple.mpegurl") &&
-          (/Apple/.test(navigator.vendor) || !("MediaSource" in window))
-        ) {
-          video.preload = conserve ? "none" : "metadata";
-          video.src = ticket.hlsUrl;
-          video.load();
-        } else if (ticket.hlsUrl) {
-          const { default: HlsClient } = await import("hls.js");
-          if (!alive()) return;
-          if (HlsClient.isSupported()) {
-            const instance = new HlsClient({
-              enableWorker: false,
-              autoStartLoad: false,
-              startLevel: 0,
-              capLevelToPlayerSize: true,
-              maxBufferLength: 6,
-              maxMaxBufferLength: 12,
-              backBufferLength: 10,
-            });
-            hls = instance;
-            instance.on(HlsClient.Events.MANIFEST_PARSED, () => {
-              if ((!conserve && near) || !video.paused)
-                instance.startLoad(position.current || -1);
-            });
-            instance.on(HlsClient.Events.FRAG_BUFFERED, () => {
-              if (
-                video.paused &&
-                video.buffered.length &&
-                video.buffered.end(video.buffered.length - 1) -
-                  video.currentTime >=
-                  4
-              )
-                instance.stopLoad();
-            });
-            instance.on(HlsClient.Events.ERROR, (_, data) => {
-              if (!data.fatal || !alive()) return;
-              // hls.js handles bounded transport retries. Refresh a rejected ticket
-              // once, then fall back to the independently playable MP4.
-              if (!refreshed && [401, 403].includes(data.response?.code ?? 0)) {
-                refreshed = true;
-                void start(true);
-              } else fallBackToMp4(!video.paused);
-            });
-            instance.loadSource(ticket.hlsUrl);
-            instance.attachMedia(video);
-          } else fallBackToMp4();
-        } else fallBackToMp4();
+        video.preload = conserve ? "none" : "metadata";
+        video.src = ticket.url;
+        video.load();
         if (resume) void video.play().catch(() => {});
       } catch {
         if (alive()) setFailed(true);
@@ -149,27 +86,20 @@ export function VideoPlayer({
       for (const other of document.querySelectorAll("video"))
         if (other !== video) other.pause();
       if (!playback) void start(true);
-      if (hls) {
-        hls.config.maxBufferLength = 30;
-        hls.config.maxMaxBufferLength = 60;
-        hls.startLoad(-1);
-      }
     };
-    const pause = () => hls?.stopLoad();
     const seek = () => {
       position.current = video.currentTime;
-      hls?.startLoad(video.currentTime);
     };
     const error = () => {
       if (!alive()) return;
-      if (!fallback) fallBackToMp4(!video.paused);
-      else setFailed(true);
+      // A signed URL can be rejected after sleep or a long pause. Renew it once.
+      if (!refreshed) {
+        refreshed = true;
+        void start(true);
+      } else setFailed(true);
     };
     const visibility = () => {
-      if (document.visibilityState === "hidden") {
-        video.pause();
-        hls?.stopLoad();
-      }
+      if (document.visibilityState === "hidden") video.pause();
     };
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -177,18 +107,13 @@ export function VideoPlayer({
         if (near) {
           video.poster = `${src}?poster=1`;
           void start();
-          if (!conserve) hls?.startLoad(-1);
-        } else {
-          video.pause();
-          hls?.stopLoad();
-        }
+        } else video.pause();
       },
       { rootMargin: "250px 0px" },
     );
     observer.observe(video);
     video.addEventListener("loadedmetadata", restore);
     video.addEventListener("play", play);
-    video.addEventListener("pause", pause);
     video.addEventListener("seeking", seek);
     video.addEventListener("error", error);
     document.addEventListener("visibilitychange", visibility);
@@ -201,10 +126,8 @@ export function VideoPlayer({
       document.removeEventListener("visibilitychange", visibility);
       video.removeEventListener("loadedmetadata", restore);
       video.removeEventListener("play", play);
-      video.removeEventListener("pause", pause);
       video.removeEventListener("seeking", seek);
       video.removeEventListener("error", error);
-      hls?.destroy();
       video.pause();
       video.removeAttribute("src");
       video.load();
@@ -219,6 +142,7 @@ export function VideoPlayer({
         data-slide={slide}
         poster={eager ? `${src}?poster=1` : undefined}
         controls
+        loop
         playsInline
         preload="none"
         aria-label={label}

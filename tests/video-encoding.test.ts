@@ -1,10 +1,8 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readHlsSegments } from "@/lib/hls";
-import { encodeHls, videoRenditions } from "@/lib/hls-encoding";
 import {
   maxVideoBytes,
   mediaMimeType,
@@ -48,12 +46,41 @@ test("video limits accept 5 GB exactly and normalize common camera/container ext
 });
 
 for (const fixture of [
-  { name: "landscape", size: "2560x1440", audio: true, rotation: false },
-  { name: "portrait-silent", size: "240x320", audio: false, rotation: false },
-  { name: "rotated-camera", size: "320x240", audio: false, rotation: true },
+  {
+    name: "landscape",
+    size: "2560x1440",
+    rate: 10,
+    audio: true,
+    rotation: false,
+    output: [2560, 1440],
+  },
+  {
+    name: "high-frame-rate",
+    size: "1920x1080",
+    rate: 240,
+    audio: false,
+    rotation: false,
+    output: [1920, 1080],
+  },
+  {
+    name: "portrait-silent",
+    size: "240x320",
+    rate: 10,
+    audio: false,
+    rotation: false,
+    output: [240, 320],
+  },
+  {
+    name: "rotated-camera",
+    size: "320x240",
+    rate: 10,
+    audio: false,
+    rotation: true,
+    output: [240, 320],
+  },
 ])
   test.skipIf(!available)(
-    `encodes ${fixture.name}, preserves duration, supports seeking, and creates a poster`,
+    `encodes ${fixture.name}, preserves resolution, frames and duration, supports seeking, and creates a poster`,
     async () => {
       const original = join(directory, `${fixture.name}-original.mp4`);
       const input = join(directory, `${fixture.name}.mp4`);
@@ -64,13 +91,13 @@ for (const fixture of [
         "-f",
         "lavfi",
         "-i",
-        `testsrc2=size=${fixture.size}:rate=10`,
+        `testsrc2=size=${fixture.size}:rate=${fixture.rate}`,
       ];
       if (fixture.audio)
         args.push("-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000");
       args.push(
         "-t",
-        "6.4",
+        fixture.rate > 60 ? "2" : "6.4",
         "-c:v",
         "libx264",
         "-preset",
@@ -97,23 +124,33 @@ for (const fixture of [
         ).toBe(0);
       const info = await probeVideo(input);
       const controller = new AbortController();
-      const encoded = encodeVideo(input, info, controller.signal, () => {});
-      const chunks: Buffer[] = [];
-      encoded.stream.on("data", (chunk: Buffer) => chunks.push(chunk));
-      await encoded.done;
-      const bytes = Buffer.concat(chunks);
       const output = join(directory, `${fixture.name}-encoded.mp4`);
-      await writeFile(output, bytes);
+      await encodeVideo(input, output, info, controller.signal, () => {});
+      const bytes = await readFile(output);
       const result = await probeVideo(output);
       expect(Math.abs(result.duration - info.duration)).toBeLessThan(0.3);
-      expect(Math.max(result.width, result.height)).toBeLessThanOrEqual(1920);
-      expect(Math.min(result.width, result.height)).toBeLessThanOrEqual(1080);
-      if (fixture.name !== "landscape")
-        expect(result.height).toBeGreaterThan(result.width);
+      expect([result.width, result.height]).toEqual(fixture.output);
+      expect(Math.round(result.fps)).toBe(fixture.rate);
+      const frames = spawnSync("ffprobe", [
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-count_frames",
+        "-show_entries",
+        "stream=nb_read_frames",
+        "-of",
+        "csv=p=0",
+        output,
+      ]);
+      expect(Number(frames.stdout.toString().trim())).toBe(
+        Math.round(info.duration * fixture.rate),
+      );
+      // Faststart: the index precedes the media so browsers can seek immediately.
       expect(bytes.indexOf(Buffer.from("moov"))).toBeLessThan(
         bytes.indexOf(Buffer.from("mdat")),
       );
-      expect(bytes.includes(Buffer.from("moof"))).toBe(true);
+      expect(bytes.includes(Buffer.from("moof"))).toBe(false);
       expect(
         spawnSync("ffmpeg", [
           "-v",
@@ -131,76 +168,19 @@ for (const fixture of [
       ).toBe(0);
       const poster = await videoPoster(input, info, controller.signal);
       expect(poster.subarray(8, 12).toString()).toBe("WEBP");
-      const assets = new Map<string, Buffer>();
-      await encodeHls(
-        output,
-        result,
-        controller.signal,
-        async (name, bytes) => {
-          assets.set(name, bytes);
-          await writeFile(join(directory, name), bytes);
-        },
-      );
-      expect(assets.has("master.m3u8")).toBe(true);
-      for (const rendition of videoRenditions(result)) {
-        const playlist = assets.get(`${rendition.name}.m3u8`)?.toString() ?? "";
-        const segments = readHlsSegments(playlist);
-        expect(segments.length).toBeGreaterThanOrEqual(3);
-        expect(
-          Math.abs(
-            segments.reduce((sum, segment) => sum + segment.duration, 0) -
-              result.duration,
-          ),
-        ).toBeLessThan(0.4);
-        // Every segment must decode on its own, including one reached by seeking.
-        for (const segment of segments) {
-          expect(assets.has(segment.name)).toBe(true);
-          const decoded = spawnSync("ffmpeg", [
-            "-v",
-            "error",
-            "-xerror",
-            "-i",
-            join(directory, segment.name),
-            "-f",
-            "null",
-            "-",
-          ]);
-          expect(decoded.status).toBe(0);
-        }
-        expect(
-          spawnSync("ffmpeg", [
-            "-v",
-            "error",
-            "-ss",
-            "4",
-            "-i",
-            join(directory, `${rendition.name}.m3u8`),
-            "-frames:v",
-            "1",
-            "-f",
-            "null",
-            "-",
-          ]).status,
-        ).toBe(0);
-      }
-      // A failed storage write must fail the rendition set, never publish a master.
-      let published = false;
-      await expect(
-        encodeHls(output, result, controller.signal, async (name) => {
-          if (name === "master.m3u8") published = true;
-          throw new Error("storage unavailable");
-        }),
-      ).rejects.toThrow();
-      expect(published).toBe(false);
       const cancelled = new AbortController();
+      cancelled.abort();
       await expect(
-        encodeHls(output, result, cancelled.signal, async () => {
-          // Cancellation can arrive while the encoder is paused for a storage write.
-          cancelled.abort();
-        }),
+        encodeVideo(
+          input,
+          join(directory, `${fixture.name}-cancelled.mp4`),
+          info,
+          cancelled.signal,
+          () => {},
+        ),
       ).rejects.toThrow();
     },
-    60_000,
+    120_000,
   );
 
 test.skipIf(!available)(

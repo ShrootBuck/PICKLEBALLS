@@ -12,7 +12,6 @@ try {
   });
   const page = await context.newPage();
   const errors: string[] = [];
-  const segments: string[] = [];
   page.on("pageerror", (error) => {
     // Existing timestamp formatting differs between Node and WebKit Intl data.
     // Keep that unrelated diagnostic visible without masking media errors.
@@ -30,40 +29,20 @@ try {
       );
     } else errors.push(error.message);
   });
-  page.on("response", (response) => {
-    const path = new URL(response.url()).pathname;
-    if (path.endsWith(".ts")) segments.push(path);
-  });
   await page.goto("http://localhost:3318/login");
   await page.waitForFunction(
     () => !!document.querySelector("video")?.currentSrc,
   );
   const first = page.locator("video").first();
-  if (!safari) {
-    await page.waitForFunction(
-      () => (document.querySelector("video")?.readyState ?? 0) >= 2,
-    );
-    const initial = await first.evaluate((video: HTMLVideoElement) => ({
-      src: video.currentSrc,
-      buffer: video.buffered.length ? video.buffered.end(0) : 0,
-    }));
-    assert(
-      initial.src.startsWith("blob:"),
-      "Chromium must use adaptive HLS, not silently fall back to MP4.",
-    );
-    assert(initial.buffer <= 8, "Only a small buffer should preload.");
-    assert(
-      segments.every((path) => path.includes("v0_")),
-      "Initial loading must use the smallest rendition.",
-    );
-  } else {
-    assert(
-      (
-        await first.evaluate((video: HTMLVideoElement) => video.currentSrc)
-      ).includes("master.m3u8"),
-      "WebKit should use native HLS.",
-    );
-  }
+  const initial = await first.evaluate((video: HTMLVideoElement) => ({
+    src: video.currentSrc,
+    loop: video.loop,
+  }));
+  assert(
+    initial.src.includes("fixture-video-0"),
+    "The player must load the MP4.",
+  );
+  assert(initial.loop, "Videos must loop.");
   assert.equal(
     await page.locator("video").nth(1).getAttribute("src"),
     null,
@@ -86,17 +65,24 @@ try {
       video && video.currentTime >= 8 && !video.seeking && video.readyState >= 2
     );
   });
+  // The 12-second fixture must wrap back to the start instead of stopping.
+  await first.evaluate((video: HTMLVideoElement) => {
+    video.currentTime = video.duration - 0.5;
+  });
+  await page.waitForFunction(() => {
+    const video = document.querySelector("video");
+    return (
+      video && !video.paused && video.currentTime > 0 && video.currentTime < 2
+    );
+  });
   const mediaId = await first.getAttribute("poster");
   assert(mediaId);
   const mediaPath = mediaId.split("?")[0];
   const anonymous = await browser.newContext();
-  for (const path of [
-    `${mediaPath}?playback=1`,
-    `${mediaPath}/hls/master.m3u8`,
-    `${mediaPath}/hls/v0.m3u8`,
-  ]) {
+  for (const path of [`${mediaPath}?playback=1`, mediaPath]) {
     const response = await anonymous.request.get(
       `http://localhost:3317${path}`,
+      { maxRedirects: 0 },
     );
     assert(
       [401, 404].includes(response.status()),
@@ -137,56 +123,46 @@ try {
       .querySelectorAll("video")[1]
       ?.currentSrc.includes("fixture-video-1"),
   );
-  const legacy = page.locator("video").nth(1);
-  await legacy.evaluate((video: HTMLVideoElement) => video.play());
+  const second = page.locator("video").nth(1);
+  await second.evaluate((video: HTMLVideoElement) => video.play());
   await page.waitForFunction(
     () => document.querySelectorAll("video")[1]?.currentTime > 0.1,
   );
-  await legacy.evaluate((video: HTMLVideoElement) => video.pause());
+  await second.evaluate((video: HTMLVideoElement) => video.pause());
   assert.equal(errors.length, 0, errors.join("\n"));
   console.log(
-    "Adaptive playback, seeking, private endpoints, full-screen viewer, and legacy MP4 passed.",
+    "MP4 playback, looping, seeking, private endpoints, and full-screen viewer passed.",
   );
 
-  // Reject manifests to exercise ticket renewal and MP4 fallback without hiding
-  // an actual decoder failure in the normal-playback assertions above.
+  // Hand out one ticket for a missing object, as if its signed URL had expired.
+  // The player must renew the ticket once and play instead of showing Retry.
   const broken = await context.newPage();
   await broken.bringToFront();
-  if (safari) {
-    // WebKit's native media stack bypasses Playwright's request interception.
-    // Rewrite the JS ticket to a genuinely missing playlist instead.
-    await broken.route(
-      (url) => url.searchParams.get("playback") === "1",
-      async (route) => {
-        const response = await route.fetch();
-        const ticket = await response.json();
-        await route.fulfill({
-          response,
-          json: { ...ticket, hlsUrl: `${mediaPath}/hls/unavailable.m3u8` },
-        });
-      },
-    );
-  } else {
-    await broken.route("**/hls/*.m3u8", (route) =>
-      route.fulfill({ status: 403, body: "Expired" }),
-    );
-  }
-  await broken.goto("http://localhost:3317/");
-  await broken.waitForFunction(
-    () => !!document.querySelector("video")?.getAttribute("src"),
+  let rejected = false;
+  await broken.route(
+    (url) => url.searchParams.get("playback") === "1",
+    async (route) => {
+      const response = await route.fetch();
+      const ticket = await response.json();
+      if (rejected) return route.fulfill({ response, json: ticket });
+      rejected = true;
+      await route.fulfill({
+        response,
+        json: {
+          ...ticket,
+          url: new URL("/media/expired-fixture", ticket.url).toString(),
+        },
+      });
+    },
   );
-  await broken
-    .locator("video")
-    .first()
-    .evaluate((video: HTMLVideoElement) => {
-      void video.play().catch(() => {});
-    });
+  await broken.goto("http://localhost:3317/");
   await broken.waitForFunction(
     () =>
       document.querySelector("video")?.currentSrc.includes("fixture-video-0"),
     {},
     { timeout: 45_000 },
   );
+  assert(rejected, "The first ticket must have been rejected.");
   await broken
     .locator("video")
     .first()
@@ -194,7 +170,7 @@ try {
   await broken.waitForFunction(
     () => (document.querySelector("video")?.currentTime ?? 0) > 0.1,
   );
-  console.log("Rejected HLS authorization recovers through MP4 fallback.");
+  console.log("A rejected video URL recovers by renewing the ticket.");
   await context.close();
 } finally {
   await browser.close();
