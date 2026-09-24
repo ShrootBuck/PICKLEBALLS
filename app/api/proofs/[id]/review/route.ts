@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { jsonError, readJson } from "@/lib/api";
+import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { reviewProof } from "@/lib/tasks";
 
@@ -15,6 +16,7 @@ export async function POST(
   if (!auth)
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   try {
+    await limitAction(auth.session.user.id, "reviews", 30, 60_000);
     const { id } = await context.params;
     const review = await reviewProof(
       id,

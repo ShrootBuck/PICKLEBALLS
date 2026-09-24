@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@/generated/prisma/client";
 import { jsonError, readJson } from "@/lib/api";
 import { getPrisma } from "@/lib/prisma";
 import { limitAction } from "@/lib/rate-limit";
@@ -51,24 +52,41 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const sub = await getPrisma().pushSubscription.upsert({
-      where: { endpoint: parsed.data.endpoint },
-      update: {
-        userId: auth.session.user.id,
-        p256dh: parsed.data.keys.p256dh,
-        auth: parsed.data.keys.auth,
-        userAgent: parsed.data.userAgent ?? null,
+    const { endpoint, keys, userAgent } = parsed.data;
+    const userId = auth.session.user.id;
+    const data = {
+      userId,
+      p256dh: keys.p256dh,
+      auth: keys.auth,
+      userAgent: userAgent ?? null,
+    };
+    const prisma = getPrisma();
+    // Another account's endpoint may only move to this user when the caller
+    // also holds its encryption keys, i.e. controls the same browser.
+    const updated = await prisma.pushSubscription.updateMany({
+      where: {
+        endpoint,
+        OR: [{ userId }, { p256dh: keys.p256dh, auth: keys.auth }],
       },
-      create: {
-        userId: auth.session.user.id,
-        endpoint: parsed.data.endpoint,
-        p256dh: parsed.data.keys.p256dh,
-        auth: parsed.data.keys.auth,
-        userAgent: parsed.data.userAgent ?? null,
-      },
-      select: { endpoint: true },
+      data,
     });
-    return NextResponse.json({ subscription: sub }, { status: 201 });
+    if (updated.count === 0) {
+      try {
+        await prisma.pushSubscription.create({ data: { ...data, endpoint } });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        ) {
+          return NextResponse.json(
+            { error: "This device is already linked to another account." },
+            { status: 409 },
+          );
+        }
+        throw error;
+      }
+    }
+    return NextResponse.json({ subscription: { endpoint } }, { status: 201 });
   } catch (error) {
     return jsonError(error);
   }

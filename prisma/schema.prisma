@@ -506,6 +506,7 @@ model Notification {
   @@index([recipientId, createdAt])
   @@index([recipientId, readAt, createdAt])
   @@index([circleId, createdAt])
+  @@index([createdAt])
 }
 
 model NotificationPreference {

@@ -25,6 +25,8 @@ mock.module("@/lib/bootstrap", () => ({
   ensureBootstrapMembership: async () => null,
 }));
 mock.module("@/lib/invites", () => ({
+  // Bun shares module mocks across test files, so keep the full export list.
+  hashInviteToken: (token: string) => token,
   reserveInvite: async () => ({ inviteId: "invite", claimNonce: "nonce" }),
   findReservedInvite: async (id: string, nonce: string) =>
     id === "invite" && nonce === "nonce" ? { id, circleId: "circle" } : null,

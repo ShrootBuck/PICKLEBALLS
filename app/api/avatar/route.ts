@@ -1,13 +1,23 @@
 import { discordAvatarUrl } from "@/lib/avatar-url";
+import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership } from "@/lib/request";
 import { readBoundedBody } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 export async function GET(request: Request) {
-  if (!(await getRequestMembership(request.headers)))
-    return new Response(null, { status: 404 });
+  const auth = await getRequestMembership(request.headers);
+  if (!auth) return new Response(null, { status: 404 });
   const source = discordAvatarUrl(new URL(request.url).searchParams.get("src"));
   if (!source) return new Response(null, { status: 400 });
+  try {
+    // Generous: a feed renders many avatars, and the browser caches each one.
+    await limitAction(auth.session.user.id, "avatar", 300, 60_000);
+  } catch {
+    return new Response(null, {
+      status: 429,
+      headers: { "cache-control": "no-store" },
+    });
+  }
   try {
     const upstream = await fetch(source, {
       redirect: "error",

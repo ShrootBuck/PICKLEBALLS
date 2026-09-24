@@ -56,7 +56,10 @@ mock.module("@/lib/prisma", () => ({
       ],
     },
     membership: { findMany: membersFind, findUnique: membershipFind },
-    notificationPreference: { findUnique: async () => storedPrefs },
+    notificationPreference: {
+      findUnique: async () => storedPrefs,
+      findMany: async () => [],
+    },
     notification: {
       create,
       upsert,

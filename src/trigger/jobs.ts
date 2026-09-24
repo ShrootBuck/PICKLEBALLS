@@ -1,6 +1,7 @@
 import { schedules, task } from "@trigger.dev/sdk";
 import { DomainError } from "@/lib/errors";
 import { getPrisma } from "@/lib/prisma";
+import { pruneExpiredData } from "@/lib/retention";
 import { readScreenTime } from "@/lib/screen-time-server";
 import { reconcileMissedTasks } from "@/lib/tasks";
 
@@ -62,4 +63,15 @@ export const reconcileTasks = schedules.task({
     if (failed) throw new Error(`${failed} circles failed reconciliation`);
     return { circles: circles.length, reconciled };
   },
+});
+
+export const pruneData = schedules.task({
+  id: "prune-expired-data",
+  cron: {
+    pattern: "30 3 * * *",
+    timezone: "America/Phoenix",
+    environments: ["PRODUCTION"],
+  },
+  queue: { concurrencyLimit: 1 },
+  run: async ({ timestamp }) => pruneExpiredData(timestamp),
 });

@@ -54,6 +54,23 @@ export async function getNotificationPrefs(
   };
 }
 
+async function getNotificationPrefsByUser(
+  userIds: string[],
+  prisma: Prisma.TransactionClient,
+) {
+  const rows = userIds.length
+    ? await prisma.notificationPreference.findMany({
+        where: { userId: { in: userIds } },
+        select: { userId: true, proofsSubmitted: true },
+      })
+    : [];
+  const byUser = new Map(
+    rows.map((row) => [row.userId, { proofsSubmitted: row.proofsSubmitted }]),
+  );
+  return (userId: string): NotificationPrefs =>
+    byUser.get(userId) ?? { ...defaultNotificationPrefs };
+}
+
 function snippet(text: string | null | undefined, max = 140) {
   const clean = (text ?? "").trim().replaceAll(/\s+/g, " ");
   if (!clean) return "";
@@ -72,13 +89,16 @@ export async function createNotificationAndPush(
     data?: Record<string, unknown>;
     allowSelf?: boolean;
     dedupeKey?: string;
+    // Preloaded by fan-out callers to avoid one lookup per recipient.
+    prefs?: NotificationPrefs;
   },
   context?: NotificationContext,
 ) {
   if (input.recipientId === input.actorId && !input.allowSelf) return null;
   if (!shouldCreateNotification(input.kind)) return null;
   const prisma = context?.prisma ?? getPrisma();
-  const prefs = await getNotificationPrefs(input.recipientId, prisma);
+  const prefs =
+    input.prefs ?? (await getNotificationPrefs(input.recipientId, prisma));
   const fallbackUrl = squadHref(input.circleId, input.entityId);
   const path = safeAppPath(input.data?.url, fallbackUrl);
   const destination = new URL(path, "https://app.invalid");
@@ -306,18 +326,21 @@ export async function notifyReplyReceived(
   });
   const memberIds = new Set(members.map((member) => member.userId));
   const seen = new Set<string>();
-  const results = [];
-  for (const job of jobs) {
+  const recipients = jobs.filter((job) => {
     if (
       job.recipientId === input.authorId ||
       seen.has(job.recipientId) ||
       !memberIds.has(job.recipientId)
     ) {
-      continue;
+      return false;
     }
     seen.add(job.recipientId);
-    results.push(
-      await createNotificationAndPush(
+    return true;
+  });
+  const prefsFor = await getNotificationPrefsByUser([...seen], prisma);
+  const results = await Promise.all(
+    recipients.map((job) =>
+      createNotificationAndPush(
         {
           recipientId: job.recipientId,
           actorId: input.authorId,
@@ -331,11 +354,12 @@ export async function notifyReplyReceived(
             url: job.url ?? squadHref(input.circleId, job.entityId),
             replyId: reply.id,
           },
+          prefs: prefsFor(job.recipientId),
         },
         context,
       ),
-    );
-  }
+    ),
+  );
   return results.filter(Boolean);
 }
 
@@ -372,6 +396,10 @@ export async function notifyProofSubmitted(
     select: { userId: true },
   });
   const note = snippet(proof.ownerNote);
+  const prefsFor = await getNotificationPrefsByUser(
+    members.map((member) => member.userId),
+    prisma,
+  );
   return Promise.all(
     members.map((member) =>
       createNotificationAndPush(
@@ -388,6 +416,7 @@ export async function notifyProofSubmitted(
             url: postHref(input.circleId, "proof", proof.id),
             proofId: proof.id,
           },
+          prefs: prefsFor(member.userId),
         },
         context,
       ),
