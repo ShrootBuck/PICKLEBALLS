@@ -10,29 +10,31 @@ import {
 import { shiftDateKey, timeblockWeek } from "@/lib/timeblocks";
 
 export const blockEditSchema = z.object({
-  summary: z.string().min(1).max(240),
-  upserts: z
-    .array(
-      z.object({
-        id: z
-          .string()
-          .min(1)
-          .max(100)
-          .describe("Existing ID to edit; a new unique manual- ID to add."),
-        title: z.string().trim().min(1).max(160),
-        startedAt: z.string().describe("Phoenix local YYYY-MM-DDTHH:mm"),
-        completedAt: z.string().describe("Phoenix local YYYY-MM-DDTHH:mm"),
-        included: z.boolean(),
-      }),
-    )
-    .max(MAX_TIMEBLOCKS),
-  removeIds: z.array(z.string().max(100)).max(MAX_TIMEBLOCKS),
+  summary: z.string(),
+  upserts: z.array(
+    z.object({
+      id: z
+        .string()
+        .min(1)
+        .max(100)
+        .describe("Existing ID to edit; a new unique manual- ID to add."),
+      title: z.string().trim().min(1).max(160),
+      startedAt: z.string().describe("Phoenix local YYYY-MM-DDTHH:mm"),
+      completedAt: z.string().describe("Phoenix local YYYY-MM-DDTHH:mm"),
+      included: z.boolean(),
+    }),
+  ),
+  removeIds: z.array(z.string()),
 });
 export type BlockEdit = z.infer<typeof blockEditSchema>;
 
 export const reportEditSchema = blockEditSchema.extend({
+  upserts: blockEditSchema.shape.upserts.default([]),
+  removeIds: blockEditSchema.shape.removeIds.default([]),
   routine: timeblockRoutineSchema
+    .partial()
     .nullable()
+    .optional()
     .describe(
       "Updated recurring settings, or null to keep them. Preserve unspecified settings. schedule replaces default school and lunch. Tasks always appear chronologically. These settings also apply to future reports.",
     ),
@@ -48,13 +50,22 @@ export function reportFingerprint(
 export function applyReportEdit(
   rows: TimeblockDraftRow[],
   routine: TimeblockRoutine,
-  edit: z.infer<typeof reportEditSchema>,
+  edit: z.input<typeof reportEditSchema>,
   dueMonday: string,
 ) {
-  const parsed = reportEditSchema.parse(edit);
+  // Shape validation belongs to the AI SDK's inputSchema boundary. Only
+  // draft integrity is checked here, before any state is replaced.
   return {
-    rows: applyBlockEdit(rows, parsed, dueMonday),
-    routine: parsed.routine ? { ...routine, ...parsed.routine } : routine,
+    rows: applyBlockEdit(
+      rows,
+      {
+        ...edit,
+        upserts: edit.upserts ?? [],
+        removeIds: edit.removeIds ?? [],
+      },
+      dueMonday,
+    ),
+    routine: edit.routine ? { ...routine, ...edit.routine } : routine,
   };
 }
 
@@ -95,19 +106,18 @@ export function applyBlockEdit(
   edit: BlockEdit,
   dueMonday: string,
 ) {
-  const parsed = blockEditSchema.parse(edit);
   const ids = new Set(rows.map((r) => r.id));
-  const touched = [...parsed.upserts.map((r) => r.id), ...parsed.removeIds];
+  const touched = [...edit.upserts.map((r) => r.id), ...edit.removeIds];
   if (new Set(touched).size !== touched.length)
     throw new Error("Edit each block only once per operation.");
-  if (parsed.removeIds.some((id) => !ids.has(id)))
+  if (edit.removeIds.some((id) => !ids.has(id)))
     throw new Error("A block to remove no longer exists.");
   const next = rows
-    .filter((r) => !parsed.removeIds.includes(r.id) || r.status !== null)
+    .filter((r) => !edit.removeIds.includes(r.id) || r.status !== null)
     .map((r) =>
-      parsed.removeIds.includes(r.id) ? { ...r, included: false } : { ...r },
+      edit.removeIds.includes(r.id) ? { ...r, included: false } : { ...r },
     );
-  for (const update of parsed.upserts) {
+  for (const update of edit.upserts) {
     const existing = rows.find((r) => r.id === update.id);
     if (!existing && !update.id.startsWith("manual-"))
       throw new Error("New blocks need a manual- ID.");

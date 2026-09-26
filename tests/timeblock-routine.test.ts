@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts } from "pdf-lib";
 import {
   applyReportEdit,
   overlappingIds,
+  reportEditSchema,
   reportFingerprint,
 } from "@/lib/timeblock-editor";
 import {
@@ -144,18 +145,13 @@ describe("school and sleep", () => {
       ),
     ).toThrow();
     expect(() =>
-      applyReportEdit(
-        [],
-        EMPTY_ROUTINE,
-        {
-          ...edit,
-          routine: {
-            ...routine,
-            sleep: { bedtime: "22:00", wakeTime: "22:00" },
-          },
+      reportEditSchema.parse({
+        ...edit,
+        routine: {
+          ...routine,
+          sleep: { bedtime: "22:00", wakeTime: "22:00" },
         },
-        due,
-      ),
+      }),
     ).toThrow();
     expect(
       applyReportEdit([], routine, { ...edit, routine: null }, due).routine,

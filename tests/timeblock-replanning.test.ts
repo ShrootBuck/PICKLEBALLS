@@ -50,6 +50,39 @@ const row: TimeblockDraftRow = {
 };
 
 describe("whole-week replanning", () => {
+  test("work edits can omit routine and unused fields; routine patches preserve other settings", () => {
+    const moved = applyReportEdit(
+      [row],
+      custom,
+      {
+        summary: "Move physics",
+        upserts: [
+          {
+            ...row,
+            startedAt: "2026-09-08T16:00",
+            completedAt: "2026-09-08T17:00",
+          },
+        ],
+      },
+      due,
+    );
+    expect(moved.routine).toEqual(custom);
+    expect(moved.rows[0].status).toBe("VERIFIED");
+    const next = applyReportEdit(
+      moved.rows,
+      custom,
+      {
+        summary: "Update bedtime",
+        routine: { sleep: { bedtime: "21:00", wakeTime: "06:00" } },
+      },
+      due,
+    );
+    expect(next.rows).toEqual(moved.rows);
+    expect(next.routine).toEqual({
+      ...custom,
+      sleep: { bedtime: "21:00", wakeTime: "06:00" },
+    });
+  });
   test("the screenshot request replaces default school and lunch without duplicates", () => {
     const blocks = routineBlocks(due, custom);
     expect(blocks.filter((b) => b.title === "School")).toHaveLength(5);

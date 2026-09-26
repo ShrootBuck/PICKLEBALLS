@@ -24,6 +24,7 @@ import {
   loadTimeblockChat,
   resolveChatFiles,
 } from "@/lib/timeblock-chat-store";
+import { createTimeblockStreamState } from "@/lib/timeblock-chat-stream";
 import { timeblockDraftSchema } from "@/lib/timeblock-draft";
 import { timeblockRoutineSchema } from "@/lib/timeblock-routine";
 import { isMondayDateKey } from "@/lib/timeblocks";
@@ -167,7 +168,7 @@ export async function POST(request: Request) {
       );
     ownedRun = { id: chat.id, runId };
     const controller = new AbortController();
-    let streamError: string | null = null;
+    const streamState = createTimeblockStreamState();
     const stream = await createAgentUIStream({
       agent: createTimeblockAgent(
         model(chat.userId),
@@ -183,11 +184,8 @@ export async function POST(request: Request) {
       sendReasoning: true,
       sendSources: true,
       generateMessageId: () => crypto.randomUUID(),
-      onError: () => {
-        streamError =
-          "The AI couldn't finish. Your conversation and completed edits are saved. Try again.";
-        return streamError;
-      },
+      onError: streamState.onError,
+      onEnd: streamState.onEnd,
     });
     const [clientStream, persistenceStream] = stream.tee();
     // Consume independently of the browser. Checkpoint the SDK's complete
@@ -209,9 +207,7 @@ export async function POST(request: Request) {
       try {
         for await (const message of readUIMessageStream<TimeblockAgentMessage>({
           stream: persistenceStream,
-          onError: () => {
-            streamError = "The response was interrupted. Try again.";
-          },
+          onError: streamState.recordFailure,
         })) {
           latest = message;
           const completedTools = message.parts
@@ -237,8 +233,7 @@ export async function POST(request: Request) {
           }
         }
       } catch {
-        streamError =
-          "The response was interrupted. Your saved conversation is safe. Try again.";
+        streamState.recordFailure();
         controller.abort();
       } finally {
         clearInterval(heartbeat);
@@ -248,7 +243,7 @@ export async function POST(request: Request) {
             ...(latest ? { messages: chatJson([...messages, latest]) } : {}),
             runId: null,
             runExpiresAt: null,
-            error: streamError,
+            error: streamState.error,
           },
         });
       }
