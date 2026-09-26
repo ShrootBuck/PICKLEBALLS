@@ -1,4 +1,4 @@
-/* Push notifications and immutable uploaded images. HTML is never cached. */
+/* Push notifications. Resource caching is handled by HTTP response headers. */
 
 function localDestination(value) {
   if (
@@ -89,51 +89,6 @@ self.addEventListener("notificationclick", (event) => {
         }
       }
       await self.clients.openWindow(url);
-    })(),
-  );
-});
-
-// Finalized image upload and proof IDs are immutable. Cache Storage has no time-based expiry and survives
-// browser restarts; storage pressure or clearing site data can still evict it.
-self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-  const isProof =
-    url.origin === self.location.origin &&
-    /^\/api\/proofs\/[^/]+\/image$/.test(url.pathname);
-  const isAvatar =
-    url.origin === self.location.origin && url.pathname === "/api/avatar";
-  const isMediaImage =
-    url.origin === self.location.origin &&
-    /^\/api\/media\/(?!v_)[^/]+$/.test(url.pathname);
-  if (
-    event.request.method !== "GET" ||
-    event.request.headers.has("range") ||
-    (!isProof && !isAvatar && !isMediaImage)
-  )
-    return;
-  event.respondWith(
-    (async () => {
-      let cache;
-      try {
-        cache = await caches.open("immutable-proof-images-v1");
-        const cached = await cache.match(event.request);
-        if (cached) return cached;
-      } catch {
-        // Storage may be unavailable; the network still works.
-      }
-      const response = await fetch(event.request);
-      if (
-        cache &&
-        response.status === 200 &&
-        response.headers.get("content-type")?.startsWith("image/")
-      ) {
-        try {
-          await cache.put(event.request, response.clone());
-        } catch {
-          // A full cache must not prevent displaying the photo.
-        }
-      }
-      return response;
     })(),
   );
 });
