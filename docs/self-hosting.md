@@ -1,105 +1,100 @@
 # Home server deployment
 
-## Prepared infrastructure (2026-09-26)
+Production moved to the Ubuntu laptop on September 26, 2026. Coolify project
+**Infrastructure**, environment **production**, application **Pickle Balls**.
 
-Coolify project: **Infrastructure**, environment: **production**. The environment
-name does not mean the live application has moved. Vercel, the cloud database,
-R2, and Trigger still serve the existing deployment.
-
-| Resource | State |
+| Component | Production location |
 | --- | --- |
-| cloudflared | Existing tunnel, wildcard `*.pickle-balls.com` to the local proxy |
-| pickleballs-postgres | PostgreSQL 18.6, database `pickleballs`, private Docker connection, persistent volume |
-| pickleballs-media | Garage 2.1.0, private S3 bucket `pickleballs-media`, persistent metadata and data volumes |
+| Next.js | Coolify `web` container, standalone Node.js server |
+| Background jobs | One Coolify `worker` container, pg-boss queue in local Postgres |
+| Database | PostgreSQL 18.6, database `pickleballs`, persistent Docker volume |
+| Media | Garage 2.1.0, private bucket `pickleballs-media`, persistent data and metadata |
+| Public traffic | Cloudflare Tunnel to the laptop's Traefik proxy |
+| Administration | Coolify at `http://100.118.70.14:8000` over Tailscale |
 
-Verified on the server: SQL query, healthy containers, no published host ports,
-and authenticated S3 PUT/GET/DELETE with byte-for-byte download comparison.
-Garage has one storage node with a 150 GB placement capacity. This is neither a
-disk quota nor redundant storage. Its app key has read/write permission on only
-the media bucket. Credentials are stored under root-only `/data/pickleballs/`;
-do not commit them or paste them into logs.
+`pickle-balls.com` and `*.pickle-balls.com` route to `http://localhost:80` in the
+tunnel. HTTPS terminates at Cloudflare; the connection to cloudflared is encrypted.
+Public media uses `https://s3.pickle-balls.com` with signed URLs. Postgres and
+Garage's admin API have no published host ports or public application routes.
+Garage's required auxiliary template hostnames are `garage-web.localhost` and
+`garage-admin.localhost`, with no public DNS or tunnel route.
 
-Coolify resource IDs:
+## Deployments
 
-- Postgres: `e4f3e1knwyipgf90j2xhlnrz`
-- Garage service: `ekp7vnegd1clc0tzy1hvjar2`
-- Garage container: `garage-ekp7vnegd1clc0tzy1hvjar2`
+Push to GitHub `main` to deploy. A signed GitHub webhook reaches only
+`https://deploy.pickle-balls.com/webhooks/source/github/events/manual`.
+Other paths on that hostname return 404; the dashboard remains private.
+Coolify pulls the public repository and builds `compose.production.yml`.
+The worker runs Prisma migrations before starting. The web container waits for
+worker health, then checks `/api/health`, which verifies its database connection.
 
-## Application configuration
+This single-machine Compose setup briefly restarts the app during deployment.
+Run exactly one worker replica, and stop the old worker before replacing it:
+video and queue concurrency limits are per process. Jobs are stored in Postgres
+and resume/retry after restart. Video concurrency is one.
 
-Setting `S3_ENDPOINT` selects generic S3 storage; without it the existing R2
-configuration remains active. Supply all S3 credentials together:
+Coolify holds the runtime secrets. `NEXT_PUBLIC_APP_URL`,
+`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, and `S3_PUBLIC_ENDPOINT` are also build arguments.
+The S3 public endpoint is embedded in the browser content security policy.
+The app and worker join the private Postgres and Garage Docker networks.
 
 ```dotenv
 PB_SELF_HOSTED=true
+BACKGROUND_BACKEND=postgres
+WORKER_SCHEDULES_ENABLED=true
 S3_ENDPOINT=http://garage-ekp7vnegd1clc0tzy1hvjar2:3900
 S3_PUBLIC_ENDPOINT=https://s3.pickle-balls.com
 S3_REGION=garage
 S3_BUCKET=pickleballs-media
 S3_ACCESS_KEY_ID=<bucket-scoped key>
 S3_SECRET_ACCESS_KEY=<bucket-scoped secret>
-DATABASE_URL=<private Postgres URL from Coolify>
-DIRECT_DATABASE_URL=<same private direct Postgres URL>
+DATABASE_URL=<private Postgres URL>
+DIRECT_DATABASE_URL=<same private Postgres URL>
 ```
 
-The public S3 endpoint is verified through Cloudflare Tunnel. The app and worker
-still need a shared Docker network with Garage. The web browser uses the public endpoint
-for signed uploads and downloads; server-side storage and video processing use
-the private endpoint. Set the public endpoint at **build time and runtime**:
-Next.js bakes the allowed media origin into its CSP headers at build time.
+Production migrations use `prisma.deploy.config.ts`, which requires
+`PB_SELF_HOSTED=true` and permits only `migrate deploy`. Keep `.env` pointed at
+local development. Never run `migrate dev` or `db push` against production.
 
-`PB_SELF_HOSTED=true` enables Next.js standalone output. The eventual container
-must include `.next/standalone`, `.next/static`, and `public`.
+## Migration verification
 
-For production migrations, use the explicit container entrypoint, with environment
-variables injected by Coolify and no local dotenv files:
+- All 28 source public tables matched destination row counts and ordered row
+  hashes after restore. All 25 Prisma migrations were already applied.
+- Copied all 955 R2 objects (1,578,319,132 bytes). Every destination object was
+  read back and verified by SHA-256, size, and content type.
+- Verified public signed multipart upload, CORS preflight, exposed ETag, signed
+  download checksums, and rejection of anonymous object access. Garage needs
+  separate CORS rules for apex and www, rather than both origins in one rule.
+- Verified queue persistence, duplicate suppression, retries, process concurrency,
+  and abandoned-job recovery with a disposable database.
+- A disposable real-worker video job passed FFmpeg encoding, poster generation,
+  database publication, and public signed downloads. Its data was removed.
+- Verified a real GitHub push initiated a successful Coolify deployment, public
+  apex/www health returned 200, and the existing signed-in browser session and
+  migrated video playback worked after DNS cutover.
+- All three Trigger cloud schedules are disabled. Local schedules are enabled:
+  reconcile hourly (Phoenix), prune daily at 03:30 (Phoenix), recover every five
+  minutes (UTC). The OpenRouter credential was validated; a fresh AI generation
+  and delivery of a push notification were not part of the migration smoke test.
 
-```sh
-node node_modules/prisma/build/index.js migrate deploy --config prisma.deploy.config.ts
-```
+## Operations and rollback
 
-This config permits only `migrate deploy` and requires `PB_SELF_HOSTED=true` and
-`DIRECT_DATABASE_URL`. Ordinary `prisma.config.ts` retains the loopback-only local
-safeguard. Never change `.env` to point at the server or run `migrate dev`/`db push`
-against it.
+- Application: `wandtzt9k9stel4hkuuymjs8`
+- Postgres: `e4f3e1knwyipgf90j2xhlnrz`
+- Garage service: `ekp7vnegd1clc0tzy1hvjar2`
+- Garage container: `garage-ekp7vnegd1clc0tzy1hvjar2`
+- Tunnel: `895f9e5c-e4cc-4761-84c3-861b4cda945d`
 
-## Remaining before cutover
+Garage has one node with a 150 GB placement capacity, not a disk quota or a
+replicated second copy. The app key can read/write only the media bucket.
+Server credentials and migration artifacts are under root-only
+`/data/pickleballs/`. Never commit secrets or print them in logs.
 
-Migration checks completed on September 26:
+Vercel, Neon, R2, and Trigger resources are retained for later cleanup.
+`vercel.json` disables new automatic Vercel deployments. The old apex CNAME was
+`3a9a0429cb869cdb.vercel-dns-017.com` (DNS only). Cloud data is the migration
+snapshot, not a mirror of new local writes. A rollback after new writes requires
+reconciling those writes before switching traffic and schedules back.
 
-- Restored the Neon PostgreSQL 18.6 snapshot into local Postgres. All 28 public
-  tables have matching row counts and ordered row hashes. All 25 Prisma
-  migrations are already applied.
-- The Postgres worker queue passed a real database smoke test for durable
-  restart, duplicate suppression, retry, local concurrency, and recovery after
-  an abandoned attempt. Run exactly one worker replica and stop the old worker
-  before starting a replacement. Local concurrency limits are per process.
-- Production R2 copying uses a temporary, bucket-scoped read-only token with a
-  24-hour lifetime. Each destination object is read back and checked by SHA-256,
-  size, and content type. Completed: **955 objects, 1,578,319,132 bytes**, all
-  verified. Source objects were not modified or deleted.
-- The production Next.js web image and FFmpeg worker image build successfully
-  on the laptop. Application deployment and production traffic cutover remain
-  pending.
-- Public `https://s3.pickle-balls.com` passed signed multipart PUT, preflight
-  CORS, exposed ETag, signed GET with checksum verification, and anonymous-access
-  rejection. Use separate CORS rules for each origin; Garage 2.1.0 returned an
-  invalid comma-separated Allow-Origin header when both origins shared a rule.
-  The template's required auxiliary URLs use `garage-web.localhost` and
-  `garage-admin.localhost`, with no public DNS or tunnel route. Only the S3
-  hostname is reachable through the public wildcard tunnel.
-
-1. Deploy the built Next.js and worker images as Coolify resources, with exactly
-   one worker replica. Configure the runtime secrets and attach both to the
-   private Postgres and Garage networks. Keep worker schedules disabled until
-   cutover.
-2. Validate the running application: login, media display, browser uploads,
-   video processing, AI reads, push notifications, and scheduled recovery.
-3. The user authorized treating production as frozen for this migration. Before
-   changing traffic, confirm the snapshot still represents the intended state,
-   disable the old schedulers, then enable the local scheduler.
-4. Retain cloud resources for rollback until the new deployment is verified.
-   Cloud cleanup is a separate later step.
-
-Off-machine backups are intentionally omitted at the owner's request. Persistent
-Docker volumes survive redeployment but do not protect against disk failure.
+Off-machine backups are intentionally omitted at the owner's request. Docker
+volumes survive container redeployment but do not protect against disk failure.

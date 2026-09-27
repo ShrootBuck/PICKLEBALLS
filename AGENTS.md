@@ -27,15 +27,14 @@ Treat `lib/changelog.ts` as a curated list of product updates, not a development
 
 - Local dev uses the isolated `pickleballs` instance on database port 51218
   with shadow port 51219. Start it with `bun run db:dev`.
-- `.env` must ALWAYS point at local. Prod URL lives only in Vercel env vars
-  and `.env.production.local` (gitignored backup). If `.env` contains
-  `pooled.db.prisma.io`, stop and fix it before running any prisma/db command.
-- Vercel also needs `DIRECT_DATABASE_URL` = the direct (non-pooled) Postgres
-  URL. `migrate deploy` takes a Postgres advisory lock the pooled
-  `DATABASE_URL` cannot grant (P1002 timeout). Runtime keeps the pooled URL.
-- Schema changes: `bunx prisma migrate dev --name x` (local) → commit SQL →
-  push → Vercel `migrate deploy` applies it. Never `db push`. Never
-  `migrate dev` against prod.
+- `.env` must ALWAYS point at local. Production credentials live in Coolify;
+  `.env.production.local` is a gitignored legacy cloud credential file.
+- Production runs on the home server. Runtime and migrations use its private
+  direct Postgres URL, configured as `DATABASE_URL` and `DIRECT_DATABASE_URL`.
+- Schema changes: `bunx prisma migrate dev --name x` (local), commit SQL, then
+  push main. Coolify's worker runs `migrate deploy --config prisma.deploy.config.ts`
+  before startup; web waits for worker health. Never `db push` or `migrate dev`
+  against production. See `docs/self-hosting.md` for deployment and rollback.
 
 <!-- TRIGGER.DEV SKILLS START -->
 ## Trigger.dev agent skills
