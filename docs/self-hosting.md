@@ -72,8 +72,9 @@ Coolify holds runtime secrets. `NEXT_PUBLIC_APP_URL`,
 `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `S3_PUBLIC_ENDPOINT`, and the Server Actions key
 are also available at build time. The public storage endpoint is embedded in
 CSP. Web, worker, Postgres, and Garage share Coolify's private Docker network.
-`APP_ALLOWED_ORIGINS` lists the explicitly accepted alternate HTTPS origins
-(www and home). Mutation checks use public configuration rather than the
+The canonical app origin is `https://pickle-balls.com`; `www` is intentionally
+unsupported. Leave `APP_ALLOWED_ORIGINS` empty unless another app origin is
+explicitly required. Mutation checks use public configuration rather than the
 internal HTTP container URL or untrusted forwarding headers.
 
 ```dotenv
@@ -93,6 +94,26 @@ DIRECT_DATABASE_URL=<same private Postgres URL>
 Production migrations use `prisma.deploy.config.ts`, which requires
 `PB_SELF_HOSTED=true` and permits only `migrate deploy`. Keep `.env` pointed at
 local development. Never run `migrate dev` or `db push` against production.
+
+## Verify a rolling deployment
+
+Run `bun scripts/verify-production-deploy.ts --watch` before pushing to main.
+It records the current built deployment ID and asset URLs, polls public health,
+the sign-in page, and old assets throughout the release, then checks all captured
+old and new assets again after a 60-second observation period. It exits nonzero
+on any failed check or if no new release is observed within 15 minutes. Without
+`--watch`, it performs a single-release smoke check.
+
+Also verify both web and worker report the intended commit and healthy status
+in Coolify. The static service does not need a rebuild for ordinary app changes:
+the new web container publishes its assets to their shared directory automatically.
+
+This checks sampled HTTP availability and asset continuity, not every user action.
+Next.js may reload an old tab when it detects version skew; unsent form/chat text
+may be lost. The web's 300-second shutdown allowance covers the AI's 285-second
+run limit, but crashes and network failures can still interrupt streams. The
+single worker pauses during replacement and retries unfinished durable jobs.
+Database changes must remain compatible with both overlapping releases.
 
 ## Migration verification
 
