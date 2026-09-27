@@ -19,6 +19,24 @@ Garage's admin API have no published host ports or public application routes.
 Garage's required auxiliary template hostnames are `garage-web.localhost` and
 `garage-admin.localhost`, with no public DNS or tunnel route.
 
+The live Traefik file `/data/coolify/proxy/dynamic/pickleballs-media.yml`
+comes from `deploy/traefik-media.yml`. Its higher-priority S3 router bypasses
+Coolify's generated gzip middleware and sends `Cache-Control: private, no-store,
+no-transform`. Keep this route when updating the proxy: compressing MP4 responses
+removed their content length, weakened ETags, and caused Cloudflare cache misses
+to return full `200` responses to Safari's `Range: bytes=0-1` requests. Correct
+playback returns `206`, `Content-Length: 2`, and `Content-Range: bytes 0-1/…`.
+The proxy must share Garage's Docker network; update the service hostname in
+this file if Garage is recreated with a different resource ID.
+
+Finalized videos use stable `/api/media/<id>?v=<object-version>` URLs. Next.js
+checks membership and streams Garage byte ranges without buffering the file.
+Successful versioned responses use `private, max-age=31536000, immutable,
+no-transform`, allowing browser caching while bypassing shared CDN caches.
+Images and posters already use private year-long caching. Browsers may evict
+media or retain only watched ranges; downloaded copies can remain after logout.
+Playback tickets, errors, and unversioned video responses remain uncached.
+
 ## Deployments
 
 Push to GitHub `main` to deploy. A signed GitHub webhook reaches only

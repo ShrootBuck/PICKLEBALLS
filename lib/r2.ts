@@ -1,5 +1,6 @@
 import {
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -148,4 +149,64 @@ export async function immutableImageResponse(key: string, mimeType: string) {
     headers.set("content-length", String(object.ContentLength));
   if (object.ETag) headers.set("etag", object.ETag);
   return new Response(object.Body.transformToWebStream(), { headers });
+}
+
+// Stream byte ranges without buffering the video in the Next.js process.
+export async function videoResponse(
+  key: string,
+  mimeType: string,
+  request: Request,
+  immutable: boolean,
+) {
+  const { client, bucket } = r2();
+  let range = request.headers.get("range") ?? undefined;
+  const ifRange = request.headers.get("if-range");
+  if (range && ifRange) {
+    const head = await client.send(
+      new HeadObjectCommand({ Bucket: bucket, Key: key }),
+    );
+    if (ifRange !== head.ETag && ifRange !== head.LastModified?.toUTCString())
+      range = undefined;
+  }
+  try {
+    const object = await client.send(
+      new GetObjectCommand({ Bucket: bucket, Key: key, Range: range }),
+      { abortSignal: request.signal },
+    );
+    if (!object.Body) throw new Error("Media object is missing.");
+    const headers = new Headers({
+      "content-type": mimeType,
+      "accept-ranges": "bytes",
+      "cache-control": immutable
+        ? "private, max-age=31536000, immutable, no-transform"
+        : "private, no-store, no-transform",
+      "x-content-type-options": "nosniff",
+    });
+    if (object.ContentLength !== undefined)
+      headers.set("content-length", String(object.ContentLength));
+    if (object.ContentRange) headers.set("content-range", object.ContentRange);
+    if (object.ETag) headers.set("etag", object.ETag);
+    if (object.LastModified)
+      headers.set("last-modified", object.LastModified.toUTCString());
+    return new Response(object.Body.transformToWebStream(), {
+      status: object.ContentRange ? 206 : 200,
+      headers,
+    });
+  } catch (error) {
+    if (
+      (error as { $metadata?: { httpStatusCode?: number } }).$metadata
+        ?.httpStatusCode !== 416
+    )
+      throw error;
+    const head = await client.send(
+      new HeadObjectCommand({ Bucket: bucket, Key: key }),
+    );
+    return new Response(null, {
+      status: 416,
+      headers: {
+        "content-range": `bytes */${head.ContentLength}`,
+        "cache-control": "private, no-store",
+      },
+    });
+  }
 }

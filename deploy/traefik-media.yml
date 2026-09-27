@@ -1,0 +1,22 @@
+http:
+  routers:
+    pickleballs-s3-streaming:
+      entryPoints:
+        - http
+      rule: Host(`s3.pickle-balls.com`)
+      priority: 200
+      service: pickleballs-garage
+      middlewares:
+        - pickleballs-private-media
+  services:
+    pickleballs-garage:
+      loadBalancer:
+        servers:
+          - url: http://garage-ekp7vnegd1clc0tzy1hvjar2:3900
+  middlewares:
+    pickleballs-private-media:
+      headers:
+        customRequestHeaders:
+          Accept-Encoding: identity
+        customResponseHeaders:
+          Cache-Control: private, no-store, no-transform

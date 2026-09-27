@@ -6,15 +6,10 @@ import { sanitizeImage } from "@/lib/image";
 import { authorizedMedia } from "@/lib/media-access";
 import { startMediaProcessing } from "@/lib/media-dispatch";
 import { completeMediaUpload, signMediaPart } from "@/lib/media-multipart";
-import { playbackTicket } from "@/lib/media-playback";
+import { mediaVersion, playbackTicket } from "@/lib/media-playback";
 import { uploadLifetimeMs } from "@/lib/media-policy";
 import { getPrisma } from "@/lib/prisma";
-import {
-  immutableImageResponse,
-  mediaDownloadUrl,
-  putMedia,
-  r2,
-} from "@/lib/r2";
+import { immutableImageResponse, putMedia, r2, videoResponse } from "@/lib/r2";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { readBoundedBody } from "@/lib/request-body";
@@ -120,13 +115,13 @@ export async function GET(request: Request, context: Context) {
     }
     if (media.mimeType.startsWith("image/"))
       return await immutableImageResponse(media.objectKey, media.mimeType);
-    return new Response(null, {
-      status: 307,
-      headers: {
-        location: await mediaDownloadUrl(media.objectKey, media.mimeType),
-        "cache-control": "private, no-store",
-      },
-    });
+    return await videoResponse(
+      media.objectKey,
+      media.mimeType,
+      request,
+      new URL(request.url).searchParams.get("v") ===
+        mediaVersion(media.objectKey),
+    );
   } catch (error) {
     return jsonError(error);
   }

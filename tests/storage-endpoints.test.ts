@@ -78,3 +78,92 @@ test("partial S3 configuration never silently uses cloud storage credentials", (
   });
   expect(() => r2()).toThrow("Media storage is not configured");
 });
+
+test("video playback URLs are stable until the stored object changes", async () => {
+  const { playbackTicket } = await import("../lib/media-playback");
+  const media = {
+    id: "v_test",
+    objectKey: "media/version1.mp4",
+    mimeType: "video/mp4",
+    duration: 10,
+    posterKey: null,
+  };
+  const first = await playbackTicket(media);
+  expect(first.url).toBe((await playbackTicket(media)).url);
+  expect(first.url).not.toBe(
+    (await playbackTicket({ ...media, objectKey: "media/version2.mp4" })).url,
+  );
+  expect(first.url).toStartWith("/api/media/v_test?v=");
+});
+
+test("video streaming preserves Safari ranges and private browser caching", async () => {
+  const { videoResponse } = await import("../lib/r2");
+  const server = Bun.serve({
+    port: 0,
+    fetch(request) {
+      const headers = {
+        etag: '"video-version"',
+        "content-type": "video/mp4",
+        "content-length": "4",
+      };
+      if (request.method === "HEAD") return new Response(null, { headers });
+      const range = request.headers.get("range");
+      if (range === "bytes=99-")
+        return new Response("<Error><Code>InvalidRange</Code></Error>", {
+          status: 416,
+        });
+      if (range === "bytes=0-1")
+        return new Response("ab", {
+          status: 206,
+          headers: {
+            ...headers,
+            "content-length": "2",
+            "content-range": "bytes 0-1/4",
+          },
+        });
+      return new Response("abcd", { headers });
+    },
+  });
+  Object.assign(process.env, {
+    S3_ENDPOINT: `http://127.0.0.1:${server.port}`,
+    S3_BUCKET: "media",
+    S3_ACCESS_KEY_ID: "test",
+    S3_SECRET_ACCESS_KEY: "test",
+  });
+  try {
+    const request = (headers: Record<string, string>) =>
+      new Request("https://example.com/api/media/v_test", { headers });
+    const part = await videoResponse(
+      "a.mp4",
+      "video/mp4",
+      request({ Range: "bytes=0-1" }),
+      true,
+    );
+    expect(part.status).toBe(206);
+    expect(part.headers.get("content-range")).toBe("bytes 0-1/4");
+    expect(part.headers.get("content-length")).toBe("2");
+    expect(part.headers.get("cache-control")).toBe(
+      "private, max-age=31536000, immutable, no-transform",
+    );
+    expect(await part.text()).toBe("ab");
+    const changed = await videoResponse(
+      "a.mp4",
+      "video/mp4",
+      request({ Range: "bytes=0-1", "If-Range": '"old-version"' }),
+      true,
+    );
+    expect(changed.status).toBe(200);
+    expect(await changed.text()).toBe("abcd");
+    const invalid = await videoResponse(
+      "a.mp4",
+      "video/mp4",
+      request({ Range: "bytes=99-" }),
+      true,
+    );
+    expect(invalid.status).toBe(416);
+    expect(invalid.headers.get("content-range")).toBe("bytes */4");
+    expect(invalid.headers.get("cache-control")).toContain("no-store");
+  } finally {
+    server.stop(true);
+  }
+});
