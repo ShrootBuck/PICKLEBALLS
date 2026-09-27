@@ -14,6 +14,7 @@ const mediaOrigin =
         : "";
 
 const nextConfig: NextConfig = {
+  deploymentId: process.env.SOURCE_COMMIT || undefined,
   output: process.env.PB_SELF_HOSTED === "true" ? "standalone" : undefined,
   devIndicators:
     process.env.PB_TEST_DATABASE === "disposable-docker" ? false : undefined,
