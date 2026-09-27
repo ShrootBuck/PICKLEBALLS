@@ -8,23 +8,7 @@ import { ensureBootstrapMembership } from "@/lib/bootstrap";
 import { ACTIVE_CIRCLE_COOKIE, parseActiveCircleId } from "@/lib/circles";
 import { getPrisma } from "@/lib/prisma";
 
-export function hasSameOrigin(request: Request) {
-  const requestOrigin = new URL(request.url).origin;
-  const origin = request.headers.get("origin");
-  if (origin) return origin === requestOrigin;
-  const referer = request.headers.get("referer");
-  if (referer) {
-    try {
-      return new URL(referer).origin === requestOrigin;
-    } catch {
-      return false;
-    }
-  }
-  // Mutations must prove their origin. Plain cross-site form POSTs often
-  // omit Origin, and a Host check would pass those by definition; so a
-  // missing Origin/Referer is a rejection, not a pass.
-  return false;
-}
+export { hasSameOrigin } from "@/lib/request-origin";
 
 async function getMembership(
   userId: string,
