@@ -32,8 +32,10 @@ Treat `lib/changelog.ts` as a curated list of product updates, not a development
 - Production runs on the home server. Runtime and migrations use its private
   direct Postgres URL, configured as `DATABASE_URL` and `DIRECT_DATABASE_URL`.
 - Schema changes: `bunx prisma migrate dev --name x` (local), commit SQL, then
-  push main. Coolify's worker runs `migrate deploy --config prisma.deploy.config.ts`
-  before startup; web waits for worker health. Never `db push` or `migrate dev`
+  push main. Both independent Coolify web and worker containers run
+  `migrate deploy --config prisma.deploy.config.ts` before startup. Use additive,
+  backward-compatible migrations so old and new web releases can overlap.
+  Never `db push` or `migrate dev`
   against production. See `docs/self-hosting.md` for deployment and rollback.
 
 <!-- TRIGGER.DEV SKILLS START -->

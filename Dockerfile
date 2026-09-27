@@ -28,6 +28,7 @@ COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./release-static
 COPY --chown=node:node prisma.deploy.config.ts ./
 COPY --chown=node:node deploy/start-web.sh ./start-web.sh
+COPY --chown=node:node deploy/healthcheck.mjs ./deploy/healthcheck.mjs
 RUN mkdir -p /app/.next/static && chown node:node /app/.next/static
 COPY --from=build --chown=node:node /app/public ./public
 USER node

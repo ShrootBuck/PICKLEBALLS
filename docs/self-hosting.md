@@ -1,7 +1,7 @@
 # Home server deployment
 
 Production moved to the Ubuntu laptop on September 26, 2026. Coolify project
-**Infrastructure**, environment **production**, application **Pickle Balls**.
+**Infrastructure**, environment **production**, applications **Pickle Balls Web**, **Pickle Balls Worker**, and **Pickle Balls Static Assets**.
 
 | Component | Production location |
 | --- | --- |
@@ -24,19 +24,39 @@ Garage's required auxiliary template hostnames are `garage-web.localhost` and
 Push to GitHub `main` to deploy. A signed GitHub webhook reaches only
 `https://deploy.pickle-balls.com/webhooks/source/github/events/manual`.
 Other paths on that hostname return 404; the dashboard remains private.
-Coolify pulls the public repository and builds `compose.production.yml`.
-The worker runs Prisma migrations before starting. The web container waits for
-worker health, then checks `/api/health`, which verifies its database connection.
+Coolify builds the repository's Dockerfile with separate `web`, `worker`, and
+`assets` targets. Web and worker deploy automatically on pushes to `main`.
+The static asset service only needs redeployment when its Nginx configuration
+changes. All three are managed in Coolify.
 
-This single-machine Compose setup briefly restarts the app during deployment.
-Run exactly one worker replica, and stop the old worker before replacing it:
-video and queue concurrency limits are per process. Jobs are stored in Postgres
-and resume/retry after restart. Video concurrency is one.
+Web deployments overlap old and new containers. Each new web container applies
+its release's Prisma migrations, publishes its immutable build assets, starts
+Next.js, and passes `/api/health` (including a database query) before Coolify
+stops the old container. Failed health checks keep the previous release serving.
+No host port mappings or fixed container names are configured for web.
+Next.js receives SIGTERM and has up to 300 seconds to finish active requests.
+This avoids deployment restarts, but a single laptop still has hardware,
+network, power and operating-system downtime.
 
-Coolify holds the runtime secrets. `NEXT_PUBLIC_APP_URL`,
-`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, and `S3_PUBLIC_ENDPOINT` are also build arguments.
-The S3 public endpoint is embedded in the browser content security policy.
-The app and worker join the private Postgres and Garage Docker networks.
+Run exactly one worker replica. Its consistent container name makes Coolify
+stop the old worker before starting its replacement. Jobs remain in Postgres
+and resume/retry after restart. Video concurrency is one per process.
+
+`SOURCE_COMMIT` becomes Next.js's deployment ID for version-skew detection.
+A persistent `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` is supplied through Coolify
+BuildKit secrets. The static service routes `/_next/static` before the web
+router and reads `/data/pickleballs/next-static`. New web containers copy their
+hashed assets into that shared directory, retaining prior releases for existing
+tabs. It contains only public build output, never environment files or uploads.
+Older assets are deliberately retained; monitor its disk use before any cleanup.
+
+Coolify holds runtime secrets. `NEXT_PUBLIC_APP_URL`,
+`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `S3_PUBLIC_ENDPOINT`, and the Server Actions key
+are also available at build time. The public storage endpoint is embedded in
+CSP. Web, worker, Postgres, and Garage share Coolify's private Docker network.
+`APP_ALLOWED_ORIGINS` lists the explicitly accepted alternate HTTPS origins
+(www and home). Mutation checks use public configuration rather than the
+internal HTTP container URL or untrusted forwarding headers.
 
 ```dotenv
 PB_SELF_HOSTED=true
@@ -79,7 +99,10 @@ local development. Never run `migrate dev` or `db push` against production.
 
 ## Operations and rollback
 
-- Application: `wandtzt9k9stel4hkuuymjs8`
+- Web: `pjd7ddc7afz1fjxsu9veepnx`
+- Worker: `jpccsyfelscs72ncmnn98xdh`
+- Static assets: `ktxfb3ereojvgf3lbtamrfym`
+- Retired Compose application: `wandtzt9k9stel4hkuuymjs8` (auto-deploy disabled)
 - Postgres: `e4f3e1knwyipgf90j2xhlnrz`
 - Garage service: `ekp7vnegd1clc0tzy1hvjar2`
 - Garage container: `garage-ekp7vnegd1clc0tzy1hvjar2`
@@ -90,11 +113,12 @@ replicated second copy. The app key can read/write only the media bucket.
 Server credentials and migration artifacts are under root-only
 `/data/pickleballs/`. Never commit secrets or print them in logs.
 
-Vercel, Neon, R2, and Trigger resources are retained for later cleanup.
-`vercel.json` disables new automatic Vercel deployments. The old apex CNAME was
-`3a9a0429cb869cdb.vercel-dns-017.com` (DNS only). Cloud data is the migration
-snapshot, not a mirror of new local writes. A rollback after new writes requires
-reconciling those writes before switching traffic and schedules back.
+Cloud-resource deletion is being handled separately. Do not rely on Vercel,
+Neon, R2 or Trigger as a rollback target: the owner is retiring those services,
+and they never mirrored writes made after cutover. Roll back the web image in
+Coolify only while its schema remains compatible. Add fields/tables first,
+deploy readers and writers, and remove old schema in a later release after
+all old instances are gone. Cloudflare DNS and the Tunnel remain required.
 
 Off-machine backups are intentionally omitted at the owner's request. Docker
 volumes survive container redeployment but do not protect against disk failure.
