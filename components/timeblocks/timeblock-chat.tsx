@@ -10,7 +10,6 @@ import {
   Minimize2,
   Paperclip,
   Plus,
-  RotateCcw,
   Sparkles,
   Square,
 } from "lucide-react";
@@ -225,7 +224,6 @@ function Conversation({
   const {
     messages,
     sendMessage,
-    regenerate,
     status,
     stop,
     error,
@@ -828,24 +826,6 @@ function Conversation({
               >
                 <Paperclip />
               </Button>
-              {messages.some((message) => message.role === "user") && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={busy || !ready}
-                  onClick={() => {
-                    clearError();
-                    setNotice(null);
-                    live.current = true;
-                    onBusyChange(true);
-                    void regenerate();
-                  }}
-                >
-                  <RotateCcw data-icon="inline-start" />
-                  Retry
-                </Button>
-              )}
             </div>
             {busy ? (
               <Button

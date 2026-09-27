@@ -8,9 +8,12 @@ import {
   Circle,
   CircleAlert,
   Clock3,
+  History,
   Home,
   Plus,
+  ScrollText,
   Settings,
+  Shield,
   Smartphone,
   Users,
 } from "lucide-react";
@@ -33,6 +36,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
@@ -243,33 +247,59 @@ export function SocialShell({
           <Plus data-icon="inline-start" /> Create
         </Button>
         <div className="mt-auto flex flex-col pt-8">
-          <Link
-            href="/settings"
-            className={cn(
-              "social-nav-link",
-              pathname === "/settings" && "is-active",
-            )}
-            aria-current={pathname === "/settings" ? "page" : undefined}
-          >
-            <span className="social-nav-icon">
-              <Settings className="size-6" strokeWidth={1.7} />
-            </span>
-            <span>Settings</span>
-          </Link>
+          {[
+            { href: "/changelog", label: "What's new", icon: ScrollText },
+            { href: "/settings", label: "Settings", icon: Settings },
+          ].map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "social-nav-link",
+                pathname === href && "is-active",
+              )}
+              aria-current={pathname === href ? "page" : undefined}
+            >
+              <span className="social-nav-icon">
+                <Icon className="size-6" strokeWidth={1.7} />
+              </span>
+              <span>{label}</span>
+            </Link>
+          ))}
         </div>
       </aside>
       <div className="social-workspace">
         <header className="social-header">
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button variant="ghost" className="circle-trigger" />}
+              render={
+                <Button
+                  variant="ghost"
+                  className="circle-trigger"
+                  aria-label={`Circle menu: ${currentCircle?.name ?? "Pickle Balls"}`}
+                />
+              }
             >
               <span className="min-w-0 truncate">
                 {currentCircle?.name ?? "Pickle Balls"}
               </span>
               <ChevronDown data-icon="inline-end" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
+            <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="truncate">
+                  {currentCircle?.name ?? "Current circle"}
+                </DropdownMenuLabel>
+                <DropdownMenuItem render={<Link href="/history" />}>
+                  <History /> Circle history
+                </DropdownMenuItem>
+                {currentCircle?.role === "OWNER" && (
+                  <DropdownMenuItem render={<Link href="/admin" />}>
+                    <Shield /> Owner tools &amp; invites
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuLabel>Your circles</DropdownMenuLabel>
                 {circles.map((circle) => (
@@ -283,7 +313,7 @@ export function SocialShell({
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuItem render={<Link href="/circles" />}>
-                  <Plus /> All circles / create
+                  <Users /> Manage circles
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>
@@ -297,6 +327,20 @@ export function SocialShell({
             >
               <Plus data-icon="inline-start" />
               <span className="hidden min-[380px]:inline">Create</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              aria-label="Settings"
+              render={
+                <Link
+                  href="/settings"
+                  aria-current={pathname === "/settings" ? "page" : undefined}
+                />
+              }
+            >
+              <Settings />
             </Button>
             {bell}
           </div>

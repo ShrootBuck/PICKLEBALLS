@@ -1,8 +1,12 @@
+import { ArrowRight, ScrollText } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { NotificationPreferences } from "@/components/notifications/notification-preferences";
 import { PushToggle } from "@/components/notifications/push-toggle";
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
+import { SignOutButton } from "@/components/settings/sign-out-button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSession } from "@/lib/request";
 
@@ -12,7 +16,10 @@ export default async function SettingsPage() {
   await requireSession();
   return (
     <>
-      <PageHeader title="Settings" />
+      <PageHeader
+        title="Settings"
+        description="Your appearance, notifications, and account."
+      />
       <AppearanceSettings />
       <Card className="max-w-2xl">
         <CardHeader>
@@ -23,6 +30,14 @@ export default async function SettingsPage() {
           <NotificationPreferences />
         </CardContent>
       </Card>
+      <div className="flex max-w-2xl flex-wrap items-center justify-between gap-4">
+        <Button variant="ghost" render={<Link href="/changelog" />}>
+          <ScrollText data-icon="inline-start" />
+          What's new
+          <ArrowRight data-icon="inline-end" />
+        </Button>
+        <SignOutButton />
+      </div>
     </>
   );
 }

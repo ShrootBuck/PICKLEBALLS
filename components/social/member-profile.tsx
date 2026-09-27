@@ -5,7 +5,6 @@ import { CircleDestination } from "@/components/circles/circle-destination";
 import { Feed } from "@/components/social/feed";
 import { AddTaskButton } from "@/components/social/home-actions";
 import { ProfileDayPicker } from "@/components/social/profile-day-picker";
-import { ProfileMenu } from "@/components/social/profile-menu";
 import { TaskList } from "@/components/social/task-list";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getPrisma } from "@/lib/prisma";
@@ -152,7 +151,6 @@ export async function MemberProfile({
             <h1 className="text-2xl font-semibold tracking-tight">
               {subject.user.name}
             </h1>
-            {mine && <ProfileMenu isOwner={membership.role === "OWNER"} />}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             {membership.circle.name}
