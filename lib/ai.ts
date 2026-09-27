@@ -84,7 +84,7 @@ async function runStructured<S extends z.ZodType>({
         outputTokens: result.totalUsage?.outputTokens ?? null,
       },
     });
-    return schema.parse(result.output);
+    return result.output as z.infer<S>;
   } catch (error) {
     let code = "UNKNOWN_AI_ERROR";
     if (error instanceof Error) {

@@ -6,6 +6,11 @@ import type { readScreenTime } from "@/lib/screen-time-server";
 type ReadOutput =
   | { ok: true; reading: Awaited<ReturnType<typeof readScreenTime>> }
   | { ok: false; message: string };
+
+export function isScreenTimeRunId(value: string | null): value is string {
+  return value !== null && value.length > 0 && value.length <= 100;
+}
+
 export function localReadStatus(
   run: Pick<
     JobWithMetadata<JobPayloads["read-screen-time"]>,

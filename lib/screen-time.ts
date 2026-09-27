@@ -79,13 +79,9 @@ export const screenTimeExtractionSchema = z.object({
     ),
 });
 
-export function validateScreenTimeExtraction(raw: unknown) {
-  const parsed = screenTimeExtractionSchema.safeParse(raw);
-  if (!parsed.success)
-    throw new DomainError(
-      "Could not read the report reliably. Try a clearer screenshot.",
-    );
-  const value = parsed.data;
+export function validateScreenTimeExtraction(
+  value: z.infer<typeof screenTimeExtractionSchema>,
+) {
   if (!value.isValid)
     throw new DomainError(
       value.failureReason?.trim() ||

@@ -1,6 +1,15 @@
 import { expect, test } from "bun:test";
 import { jobIdForKey } from "../lib/queue";
-import { localReadStatus } from "../lib/worker-status";
+import { isScreenTimeRunId, localReadStatus } from "../lib/worker-status";
+
+test("screen-time status accepts worker IDs without coupling to a provider format", () => {
+  expect(isScreenTimeRunId("8a01ab57-7967-40c2-8afd-35616ce01808")).toBe(true);
+  expect(isScreenTimeRunId("run_legacy123")).toBe(true);
+  expect(isScreenTimeRunId("another-provider-id")).toBe(true);
+  expect(isScreenTimeRunId(null)).toBe(false);
+  expect(isScreenTimeRunId("")).toBe(false);
+  expect(isScreenTimeRunId("a".repeat(101))).toBe(false);
+});
 
 const run = {
   name: "read-screen-time",

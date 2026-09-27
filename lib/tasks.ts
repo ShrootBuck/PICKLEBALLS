@@ -1,4 +1,4 @@
-import { type MoodCheckInInput, moodCheckInSchema } from "@/lib/mood";
+import type { MoodCheckInInput } from "@/lib/mood";
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -515,7 +515,7 @@ export async function setCheckIn(
   now = new Date(),
   wellbeing?: MoodCheckInInput,
 ) {
-  const mood = wellbeing ? moodCheckInSchema.parse(wellbeing) : null;
+  const mood = wellbeing ?? null;
   const day = requireDateKey(phoenixDateKey(now));
   const cleanBlocker = blocker?.trim() ? blocker.trim().slice(0, 500) : null;
   const result = await serializable(async (transaction) => {

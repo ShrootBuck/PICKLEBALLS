@@ -7,6 +7,7 @@ import {
 import { DomainError } from "@/lib/errors";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
+import { isScreenTimeRunId } from "@/lib/worker-status";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -47,7 +48,7 @@ export async function GET(request: Request) {
   const auth = await getRequestMembership(request.headers);
   if (!auth) return Response.json({ error: "Sign in first." }, { status: 401 });
   const runId = new URL(request.url).searchParams.get("runId");
-  if (!runId || !/^run_[a-zA-Z0-9]+$/.test(runId) || runId.length > 100)
+  if (!isScreenTimeRunId(runId))
     return Response.json({ error: "Invalid read." }, { status: 400 });
   try {
     const result = await screenTimeReadStatus(

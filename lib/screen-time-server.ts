@@ -47,7 +47,7 @@ export async function readScreenTime(
   if (!media || !media.mimeType.startsWith("image/"))
     throw new DomainError("Choose one available screenshot, not a video.");
   const data = await getMediaBytes(media.objectKey);
-  let raw: unknown;
+  let raw: Awaited<ReturnType<typeof extractScreenTime>>;
   try {
     raw = await extractScreenTime(userId, circleId, {
       data,
