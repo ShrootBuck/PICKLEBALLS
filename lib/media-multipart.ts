@@ -29,9 +29,9 @@ export async function signMediaPart(media: MediaUpload, part: number) {
     part > Math.ceil(size / mediaPartBytes)
   )
     throw new DomainError("Invalid upload part.");
-  const { client, bucket } = r2();
+  const { publicClient, bucket } = r2();
   return getSignedUrl(
-    client,
+    publicClient,
     new UploadPartCommand({
       Bucket: bucket,
       Key: media.objectKey,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
+import { usesLocalWorker } from "@/lib/queue";
 import { reconcileMissedTasks } from "@/lib/tasks";
 
 export const runtime = "nodejs";
@@ -10,6 +11,9 @@ export async function GET(request: Request) {
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
+
+  if (usesLocalWorker())
+    return Response.json({ skipped: true, scheduler: "postgres" });
 
   if (process.env.TRIGGER_SCHEDULES_ENABLED === "true")
     return Response.json({ skipped: true, scheduler: "trigger.dev" });

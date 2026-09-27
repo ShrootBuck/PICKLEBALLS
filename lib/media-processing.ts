@@ -23,6 +23,7 @@ export async function processVideoMedia(id: string, signal: AbortSignal) {
     media.objectKey,
     media.mimeType,
     48 * 3600,
+    true,
   );
   await prisma.mediaUpload.updateMany({
     where: { id, objectKey: media.objectKey, ready: false },
@@ -81,7 +82,7 @@ export async function processVideoMedia(id: string, signal: AbortSignal) {
     if (!result.ContentLength) throw new Error("Encoded video is empty.");
     // Read the uploaded result before switching the DB pointer or deleting the source.
     const verified = await probeVideo(
-      await mediaDownloadUrl(key, "video/mp4"),
+      await mediaDownloadUrl(key, "video/mp4", 24 * 3600, true),
       combined,
     );
     if (Math.abs(verified.duration - info.duration) > 2)

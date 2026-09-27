@@ -8,6 +8,7 @@ import { jsonError, readJson } from "@/lib/api";
 import { DomainError } from "@/lib/errors";
 import { mediaPartBytes, uploadTicketSchema } from "@/lib/media-policy";
 import { getPrisma } from "@/lib/prisma";
+import { workerAvailable } from "@/lib/queue";
 import { r2 } from "@/lib/r2";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
@@ -26,11 +27,11 @@ export async function POST(request: Request) {
         "Choose a supported photo or video within the size limit.",
       );
     const input = parsed.data;
-    const { client, bucket } = r2();
+    const { client, publicClient, bucket } = r2();
     const id = `${input.mimeType.startsWith("video/") ? "v" : "i"}_${randomUUID()}`;
     const key = `staging/${id}`;
     const video = input.mimeType.startsWith("video/");
-    if (video && !process.env.TRIGGER_SECRET_KEY)
+    if (video && !workerAvailable())
       throw new DomainError(
         "Video processing is unavailable. Try again shortly.",
         503,
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
     const url = video
       ? undefined
       : await getSignedUrl(
-          client,
+          publicClient,
           new PutObjectCommand({
             Bucket: bucket,
             Key: key,

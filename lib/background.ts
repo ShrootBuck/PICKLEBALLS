@@ -1,6 +1,12 @@
 import "server-only";
 import { runs, tasks } from "@trigger.dev/sdk";
 import { DomainError } from "@/lib/errors";
+import {
+  enqueueJob,
+  getQueue,
+  usesLocalWorker,
+  workerAvailable,
+} from "@/lib/queue";
 import type { screenTimeRead } from "@/src/trigger/jobs";
 
 export async function readScreenTimeInBackground(
@@ -9,11 +15,20 @@ export async function readScreenTimeInBackground(
   mediaId: string,
   week: string,
 ) {
-  if (!process.env.TRIGGER_SECRET_KEY)
+  if (!workerAvailable())
     throw new DomainError(
       "The screenshot reader is unavailable. Try again shortly.",
       503,
     );
+  if (usesLocalWorker()) {
+    const handle = await enqueueJob("read-screen-time", {
+      userId,
+      circleId,
+      mediaId,
+      week,
+    });
+    return { runId: handle.id };
+  }
   const handle = await tasks.trigger<typeof screenTimeRead>(
     "read-screen-time",
     { userId, circleId, mediaId, week },
@@ -27,6 +42,15 @@ export async function screenTimeReadStatus(
   userId: string,
   circleId: string,
 ) {
+  if (usesLocalWorker()) {
+    const { localReadStatus } = await import("@/lib/worker-status");
+    const run = /^[0-9a-f-]{36}$/i.test(runId)
+      ? await (await getQueue()).getJobById<
+          import("@/lib/queue").JobPayloads["read-screen-time"]
+        >("read-screen-time", runId)
+      : null;
+    return localReadStatus(run, userId, circleId);
+  }
   const run = await runs.retrieve<typeof screenTimeRead>(runId);
   if (
     run.taskIdentifier !== "read-screen-time" ||

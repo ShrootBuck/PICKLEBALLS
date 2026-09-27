@@ -5,55 +5,88 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-let storage: { config: string; bucket: string; client: S3Client } | undefined;
+// Keep the historical r2() API while allowing an S3-compatible deployment.
+// Public signing and server traffic use different endpoints on the home server.
+let storage:
+  | {
+      config: string;
+      bucket: string;
+      client: S3Client;
+      publicClient: S3Client;
+    }
+  | undefined;
 
 export function r2() {
-  const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET } =
-    process.env;
+  const env = process.env;
+  const generic = Boolean(env.S3_ENDPOINT);
+  const bucket = generic ? env.S3_BUCKET : env.R2_BUCKET;
+  const accessKeyId = generic ? env.S3_ACCESS_KEY_ID : env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = generic
+    ? env.S3_SECRET_ACCESS_KEY
+    : env.R2_SECRET_ACCESS_KEY;
   if (
-    !R2_ACCOUNT_ID ||
-    !R2_ACCESS_KEY_ID ||
-    !R2_SECRET_ACCESS_KEY ||
-    !R2_BUCKET
+    !bucket ||
+    !accessKeyId ||
+    !secretAccessKey ||
+    (!generic && !env.R2_ACCOUNT_ID)
   )
     throw new Error(
-      "Media storage is not configured. Set the R2 environment variables.",
+      "Media storage is not configured. Set S3 or R2 environment variables.",
     );
-  const testEndpoint = process.env.PB_TEST_R2_ENDPOINT;
+  const testEndpoint = env.PB_TEST_R2_ENDPOINT;
   if (
     testEndpoint &&
-    (process.env.PB_TEST_DATABASE !== "disposable-docker" ||
+    (env.PB_TEST_DATABASE !== "disposable-docker" ||
       new URL(testEndpoint).hostname !== "127.0.0.1")
   )
     throw new Error("R2 test endpoint requires the isolated test runner.");
+  const endpoint =
+    testEndpoint ||
+    env.S3_ENDPOINT ||
+    `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  const publicEndpoint =
+    testEndpoint || (generic ? env.S3_PUBLIC_ENDPOINT || endpoint : endpoint);
+  const region = generic ? env.S3_REGION || "garage" : "auto";
   const config = JSON.stringify([
-    R2_ACCOUNT_ID,
-    R2_ACCESS_KEY_ID,
-    R2_SECRET_ACCESS_KEY,
-    R2_BUCKET,
-    testEndpoint,
+    bucket,
+    accessKeyId,
+    secretAccessKey,
+    endpoint,
+    publicEndpoint,
+    region,
   ]);
   if (storage?.config === config)
-    return { bucket: storage.bucket, client: storage.client };
+    return {
+      bucket: storage.bucket,
+      client: storage.client,
+      publicClient: storage.publicClient,
+    };
   storage?.client.destroy();
-  storage = {
-    config,
-    bucket: R2_BUCKET,
-    client: new S3Client({
-      region: "auto",
-      endpoint:
-        testEndpoint || `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  if (storage?.publicClient !== storage?.client)
+    storage?.publicClient.destroy();
+  const makeClient = (url: string) =>
+    new S3Client({
+      region,
+      endpoint: url,
       forcePathStyle: true,
-      credentials: {
-        accessKeyId: R2_ACCESS_KEY_ID,
-        secretAccessKey: R2_SECRET_ACCESS_KEY,
-      },
+      credentials: { accessKeyId, secretAccessKey },
       requestChecksumCalculation: "WHEN_REQUIRED",
       responseChecksumValidation: "WHEN_REQUIRED",
       requestHandler: { connectionTimeout: 10_000, requestTimeout: 120_000 },
-    }),
+    });
+  const client = makeClient(endpoint);
+  storage = {
+    config,
+    bucket,
+    client,
+    publicClient:
+      publicEndpoint === endpoint ? client : makeClient(publicEndpoint),
   };
-  return { bucket: storage.bucket, client: storage.client };
+  return {
+    bucket: storage.bucket,
+    client: storage.client,
+    publicClient: storage.publicClient,
+  };
 }
 export async function putMedia(
   key: string,
@@ -84,10 +117,11 @@ export async function mediaDownloadUrl(
   key: string,
   mimeType: string,
   expiresIn = 24 * 3600,
+  internal = false,
 ) {
-  const { client, bucket } = r2();
+  const { client, publicClient, bucket } = r2();
   return getSignedUrl(
-    client,
+    internal ? client : publicClient,
     new GetObjectCommand({
       Bucket: bucket,
       Key: key,

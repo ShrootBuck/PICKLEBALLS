@@ -11,6 +11,7 @@ import {
 } from "@/lib/notification-policy";
 import { getPrisma } from "@/lib/prisma";
 import { sendPushToUser } from "@/lib/push";
+import { enqueueJob, usesLocalWorker } from "@/lib/queue";
 import { serializable } from "@/lib/transaction";
 import type { notification as notificationTask } from "@/src/trigger/notification";
 
@@ -129,6 +130,14 @@ export async function createNotificationAndPush(
   if (!shouldPushNotification(input.kind, prefs)) return notification;
 
   const send = async () => {
+    if (usesLocalWorker()) {
+      await enqueueJob(
+        "notification",
+        { notificationId: notification.id },
+        `push:${notification.id}`,
+      );
+      return;
+    }
     if (process.env.TRIGGER_SECRET_KEY) {
       await tasks.trigger<typeof notificationTask>(
         "notification",

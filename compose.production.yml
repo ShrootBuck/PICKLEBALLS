@@ -1,0 +1,77 @@
+# Git-backed Coolify application. Secrets are supplied by Coolify.
+services:
+  worker:
+    build:
+      context: .
+      target: worker
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    cpus: 1.5
+    mem_limit: 1536m
+    environment:
+      NODE_ENV: production
+      PB_SELF_HOSTED: "true"
+      BACKGROUND_BACKEND: postgres
+      WORKER_SCHEDULES_ENABLED: ${WORKER_SCHEDULES_ENABLED:-false}
+      DATABASE_URL: ${DATABASE_URL:?}
+      DIRECT_DATABASE_URL: ${DIRECT_DATABASE_URL:?}
+      S3_ENDPOINT: ${S3_ENDPOINT:?}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?}
+      S3_REGION: garage
+      S3_BUCKET: ${S3_BUCKET:?}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?}
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:?}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:?}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:?}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?}
+      FFMPEG_PATH: /usr/bin/ffmpeg
+      FFPROBE_PATH: /usr/bin/ffprobe
+    networks: [database, media]
+  web:
+    build:
+      context: .
+      target: web
+      args:
+        S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?}
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:?}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    cpus: 2
+    mem_limit: 1536m
+    depends_on:
+      worker:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PB_SELF_HOSTED: "true"
+      BACKGROUND_BACKEND: postgres
+      DATABASE_URL: ${DATABASE_URL:?}
+      S3_ENDPOINT: ${S3_ENDPOINT:?}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?}
+      S3_REGION: garage
+      S3_BUCKET: ${S3_BUCKET:?}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:?}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:?}
+      BOOTSTRAP_DISCORD_USER_ID: ${BOOTSTRAP_DISCORD_USER_ID:?}
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:?}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:?}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:?}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?}
+    networks: [database, media]
+networks:
+  database:
+    external: true
+    name: coolify
+  media:
+    external: true
+    name: ekp7vnegd1clc0tzy1hvjar2

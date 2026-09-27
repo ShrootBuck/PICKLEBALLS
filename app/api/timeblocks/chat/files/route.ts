@@ -31,9 +31,9 @@ export async function POST(request: Request) {
     await limitAction(chat.userId, "timeblock-chat-upload", 60, 3_600_000);
     const id = crypto.randomUUID();
     const objectKey = `timeblock-chat/${chat.id}/${id}`;
-    const { client, bucket } = r2();
+    const { publicClient, bucket } = r2();
     const uploadUrl = await getSignedUrl(
-      client,
+      publicClient,
       new PutObjectCommand({
         Bucket: bucket,
         Key: objectKey,

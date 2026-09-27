@@ -1,15 +1,20 @@
 import type { NextConfig } from "next";
 
+const storageEndpoint =
+  process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT;
 const mediaOrigin =
   process.env.PB_TEST_DATABASE === "disposable-docker" &&
   process.env.PB_TEST_R2_ENDPOINT
     ? new URL(process.env.PB_TEST_R2_ENDPOINT).origin
-    : process.env.R2_ACCOUNT_ID &&
-        /^[a-f0-9]{32}$/.test(process.env.R2_ACCOUNT_ID)
-      ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-      : "";
+    : storageEndpoint
+      ? new URL(storageEndpoint).origin
+      : process.env.R2_ACCOUNT_ID &&
+          /^[a-f0-9]{32}$/.test(process.env.R2_ACCOUNT_ID)
+        ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+        : "";
 
 const nextConfig: NextConfig = {
+  output: process.env.PB_SELF_HOSTED === "true" ? "standalone" : undefined,
   devIndicators:
     process.env.PB_TEST_DATABASE === "disposable-docker" ? false : undefined,
   distDir: process.env.PB_TEST_BUILD === "1" ? ".next-browser" : ".next",
