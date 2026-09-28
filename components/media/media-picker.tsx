@@ -77,12 +77,13 @@ export function MediaPicker({
       <FieldLabel htmlFor={id}>
         {required ? "Proof photos or videos" : "Attach photos or videos"}
       </FieldLabel>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: drop target has a keyboard-accessible choose button */}
-      <div
+      <section
         className={cn(
           "flex flex-col items-center gap-3 rounded-xl border border-dashed p-5 text-center transition-colors",
           dragging && !disabled ? "border-primary bg-muted" : "bg-muted/30",
         )}
+        aria-label="Photo and video upload area. Paste an image here."
+        tabIndex={disabled ? -1 : 0}
         onDragOver={(event) => {
           event.preventDefault();
           if (!disabled) setDragging(true);
@@ -96,12 +97,27 @@ export function MediaPicker({
           setDragging(false);
           addFiles(Array.from(event.dataTransfer.files));
         }}
+        onPaste={(event) => {
+          if (disabled) return;
+          const images = Array.from(event.clipboardData.items).flatMap(
+            (item) => {
+              if (item.kind !== "file" || !item.type.startsWith("image/"))
+                return [];
+              const file = item.getAsFile();
+              return file ? [file] : [];
+            },
+          );
+          if (images.length) {
+            event.preventDefault();
+            addFiles(images);
+          }
+        }}
       >
         <Upload className="size-6 text-muted-foreground" />
         <p className="text-sm font-medium">
           {dragging && !disabled
             ? "Drop files here"
-            : "Drop photos or videos here"}
+            : "Drop photos or videos here, or paste an image"}
         </p>
         <Button
           type="button"
@@ -127,7 +143,7 @@ export function MediaPicker({
             event.target.value = "";
           }}
         />
-      </div>
+      </section>
       <Input
         ref={cameraRef}
         type="file"
