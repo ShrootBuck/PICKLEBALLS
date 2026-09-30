@@ -26,11 +26,13 @@ export async function loadTimeblockChat(userId: string) {
         "The response was interrupted. Your saved conversation is safe. Try again.",
     },
   });
-  return db.timeblockChat.upsert({
-    where: { userId },
-    create: { userId },
-    update: {},
+  // Empty-update upserts can race on the first load. Let Postgres ignore a
+  // concurrent insert without changing existing messages or updatedAt.
+  await db.timeblockChat.createMany({
+    data: [{ userId }],
+    skipDuplicates: true,
   });
+  return db.timeblockChat.findUniqueOrThrow({ where: { userId } });
 }
 export function chatSnapshot(chat: TimeblockChat): TimeblockChatSnapshot {
   return {

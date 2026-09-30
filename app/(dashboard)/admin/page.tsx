@@ -6,14 +6,6 @@ import { InvitePanel } from "@/components/admin/invite-panel";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
 import { formatMemberJoined } from "@/lib/time";
@@ -45,22 +37,15 @@ export default async function AdminPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {members.map((member) => (
-                <TableRow key={`${member.userId}-${member.circleId}`}>
-                  <TableCell className="font-medium">
-                    {member.user.name}
-                  </TableCell>
-                  <TableCell>
+          <ul aria-label="Circle members" className="divide-y divide-border">
+            {members.map((member) => (
+              <li
+                key={`${member.userId}-${member.circleId}`}
+                className="flex min-w-0 flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="min-w-0 font-medium">{member.user.name}</p>
                     <Badge
                       variant={
                         member.role === "OWNER" ? "default" : "secondary"
@@ -68,32 +53,31 @@ export default async function AdminPage() {
                     >
                       {member.role === "OWNER" ? "Owner" : "Member"}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="tabular-nums">
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Joined{" "}
                     <time dateTime={member.createdAt.toISOString()}>
                       {formatMemberJoined(member.createdAt)}
                     </time>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <EditMemberNameButton
-                        userId={member.userId}
-                        name={member.user.name}
-                        circleId={membership.circleId}
-                      />
-                      {member.role !== "OWNER" && (
-                        <DeleteMemberButton
-                          userId={member.userId}
-                          name={member.user.name}
-                          circleId={membership.circleId}
-                        />
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <EditMemberNameButton
+                    userId={member.userId}
+                    name={member.user.name}
+                    circleId={membership.circleId}
+                  />
+                  {member.role !== "OWNER" && (
+                    <DeleteMemberButton
+                      userId={member.userId}
+                      name={member.user.name}
+                      circleId={membership.circleId}
+                    />
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
         </CardContent>
       </Card>
     </>

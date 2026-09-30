@@ -30,6 +30,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import {
   Message,
   MessageContent,
@@ -803,12 +804,13 @@ function Conversation({
           </Field>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1">
-              <input
+              <Input
                 ref={fileInput}
                 type="file"
                 multiple
                 accept={chatFileAccept}
                 className="sr-only"
+                tabIndex={-1}
                 aria-label="Attach files"
                 disabled={busy}
                 onChange={(event) => {

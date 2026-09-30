@@ -6,7 +6,7 @@ import { NotificationPreferences } from "@/components/notifications/notification
 import { PushToggle } from "@/components/notifications/push-toggle";
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
 import { SignOutButton } from "@/components/settings/sign-out-button";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSession } from "@/lib/request";
 
@@ -31,11 +31,14 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
       <div className="flex max-w-2xl flex-wrap items-center justify-between gap-4">
-        <Button variant="ghost" render={<Link href="/changelog" />}>
+        <Link
+          href="/changelog"
+          className={buttonVariants({ variant: "ghost" })}
+        >
           <ScrollText data-icon="inline-start" />
           What's new
           <ArrowRight data-icon="inline-end" />
-        </Button>
+        </Link>
         <SignOutButton />
       </div>
     </>

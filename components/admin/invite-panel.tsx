@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Copy, Link2, Plus } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { toast } from "@/components/ui/toast";
 import { appFetch } from "@/lib/app-refresh";
 
 export function InvitePanel() {
@@ -22,8 +23,15 @@ export function InvitePanel() {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const linkRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!copied) return;
+    const timeout = window.setTimeout(() => setCopied(false), 2000);
+    return () => window.clearTimeout(timeout);
+  }, [copied]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending) return;
     setPending(true);
     setError(null);
     const form = event.currentTarget;
@@ -43,6 +51,7 @@ export function InvitePanel() {
       if (!response.ok) {
         setError(body.error ?? "Invite failed.");
       } else {
+        setCopied(false);
         setUrl(body.url ?? null);
         form.reset();
       }
@@ -63,7 +72,7 @@ export function InvitePanel() {
         </CardHeader>
         <CardContent className="flex min-w-0 flex-col gap-4">
           <FieldGroup>
-            <Field>
+            <Field data-disabled={pending}>
               <FieldLabel htmlFor="invite-label">Friend’s name</FieldLabel>
               <Input
                 id="invite-label"
@@ -71,6 +80,7 @@ export function InvitePanel() {
                 placeholder="David"
                 maxLength={80}
                 required
+                disabled={pending}
               />
             </Field>
           </FieldGroup>
@@ -79,9 +89,13 @@ export function InvitePanel() {
               <Link2 />
               <AlertTitle>Copy this now.</AlertTitle>
               <AlertDescription className="flex min-w-0 flex-col gap-3">
-                <span className="block w-full min-w-0 truncate rounded-md border bg-muted/50 px-3 py-2 font-mono text-xs">
-                  {url}
-                </span>
+                <Input
+                  ref={linkRef}
+                  aria-label="Invite link"
+                  value={url}
+                  readOnly
+                  onFocus={(event) => event.currentTarget.select()}
+                />
                 <Button
                   type="button"
                   variant="outline"
@@ -91,11 +105,14 @@ export function InvitePanel() {
                     try {
                       await navigator.clipboard.writeText(url);
                       setCopied(true);
-                      window.setTimeout(() => setCopied(false), 2000);
                     } catch {
-                      setError(
-                        "Clipboard blocked. Select the URL and copy manually.",
-                      );
+                      linkRef.current?.focus();
+                      linkRef.current?.select();
+                      toast.add({
+                        title:
+                          "Clipboard blocked. The link is selected so you can copy it manually.",
+                        type: "error",
+                      });
                     }
                   }}
                 >

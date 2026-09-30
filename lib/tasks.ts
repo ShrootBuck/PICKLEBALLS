@@ -539,7 +539,7 @@ export async function setCheckIn(
               mediaIds: mood.mediaIds ?? [],
               mood: mood.mood,
               feelings: mood.feelings,
-              journal: mood.journal || null,
+              journal: mood.journal.trim() || null,
             }
           : {}),
       },

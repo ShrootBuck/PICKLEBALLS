@@ -328,20 +328,17 @@ export function SocialShell({
               <Plus data-icon="inline-start" />
               <span className="hidden min-[380px]:inline">Create</span>
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
+            <Link
+              href="/settings"
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "icon" }),
+                "md:hidden",
+              )}
               aria-label="Settings"
-              render={
-                <Link
-                  href="/settings"
-                  aria-current={pathname === "/settings" ? "page" : undefined}
-                />
-              }
+              aria-current={pathname === "/settings" ? "page" : undefined}
             >
               <Settings />
-            </Button>
+            </Link>
             {bell}
           </div>
         </header>

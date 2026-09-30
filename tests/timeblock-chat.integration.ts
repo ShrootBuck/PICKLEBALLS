@@ -20,6 +20,7 @@ mock.module("next/server", () => ({
 }));
 const owner = `chat-test-${randomUUID()}`;
 const other = `chat-other-${randomUUID()}`;
+const firstLoadUser = `chat-first-load-${randomUUID()}`;
 mock.module("@/lib/request", () => ({
   hasSameOrigin: (request: Request) =>
     request.headers.get("origin") === new URL(request.url).origin,
@@ -109,7 +110,7 @@ async function reset() {
 }
 beforeAll(async () => {
   await db.user.createMany({
-    data: [owner, other].map((id) => ({
+    data: [owner, other, firstLoadUser].map((id) => ({
       id,
       email: `${id}@example.invalid`,
       name: "Chat test",
@@ -118,8 +119,52 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await settled();
-  await db.user.deleteMany({ where: { id: { in: [owner, other] } } });
+  await db.user.deleteMany({
+    where: { id: { in: [owner, other, firstLoadUser] } },
+  });
   await db.$disconnect();
+});
+
+test("concurrent first loads share one conversation and preserve saved state", async () => {
+  const responses = await Promise.all(
+    Array.from({ length: 8 }, () =>
+      GET(request("GET", undefined, firstLoadUser)),
+    ),
+  );
+  expect(responses.map((response) => response.status)).toEqual(
+    Array(8).fill(200),
+  );
+  const chats = await Promise.all(responses.map((response) => response.json()));
+  expect(new Set(chats.map((chat) => chat.id)).size).toBe(1);
+  expect(
+    await db.timeblockChat.count({ where: { userId: firstLoadUser } }),
+  ).toBe(1);
+
+  const saved = await db.timeblockChat.update({
+    where: { userId: firstLoadUser },
+    data: {
+      revision: 3,
+      messages: [
+        {
+          id: "saved",
+          role: "user",
+          parts: [{ type: "text", text: "Keep this" }],
+        },
+      ],
+      runId: "active-run",
+      runExpiresAt: new Date(Date.now() + 60_000),
+    },
+  });
+  const restored = await snapshot(firstLoadUser);
+  expect(restored).toMatchObject({
+    id: saved.id,
+    revision: saved.revision,
+    messages: saved.messages,
+    running: true,
+  });
+  expect(
+    await db.timeblockChat.findUnique({ where: { id: saved.id } }),
+  ).toEqual(saved);
 });
 
 test("authenticated history is private, and refresh after a browser disconnect retains the full reply", async () => {
