@@ -82,6 +82,7 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
   const [showMedia, setShowMedia] = useState(false);
   const uploadedIds = useRef<string[] | null>(initial?.uploadedIds ?? null);
   const [pending, setPending] = useState(false);
+  const [open, setOpen] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus, uploadPercent] = useUploadStatus();
   const shared = useRef(false);
@@ -185,7 +186,7 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
       shared.current = true;
       savedDraft = null;
       toast.add({ title: "Check-in shared with your circle", type: "success" });
-      onClose();
+      setOpen(false);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -210,9 +211,13 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <Sheet
-      open
-      onOpenChange={(open) => {
-        if (!open && !pending) onClose();
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && !pending) setOpen(false);
+      }}
+      // Unmount only after the sheet has slid away.
+      onOpenChangeComplete={(next) => {
+        if (!next) onClose();
       }}
     >
       <SheetContent

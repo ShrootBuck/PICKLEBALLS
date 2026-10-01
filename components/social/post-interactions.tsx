@@ -117,6 +117,7 @@ export function PostInteractions({
     likedByMe: post.likedByMe,
   });
   const [busy, setBusy] = useState(false);
+  const [popped, setPopped] = useState(false);
   const inFlight = useRef(false);
   const [commentCount, setCommentCount] = useState(post.commentCount);
   useEffect(() => {
@@ -130,6 +131,7 @@ export function PostInteractions({
     setBusy(true);
     const previous = like;
     const liked = !previous.likedByMe;
+    setPopped(liked);
     setLike({
       likedByMe: liked,
       likeCount: Math.max(0, previous.likeCount + (liked ? 1 : -1)),
@@ -168,12 +170,15 @@ export function PostInteractions({
         size="sm"
         aria-label={like.likedByMe ? "Unlike post" : "Like post"}
         aria-pressed={like.likedByMe}
-        disabled={busy}
+        className="like-button"
+        aria-busy={busy}
         onClick={toggleLike}
       >
         <Heart
           data-icon="inline-start"
+          data-pop={popped || undefined}
           fill={like.likedByMe ? "currentColor" : "none"}
+          onAnimationEnd={() => setPopped(false)}
         />
         <span className="tabular-nums">{like.likeCount || "Like"}</span>
       </Button>

@@ -71,6 +71,113 @@
   --accent-foreground: var(--primary);
 }
 
+/* Damped-spring curves sampled into linear(). spring overshoots about 6%,
+   bounce about 16%. Both also generate ease-spring / ease-bounce utilities. */
+@theme {
+  --ease-spring: linear(
+    0,
+    0.03,
+    0.108,
+    0.214,
+    0.334,
+    0.458,
+    0.576,
+    0.685,
+    0.78,
+    0.859,
+    0.924,
+    0.974,
+    1.011,
+    1.037,
+    1.053,
+    1.061,
+    1.063,
+    1.061,
+    1.056,
+    1.05,
+    1.042,
+    1.034,
+    1.027,
+    1.02,
+    1.014,
+    1.009,
+    1.005,
+    1.002,
+    0.999,
+    0.998,
+    0.997,
+    0.996,
+    0.996,
+    0.996,
+    0.996,
+    0.997,
+    1
+  );
+  --ease-bounce: linear(
+    0,
+    0.053,
+    0.185,
+    0.359,
+    0.547,
+    0.725,
+    0.879,
+    1,
+    1.085,
+    1.137,
+    1.16,
+    1.161,
+    1.145,
+    1.119,
+    1.089,
+    1.059,
+    1.032,
+    1.009,
+    0.992,
+    0.981,
+    0.975,
+    0.973,
+    0.975,
+    0.978,
+    0.983,
+    0.988,
+    0.993,
+    0.997,
+    1,
+    1.002,
+    1.004,
+    1.004,
+    1.004,
+    1.004,
+    1.003,
+    1.002,
+    1
+  );
+  --ease-snappy: cubic-bezier(0.22, 1, 0.36, 1);
+  /* No overshoot: a sliding sheet must never lift off the screen edge. */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Squish on press, spring back on release. Set --press-scale per element. */
+@utility pressable {
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease,
+    scale 480ms var(--ease-spring);
+  &:active:not(:disabled, [data-disabled], [aria-disabled="true"]) {
+    scale: var(--press-scale, 0.96);
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease,
+      box-shadow 160ms ease,
+      opacity 160ms ease,
+      scale 90ms ease-out;
+  }
+}
+
 @theme inline {
   --font-sans: var(--font-inter), Arial, sans-serif;
   --font-mono: var(--font-commit-mono);
@@ -546,7 +653,24 @@
   text-decoration: none;
   transition:
     background-color 160ms ease,
-    color 160ms ease;
+    color 160ms ease,
+    scale 480ms var(--ease-spring);
+  -webkit-tap-highlight-color: transparent;
+}
+.social-nav-link:active {
+  scale: 0.92;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    scale 90ms ease-out;
+}
+.social-nav-link.is-active .social-nav-icon {
+  animation: nav-pop 0.5s var(--ease-bounce);
+}
+@keyframes nav-pop {
+  from {
+    scale: 0.7;
+  }
 }
 .social-bottom-nav .social-nav-link {
   min-height: 52px;
@@ -590,6 +714,7 @@
   border-radius: 999px;
   font-size: 10px;
   line-height: 1;
+  animation: pop-in 0.45s var(--ease-bounce) backwards;
 }
 .social-wordmark {
   display: flex;
@@ -611,6 +736,19 @@
   font-size: 22px;
   font-weight: 800;
   line-height: 1;
+  transition:
+    rotate 500ms var(--ease-bounce),
+    scale 500ms var(--ease-bounce);
+}
+@media (hover: hover) {
+  .social-wordmark:hover .brand-symbol {
+    rotate: -8deg;
+    scale: 1.08;
+  }
+}
+.social-wordmark:active .brand-symbol {
+  scale: 0.9;
+  transition-duration: 90ms;
 }
 .skip-link {
   position: fixed;
@@ -675,6 +813,9 @@
 }
 .composer-choice > span {
   min-width: 0;
+}
+.composer-choice[data-slot="button"] {
+  --press-scale: 0.98;
 }
 #upload {
   scroll-margin-block: 20px;
@@ -768,6 +909,7 @@
   object-fit: contain;
 }
 .media-slide-trigger {
+  --press-scale: 1;
   height: 100%;
   width: 100%;
   padding: 0;
@@ -855,6 +997,12 @@
   bottom: -1px;
   height: 2px;
   background: var(--primary);
+  animation: line-tab-in 0.45s var(--ease-spring);
+}
+@keyframes line-tab-in {
+  from {
+    scale: 0 1;
+  }
 }
 .social-profile-menu {
   display: flex;
@@ -883,6 +1031,9 @@
     gap: 12px;
     border-radius: 8px;
     font-size: 14px;
+  }
+  .social-nav-link:active {
+    scale: 0.97;
   }
   .social-nav-link .social-nav-icon {
     width: 20px;
@@ -1277,7 +1428,15 @@
   color: var(--foreground);
   transition:
     filter 150ms,
-    box-shadow 150ms;
+    box-shadow 150ms,
+    scale 480ms var(--ease-spring);
+}
+.timeblock-calendar-block:active {
+  scale: 0.97;
+  transition:
+    filter 150ms,
+    box-shadow 150ms,
+    scale 90ms ease-out;
 }
 .timeblock-calendar-block[data-proof] {
   background: var(--muted);
@@ -1583,14 +1742,18 @@
   transition:
     --mood 0.35s ease,
     border-color 0.2s,
-    scale 0.15s;
+    scale 480ms var(--ease-spring);
   -webkit-tap-highlight-color: transparent;
 }
 .mood-launcher[data-cycle] {
   animation: mood-cycle 18s ease-in-out infinite alternate;
 }
 .mood-launcher:active {
-  scale: 0.99;
+  scale: 0.98;
+  transition:
+    --mood 0.35s ease,
+    border-color 0.2s,
+    scale 90ms ease-out;
 }
 @media (hover: hover) {
   .mood-launcher:hover {
@@ -1619,8 +1782,13 @@
     ),
     var(--background);
   transition-property: opacity, translate, transform, --mood;
-  transition-duration: 200ms, 200ms, 200ms, 350ms;
-  transition-timing-function: ease-in-out;
+  transition-duration: 450ms, 450ms, 450ms, 350ms;
+  transition-timing-function:
+    var(--ease-drawer), var(--ease-drawer), var(--ease-drawer), ease;
+}
+.mood-sheet[data-slot="sheet-content"][data-ending-style] {
+  transition-duration: 250ms, 250ms, 250ms, 350ms;
+  transition-timing-function: ease-in, ease-in, ease-in, ease;
 }
 .mood-progress {
   display: flex;
@@ -1760,7 +1928,7 @@
     background-color 0.15s,
     border-color 0.15s,
     color 0.15s,
-    scale 0.15s;
+    scale 480ms var(--ease-spring);
   -webkit-tap-highlight-color: transparent;
 }
 .mood-chip svg {
@@ -1782,7 +1950,12 @@
   border-style: solid;
 }
 .mood-chip:active {
-  scale: 0.96;
+  scale: 0.94;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s,
+    scale 90ms ease-out;
 }
 .mood-chip:focus-visible {
   outline: 2px solid var(--mood);
@@ -1910,6 +2083,98 @@ section:first-child > .mood-group-label {
   .mood-sheet-body,
   .mood-chip[data-suggested],
   .mood-level {
+    animation: none;
+  }
+}
+
+/* Shared motion. Quick and springy, never in the way of reading. */
+:root {
+  --like: #ff7a9a;
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    scale: 0.4;
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+@keyframes skeleton-shimmer {
+  to {
+    translate: 100% 0;
+  }
+}
+
+/* Pages settle in with a short stagger on navigation. */
+.social-content > * {
+  animation: rise-in 0.4s var(--ease-snappy) backwards;
+}
+.social-content > :nth-child(2) {
+  animation-delay: 40ms;
+}
+.social-content > :nth-child(3) {
+  animation-delay: 80ms;
+}
+.social-content > :nth-child(4) {
+  animation-delay: 120ms;
+}
+.social-content > :nth-child(n + 5) {
+  animation-delay: 160ms;
+}
+
+/* Check marks that appear on selection pop into place. */
+:is([data-slot="toggle"], [data-slot="toggle-group-item"])[aria-pressed="true"]
+  > .lucide-check {
+  animation: pop-in 0.4s var(--ease-bounce) backwards;
+}
+
+.like-button[aria-pressed="true"] {
+  color: var(--like);
+}
+.like-button svg[data-pop] {
+  animation: pop-in 0.55s var(--ease-bounce);
+}
+
+/* Directional icons lean toward where they lead. */
+@media (hover: hover) {
+  :is(a, button)
+    > :is(.lucide-arrow-right, .lucide-chevron-right, .lucide-arrow-left) {
+    transition: translate 400ms var(--ease-spring);
+  }
+  :is(a, button):hover > :is(.lucide-arrow-right, .lucide-chevron-right) {
+    translate: 3px 0;
+  }
+  :is(a, button):hover > .lucide-arrow-left {
+    translate: -3px 0;
+  }
+}
+
+.review-nudge {
+  transition: color 160ms ease;
+}
+@media (hover: hover) {
+  .review-nudge:hover {
+    color: var(--foreground);
+  }
+}
+.social-day-panel a[href*="#task-"] {
+  transition: color 160ms ease;
+}
+@media (hover: hover) {
+  .social-day-panel a[href*="#task-"]:hover {
+    color: var(--primary);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .social-content > *,
+  .social-nav-link.is-active .social-nav-icon,
+  .nav-count,
+  .line-tab[aria-current]::after {
     animation: none;
   }
 }

@@ -92,6 +92,7 @@ export function SocialComposer(props: ComposerProps) {
   const mode = props.request.mode;
   const task = props.request.task ?? null;
   const [pending, setPending] = useState(false);
+  const [open, setOpen] = useState(true);
   if (mode === "check-in") return <MoodCheckInSheet onClose={props.onClose} />;
   const heading = {
     choose: "What’s happening?",
@@ -100,9 +101,13 @@ export function SocialComposer(props: ComposerProps) {
   }[mode];
   return (
     <Sheet
-      open
-      onOpenChange={(open) => {
-        if (!open && !pending) props.onClose();
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && !pending) setOpen(false);
+      }}
+      // Unmount only after the sheet has slid away.
+      onOpenChangeComplete={(next) => {
+        if (!next) props.onClose();
       }}
     >
       <SheetContent
@@ -123,6 +128,7 @@ export function SocialComposer(props: ComposerProps) {
         <ComposerForm
           key={props.draftKey}
           {...props}
+          onClose={() => setOpen(false)}
           pending={pending}
           setPending={setPending}
         />
