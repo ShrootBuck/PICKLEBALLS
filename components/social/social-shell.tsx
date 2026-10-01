@@ -49,7 +49,13 @@ import { cn } from "@/lib/utils";
 const destinations = [
   { href: "/", label: "Home", icon: Home },
   { href: "/squad", label: "Squad", icon: Users },
-  { href: "/bucket-list", label: "Bucket list", icon: Mountain },
+  // Lives under Squad on mobile so the bottom nav stays at five tabs.
+  {
+    href: "/bucket-list",
+    label: "Bucket list",
+    icon: Mountain,
+    railOnly: true,
+  },
   { href: "/screen-time", label: "Screen Time", icon: Smartphone },
   { href: "/timeblock", label: "Timeblock", icon: CalendarRange },
   { href: "/profile", label: "Profile", icon: null },
@@ -145,13 +151,35 @@ export function SocialShell({
     }
   }
 
-  function navLinks() {
-    return destinations.map(({ href, label, icon: Icon }) => {
+  function navLinks(bottom: boolean) {
+    const proofs =
+      pendingVerdicts > 0 &&
+      `${pendingVerdicts} ${pendingVerdicts === 1 ? "proof" : "proofs"} to review`;
+    const votes =
+      bucketVotes > 0 &&
+      `${bucketVotes} bucket list ${bucketVotes === 1 ? "vote" : "votes"} waiting on you`;
+    const counts: Record<string, { count: number; label: string }> = bottom
+      ? {
+          "/squad": {
+            count: pendingVerdicts + bucketVotes,
+            label: [proofs, votes].filter(Boolean).join(", "),
+          },
+        }
+      : {
+          "/squad": { count: pendingVerdicts, label: proofs || "" },
+          "/bucket-list": { count: bucketVotes, label: votes || "" },
+        };
+    return destinations.flatMap(({ href, label, icon: Icon, railOnly }) => {
+      if (bottom && railOnly) return [];
       const active =
         href === "/"
           ? pathname === "/"
           : pathname.startsWith(href) ||
-            (href === "/profile" && pathname.startsWith("/members/"));
+            (href === "/profile" && pathname.startsWith("/members/")) ||
+            (bottom &&
+              href === "/squad" &&
+              pathname.startsWith("/bucket-list"));
+      const badge = counts[href];
       return (
         <Link
           href={href}
@@ -188,20 +216,9 @@ export function SocialShell({
                 <AvatarFallback>{viewer.initials}</AvatarFallback>
               </Avatar>
             )}
-            {href === "/squad" && pendingVerdicts > 0 && (
-              <Badge
-                className="nav-count"
-                aria-label={`${pendingVerdicts} ${pendingVerdicts === 1 ? "proof" : "proofs"} to review`}
-              >
-                {pendingVerdicts > 99 ? "99+" : pendingVerdicts}
-              </Badge>
-            )}
-            {href === "/bucket-list" && bucketVotes > 0 && (
-              <Badge
-                className="nav-count"
-                aria-label={`${bucketVotes} bucket list ${bucketVotes === 1 ? "vote" : "votes"} waiting on you`}
-              >
-                {bucketVotes > 99 ? "99+" : bucketVotes}
+            {badge && badge.count > 0 && (
+              <Badge className="nav-count" aria-label={badge.label}>
+                {badge.count > 99 ? "99+" : badge.count}
               </Badge>
             )}
           </span>
@@ -253,7 +270,7 @@ export function SocialShell({
           <span>pickle balls</span>
         </Link>
         <nav aria-label="Main navigation" className="flex flex-col gap-1">
-          {navLinks()}
+          {navLinks(false)}
         </nav>
         <Button className="mt-5 w-full" onClick={() => openComposer()}>
           <Plus data-icon="inline-start" /> Create
@@ -463,7 +480,7 @@ export function SocialShell({
           </div>
         </div>
         <nav className="social-bottom-nav" aria-label="Mobile navigation">
-          {navLinks()}
+          {navLinks(true)}
         </nav>
       </div>
     </div>
