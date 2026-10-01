@@ -10,6 +10,7 @@ import {
   Clock3,
   History,
   Home,
+  Mountain,
   Plus,
   ScrollText,
   Settings,
@@ -48,6 +49,7 @@ import { cn } from "@/lib/utils";
 const destinations = [
   { href: "/", label: "Home", icon: Home },
   { href: "/squad", label: "Squad", icon: Users },
+  { href: "/bucket-list", label: "Bucket list", icon: Mountain },
   { href: "/screen-time", label: "Screen Time", icon: Smartphone },
   { href: "/timeblock", label: "Timeblock", icon: CalendarRange },
   { href: "/profile", label: "Profile", icon: null },
@@ -56,11 +58,13 @@ const destinations = [
 export function SocialShell({
   circles,
   pendingVerdicts,
+  bucketVotes,
   bell,
   children,
 }: {
   circles: { id: string; name: string; role: "OWNER" | "MEMBER" }[];
   pendingVerdicts: number;
+  bucketVotes: number;
   bell: ReactNode;
   children: ReactNode;
 }) {
@@ -190,6 +194,14 @@ export function SocialShell({
                 aria-label={`${pendingVerdicts} ${pendingVerdicts === 1 ? "proof" : "proofs"} to review`}
               >
                 {pendingVerdicts > 99 ? "99+" : pendingVerdicts}
+              </Badge>
+            )}
+            {href === "/bucket-list" && bucketVotes > 0 && (
+              <Badge
+                className="nav-count"
+                aria-label={`${bucketVotes} bucket list ${bucketVotes === 1 ? "vote" : "votes"} waiting on you`}
+              >
+                {bucketVotes > 99 ? "99+" : bucketVotes}
               </Badge>
             )}
           </span>

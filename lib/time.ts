@@ -165,6 +165,17 @@ export function formatProofTime(date: Date | string) {
   return proofTimeFormatter.format(new Date(date));
 }
 
+const calendarDateFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: appTimeZone,
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
+export function formatCalendarDate(date: Date | string) {
+  return calendarDateFormatter.format(new Date(date));
+}
+
 const memberJoinedFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: appTimeZone,
   month: "short",

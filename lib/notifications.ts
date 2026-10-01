@@ -2,7 +2,12 @@ import "server-only";
 
 import { idempotencyKeys, tasks } from "@trigger.dev/sdk";
 import type { ActivityKind, Prisma } from "@/generated/prisma/client";
-import { postHref, safeAppPath, squadHref } from "@/lib/navigation";
+import {
+  bucketItemHref,
+  postHref,
+  safeAppPath,
+  squadHref,
+} from "@/lib/navigation";
 import {
   defaultNotificationPrefs,
   type NotificationPrefs,
@@ -215,6 +220,7 @@ export async function notifyReplyReceived(
           },
         },
       },
+      bucketItem: { select: { id: true, proposerId: true, title: true } },
     },
   });
   if (!reply || reply.authorId !== input.authorId) return [];
@@ -270,6 +276,13 @@ export async function notifyReplyReceived(
         url: `${postHref(input.circleId, "proof", reply.review.proof.id)}&focus=${encodeURIComponent(reply.review.id)}#comments`,
       });
     }
+  } else if (reply.bucketItem) {
+    jobs.push({
+      recipientId: reply.bucketItem.proposerId,
+      context: `your bucket list idea “${reply.bucketItem.title}”`,
+      entityId: reply.bucketItem.id,
+      url: `${bucketItemHref(input.circleId, reply.bucketItem.id)}#comments`,
+    });
   }
 
   // Proof comments and verdict replies now share one discussion.
@@ -284,7 +297,9 @@ export async function notifyReplyReceived(
           ? { proofId: reply.proof.id }
           : reply.review
             ? { reviewId: reply.review.id }
-            : null;
+            : reply.bucketItem
+              ? { bucketItemId: reply.bucketItem.id }
+              : null;
   const destination = jobs[0];
   if (!target || !destination) return [];
 
@@ -481,5 +496,103 @@ export async function notifyProofReviewed(
       },
     },
     context,
+  );
+}
+
+export type BucketItemEvent =
+  | "PROPOSED"
+  | "APPROVED"
+  | "COMPLETION_REQUESTED"
+  | "COMPLETED";
+
+export async function notifyBucketItem(
+  input: {
+    itemId: string;
+    actorId: string;
+    circleId: string;
+    event: BucketItemEvent;
+  },
+  context?: NotificationContext,
+) {
+  const prisma = context?.prisma ?? getPrisma();
+  const item = await prisma.bucketItem.findFirst({
+    where: { id: input.itemId, circleId: input.circleId },
+    select: {
+      id: true,
+      title: true,
+      details: true,
+      completionRequestedAt: true,
+    },
+  });
+  if (!item) return [];
+  const [actor, members] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: input.actorId },
+      select: { name: true },
+    }),
+    prisma.membership.findMany({
+      where: { circleId: input.circleId, userId: { not: input.actorId } },
+      select: { userId: true },
+    }),
+  ]);
+  const name = actor?.name ?? "Someone";
+  const messages = {
+    PROPOSED: {
+      kind: "BUCKET_ITEM_PROPOSED",
+      title: `${name} wants to add “${item.title}” to the bucket list`,
+      body:
+        snippet(item.details) ||
+        "It joins the list once everyone is in. Cast your vote.",
+    },
+    APPROVED: {
+      kind: "BUCKET_ITEM_APPROVED",
+      title: `“${item.title}” made the bucket list`,
+      body: "Everyone is in. Now make it happen.",
+    },
+    COMPLETION_REQUESTED: {
+      kind: "BUCKET_ITEM_COMPLETION_REQUESTED",
+      title: `${name} wants to check off “${item.title}”`,
+      body: "Confirm you did it. It’s checked off once everyone confirms.",
+    },
+    COMPLETED: {
+      kind: "BUCKET_ITEM_COMPLETED",
+      title: `“${item.title}” is checked off the bucket list`,
+      body: "Everyone confirmed. One less thing for someday.",
+    },
+  } satisfies Record<
+    BucketItemEvent,
+    { kind: ActivityKind; title: string; body: string }
+  >;
+  const message = messages[input.event];
+  // A cancelled check-off can be requested again, so each request is its own round.
+  const round =
+    input.event === "COMPLETION_REQUESTED"
+      ? `:${item.completionRequestedAt?.getTime() ?? 0}`
+      : "";
+  const prefsFor = await getNotificationPrefsByUser(
+    members.map((member) => member.userId),
+    prisma,
+  );
+  return Promise.all(
+    members.map((member) =>
+      createNotificationAndPush(
+        {
+          recipientId: member.userId,
+          actorId: input.actorId,
+          circleId: input.circleId,
+          dedupeKey: `bucket:${input.event.toLowerCase()}:${item.id}${round}:${member.userId}`,
+          kind: message.kind,
+          entityId: item.id,
+          title: message.title,
+          body: message.body,
+          data: {
+            url: bucketItemHref(input.circleId, item.id),
+            bucketItemId: item.id,
+          },
+          prefs: prefsFor(member.userId),
+        },
+        context,
+      ),
+    ),
   );
 }

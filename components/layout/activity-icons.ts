@@ -3,8 +3,11 @@ import {
   CheckCircle2,
   CircleDashed,
   ClockAlert,
+  Flag,
   History,
   MessageCircle,
+  Mountain,
+  PartyPopper,
   PencilLine,
   TriangleAlert,
   Upload,
@@ -30,6 +33,13 @@ export function activityIcon(kind: string) {
     case "INVITE_CREATED":
     case "INVITE_REVOKED":
       return MessageCircle;
+    case "BUCKET_ITEM_PROPOSED":
+    case "BUCKET_ITEM_APPROVED":
+      return Mountain;
+    case "BUCKET_ITEM_COMPLETION_REQUESTED":
+      return Flag;
+    case "BUCKET_ITEM_COMPLETED":
+      return PartyPopper;
     default:
       return CircleDashed;
   }

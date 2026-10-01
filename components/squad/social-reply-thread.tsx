@@ -56,7 +56,8 @@ type ReplyTargetType =
   | "CHECK_IN"
   | "CHECK_IN_UPDATE"
   | "PROOF"
-  | "REVIEW";
+  | "REVIEW"
+  | "BUCKET_ITEM";
 
 type SocialReply = ThreadReply;
 
@@ -385,6 +386,7 @@ export function SocialReplyThread({
   const generatedId = useId();
   const threadId = `reply-thread-${generatedId.replaceAll(":", "")}`;
   const inputId = `${threadId}-input`;
+  const commenting = targetType === "PROOF" || targetType === "BUCKET_ITEM";
   const [replies, setReplies] = useState(() => chronological(initialReplies));
   const [hasMore, setHasMore] = useState(
     initialHasMore ?? initialReplies.length === 50,
@@ -698,9 +700,7 @@ export function SocialReplyThread({
                       }}
                       maxLength={500}
                       placeholder={
-                        targetType === "PROOF"
-                          ? "Write a comment…"
-                          : "Write a reply…"
+                        commenting ? "Write a comment…" : "Write a reply…"
                       }
                       aria-invalid={Boolean(error)}
                       disabled={pending}
@@ -768,7 +768,7 @@ export function SocialReplyThread({
                       ) : (
                         <Send data-icon="inline-start" />
                       )}
-                      {targetType === "PROOF" ? "Comment" : "Reply"}
+                      {commenting ? "Comment" : "Reply"}
                     </Button>
                   </div>
                 </FieldGroup>

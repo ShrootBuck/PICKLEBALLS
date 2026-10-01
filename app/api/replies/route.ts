@@ -44,6 +44,7 @@ export async function GET(request: Request) {
         "CHECK_IN_UPDATE",
         "PROOF",
         "REVIEW",
+        "BUCKET_ITEM",
       ]),
       targetId: z.string().min(1).max(100),
       before: z.string().min(1).max(100).optional(),
@@ -72,6 +73,7 @@ export async function GET(request: Request) {
       CHECK_IN_UPDATE: "checkInUpdateId",
       PROOF: "proofId",
       REVIEW: "reviewId",
+      BUCKET_ITEM: "bucketItemId",
     }[targetType];
     const where = { circleId: auth.membership.circleId, [field]: targetId };
     const cursor = before

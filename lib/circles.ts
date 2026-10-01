@@ -1,6 +1,7 @@
 import "server-only";
 
 import { randomBytes } from "node:crypto";
+import { settleBucketItems } from "@/lib/bucket-list-settle";
 import { getPrisma } from "@/lib/prisma";
 import {
   proofApprovalProgress,
@@ -61,7 +62,8 @@ export async function listMyCircles(userId: string) {
   });
 }
 
-// Removing a member can lower the approval threshold for pending proofs.
+// Removing a member can lower the approval threshold for pending proofs and
+// complete bucket list votes that were only waiting on them.
 export async function removeCircleMember(
   userId: string,
   circleId: string,
@@ -117,6 +119,7 @@ export async function removeCircleMember(
         },
       });
     }
+    await settleBucketItems(tx, circleId);
     return deleted;
   });
 }

@@ -7,6 +7,10 @@ export const inboxKinds: ActivityKind[] = [
   "PROOF_SUBMITTED",
   "PROOF_APPROVED",
   "PROOF_CHALLENGED",
+  "BUCKET_ITEM_PROPOSED",
+  "BUCKET_ITEM_APPROVED",
+  "BUCKET_ITEM_COMPLETION_REQUESTED",
+  "BUCKET_ITEM_COMPLETED",
 ];
 
 // The bell inbox only shows the last 24 hours; nothing older is offered.

@@ -291,6 +291,11 @@ for (const [relation, field, target] of [
       proof: { id: "proof", ownerId: "owner", commitment: { title: "Task" } },
     },
   ],
+  [
+    "bucketItem",
+    "bucketItemId",
+    { id: "target", proposerId: "owner", title: "Go skydiving" },
+  ],
 ] as const) {
   test(`${relation} replies notify owners and participants once, excluding self and former members`, async () => {
     const createdAt = new Date("2026-09-12T12:00:00Z");
@@ -357,7 +362,9 @@ for (const [relation, field, target] of [
                   ? "/posts/proof/proof?circle=circle&focus=target#comments"
                   : relation === "checkInUpdate"
                     ? "/posts/check-in/target?circle=circle#comments"
-                    : "/squad?circle=circle&focus=target",
+                    : relation === "bucketItem"
+                      ? "/bucket-list/target?circle=circle#comments"
+                      : "/squad?circle=circle&focus=target",
           }),
         }),
       }),

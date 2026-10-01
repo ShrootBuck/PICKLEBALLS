@@ -170,6 +170,47 @@ export async function createSocialReply(
       return reply;
     }
 
+    if (targetType === "BUCKET_ITEM") {
+      const item = await transaction.bucketItem.findFirst({
+        where: { id: targetId, circleId },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          proposer: { select: { name: true } },
+        },
+      });
+      if (!item) throw new DomainError("Bucket list item not found.", 404);
+      if (item.status === "WITHDRAWN")
+        throw new DomainError("This idea was withdrawn.", 409);
+
+      const reply = await transaction.socialReply.create({
+        data: {
+          authorId,
+          circleId,
+          bucketItemId: item.id,
+          body,
+          mediaIds,
+        },
+        include: { author: { select: authorSelect } },
+      });
+      await transaction.activityEvent.create({
+        data: {
+          circleId,
+          actorId: authorId,
+          kind: "REPLY_POSTED",
+          entityId: item.id,
+          summary: `replied to ${item.proposer.name}'s bucket list idea “${item.title}”`,
+          metadata: { targetType, replyId: reply.id },
+        },
+      });
+      await notifyReplyReceived(
+        { replyId: reply.id, authorId, circleId },
+        notifications,
+      );
+      return reply;
+    }
+
     const review = await transaction.taskProofReview.findFirst({
       where: { id: targetId, circleId },
       select: {

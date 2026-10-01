@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1790835379265,
+    title: "A bucket list for your circle",
+    description:
+      "Propose big things you want to do someday, like skydiving, from the new Bucket list tab. An idea joins the list only when everyone in your circle is in, and it’s checked off only when everyone confirms you did it. Change your vote until it’s decided, and talk it through in the comments.",
+  },
+  {
     timestamp: 1790126601180,
     title: "Commit with just a title",
     description:

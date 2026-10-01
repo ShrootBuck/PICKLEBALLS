@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { BellSlot } from "@/components/layout/bell-slot";
 import { SocialProvider } from "@/components/social/social-provider";
 import { SocialShell } from "@/components/social/social-shell";
+import { countBucketVotesAwaiting } from "@/lib/bucket-list-data";
 import { listMyCircles } from "@/lib/circles";
 import { getPrisma } from "@/lib/prisma";
 import { getPageSession, requirePageMembership } from "@/lib/request";
@@ -22,7 +23,7 @@ export default async function DashboardLayout({
     return <div className="min-h-full bg-background">{children}</div>;
   const { membership } = await requirePageMembership();
   const day = phoenixDateKey();
-  const [memberships, tasks, pendingVerdicts] = await Promise.all([
+  const [memberships, tasks, pendingVerdicts, bucketVotes] = await Promise.all([
     listMyCircles(session.user.id),
     getPrisma().commitment.findMany({
       where: {
@@ -43,6 +44,7 @@ export default async function DashboardLayout({
         reviews: { none: { reviewerId: session.user.id } },
       },
     }),
+    countBucketVotesAwaiting(membership.circleId, session.user.id),
   ]);
   const { id, name, image, initials } = membership.user;
   return (
@@ -60,6 +62,7 @@ export default async function DashboardLayout({
           role,
         }))}
         pendingVerdicts={pendingVerdicts}
+        bucketVotes={bucketVotes}
         bell={
           <Suspense fallback={null}>
             <BellSlot circleId={membership.circleId} userId={id} />

@@ -21,6 +21,7 @@ export const socialReplySchema = z
       "CHECK_IN_UPDATE",
       "PROOF",
       "REVIEW",
+      "BUCKET_ITEM",
     ]),
     targetId: z.string().trim().min(1).max(100),
     body: z.string().trim().max(500),
@@ -30,6 +31,17 @@ export const socialReplySchema = z
     (v) => v.body.length > 0 || v.mediaIds.length > 0,
     "Write a reply or attach media.",
   );
+
+export const bucketItemInputSchema = z.object({
+  circleId: z.string().trim().min(1).max(100),
+  title: z.string().trim().min(1).max(100),
+  details: z.string().trim().max(500).optional().default(""),
+});
+
+export const bucketVoteSchema = z.object({
+  stage: z.enum(["PROPOSAL", "COMPLETION"]),
+  inFavor: z.boolean(),
+});
 
 export const replyEditSchema = z.object({
   body: z.string().trim().min(1).max(500),
