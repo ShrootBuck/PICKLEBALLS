@@ -44,7 +44,10 @@ export type CheckInPost = PostBase & {
   mediaIds: string[];
   signal: string;
   mood?: number | null;
+  valence?: number | null;
   feelings?: string[];
+  impacts?: string[];
+  prompt?: string | null;
   day: string;
   checkInId: string;
   legacyCommentCount: number;
@@ -76,6 +79,7 @@ export type SocialMember = SocialAuthor & {
   signal: string | null;
   note: string | null;
   mood: number | null;
+  valence: number | null;
 };
 
 export function postKey(post: Pick<FeedPost, "kind" | "id">) {

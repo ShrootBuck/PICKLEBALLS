@@ -3,10 +3,61 @@
 import { BadgeCheck } from "lucide-react";
 import Link from "next/link";
 import { MediaGallery } from "@/components/media/media-gallery";
+import { ImpactList } from "@/components/mood/mood-display";
+import { MoodShape } from "@/components/mood/mood-shape";
 import { Badge } from "@/components/ui/badge";
-import { moodLabel } from "@/lib/mood";
+import {
+  formatFeelings,
+  moodLevelLabel,
+  moodStyle,
+  postValence,
+} from "@/lib/mood";
 import { postHref } from "@/lib/navigation";
-import type { InteractivePost } from "@/lib/social-types";
+import type { CheckInPost, InteractivePost } from "@/lib/social-types";
+
+function CheckInBody({ post }: { post: CheckInPost }) {
+  const valence = postValence(post);
+  const feelings = post.feelings ?? [];
+  return (
+    <div
+      className="flex flex-col"
+      style={valence == null ? undefined : moodStyle(valence)}
+    >
+      {valence == null ? (
+        <Badge className="w-fit" variant="secondary">
+          Check-in
+        </Badge>
+      ) : (
+        <div className="mood-post-head">
+          <MoodShape valence={valence} size={46} />
+          <div className="min-w-0">
+            <p className="mood-post-level">{moodLevelLabel(valence)}</p>
+            {feelings.length > 0 && (
+              <p className="mood-post-feelings">{formatFeelings(feelings)}</p>
+            )}
+          </div>
+        </div>
+      )}
+      <ImpactList ids={post.impacts ?? []} className="mt-3" />
+      {!!post.mediaIds?.length && (
+        <div className="feed-media mt-4">
+          <MediaGallery ids={post.mediaIds} />
+        </div>
+      )}
+      {post.body && post.prompt && (
+        <p className="mood-post-prompt">{post.prompt}</p>
+      )}
+      {(post.body || valence == null) && (
+        <p
+          className="social-check-in whitespace-pre-wrap break-words"
+          data-prompted={post.body && post.prompt ? true : undefined}
+        >
+          {post.body || "Taking a moment to check in."}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export function PostBody({ post }: { post: InteractivePost }) {
   const href = postHref(post.circleId, post.kind, post.id);
@@ -56,33 +107,7 @@ export function PostBody({ post }: { post: InteractivePost }) {
           )}
         </>
       ) : (
-        <>
-          <Badge
-            className="w-fit"
-            variant={
-              post.mood != null && post.mood < 3 ? "outline" : "secondary"
-            }
-          >
-            {moodLabel(post.mood)}
-          </Badge>
-          {!!post.feelings?.length && (
-            <ul aria-label="Feelings" className="mt-3 flex flex-wrap gap-2">
-              {post.feelings.map((feeling) => (
-                <li key={feeling}>
-                  <Badge variant="outline">{feeling}</Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-          {!!post.mediaIds?.length && (
-            <div className="feed-media mt-3">
-              <MediaGallery ids={post.mediaIds} />
-            </div>
-          )}
-          <p className="social-check-in whitespace-pre-wrap break-words">
-            {post.body || "Taking a moment to check in."}
-          </p>
-        </>
+        <CheckInBody post={post} />
       )}
     </>
   );

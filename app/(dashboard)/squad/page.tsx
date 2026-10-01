@@ -4,11 +4,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CircleDestination } from "@/components/circles/circle-destination";
 import { PageHeader } from "@/components/layout/page-header";
+import { MoodBadge } from "@/components/mood/mood-display";
 import { Feed } from "@/components/social/feed";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { moodLabel } from "@/lib/mood";
+import { postValence } from "@/lib/mood";
 import { memberHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
@@ -106,6 +107,7 @@ export default async function SquadPage({
             const verified = member.tasks.filter(
               (task) => task.status === "VERIFIED",
             ).length;
+            const valence = postValence(member);
             return (
               <Link
                 key={member.id}
@@ -131,18 +133,14 @@ export default async function SquadPage({
                       {member.note}
                     </p>
                   )}
-                  {member.signal && (
-                    <Badge
-                      className="mt-2"
-                      variant={
-                        member.mood != null && member.mood < 3
-                          ? "outline"
-                          : "secondary"
-                      }
-                    >
-                      {moodLabel(member.mood)}
-                    </Badge>
-                  )}
+                  {member.signal &&
+                    (valence == null ? (
+                      <Badge className="mt-2" variant="secondary">
+                        Checked in
+                      </Badge>
+                    ) : (
+                      <MoodBadge className="mt-2" valence={valence} />
+                    ))}
                 </div>
                 <ArrowUpRight className="mt-1 size-4 shrink-0 text-muted-foreground" />
               </Link>

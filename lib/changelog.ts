@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1790877525447,
+    title: "Check-ins that follow your mood",
+    description:
+      "Slide from very unpleasant to very pleasant and watch the shape and color change with you. Then pick words that fit (choosing one suggests related words), tag what’s having the biggest impact, like school or sleep, and answer a prompt written for how you feel. Your circle sees each check-in in its mood color.",
+  },
+  {
     timestamp: 1790835379265,
     title: "A bucket list for your circle",
     description:

@@ -22,7 +22,7 @@ import {
   UploadStatus,
   useUploadStatus,
 } from "@/components/media/upload-status";
-import { MoodCheckIn } from "@/components/social/mood-check-in";
+import { MoodCheckInSheet } from "@/components/social/mood-check-in";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -92,11 +92,11 @@ export function SocialComposer(props: ComposerProps) {
   const mode = props.request.mode;
   const task = props.request.task ?? null;
   const [pending, setPending] = useState(false);
+  if (mode === "check-in") return <MoodCheckInSheet onClose={props.onClose} />;
   const heading = {
     choose: "What’s happening?",
     task: task ? "Edit your task" : "Make a commitment",
     proof: task?.proof ? "Another look. Better proof." : "Show the work",
-    "check-in": "How’s it going?",
   }[mode];
   return (
     <Sheet
@@ -120,21 +120,12 @@ export function SocialComposer(props: ComposerProps) {
             </SheetDescription>
           )}
         </SheetHeader>
-        {mode === "check-in" ? (
-          <div className="min-h-0 overflow-y-auto px-5 pb-5">
-            <MoodCheckIn
-              onShared={props.onClose}
-              onPendingChange={setPending}
-            />
-          </div>
-        ) : (
-          <ComposerForm
-            key={props.draftKey}
-            {...props}
-            pending={pending}
-            setPending={setPending}
-          />
-        )}
+        <ComposerForm
+          key={props.draftKey}
+          {...props}
+          pending={pending}
+          setPending={setPending}
+        />
       </SheetContent>
     </Sheet>
   );

@@ -171,8 +171,10 @@ async function postMood(body: unknown, session = mine, requestOrigin = origin) {
   });
 }
 const moodInput = {
-  mood: 4,
+  valence: 57,
   feelings: ["Grateful", "Nervous"],
+  impacts: ["friends"],
+  prompt: "What about your friends made you feel grateful?",
   journal: "A full reflection.\n".repeat(80),
 };
 assert.equal((await postMood(moodInput, "")).status, 401);
@@ -188,6 +190,11 @@ assert.equal(
   (await postMood({ ...moodInput, journal: "x".repeat(5001) })).status,
   400,
 );
+assert.equal(
+  (await postMood({ ...moodInput, prompt: "Made-up prompt" })).status,
+  400,
+);
+assert.equal((await postMood({ ...moodInput, impacts: ["mars"] })).status, 400);
 const moodResponse = await postMood(moodInput);
 assert.equal(moodResponse.status, 200);
 const moodPost = (await moodResponse.json()).update;
@@ -196,7 +203,10 @@ const savedMood = refreshedFeed.items.find(
   (item: { id: string }) => item.id === moodPost.id,
 );
 assert.equal(savedMood.mood, 4);
+assert.equal(savedMood.valence, moodInput.valence);
 assert.deepEqual(savedMood.feelings, moodInput.feelings);
+assert.deepEqual(savedMood.impacts, moodInput.impacts);
+assert.equal(savedMood.prompt, moodInput.prompt);
 assert.equal(savedMood.body, moodInput.journal.trim());
 const outsideFeed = await (await get("/api/feed", outside)).json();
 assert(

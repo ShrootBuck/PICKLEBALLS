@@ -372,7 +372,12 @@ model CheckInUpdate {
   signal    DailySignal
   blocker   String?     @db.VarChar(500)
   feelings  String[]    @default([])
+  // Legacy 1-5 scale. New check-ins also store it so older releases can read them.
   mood      Int?
+  // -100 (very unpleasant) to 100 (very pleasant).
+  valence   Int?
+  impacts   String[]    @default([])
+  prompt    String?     @db.VarChar(200)
   journal   String?     @db.VarChar(5000)
   mediaIds  String[]    @default([])
   createdAt DateTime    @default(now())

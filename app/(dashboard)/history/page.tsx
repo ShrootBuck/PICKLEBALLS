@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { HistoryNav } from "@/components/history/history-nav";
 import { PageHeader } from "@/components/layout/page-header";
+import { ImpactList, MoodBadge } from "@/components/mood/mood-display";
 import { ProofCard } from "@/components/squad/proof-card";
 import {
   taskStatusLabel,
@@ -19,7 +20,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { likeInclude } from "@/lib/like-summary";
-import { moodLabel } from "@/lib/mood";
+import { formatFeelings, moodStyle, postValence } from "@/lib/mood";
 import { postHref, squadHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
@@ -222,7 +223,10 @@ export default async function HistoryPage({
                   ? [
                       {
                         mood: null,
+                        valence: null,
                         feelings: [] as string[],
+                        impacts: [] as string[],
+                        prompt: null,
                         journal: null,
                         id: fallbackCheckIn.id,
                         signal: fallbackCheckIn.signal,
@@ -293,55 +297,59 @@ export default async function HistoryPage({
                       <p className="text-xs font-medium text-muted-foreground">
                         Check-ins
                       </p>
-                      {checkInItems.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex flex-col gap-1.5 rounded-lg bg-muted/50 px-3 py-2.5"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant={
-                                item.mood != null && item.mood < 3
-                                  ? "outline"
-                                  : "secondary"
-                              }
-                            >
-                              {moodLabel(item.mood)}
-                            </Badge>
-                            <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
-                              {formatHistoryTime(item.createdAt)}
-                            </span>
-                          </div>
-                          {!!item.feelings.length && (
-                            <div className="flex flex-wrap gap-2">
-                              {item.feelings.map((feeling) => (
-                                <Badge key={feeling} variant="outline">
-                                  {feeling}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                          {item.journal || item.blocker ? (
-                            <p className="whitespace-pre-wrap break-words text-sm leading-snug text-pretty">
-                              {item.journal ?? item.blocker}
-                            </p>
-                          ) : null}
-                          <Link
-                            className="mt-1 inline-flex min-h-11 items-center text-xs font-medium text-muted-foreground hover:text-foreground"
-                            href={
-                              userUpdates.length
-                                ? postHref(
-                                    membership.circleId,
-                                    "check-in",
-                                    item.id,
-                                  )
-                                : squadHref(membership.circleId, item.id)
+                      {checkInItems.map((item) => {
+                        const valence = postValence(item);
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex flex-col gap-1.5 rounded-lg bg-muted/50 px-3 py-2.5"
+                            style={
+                              valence == null ? undefined : moodStyle(valence)
                             }
                           >
-                            Open check-in and discussion
-                          </Link>
-                        </div>
-                      ))}
+                            <div className="flex items-center gap-2">
+                              {valence == null ? (
+                                <Badge variant="secondary">Check-in</Badge>
+                              ) : (
+                                <MoodBadge valence={valence} />
+                              )}
+                              <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
+                                {formatHistoryTime(item.createdAt)}
+                              </span>
+                            </div>
+                            {!!item.feelings.length && (
+                              <p className="text-sm text-muted-foreground">
+                                {formatFeelings(item.feelings)}
+                              </p>
+                            )}
+                            <ImpactList ids={item.impacts} />
+                            {item.journal && item.prompt && (
+                              <p className="text-xs font-semibold text-muted-foreground">
+                                {item.prompt}
+                              </p>
+                            )}
+                            {item.journal || item.blocker ? (
+                              <p className="whitespace-pre-wrap break-words text-sm leading-snug text-pretty">
+                                {item.journal ?? item.blocker}
+                              </p>
+                            ) : null}
+                            <Link
+                              className="mt-1 inline-flex min-h-11 items-center text-xs font-medium text-muted-foreground hover:text-foreground"
+                              href={
+                                userUpdates.length
+                                  ? postHref(
+                                      membership.circleId,
+                                      "check-in",
+                                      item.id,
+                                    )
+                                  : squadHref(membership.circleId, item.id)
+                              }
+                            >
+                              Open check-in and discussion
+                            </Link>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : null}
                 </div>

@@ -882,18 +882,25 @@ test("mood posts preserve full journals and feelings in circle timelines without
     undefined,
     now,
     {
-      mood: 2,
+      valence: -57,
       feelings: ["Worried", "Tired"],
+      impacts: ["school", "sleep"],
+      prompt: "What about school is making you feel worried?",
       journal,
     },
   );
   const later = await setCheckIn(ids.owner, ids.circle, "YAY", undefined, now, {
-    mood: 5,
+    valence: 86,
     feelings: ["Excited", "Joyful"],
+    impacts: [],
+    prompt: "What made you feel excited?",
     journal: "",
   });
   expect(update.journal).toBe(journal.trim());
   expect(update.feelings).toEqual(["Worried", "Tired"]);
+  expect(update.mood).toBe(2);
+  expect(later.update.mood).toBe(5);
+  expect(later.update.prompt).toBeNull();
   const feed = await getFeedPage({
     viewerId: ids.peer,
     circleId: ids.circle,
@@ -904,10 +911,18 @@ test("mood posts preserve full journals and feelings in circle timelines without
   const saved = feed.items.find((post) => post.id === update.id);
   expect(saved?.body).toBe(journal.trim());
   expect(saved?.kind === "check-in" && saved.mood).toBe(2);
+  expect(saved?.kind === "check-in" && saved.valence).toBe(-57);
   expect(saved?.kind === "check-in" && saved.feelings).toEqual([
     "Worried",
     "Tired",
   ]);
+  expect(saved?.kind === "check-in" && saved.impacts).toEqual([
+    "school",
+    "sleep",
+  ]);
+  expect(saved?.kind === "check-in" && saved.prompt).toBe(
+    "What about school is making you feel worried?",
+  );
   const first = await getFeedPage({
     viewerId: ids.peer,
     circleId: ids.circle,
@@ -1234,8 +1249,9 @@ test("check-in media is claimed atomically and included in the feed", async () =
     undefined,
     now,
     {
-      mood: 4,
+      valence: 57,
       feelings: [],
+      impacts: [],
       journal: "Today",
       mediaIds: [photo, video],
     },
@@ -1265,8 +1281,9 @@ test("check-in media is claimed atomically and included in the feed", async () =
     const before = await prisma.checkInUpdate.count();
     await expect(
       setCheckIn(ids.owner, ids.circle, "YAY", undefined, now, {
-        mood: 4,
+        valence: 57,
         feelings: [],
+        impacts: [],
         journal: "",
         mediaIds: [fresh, invalid],
       }),

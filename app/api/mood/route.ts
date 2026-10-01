@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { jsonError, readJson } from "@/lib/api";
 import { DomainError } from "@/lib/errors";
-import { moodCheckInSchema } from "@/lib/mood";
+import { moodCheckInSchema, moodTone } from "@/lib/mood";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { setCheckIn } from "@/lib/tasks";
@@ -17,12 +17,12 @@ export async function POST(request: Request) {
     const parsed = moodCheckInSchema.safeParse(await readJson(request, 32_000));
     if (!parsed.success)
       throw new DomainError(
-        "Choose a mood and matching feelings. Journal entries can be up to 5,000 characters.",
+        "Choose how you feel from the options shown. Journal entries can be up to 5,000 characters.",
       );
     const result = await setCheckIn(
       auth.session.user.id,
       auth.membership.circleId,
-      parsed.data.mood < 3 ? "NAY" : "YAY",
+      moodTone(parsed.data.valence) === "unpleasant" ? "NAY" : "YAY",
       undefined,
       new Date(),
       parsed.data,

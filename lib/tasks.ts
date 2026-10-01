@@ -1,4 +1,4 @@
-import type { MoodCheckInInput } from "@/lib/mood";
+import { legacyMood, type MoodCheckInInput } from "@/lib/mood";
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -537,9 +537,12 @@ export async function setCheckIn(
         ...(mood
           ? {
               mediaIds: mood.mediaIds ?? [],
-              mood: mood.mood,
+              mood: legacyMood(mood.valence),
+              valence: mood.valence,
               feelings: mood.feelings,
+              impacts: mood.impacts,
               journal: mood.journal.trim() || null,
+              prompt: (mood.journal.trim() && mood.prompt) || null,
             }
           : {}),
       },

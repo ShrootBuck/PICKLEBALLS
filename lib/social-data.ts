@@ -92,7 +92,7 @@ export async function getSocialMembers(
               updates: {
                 orderBy: [{ createdAt: "desc" }, { id: "desc" }],
                 take: 1,
-                select: { mood: true, journal: true },
+                select: { mood: true, valence: true, journal: true },
               },
             },
           },
@@ -114,6 +114,7 @@ export async function getSocialMembers(
       user.checkIns[0]?.blocker ??
       null,
     mood: user.checkIns[0]?.updates[0]?.mood ?? null,
+    valence: user.checkIns[0]?.updates[0]?.valence ?? null,
   }));
 }
 
@@ -394,7 +395,10 @@ async function readPosts({
         body: u.journal ?? u.blocker,
         mediaIds: u.mediaIds,
         mood: u.mood,
+        valence: u.valence,
         feelings: u.feelings,
+        impacts: u.impacts,
+        prompt: u.journal ? u.prompt : null,
         signal: u.signal,
         day: u.day.toISOString().slice(0, 10),
         checkInId: u.checkInId,
