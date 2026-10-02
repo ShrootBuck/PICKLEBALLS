@@ -17,6 +17,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { GoalPicker } from "@/components/goals/goal-picker";
 import { MediaPicker } from "@/components/media/media-picker";
 import {
   UploadStatus,
@@ -63,9 +64,11 @@ type Mode = "choose" | "task" | "proof" | "check-in";
 export type ComposerRequest = {
   mode: Mode;
   task?: SocialTask;
+  goal?: { id: string; title: string };
 };
 export type ComposerDraft = {
   title: string;
+  goalId?: string | null;
   files: File[];
   note: string;
   startedAt: string;
@@ -140,6 +143,7 @@ export function SocialComposer(props: ComposerProps) {
 function ComposerForm({
   request,
   tasks,
+  circleId,
   onClose,
   draft,
   onSaveDraft,
@@ -162,6 +166,11 @@ function ComposerForm({
       (request.mode === "task" ? (request.task?.title ?? "") : ""),
   );
   const [files, setFiles] = useState<File[]>(draft?.files ?? []);
+  const [goalId, setGoalId] = useState<string | null>(
+    draft && "goalId" in draft
+      ? (draft.goalId ?? null)
+      : (request.goal?.id ?? null),
+  );
   const [note, setNote] = useState(draft?.note ?? "");
   const [startedAt, setStartedAt] = useState(
     () =>
@@ -194,6 +203,7 @@ function ComposerForm({
       if (!submitted.current)
         onSaveDraft({
           title,
+          goalId,
           files,
           note,
           startedAt,
@@ -205,6 +215,7 @@ function ComposerForm({
     };
   }, [
     title,
+    goalId,
     files,
     note,
     startedAt,
@@ -241,7 +252,11 @@ function ComposerForm({
           {
             method: task ? "PATCH" : "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ title }),
+            body: JSON.stringify({
+              title,
+              circleId,
+              ...(!task ? { goalId } : {}),
+            }),
           },
         );
       } else {
@@ -287,7 +302,13 @@ function ComposerForm({
               : "Check-in posted.",
         type: "success",
       });
-      router.push(mode === "task" ? "/profile?tab=tasks" : "/");
+      router.push(
+        mode === "task"
+          ? !task && goalId
+            ? `/goals/${goalId}`
+            : "/profile?tab=tasks"
+          : "/",
+      );
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -369,6 +390,15 @@ function ComposerForm({
                 autoFocus
               />
             </Field>
+            {!task && (
+              <GoalPicker
+                circleId={circleId}
+                value={goalId}
+                onChange={setGoalId}
+                disabled={pending}
+                initial={request.goal}
+              />
+            )}
           </FieldGroup>
         )}
         {mode === "proof" && !task && (

@@ -29,6 +29,7 @@ export const socialAuthorSelect = {
   initials: true,
 } as const;
 export const socialTaskInclude = {
+  goal: { select: { id: true, title: true } },
   proofs: {
     where: { replacedById: null },
     orderBy: { submittedAt: "desc" },
@@ -52,6 +53,7 @@ export function toSocialTask(task: {
   dueAt: Date;
   status: SocialTask["status"];
   proofs: NonNullable<SocialTask["proof"]>[];
+  goal?: SocialTask["goal"];
 }): SocialTask {
   return {
     id: task.id,
@@ -60,6 +62,7 @@ export function toSocialTask(task: {
     dueAt: task.dueAt.toISOString(),
     status: shouldMarkMissed(task.status, task.dueAt) ? "MISSED" : task.status,
     proof: task.proofs[0] ?? null,
+    goal: task.goal ?? null,
   };
 }
 

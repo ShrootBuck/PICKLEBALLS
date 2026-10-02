@@ -98,6 +98,14 @@ export function TaskList({
                     task.title
                   )}
                 </h3>
+                {task.goal && (
+                  <Link
+                    href={`/goals/${task.goal.id}`}
+                    className="text-xs text-primary underline-offset-4 hover:underline"
+                  >
+                    {task.goal.title}
+                  </Link>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Due{" "}
                   {new Date(task.dueAt).toLocaleString("en-US", {

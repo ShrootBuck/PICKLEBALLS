@@ -8,6 +8,18 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1790912644543,
+    title: "Your week, wrapped",
+    description:
+      "Look back on your circle's completed weeks with verified proof, goal milestones, screen-time improvements, and a favorite comment. Add a win in your own words, browse earlier recaps, and download a card to keep.",
+  },
+  {
+    timestamp: 1790912644542,
+    title: "Give your daily work a bigger goal",
+    description:
+      "Set long-term goals with milestones and an optional target date. Link new or existing tasks to collect the proof behind your progress, follow your circle's goals, and keep completed or archived goals for later.",
+  },
+  {
     timestamp: 1790877525447,
     title: "Check-ins that follow your mood",
     description:

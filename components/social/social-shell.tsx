@@ -17,6 +17,8 @@ import {
   Settings,
   Shield,
   Smartphone,
+  Sparkles,
+  Target,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -51,6 +53,8 @@ const destinations = [
   { href: "/", label: "Home", icon: Home },
   { href: "/squad", label: "Squad", icon: Users },
   { href: "/bucket-list", label: "Bucket list", icon: Mountain },
+  { href: "/goals", label: "Goals", icon: Target, railOnly: true },
+  { href: "/wrapped", label: "Wrapped", icon: Sparkles, railOnly: true },
   // Weekly and reached from the Home reminder, so mobile keeps it in the circle menu.
   {
     href: "/screen-time",
@@ -90,7 +94,10 @@ export function SocialShell({
   const wide =
     ["/screen-time", "/timeblock", "/history", "/admin", "/changelog"].includes(
       pathname,
-    ) || pathname.startsWith("/superadmin");
+    ) ||
+    pathname.startsWith("/superadmin") ||
+    pathname.startsWith("/goals") ||
+    pathname === "/wrapped";
   useLayoutEffect(() => {
     const node = scrollRef.current;
     if (!node) return;
@@ -325,6 +332,18 @@ export function SocialShell({
                 </DropdownMenuLabel>
                 <DropdownMenuItem render={<Link href="/history" />}>
                   <History /> Circle history
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="md:hidden"
+                  render={<Link href="/goals" />}
+                >
+                  <Target /> Goals
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="md:hidden"
+                  render={<Link href="/wrapped" />}
+                >
+                  <Sparkles /> Wrapped
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="md:hidden"

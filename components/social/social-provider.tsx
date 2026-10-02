@@ -88,7 +88,7 @@ export function SocialProvider({
   const [composer, setComposer] = useState<ComposerRequest | null>(null);
   const [postRevision, setPostRevision] = useState(0);
   const drafts = useRef(new Map<string, ComposerDraft>());
-  const draftKey = `${day}:${composer?.mode}:${composer?.task?.id ?? "new"}`;
+  const draftKey = `${day}:${composer?.mode}:${composer?.task?.id ?? composer?.goal?.id ?? "new"}`;
   const feeds = useRef(
     new Map<string, FeedPage & { serverSignature: string }>(),
   );

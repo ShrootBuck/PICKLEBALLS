@@ -1,5 +1,5 @@
 "use client";
-import { ArrowRight, Camera, Plus } from "lucide-react";
+import { ArrowRight, Camera, Plus, Sparkles, Target } from "lucide-react";
 import Link from "next/link";
 import { useSocial } from "@/components/social/social-provider";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,22 @@ export function HomeActions() {
   const done = tasks.filter((task) => task.status === "VERIFIED").length;
   return (
     <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-4 text-sm">
+        <Link
+          href="/goals"
+          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground"
+        >
+          <Target className="size-4" />
+          Your goals
+        </Link>
+        <Link
+          href="/wrapped"
+          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground"
+        >
+          <Sparkles className="size-4" />
+          Weekly wrapped
+        </Link>
+      </div>
       <Button
         variant="secondary"
         onClick={() => openComposer({ mode: "proof" })}

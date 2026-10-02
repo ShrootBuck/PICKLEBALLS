@@ -1,0 +1,278 @@
+// Run against bun run test:social:ui. All writes use disposable test accounts.
+import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+import { chromium } from "playwright";
+import sharp from "sharp";
+
+const origin = "http://localhost:3317";
+const output = "/private/tmp/pb-goals-wrapped";
+await mkdir(output, { recursive: true });
+const browser = await chromium.launch({ headless: true });
+try {
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 960 },
+    serviceWorkers: "block",
+  });
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("http://localhost:3318/login");
+  await page.goto(`${origin}/goals`);
+  await page
+    .getByRole("heading", { name: "Small steps. Bigger things." })
+    .waitFor();
+  await page
+    .getByRole("link", { name: "Reach 1600 on Codeforces", exact: true })
+    .waitFor();
+  await page.screenshot({
+    path: `${output}/goals-desktop.png`,
+    caret: "initial",
+  });
+  await page.getByRole("button", { name: "New goal", exact: true }).click();
+  const title = `Browser goal ${Date.now()}`;
+  await page.getByLabel("The goal", { exact: true }).fill(title);
+  await page
+    .getByLabel("What would success look like? (optional)")
+    .fill("Finish a small project and show the work.");
+  await page
+    .getByLabel("Milestones (optional)")
+    .fill("Make the first draft\nShare it with the circle");
+  await page.getByRole("button", { name: "Create goal", exact: true }).click();
+  await page.waitForURL(/\/goals\/[^/?]+$/);
+  const goalUrl = page.url();
+  const goalId = goalUrl.split("/").at(-1) as string;
+  await page.getByRole("heading", { name: title, exact: true }).waitFor();
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Complete goal", exact: true })
+      .isDisabled(),
+    true,
+  );
+  await page
+    .getByRole("checkbox", {
+      name: "Make the first draft",
+      exact: true,
+    })
+    .click();
+  await page.getByText("1 of 2 milestones complete", { exact: true }).waitFor();
+  await page.reload();
+  await page.getByText("1 of 2 milestones complete", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Add a task", exact: true }).click();
+  await page
+    .getByLabel("What will you do?", { exact: true })
+    .fill("Write the first scene");
+  await page.getByRole("combobox").waitFor();
+  await page.waitForFunction(
+    () =>
+      !document.querySelector('[role="combobox"]')?.hasAttribute("disabled"),
+  );
+  assert.match(await page.getByRole("combobox").innerText(), new RegExp(title));
+  await page.getByRole("button", { name: "Save task", exact: true }).click();
+  await page
+    .getByRole("heading", { name: "Write the first scene", exact: true })
+    .waitFor();
+  const existingTaskTitle = `Existing task ${Date.now()}`;
+  const existingTask = await context.request.post(`${origin}/api/commitments`, {
+    headers: { Origin: origin },
+    data: { circleId: "demo-circle", title: existingTaskTitle },
+  });
+  assert.equal(existingTask.status(), 201);
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Link existing", exact: true })
+    .click();
+  await page.getByLabel("Find a task", { exact: true }).fill(existingTaskTitle);
+  await page
+    .getByRole("button", { name: existingTaskTitle, exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: existingTaskTitle, exact: true })
+    .waitFor();
+  await page
+    .getByRole("checkbox", {
+      name: "Share it with the circle",
+      exact: true,
+    })
+    .click();
+  await page.getByText("2 of 2 milestones complete", { exact: true }).waitFor();
+  await page
+    .getByRole("button", { name: "Complete goal", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Reopen goal", exact: true })
+    .waitFor();
+  await page.getByRole("button", { name: "Reopen goal", exact: true }).click();
+  await page.getByRole("button", { name: "Archive", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Reopen goal", exact: true })
+    .waitFor();
+  await page.getByRole("button", { name: "Reopen goal", exact: true }).click();
+  await page.getByRole("button", { name: "Edit goal", exact: true }).click();
+  await page
+    .getByLabel("What would success look like? (optional)")
+    .fill("A finished project, with a clear next step.");
+  await page.getByLabel("Target date (optional)").fill("2027-06-01");
+  await page.getByRole("button", { name: "Save goal", exact: true }).click();
+  await page
+    .getByText("A finished project, with a clear next step.", { exact: true })
+    .waitFor();
+  console.log(
+    "Goals: create, edit, milestones, persistence, new and existing task links, completion, archive, reopen passed.",
+  );
+
+  const peer = await browser.newContext({ serviceWorkers: "block" });
+  const peerPage = await peer.newPage();
+  await peerPage.goto("http://localhost:3318/login?user=eddie");
+  await peerPage.goto(goalUrl);
+  await peerPage.getByRole("heading", { name: title, exact: true }).waitFor();
+  assert.equal(
+    await peerPage
+      .getByRole("button", { name: "Edit goal", exact: true })
+      .count(),
+    0,
+  );
+  const forbidden = await peer.request.patch(`${origin}/api/goals/${goalId}`, {
+    headers: { Origin: origin },
+    data: { action: "status", status: "ARCHIVED" },
+  });
+  assert.equal(forbidden.status(), 403);
+  const csrf = await context.request.post(`${origin}/api/goals`, {
+    headers: { Origin: "https://example.invalid" },
+    data: { title: "Bad", circleId: "demo-circle" },
+  });
+  assert.equal(csrf.status(), 403);
+  await peer.close();
+
+  await page.goto(`${origin}/wrapped`);
+  await page
+    .getByRole("heading", { name: "Your week, wrapped.", exact: true })
+    .waitFor();
+  await page.getByText("50m less", { exact: false }).waitFor();
+  const latestWeekLabel = await page
+    .getByRole("navigation", { name: "Recap weeks" })
+    .locator("p")
+    .innerText();
+  await page.screenshot({
+    path: `${output}/wrapped-desktop.png`,
+    caret: "initial",
+  });
+  await page
+    .getByRole("button", { name: "Edit your win", exact: true })
+    .click();
+  const winField = page.getByLabel("Your win", { exact: true });
+  const winText =
+    (await winField.inputValue()) ===
+    "Built two features and actually checked them in a browser."
+      ? "Made room for the long-term goal, one task at a time."
+      : "Built two features and actually checked them in a browser.";
+  await winField.fill(winText);
+  await page.getByRole("button", { name: "Save win", exact: true }).click();
+  await page
+    .getByRole("dialog", {
+      name: "What are you proud of this week?",
+      exact: true,
+    })
+    .waitFor({ state: "hidden" });
+  await page.getByText(winText, { exact: true }).waitFor();
+  const downloadPromise = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download card", exact: true })
+    .click();
+  const download = await downloadPromise;
+  await download.saveAs(`${output}/wrapped-card.png`);
+  const metadata = await sharp(`${output}/wrapped-card.png`).metadata();
+  assert.equal(metadata.width, 1080);
+  assert.equal(metadata.height, 1350);
+  assert.equal(metadata.format, "png");
+  await page.getByRole("link", { name: "Previous week", exact: true }).click();
+  await page.getByRole("link", { name: "Latest week", exact: true }).waitFor();
+  await page.getByRole("link", { name: "Latest week", exact: true }).click();
+  await page.waitForURL(`${origin}/wrapped`);
+  await page
+    .getByRole("navigation", { name: "Recap weeks" })
+    .getByText(latestWeekLabel, { exact: true })
+    .waitFor();
+  await page
+    .getByRole("heading", { name: "Your week, wrapped.", exact: true })
+    .waitFor();
+  console.log(
+    "Wrapped: highlights, screen-time comparison, personal win, week navigation, and 1080x1350 PNG passed.",
+  );
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page
+    .getByText("Your win is in the recap.", { exact: true })
+    .waitFor({ state: "hidden" });
+  await page.screenshot({
+    path: `${output}/wrapped-mobile.png`,
+    caret: "initial",
+  });
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+    false,
+  );
+  await page.goto(`${origin}/goals/demo-goal-codeforces`);
+  await page
+    .getByRole("heading", { name: "Reach 1600 on Codeforces", exact: true })
+    .waitFor();
+  await page.screenshot({
+    path: `${output}/goal-mobile.png`,
+    caret: "initial",
+  });
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+    false,
+  );
+  await page
+    .getByRole("button", { name: "Circle menu: After school", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Wrapped", exact: true }).waitFor();
+  await page.getByRole("menuitem", { name: "Goals", exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 320, height: 740 });
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+    false,
+  );
+  const anonymous = await browser.newContext();
+  assert.equal(
+    (
+      await anonymous.request.get(
+        `${origin}/api/wrapped/card?circle=demo-circle`,
+      )
+    ).status(),
+    401,
+  );
+  await anonymous.close();
+  await context.request.post(`${origin}/api/circles/active`, {
+    headers: { Origin: origin },
+    data: { circleId: "demo-other" },
+  });
+  assert.equal(
+    (
+      await context.request.patch(`${origin}/api/goals/${goalId}`, {
+        headers: { Origin: origin },
+        data: { action: "status", status: "ARCHIVED" },
+      })
+    ).status(),
+    404,
+  );
+  assert.equal(
+    (
+      await context.request.get(`${origin}/api/wrapped/card?circle=demo-circle`)
+    ).status(),
+    409,
+  );
+  assert.deepEqual(errors, []);
+  console.log(
+    `Browser checks passed at 1440px, 390px, and 320px. Screenshots: ${output}`,
+  );
+} finally {
+  await browser.close();
+}

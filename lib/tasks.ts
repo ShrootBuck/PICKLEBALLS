@@ -92,17 +92,36 @@ export async function createCommitment(
 ) {
   const parsed = commitmentInputSchema.safeParse(input);
   if (!parsed.success) throw new DomainError("Fix the task fields.");
+  if (parsed.data.circleId && parsed.data.circleId !== circleId)
+    throw new DomainError("Your circle changed. Refresh and try again.", 409);
   const dayKey = phoenixDateKey(now);
   const day = requireDateKey(dayKey);
   const dueAt = taskDeadline(now);
 
   return serializable(async (transaction) => {
+    if (parsed.data.goalId) {
+      const goal = await transaction.goal.findFirst({
+        where: {
+          id: parsed.data.goalId,
+          userId,
+          circleId,
+          status: "ACTIVE",
+          user: { memberships: { some: { circleId } } },
+        },
+      });
+      if (!goal)
+        throw new DomainError(
+          "Choose one of your active goals in this circle.",
+          409,
+        );
+    }
     const task = await transaction.commitment.create({
       data: {
         userId,
         circleId,
         day,
         title: parsed.data.title,
+        goalId: parsed.data.goalId ?? null,
         dueAt,
         createdAt: now,
       },

@@ -6,6 +6,8 @@ import { timeblockRoutineSchema } from "@/lib/timeblock-routine";
 
 export const commitmentInputSchema = z.object({
   title: z.string().trim().min(1).max(100),
+  goalId: z.string().trim().min(1).max(100).nullable().optional(),
+  circleId: z.string().trim().min(1).max(100).optional(),
 });
 
 export const checkInSchema = z.object({

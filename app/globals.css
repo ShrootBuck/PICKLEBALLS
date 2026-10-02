@@ -2,6 +2,43 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+.wrapped-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(1.5rem, 5vw, 3rem);
+  border-radius: var(--radius-xl);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.wrapped-number {
+  font-size: clamp(5rem, 15vw, 9rem);
+  font-weight: 650;
+  line-height: 0.95;
+  letter-spacing: -0.07em;
+  overflow-wrap: anywhere;
+}
+.wrapped-orbits {
+  position: absolute;
+  width: 25rem;
+  height: 25rem;
+  right: -10rem;
+  top: 4rem;
+  opacity: 0.12;
+  pointer-events: none;
+}
+.wrapped-orbits span {
+  position: absolute;
+  inset: 0;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+.wrapped-orbits span:nth-child(2) {
+  inset: 2.5rem;
+}
+.wrapped-orbits span:nth-child(3) {
+  inset: 5rem;
+}
+
 @custom-variant dark (&:is(.dark *));
 /* Dark by default, including the first server-rendered frame and native controls. */
 :root {

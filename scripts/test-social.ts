@@ -75,6 +75,7 @@ try {
     ...process.env,
     NODE_ENV: "development" as const,
     PB_TEST_DATABASE: "disposable-docker",
+    PB_TEST_BUILD: "1",
     WATCHPACK_POLLING: "true",
     DATABASE_URL: databaseUrl,
     DIRECT_DATABASE_URL: databaseUrl,
@@ -139,8 +140,13 @@ try {
       await run(["bun", "test", "./tests/social.integration.ts"], env),
     );
   console.log(await run(["bun", "test", "./tests/media.integration.ts"], env));
+  if (!process.argv.includes("--media-only"))
+    console.log(
+      await run(["bun", "test", "./tests/goals-wrapped.integration.ts"], env),
+    );
   if (process.argv.includes("--serve")) {
     console.log(await run(["bun", "scripts/social-fixtures.ts"], env));
+    console.log(await run(["bun", "scripts/goals-wrapped-fixtures.ts"], env));
     if (process.argv.includes("--video"))
       console.log(await run(["bun", "scripts/media-fixtures.ts"], env));
     const objects = new Map<string, { data: Uint8Array; type: string }>();

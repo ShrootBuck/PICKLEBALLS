@@ -70,6 +70,7 @@ export type SocialTask = {
   dueAt: string;
   status: TaskStatus;
   proof: { id: string; reviewStatus: ProofStatus } | null;
+  goal?: { id: string; title: string } | null;
 };
 
 export type SocialMember = SocialAuthor & {

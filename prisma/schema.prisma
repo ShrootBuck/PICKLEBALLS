@@ -127,6 +127,8 @@ model User {
   bucketItems         BucketItem[]         @relation("BucketItemsProposed")
   bucketCompletionRequests BucketItem[]    @relation("BucketItemCompletionRequests")
   bucketVotes         BucketVote[]
+  goals               Goal[]
+  weeklyWins          WeeklyWin[]
 }
 
 model Session {
@@ -209,6 +211,8 @@ model Circle {
   screenTimeReadings ScreenTimeReading[]
   screenTimeSubmissions ScreenTimeSubmission[]
   bucketItems   BucketItem[]
+  goals         Goal[]
+  weeklyWins    WeeklyWin[]
 }
 
 model Membership {
@@ -262,15 +266,75 @@ model Commitment {
   status           CommitmentStatus @default(OPEN)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
+  goalId           String?
 
   user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   circle    Circle               @relation(fields: [circleId], references: [id], onDelete: Cascade)
   proofs    TaskProof[]
   replies   SocialReply[]
+  goal      Goal? @relation(fields: [goalId], references: [id], onDelete: SetNull)
 
   @@index([circleId, day])
   @@index([userId, day])
   @@index([dueAt, status])
+  @@index([goalId, createdAt])
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+model Goal {
+  id          String     @id @default(cuid())
+  userId      String
+  circleId    String
+  title       String     @db.VarChar(120)
+  description String?    @db.VarChar(1500)
+  targetDate  DateTime?  @db.Date
+  status      GoalStatus @default(ACTIVE)
+  completedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle     Circle          @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  milestones GoalMilestone[]
+  tasks      Commitment[]
+
+  @@index([circleId, status, createdAt])
+  @@index([userId, circleId])
+}
+
+model GoalMilestone {
+  id          String   @id @default(cuid())
+  goalId      String
+  title       String   @db.VarChar(160)
+  position    Int
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, position])
+  @@index([completedAt])
+}
+
+model WeeklyWin {
+  id        String   @id @default(cuid())
+  userId    String
+  circleId  String
+  weekStart DateTime @db.Date
+  body      String   @db.VarChar(280)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, circleId, weekStart])
+  @@index([circleId, weekStart])
 }
 
 model TaskProof {
