@@ -1004,14 +1004,6 @@
     scale: 0 1;
   }
 }
-@media (width < 24rem) {
-  .line-tab {
-    padding-inline: 6px;
-  }
-  .line-tab > svg {
-    display: none;
-  }
-}
 .social-profile-menu {
   display: flex;
   flex-direction: column;

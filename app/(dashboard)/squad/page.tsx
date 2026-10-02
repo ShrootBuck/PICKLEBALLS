@@ -1,4 +1,4 @@
-import { ArrowUpRight, CheckCheck, List, Mountain, Users } from "lucide-react";
+import { ArrowUpRight, CheckCheck, List, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -9,7 +9,6 @@ import { Feed } from "@/components/social/feed";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { countBucketVotesAwaiting } from "@/lib/bucket-list-data";
 import { postValence } from "@/lib/mood";
 import { memberHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
@@ -50,27 +49,21 @@ export default async function SquadPage({
   }
   const view =
     params.view === "members" || params.view === "log" ? params.view : "review";
-  const [members, memberCount, pending, events, bucketVotes] =
-    await Promise.all([
-      view === "members" ? getSocialMembers(circleId) : [],
-      getPrisma().membership.count({ where: { circleId } }),
-      view === "review"
-        ? getFeedPage({
-            viewerId: session.user.id,
-            circleId,
-            pendingOnly: true,
-          })
-        : null,
-      view === "log"
-        ? getPrisma().activityEvent.findMany({
-            where: { circleId },
-            orderBy: { createdAt: "desc" },
-            take: 100,
-            include: { actor: { select: { name: true } } },
-          })
-        : [],
-      countBucketVotesAwaiting(circleId, session.user.id),
-    ]);
+  const [members, memberCount, pending, events] = await Promise.all([
+    view === "members" ? getSocialMembers(circleId) : [],
+    getPrisma().membership.count({ where: { circleId } }),
+    view === "review"
+      ? getFeedPage({ viewerId: session.user.id, circleId, pendingOnly: true })
+      : null,
+    view === "log"
+      ? getPrisma().activityEvent.findMany({
+          where: { circleId },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+          include: { actor: { select: { name: true } } },
+        })
+      : [],
+  ]);
   return (
     <>
       <PageHeader
@@ -105,17 +98,6 @@ export default async function SquadPage({
         >
           <Users className="size-4" />
           Members
-        </Link>
-        <Link href="/bucket-list" className="line-tab">
-          <Mountain className="size-4" />
-          Bucket list
-          {bucketVotes > 0 && (
-            <Badge
-              aria-label={`${bucketVotes} ${bucketVotes === 1 ? "vote" : "votes"} waiting on you`}
-            >
-              {bucketVotes > 99 ? "99+" : bucketVotes}
-            </Badge>
-          )}
         </Link>
       </nav>
       {view === "review" && pending && <Feed initial={pending} reviewOnly />}

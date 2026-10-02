@@ -49,14 +49,14 @@ import { cn } from "@/lib/utils";
 const destinations = [
   { href: "/", label: "Home", icon: Home },
   { href: "/squad", label: "Squad", icon: Users },
-  // Lives under Squad on mobile so the bottom nav stays at five tabs.
+  { href: "/bucket-list", label: "Bucket list", icon: Mountain },
+  // Weekly and reached from the Home reminder, so mobile keeps it in the circle menu.
   {
-    href: "/bucket-list",
-    label: "Bucket list",
-    icon: Mountain,
+    href: "/screen-time",
+    label: "Screen Time",
+    icon: Smartphone,
     railOnly: true,
   },
-  { href: "/screen-time", label: "Screen Time", icon: Smartphone },
   { href: "/timeblock", label: "Timeblock", icon: CalendarRange },
   { href: "/profile", label: "Profile", icon: null },
 ];
@@ -158,27 +158,17 @@ export function SocialShell({
     const votes =
       bucketVotes > 0 &&
       `${bucketVotes} bucket list ${bucketVotes === 1 ? "vote" : "votes"} waiting on you`;
-    const counts: Record<string, { count: number; label: string }> = bottom
-      ? {
-          "/squad": {
-            count: pendingVerdicts + bucketVotes,
-            label: [proofs, votes].filter(Boolean).join(", "),
-          },
-        }
-      : {
-          "/squad": { count: pendingVerdicts, label: proofs || "" },
-          "/bucket-list": { count: bucketVotes, label: votes || "" },
-        };
+    const counts: Record<string, { count: number; label: string }> = {
+      "/squad": { count: pendingVerdicts, label: proofs || "" },
+      "/bucket-list": { count: bucketVotes, label: votes || "" },
+    };
     return destinations.flatMap(({ href, label, icon: Icon, railOnly }) => {
       if (bottom && railOnly) return [];
       const active =
         href === "/"
           ? pathname === "/"
           : pathname.startsWith(href) ||
-            (href === "/profile" && pathname.startsWith("/members/")) ||
-            (bottom &&
-              href === "/squad" &&
-              pathname.startsWith("/bucket-list"));
+            (href === "/profile" && pathname.startsWith("/members/"));
       const badge = counts[href];
       return (
         <Link
@@ -321,6 +311,12 @@ export function SocialShell({
                 </DropdownMenuLabel>
                 <DropdownMenuItem render={<Link href="/history" />}>
                   <History /> Circle history
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="md:hidden"
+                  render={<Link href="/screen-time" />}
+                >
+                  <Smartphone /> Screen Time
                 </DropdownMenuItem>
                 {currentCircle?.role === "OWNER" && (
                   <DropdownMenuItem render={<Link href="/admin" />}>
