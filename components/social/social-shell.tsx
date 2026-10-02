@@ -8,6 +8,7 @@ import {
   Circle,
   CircleAlert,
   Clock3,
+  Gauge,
   History,
   Home,
   Mountain,
@@ -65,12 +66,14 @@ export function SocialShell({
   circles,
   pendingVerdicts,
   bucketVotes,
+  superAdmin,
   bell,
   children,
 }: {
   circles: { id: string; name: string; role: "OWNER" | "MEMBER" }[];
   pendingVerdicts: number;
   bucketVotes: number;
+  superAdmin: boolean;
   bell: ReactNode;
   children: ReactNode;
 }) {
@@ -84,13 +87,10 @@ export function SocialShell({
   const [switching, setSwitching] = useState(false);
   const currentCircle = circles.find((item) => item.id === circleId);
   const verified = tasks.filter((task) => task.status === "VERIFIED").length;
-  const wide = [
-    "/screen-time",
-    "/timeblock",
-    "/history",
-    "/admin",
-    "/changelog",
-  ].includes(pathname);
+  const wide =
+    ["/screen-time", "/timeblock", "/history", "/admin", "/changelog"].includes(
+      pathname,
+    ) || pathname.startsWith("/superadmin");
   useLayoutEffect(() => {
     const node = scrollRef.current;
     if (!node) return;
@@ -267,6 +267,15 @@ export function SocialShell({
         </Button>
         <div className="mt-auto flex flex-col pt-8">
           {[
+            ...(superAdmin
+              ? [
+                  {
+                    href: "/superadmin",
+                    label: "Admin console",
+                    icon: Gauge,
+                  },
+                ]
+              : []),
             { href: "/changelog", label: "What's new", icon: ScrollText },
             { href: "/settings", label: "Settings", icon: Settings },
           ].map(({ href, label, icon: Icon }) => (
@@ -275,9 +284,14 @@ export function SocialShell({
               href={href}
               className={cn(
                 "social-nav-link",
-                pathname === href && "is-active",
+                (pathname === href || pathname.startsWith(`${href}/`)) &&
+                  "is-active",
               )}
-              aria-current={pathname === href ? "page" : undefined}
+              aria-current={
+                pathname === href || pathname.startsWith(`${href}/`)
+                  ? "page"
+                  : undefined
+              }
             >
               <span className="social-nav-icon">
                 <Icon className="size-6" strokeWidth={1.7} />
@@ -341,6 +355,16 @@ export function SocialShell({
                   <Users /> Manage circles
                 </DropdownMenuItem>
               </DropdownMenuGroup>
+              {superAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem render={<Link href="/superadmin" />}>
+                      <Gauge /> Admin console
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
           <div className="ml-auto flex items-center gap-1">
