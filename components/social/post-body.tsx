@@ -78,30 +78,19 @@ function StreakBody({ post }: { post: StreakPost }) {
       href={href}
       className="text-[17px] font-semibold tracking-tight underline-offset-4 hover:underline"
     >
-      <span aria-hidden="true" className="mr-1">
-        {post.emoji}
-      </span>{" "}
       {post.streakTitle}
     </Link>
   );
   if (post.event === "STARTED")
     return (
-      <div className="flex items-center gap-4">
-        <span
-          aria-hidden="true"
-          className="grid size-14 shrink-0 place-items-center rounded-full bg-muted text-3xl"
-        >
-          {post.emoji}
-        </span>
-        <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-xs font-medium text-muted-foreground">
-            Started a {quit ? "quit" : "build"} streak
-          </p>
-          {name}
-          <p className="text-sm text-muted-foreground">
-            Day one starts now. A little encouragement goes a long way.
-          </p>
-        </div>
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="text-xs font-medium text-muted-foreground">
+          Started a {quit ? "quit" : "build"} streak
+        </p>
+        {name}
+        <p className="text-sm text-muted-foreground">
+          Day one starts now. A little encouragement goes a long way.
+        </p>
       </div>
     );
   return (

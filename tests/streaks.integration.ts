@@ -41,7 +41,6 @@ const at = (day: string, hour = 9, minute = 0) =>
 const quitInput = (title: string, extra: Record<string, unknown> = {}) => ({
   circleId,
   title,
-  emoji: "☕",
   kind: "QUIT",
   visibility: "CIRCLE",
   ...extra,
@@ -278,7 +277,6 @@ test("build streaks add up logs, keep yesterday open, and stay private", async (
     {
       circleId,
       title: "Read",
-      emoji: "📖",
       kind: "BUILD",
       visibility: "PRIVATE",
       dailyUnits: 1000,
@@ -390,7 +388,6 @@ test("nudges need an unlogged grace day and go out once per friend per day", asy
     {
       circleId,
       title: "Gym",
-      emoji: "🏋️",
       kind: "BUILD",
       visibility: "CIRCLE",
     },
@@ -442,7 +439,7 @@ test("reminders go out once per slot and follow preferences", async () => {
   await createStreak(
     reminderId,
     circleId,
-    quitInput("No vaping", { emoji: "💨" }),
+    quitInput("No vaping"),
     at(monday, 10),
   );
   await createStreak(
@@ -451,7 +448,6 @@ test("reminders go out once per slot and follow preferences", async () => {
     {
       circleId,
       title: "Stretch",
-      emoji: "🧘",
       kind: "BUILD",
       visibility: "PRIVATE",
     },
@@ -487,7 +483,7 @@ test("retiring freezes a streak into a trophy and deleting removes its posts", a
   const streak = await createStreak(
     ownerId,
     circleId,
-    quitInput("No soda", { emoji: "🥤", dailyCostCents: 250 }),
+    quitInput("No soda", { dailyCostCents: 250 }),
     at(monday, 6),
   );
   for (const day of [monday, "2026-10-06"])
@@ -522,7 +518,6 @@ test("retiring freezes a streak into a trophy and deleting removes its posts", a
     changeStreak(streak.id, ownerId, circleId, {
       action: "details",
       title: "Renamed",
-      emoji: "🥤",
     }),
   ).rejects.toThrow("can’t be changed");
   const trophies = await getMemberStreaks(
@@ -566,7 +561,6 @@ test("undo is limited to open days and milestones post once per run", async () =
     {
       circleId,
       title: "Walk",
-      emoji: "🚶",
       kind: "BUILD",
       visibility: "CIRCLE",
     },

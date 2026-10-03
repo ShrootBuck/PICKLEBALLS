@@ -73,7 +73,6 @@ function toStreakView(
     id: row.id,
     circleId: row.circleId,
     title: row.title,
-    emoji: row.emoji,
     kind: row.kind,
     visibility: row.visibility,
     status: row.status,
@@ -170,7 +169,7 @@ export async function createStreak(
           actorId: userId,
           kind: "STREAK_STARTED",
           entityId: streak.id,
-          summary: `started a streak: ${streak.emoji} ${streak.title}`,
+          summary: `started a streak: ${streak.title}`,
         },
       });
     }
@@ -228,7 +227,7 @@ export async function changeStreak(
           actorId: userId,
           kind: "STREAK_RETIRED",
           entityId: streak.id,
-          summary: `retired ${streak.emoji} ${streak.title} after ${days(summary.current)}`,
+          summary: `retired “${streak.title}” after ${days(summary.current)}`,
         },
       });
     }
@@ -404,7 +403,7 @@ export async function addStreakEntry(
             actorId: userId,
             kind: "STREAK_MILESTONE",
             entityId: streak.id,
-            summary: `hit ${days(count)} on ${streak.emoji} ${streak.title}`,
+            summary: `hit ${days(count)} on “${streak.title}”`,
           },
         });
       }
@@ -483,7 +482,7 @@ export async function nudgeStreak(
         circleId,
         kind: "STREAK_NUDGE",
         entityId: streak.id,
-        title: `${sender?.name ?? "A friend"} nudged you about ${streak.emoji} ${streak.title}`,
+        title: `${sender?.name ?? "A friend"} nudged you about “${streak.title}”`,
         body:
           streak.kind === "QUIT"
             ? "Was yesterday clean? Confirm it before midnight to keep your streak."
@@ -631,8 +630,8 @@ export async function getStreakDetail(
   };
 }
 
-function listNames(items: { emoji: string; title: string }[]) {
-  const names = items.map((item) => `${item.emoji} ${item.title}`);
+function listNames(items: { title: string }[]) {
+  const names = items.map((item) => item.title);
   if (names.length <= 2) return names.join(" and ");
   return `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
 }
@@ -652,7 +651,6 @@ export async function sendStreakReminders(now = new Date()) {
       circleId: true,
       kind: true,
       title: true,
-      emoji: true,
       startedAt: true,
       retiredAt: true,
       // Today's and yesterday's states only depend on their own entries.
@@ -725,7 +723,7 @@ export async function sendStreakReminders(now = new Date()) {
           slot: "evening",
           title:
             warn.length === 1
-              ? `${warn[0].emoji} ${warn[0].title} breaks at midnight`
+              ? `“${warn[0].title}” breaks at midnight`
               : `${warn.length} streaks break at midnight`,
           body: `Log yesterday for ${listNames(warn)} to keep ${warn.length === 1 ? "it" : "them"} alive.${waiting.length ? ` Still waiting today: ${listNames(waiting)}.` : ""}`,
         });
@@ -734,7 +732,7 @@ export async function sendStreakReminders(now = new Date()) {
           slot: "evening",
           title:
             waiting.length === 1
-              ? `${waiting[0].emoji} ${waiting[0].title} is waiting`
+              ? `“${waiting[0].title}” is waiting`
               : `${waiting.length} streaks are waiting`,
           body: `Did you do ${waiting.length === 1 ? "it" : "them"} today? Logging takes one tap.`,
         });
@@ -802,7 +800,6 @@ export async function getWrappedStreaks(
       return {
         id: row.id,
         title: row.title,
-        emoji: row.emoji,
         kind: row.kind,
         unitLabel: row.unitLabel,
         user: row.user,

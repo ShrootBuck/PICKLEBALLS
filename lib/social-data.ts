@@ -348,7 +348,7 @@ async function readPosts({
       include: {
         user: { select: socialAuthorSelect },
         streak: {
-          select: { title: true, emoji: true, kind: true, unitLabel: true },
+          select: { title: true, kind: true, unitLabel: true },
         },
         likes: { where: { userId: viewerId }, select: { id: true }, take: 1 },
         _count: { select: { likes: true, replies: true } },
@@ -454,7 +454,6 @@ async function readPosts({
         event: event.kind,
         streakId: event.streakId,
         streakTitle: event.streak.title,
-        emoji: event.streak.emoji,
         streakKind: event.streak.kind,
         unitLabel: event.streak.unitLabel,
         count: event.count,

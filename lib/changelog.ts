@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1791018339329,
+    title: "Streaks drop the emoji",
+    description:
+      "Starting a streak now asks for one thing: a name. The emoji picker is gone from streaks everywhere, so cards, feed posts, and reminders show plain titles instead.",
+  },
+  {
     timestamp: 1791011995047,
     title: "Streaks for quitting or building anything",
     description:

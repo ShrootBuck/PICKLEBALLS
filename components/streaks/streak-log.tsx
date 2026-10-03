@@ -166,7 +166,6 @@ function StreakLogSheet({
       });
       if (data.milestone)
         celebrateStreak({
-          emoji: streak.emoji,
           title: streak.title,
           kind: streak.kind,
           visibility: streak.visibility,
@@ -240,11 +239,11 @@ function StreakLogSheet({
                 ? "Was yesterday clean?"
                 : mode === "slip"
                   ? "Log a slip"
-                  : `${streak.emoji} ${streak.title}`}
+                  : streak.title}
             </SheetTitle>
             <SheetDescription>
               {mode === "confirm" && actions.confirmDay
-                ? `${streak.emoji} ${streak.title}, ${formatDayLong(actions.confirmDay)}`
+                ? `${streak.title}, ${formatDayLong(actions.confirmDay)}`
                 : mode === "slip"
                   ? "It happens. Logging it honestly keeps this streak real."
                   : loggedUnits && streak.unitLabel

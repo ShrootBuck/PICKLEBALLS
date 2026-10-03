@@ -233,7 +233,7 @@ export async function notifyReplyReceived(
         select: {
           id: true,
           userId: true,
-          streak: { select: { title: true, emoji: true } },
+          streak: { select: { title: true } },
         },
       },
     },
@@ -301,7 +301,7 @@ export async function notifyReplyReceived(
   } else if (reply.streakEvent) {
     jobs.push({
       recipientId: reply.streakEvent.userId,
-      context: `your streak “${reply.streakEvent.streak.emoji} ${reply.streakEvent.streak.title}”`,
+      context: `your streak “${reply.streakEvent.streak.title}”`,
       entityId: reply.streakEvent.id,
       url: `${postHref(input.circleId, "streak", reply.streakEvent.id)}#comments`,
     });

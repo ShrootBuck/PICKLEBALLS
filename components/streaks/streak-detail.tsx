@@ -47,7 +47,7 @@ export function StreakOwnerMenu({ view }: { view: StreakView }) {
   const [editing, setEditing] = useState(false);
   const [confirm, setConfirm] = useState<"retire" | "delete" | null>(null);
   const [pending, setPending] = useState(false);
-  const name = `${view.emoji} ${view.title}`;
+  const name = view.title;
   async function run() {
     if (!confirm || pending) return;
     setPending(true);

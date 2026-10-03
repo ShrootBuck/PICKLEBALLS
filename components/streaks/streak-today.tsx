@@ -47,12 +47,7 @@ export function StreakToday({ streaks }: { streaks: StreakView[] }) {
               dim={view.summary.current === 0}
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">
-                <span aria-hidden="true" className="mr-1">
-                  {view.emoji}
-                </span>{" "}
-                {view.title}
-              </p>
+              <p className="truncate text-sm font-medium">{view.title}</p>
               <p className="text-xs text-muted-foreground">{hint(view)}</p>
             </div>
             <StreakLogButton streak={view} />

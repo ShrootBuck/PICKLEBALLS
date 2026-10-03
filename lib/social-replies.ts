@@ -217,7 +217,7 @@ export async function createSocialReply(
         select: {
           id: true,
           user: { select: { name: true } },
-          streak: { select: { title: true, emoji: true } },
+          streak: { select: { title: true } },
         },
       });
       if (!event) throw new DomainError("Streak post not found.", 404);
@@ -238,7 +238,7 @@ export async function createSocialReply(
           actorId: authorId,
           kind: "REPLY_POSTED",
           entityId: event.id,
-          summary: `replied to ${event.user.name}'s streak “${event.streak.emoji} ${event.streak.title}”`,
+          summary: `replied to ${event.user.name}'s streak “${event.streak.title}”`,
           metadata: { targetType, replyId: reply.id },
         },
       });

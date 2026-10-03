@@ -364,7 +364,6 @@ export type StreakView = {
   id: string;
   circleId: string;
   title: string;
-  emoji: string;
   kind: StreakKind;
   visibility: StreakVisibility;
   status: StreakStatus;
@@ -458,17 +457,6 @@ export function formatElapsed(ms: number) {
   return rest ? unit(rest, "minute") : "less than a minute";
 }
 
-const graphemes = new Intl.Segmenter("en", { granularity: "grapheme" });
-
-export function isSingleEmoji(value: string) {
-  const clean = value.trim();
-  if (!clean || clean.length > 16) return false;
-  return (
-    [...graphemes.segment(clean)].length === 1 &&
-    /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(clean)
-  );
-}
-
 const id = z.string().trim().min(1).max(100);
 const amount = z.number().int().min(1).max(MAX_AMOUNT);
 const note = z.string().trim().max(280, "Keep notes to 280 characters.");
@@ -482,7 +470,6 @@ const streakDetails = z.object({
     .trim()
     .min(1, "Name your streak.")
     .max(80, "Keep the name to 80 characters."),
-  emoji: z.string().trim().refine(isSingleEmoji, "Pick one emoji."),
   dailyCostCents: amount.nullable().default(null),
   dailyUnits: amount.nullable().default(null),
   unitLabel: z

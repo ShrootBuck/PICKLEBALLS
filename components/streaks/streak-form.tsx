@@ -34,7 +34,6 @@ import { appFetch } from "@/lib/app-refresh";
 import { newStreakHash } from "@/lib/navigation";
 import {
   hundredthsToInput,
-  isSingleEmoji,
   parseMoneyInput,
   parseUnitsInput,
   type StreakKind,
@@ -42,25 +41,6 @@ import {
   type StreakVisibility,
 } from "@/lib/streak-policy";
 import { cn } from "@/lib/utils";
-
-const suggestions: Record<StreakKind, string[]> = {
-  QUIT: [
-    "☕",
-    "🚬",
-    "📱",
-    "🍬",
-    "🍺",
-    "🎮",
-    "🍔",
-    "🥤",
-    "🛒",
-    "💸",
-    "🍷",
-    "😴",
-  ],
-  BUILD: ["📖", "🏋️", "🧘", "🏃", "💧", "✍️", "🥗", "🎸", "🧠", "🚶", "🌅", "🛏️"],
-};
-const defaultEmoji: Record<StreakKind, string> = { QUIT: "🚫", BUILD: "✅" };
 
 export function StreakForm({
   circleId,
@@ -81,7 +61,6 @@ export function StreakForm({
   const open = controlledOpen ?? internalOpen;
   const [kind, setKind] = useState<StreakKind>(streak?.kind ?? "QUIT");
   const [title, setTitle] = useState(streak?.title ?? "");
-  const [emoji, setEmoji] = useState(streak?.emoji ?? defaultEmoji.QUIT);
   const [visibility, setVisibility] = useState<StreakVisibility>("CIRCLE");
   const [money, setMoney] = useState(
     hundredthsToInput(streak?.dailyCostCents ?? null),
@@ -114,7 +93,6 @@ export function StreakForm({
   function reset() {
     setKind(streak?.kind ?? "QUIT");
     setTitle(streak?.title ?? "");
-    setEmoji(streak?.emoji ?? defaultEmoji.QUIT);
     setVisibility("CIRCLE");
     setMoney(hundredthsToInput(streak?.dailyCostCents ?? null));
     setUnits(hundredthsToInput(streak?.dailyUnits ?? null));
@@ -138,17 +116,15 @@ export function StreakForm({
     const label = unitLabel.trim() || null;
     const problem = !title.trim()
       ? "Name your streak."
-      : !isSingleEmoji(emoji)
-        ? "Pick one emoji."
-        : dailyCostCents === undefined
-          ? "Enter money saved like 5 or 5.50."
-          : dailyUnits === undefined
-            ? "Enter an amount like 10 or 1.5."
-            : dailyUnits !== null && !label
-              ? "Add a unit, like cups or pages."
-              : dailyUnits === null && label
-                ? `Add how many ${label} ${kind === "QUIT" ? "per day" : "per log"}, or clear the unit.`
-                : null;
+      : dailyCostCents === undefined
+        ? "Enter money saved like 5 or 5.50."
+        : dailyUnits === undefined
+          ? "Enter an amount like 10 or 1.5."
+          : dailyUnits !== null && !label
+            ? "Add a unit, like cups or pages."
+            : dailyUnits === null && label
+              ? `Add how many ${label} ${kind === "QUIT" ? "per day" : "per log"}, or clear the unit.`
+              : null;
     if (problem) {
       setError(problem);
       return;
@@ -158,7 +134,6 @@ export function StreakForm({
     try {
       const details = {
         title,
-        emoji: emoji.trim(),
         dailyCostCents,
         dailyUnits,
         unitLabel: label,
@@ -237,10 +212,7 @@ export function StreakForm({
                     value={[kind]}
                     onValueChange={(value) => {
                       const next = value[0] as StreakKind | undefined;
-                      if (!next) return;
-                      if (emoji === defaultEmoji[kind])
-                        setEmoji(defaultEmoji[next]);
-                      setKind(next);
+                      if (next) setKind(next);
                     }}
                     variant="outline"
                     spacing={2}
@@ -263,46 +235,18 @@ export function StreakForm({
               )}
               <Field data-disabled={pending}>
                 <FieldLabel htmlFor={`${id}-title`}>Name</FieldLabel>
-                <div className="flex gap-2">
-                  <Input
-                    aria-label="Emoji"
-                    value={emoji}
-                    onChange={(event) => setEmoji(event.target.value)}
-                    className="w-14 shrink-0 text-center text-xl"
-                    maxLength={16}
-                    disabled={pending}
-                  />
-                  <Input
-                    id={`${id}-title`}
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    placeholder={
-                      kind === "QUIT" ? "No caffeine" : "Read every day"
-                    }
-                    maxLength={80}
-                    required
-                    disabled={pending}
-                    autoFocus
-                  />
-                </div>
-                <fieldset className="flex min-w-0 flex-wrap gap-1">
-                  <legend className="sr-only">Suggested emoji</legend>
-                  {suggestions[kind].map((item) => (
-                    <Button
-                      key={item}
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`Use ${item}`}
-                      aria-pressed={emoji === item}
-                      className={cn("text-lg", emoji === item && "bg-accent")}
-                      disabled={pending}
-                      onClick={() => setEmoji(item)}
-                    >
-                      {item}
-                    </Button>
-                  ))}
-                </fieldset>
+                <Input
+                  id={`${id}-title`}
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder={
+                    kind === "QUIT" ? "No caffeine" : "Read every day"
+                  }
+                  maxLength={80}
+                  required
+                  disabled={pending}
+                  autoFocus
+                />
               </Field>
               {!streak && (
                 <Field>

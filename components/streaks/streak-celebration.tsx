@@ -6,7 +6,6 @@ import { StreakEmber } from "@/components/streaks/streak-visuals";
 import { Button } from "@/components/ui/button";
 
 export type StreakCelebration = {
-  emoji: string;
   title: string;
   kind: "QUIT" | "BUILD";
   visibility: "CIRCLE" | "PRIVATE";
@@ -87,7 +86,7 @@ export function StreakCelebrationHost() {
               {detail.milestone} {unit}
             </DialogPrimitive.Title>
             <DialogPrimitive.Description className="text-sm text-muted-foreground">
-              {detail.emoji} {detail.title}
+              {detail.title}
               {detail.stat ? `. ${detail.stat}.` : "."}
             </DialogPrimitive.Description>
             <p className="text-xs text-muted-foreground">

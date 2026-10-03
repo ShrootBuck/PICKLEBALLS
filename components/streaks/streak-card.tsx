@@ -143,14 +143,7 @@ export function StreakCard({
   const href = streakHref(view.circleId, view.id);
   const canNudge =
     !view.mine && view.visibility === "CIRCLE" && actions.breaksTonight;
-  const title = (
-    <>
-      <span aria-hidden="true" className="mr-1">
-        {view.emoji}
-      </span>{" "}
-      {view.title}
-    </>
-  );
+  const title = view.title;
   return (
     <Card className="streak-card" data-size={size}>
       <CardContent className="flex flex-col gap-4">

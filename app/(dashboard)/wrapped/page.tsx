@@ -342,9 +342,6 @@ export default async function WrappedPage({
                     href={streakHref(circleId, item.id)}
                     className="flex items-center gap-3 py-4"
                   >
-                    <span aria-hidden="true" className="text-xl">
-                      {item.emoji}
-                    </span>
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-sm font-medium">
                         {item.title}

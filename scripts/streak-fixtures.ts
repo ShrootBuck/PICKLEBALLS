@@ -20,7 +20,6 @@ type Fixture = {
   id: string;
   userId: string;
   title: string;
-  emoji: string;
   kind: "QUIT" | "BUILD";
   visibility: "CIRCLE" | "PRIVATE";
   started: number;
@@ -46,7 +45,6 @@ const fixtures: Fixture[] = [
     id: "demo-streak-caffeine",
     userId: "demo-you",
     title: "No caffeine",
-    emoji: "☕",
     kind: "QUIT",
     visibility: "CIRCLE",
     started: -40,
@@ -86,7 +84,6 @@ const fixtures: Fixture[] = [
     id: "demo-streak-reading",
     userId: "demo-you",
     title: "Read every day",
-    emoji: "📖",
     kind: "BUILD",
     visibility: "PRIVATE",
     started: -9,
@@ -103,7 +100,6 @@ const fixtures: Fixture[] = [
     id: "demo-streak-gym",
     userId: "demo-eddie",
     title: "Gym",
-    emoji: "🏋️",
     kind: "BUILD",
     visibility: "CIRCLE",
     started: -20,
@@ -122,7 +118,6 @@ const fixtures: Fixture[] = [
     id: "demo-streak-scrolling",
     userId: "demo-sam",
     title: "No doomscrolling",
-    emoji: "📱",
     kind: "QUIT",
     visibility: "CIRCLE",
     started: -4,
@@ -135,7 +130,6 @@ const fixtures: Fixture[] = [
     id: "demo-streak-meditate",
     userId: "demo-jules",
     title: "Meditate",
-    emoji: "🧘",
     kind: "BUILD",
     visibility: "CIRCLE",
     started: -104,
@@ -157,7 +151,6 @@ const fixtures: Fixture[] = [
     id: "demo-streak-soda",
     userId: "demo-you",
     title: "No soda",
-    emoji: "🥤",
     kind: "QUIT",
     visibility: "CIRCLE",
     started: -80,
@@ -198,7 +191,6 @@ for (const fixture of fixtures) {
       userId: fixture.userId,
       circleId,
       title: fixture.title,
-      emoji: fixture.emoji,
       kind: fixture.kind,
       visibility: fixture.visibility,
       status: fixture.retired === undefined ? "ACTIVE" : "RETIRED",

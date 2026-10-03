@@ -58,7 +58,6 @@ export type StreakPost = PostBase & {
   event: "STARTED" | "MILESTONE" | "RETIRED";
   streakId: string;
   streakTitle: string;
-  emoji: string;
   streakKind: "QUIT" | "BUILD";
   unitLabel: string | null;
   // The milestone reached, or the final count when retired.

@@ -381,7 +381,6 @@ model Streak {
   userId         String
   circleId       String
   title          String           @db.VarChar(80)
-  emoji          String           @db.VarChar(16)
   kind           StreakKind
   visibility     StreakVisibility
   status         StreakStatus     @default(ACTIVE)

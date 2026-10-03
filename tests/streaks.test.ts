@@ -7,7 +7,6 @@ import {
   formatStreakUnits,
   highestMilestone,
   hundredthsToInput,
-  isSingleEmoji,
   isStreakMilestone,
   milestoneProgress,
   nextMilestone,
@@ -300,16 +299,10 @@ test("amount inputs and formatting", () => {
   expect(formatElapsed((2 * 1440 + 5 * 60) * 60_000)).toBe("2 days, 5 hours");
 });
 
-test("emoji and streak validation", () => {
-  expect(isSingleEmoji("☕")).toBe(true);
-  expect(isSingleEmoji("👨‍👩‍👧")).toBe(true);
-  expect(isSingleEmoji("🇺🇸")).toBe(true);
-  expect(isSingleEmoji("☕☕")).toBe(false);
-  expect(isSingleEmoji("a")).toBe(false);
+test("streak validation", () => {
   const base = {
     circleId: "circle",
     title: "No caffeine",
-    emoji: "☕",
     kind: "QUIT",
     visibility: "CIRCLE",
   };

@@ -283,7 +283,7 @@ function PostComments({
             {post.kind === "proof"
               ? post.title
               : post.kind === "streak"
-                ? `${post.emoji} ${post.streakTitle}`
+                ? post.streakTitle
                 : "Check-in"}
           </DialogDescription>
         </DialogHeader>
