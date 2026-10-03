@@ -47,6 +47,7 @@ await register("notification", 3);
 await register("reconcile-missed-tasks");
 await register("prune-expired-data");
 await register("recover-media-posts");
+await register("streak-reminders");
 // Dead-letter handlers also catch terminal failures caused by killed containers
 // or expired leases, which an in-process catch block cannot observe.
 await boss.work<JobPayloads["process-media"]>("media-failures", async ([job]) =>
@@ -90,11 +91,23 @@ if (process.env.WORKER_SCHEDULES_ENABLED === "true") {
       missed: "once",
     },
   );
+  await boss.schedule(
+    "streak-reminders",
+    "2 * * * *",
+    {},
+    {
+      tz: "America/Phoenix",
+      singletonKey: "schedule",
+      group: { id: "streak-reminders" },
+      missed: "once",
+    },
+  );
 } else {
   for (const name of [
     "reconcile-missed-tasks",
     "prune-expired-data",
     "recover-media-posts",
+    "streak-reminders",
   ])
     await boss.unschedule(name);
 }

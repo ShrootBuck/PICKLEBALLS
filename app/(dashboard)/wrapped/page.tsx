@@ -3,6 +3,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Flame,
   Heart,
   Sparkles,
   Target,
@@ -13,6 +14,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader, PageSection } from "@/components/layout/page-header";
 import { MediaGallery } from "@/components/media/media-gallery";
+import { totalsParts } from "@/components/streaks/streak-text";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -36,7 +38,7 @@ import {
   WeeklyWinEditor,
 } from "@/components/wrapped/wrapped-actions";
 import { DomainError } from "@/lib/errors";
-import { bucketItemHref, postHref } from "@/lib/navigation";
+import { bucketItemHref, postHref, streakHref } from "@/lib/navigation";
 import { requirePageMembership } from "@/lib/request";
 import { formatScreenTime } from "@/lib/screen-time";
 import type { SocialAuthor } from "@/lib/social-types";
@@ -80,7 +82,8 @@ export default async function WrappedPage({
       recap.finishedGoals.length +
       recap.buckets.length +
       recap.screenTimeCount +
-      recap.wins.length >
+      recap.wins.length +
+      recap.streakDays >
     0;
   const myWin = recap.wins.find((win) => win.userId === session.user.id);
   return (
@@ -178,6 +181,9 @@ export default async function WrappedPage({
               className="underline-offset-4 hover:underline"
             >
               {recap.reviews} peer reviews
+            </a>
+            <a href="#streaks" className="underline-offset-4 hover:underline">
+              {recap.streakDays} streak days
             </a>
           </div>
         </div>
@@ -315,6 +321,56 @@ export default async function WrappedPage({
               No milestones checked off this week.{" "}
               <Link href="/goals" className="underline underline-offset-4">
                 See what everyone is working toward.
+              </Link>
+            </p>
+          )}
+        </PageSection>
+      </section>
+      <section id="streaks" className="scroll-mt-6">
+        <PageSection
+          title="One day at a time"
+          description="Circle streaks this week: days logged, totals, and milestones."
+        >
+          {recap.streaks.length ? (
+            <div className="flex flex-col divide-y divide-border rounded-lg border px-4">
+              {recap.streaks.map((item) => {
+                const totals = totalsParts(item.kind, item, item.unitLabel);
+                const best = Math.max(0, ...item.milestones);
+                return (
+                  <Link
+                    key={item.id}
+                    href={streakHref(circleId, item.id)}
+                    className="flex items-center gap-3 py-4"
+                  >
+                    <span aria-hidden="true" className="text-xl">
+                      {item.emoji}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-sm font-medium">
+                        {item.title}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {item.user.name} / {item.done} of {item.possible}{" "}
+                        {item.kind === "QUIT" ? "days clean" : "days done"}
+                        {totals.length ? `, ${totals.join(", ")}` : ""}
+                      </p>
+                    </div>
+                    {best > 0 && (
+                      <Badge variant="secondary">
+                        <Flame data-icon="inline-start" />
+                        {best} days
+                      </Badge>
+                    )}
+                    <ArrowUpRight className="size-4 shrink-0" />
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No circle streaks this week.{" "}
+              <Link href="/streaks" className="underline underline-offset-4">
+                Start one and give it a day at a time.
               </Link>
             </p>
           )}
@@ -475,7 +531,8 @@ export default async function WrappedPage({
           Sunday through Saturday, Phoenix time. Promises kept counts unreplaced
           proof posted in this week that is now verified. Milestones are marked
           by their owners. Check-ins and peer reviews count posts made during
-          the week. Recaps update as reviews and screen-time submissions arrive.
+          the week. Streak days count logged days on circle streaks. Recaps
+          update as reviews, streak logs, and screen-time submissions arrive.
         </p>
         <div className="flex flex-wrap gap-2">
           {Array.from({ length: 7 }, (_, index) =>

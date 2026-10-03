@@ -5,8 +5,8 @@ export type SocialAuthor = {
   initials: string;
 };
 
-export type PostKind = "proof" | "check-in" | "screen-time";
-export type LikeTarget = "PROOF" | "CHECK_IN_UPDATE";
+export type PostKind = "proof" | "check-in" | "screen-time" | "streak";
+export type LikeTarget = "PROOF" | "CHECK_IN_UPDATE" | "STREAK_EVENT";
 export type ProofStatus = "PENDING" | "APPROVED" | "CHALLENGED";
 export type TaskStatus =
   | "OPEN"
@@ -53,7 +53,21 @@ export type CheckInPost = PostBase & {
   legacyCommentCount: number;
 };
 
-export type InteractivePost = ProofPost | CheckInPost;
+export type StreakPost = PostBase & {
+  kind: "streak";
+  event: "STARTED" | "MILESTONE" | "RETIRED";
+  streakId: string;
+  streakTitle: string;
+  emoji: string;
+  streakKind: "QUIT" | "BUILD";
+  unitLabel: string | null;
+  // The milestone reached, or the final count when retired.
+  count: number;
+  costCents: number | null;
+  units: number | null;
+};
+
+export type InteractivePost = ProofPost | CheckInPost | StreakPost;
 export type ScreenTimePost = PostBase & {
   kind: "screen-time";
   mediaId: string;

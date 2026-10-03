@@ -63,6 +63,38 @@ enum ActivityKind {
   BUCKET_ITEM_APPROVED
   BUCKET_ITEM_COMPLETION_REQUESTED
   BUCKET_ITEM_COMPLETED
+  STREAK_STARTED
+  STREAK_MILESTONE
+  STREAK_RETIRED
+  STREAK_NUDGE
+  STREAK_REMINDER
+}
+
+enum StreakKind {
+  QUIT
+  BUILD
+}
+
+enum StreakVisibility {
+  CIRCLE
+  PRIVATE
+}
+
+enum StreakStatus {
+  ACTIVE
+  RETIRED
+}
+
+enum StreakEntryKind {
+  CLEAN
+  SLIP
+  LOG
+}
+
+enum StreakEventKind {
+  STARTED
+  MILESTONE
+  RETIRED
 }
 
 enum BucketItemStatus {
@@ -129,6 +161,9 @@ model User {
   bucketVotes         BucketVote[]
   goals               Goal[]
   weeklyWins          WeeklyWin[]
+  streaks             Streak[]
+  streakEvents        StreakEvent[]
+  streakNudgesSent    StreakNudge[]        @relation("StreakNudgesSent")
 }
 
 model Session {
@@ -213,6 +248,8 @@ model Circle {
   bucketItems   BucketItem[]
   goals         Goal[]
   weeklyWins    WeeklyWin[]
+  streaks       Streak[]
+  streakEvents  StreakEvent[]
 }
 
 model Membership {
@@ -335,6 +372,98 @@ model WeeklyWin {
 
   @@unique([userId, circleId, weekStart])
   @@index([circleId, weekStart])
+}
+
+// Self-reported personal streaks. Day status is derived from entries, so a
+// missed day needs no background job. Visibility is fixed at creation.
+model Streak {
+  id             String           @id @default(cuid())
+  userId         String
+  circleId       String
+  title          String           @db.VarChar(80)
+  emoji          String           @db.VarChar(16)
+  kind           StreakKind
+  visibility     StreakVisibility
+  status         StreakStatus     @default(ACTIVE)
+  startedAt      DateTime         @default(now())
+  retiredAt      DateTime?
+  // Optional per-day amounts. Each entry copies them, so edits only apply
+  // going forward. Units are hundredths, so 1.5 miles is stored as 150.
+  dailyCostCents Int?
+  dailyUnits     Int?
+  unitLabel      String?          @db.VarChar(24)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle  Circle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  entries StreakEntry[]
+  events  StreakEvent[]
+  nudges  StreakNudge[]
+
+  @@index([circleId, status, createdAt])
+  @@index([userId, circleId, status])
+  @@index([status])
+}
+
+// CLEAN confirms a finished quit day, SLIP records a relapse (any number per
+// day), and LOG records build progress (any number per day, amounts add up).
+model StreakEntry {
+  id         String          @id @default(cuid())
+  streakId   String
+  // The Phoenix day the entry counts toward.
+  day        DateTime        @db.Date
+  kind       StreakEntryKind
+  // When the slip happened, or when the day was logged.
+  occurredAt DateTime
+  costCents  Int?
+  units      Int?
+  note       String?         @db.VarChar(280)
+  createdAt  DateTime        @default(now())
+
+  streak Streak @relation(fields: [streakId], references: [id], onDelete: Cascade)
+
+  @@index([streakId, day])
+}
+
+// Feed posts for circle streaks: a start, each milestone, and a retirement.
+model StreakEvent {
+  id        String          @id @default(cuid())
+  streakId  String
+  userId    String
+  circleId  String
+  kind      StreakEventKind
+  // The milestone reached, or the final count when retired.
+  count     Int
+  costCents Int?
+  units     Int?
+  // One post per milestone per run, even if a log is undone and redone.
+  dedupeKey String          @db.VarChar(80)
+  createdAt DateTime        @default(now())
+
+  streak  Streak        @relation(fields: [streakId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle  Circle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  likes   PostLike[]
+  replies SocialReply[]
+
+  @@unique([streakId, dedupeKey])
+  @@index([circleId, createdAt])
+  @@index([userId, createdAt])
+}
+
+// One nudge per friend, streak, and Phoenix day.
+model StreakNudge {
+  streakId  String
+  senderId  String
+  day       DateTime @db.Date
+  createdAt DateTime @default(now())
+
+  streak Streak @relation(fields: [streakId], references: [id], onDelete: Cascade)
+  sender User   @relation("StreakNudgesSent", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@id([streakId, senderId, day])
+  @@index([senderId])
 }
 
 model TaskProof {
@@ -470,6 +599,7 @@ model SocialReply {
   proofId      String?
   reviewId     String?
   bucketItemId String?
+  streakEventId String?
   body         String           @db.VarChar(500)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -482,6 +612,7 @@ model SocialReply {
   proof      TaskProof?       @relation(fields: [proofId], references: [id], onDelete: Cascade)
   review     TaskProofReview? @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   bucketItem BucketItem?      @relation(fields: [bucketItemId], references: [id], onDelete: Cascade)
+  streakEvent StreakEvent?    @relation(fields: [streakEventId], references: [id], onDelete: Cascade)
   likes      PostLike[]
 
   @@index([commitmentId, createdAt])
@@ -490,6 +621,7 @@ model SocialReply {
   @@index([proofId, createdAt])
   @@index([reviewId, createdAt])
   @@index([bucketItemId, createdAt])
+  @@index([streakEventId, createdAt])
   @@index([circleId, createdAt])
   @@index([authorId, createdAt])
 }
@@ -502,6 +634,7 @@ model PostLike {
   checkInUpdateId String?
   replyId         String?
   reviewId        String?
+  streakEventId   String?
   createdAt       DateTime @default(now())
 
   user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -510,16 +643,19 @@ model PostLike {
   checkInUpdate CheckInUpdate?   @relation(fields: [checkInUpdateId], references: [id], onDelete: Cascade)
   reply         SocialReply?     @relation(fields: [replyId], references: [id], onDelete: Cascade)
   review        TaskProofReview? @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  streakEvent   StreakEvent?     @relation(fields: [streakEventId], references: [id], onDelete: Cascade)
 
   @@unique([userId, proofId])
   @@unique([userId, checkInUpdateId])
   @@unique([userId, replyId])
   @@unique([userId, reviewId])
+  @@unique([userId, streakEventId])
   @@index([circleId])
   @@index([proofId])
   @@index([checkInUpdateId])
   @@index([replyId])
   @@index([reviewId])
+  @@index([streakEventId])
 }
 
 model ActivityEvent {
@@ -611,6 +747,12 @@ model NotificationPreference {
   taskCreated     Boolean @default(false)
   checkIns        Boolean @default(false)
   screenTime      Boolean @default(true) @ignore
+  streakReminders Boolean @default(true)
+  streakWarnings  Boolean @default(true)
+  // Phoenix hours (0-23). Morning asks about yesterday's quit streaks; evening
+  // covers build streaks and streaks that break at midnight.
+  streakMorningHour Int   @default(9)
+  streakEveningHour Int   @default(23)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

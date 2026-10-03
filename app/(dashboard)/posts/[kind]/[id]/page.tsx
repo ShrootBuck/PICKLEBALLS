@@ -41,7 +41,11 @@ export default async function PostPage({
   } satisfies Prisma.SocialReplyFindManyArgs;
   const { kind, id } = await params;
   const query = await searchParams;
-  if ((kind !== "proof" && kind !== "check-in") || id.length > 100) notFound();
+  if (
+    (kind !== "proof" && kind !== "check-in" && kind !== "streak") ||
+    id.length > 100
+  )
+    notFound();
   if (
     typeof query.circle === "string" &&
     query.circle !== membership.circleId
@@ -68,10 +72,39 @@ export default async function PostPage({
     circleId,
     proofIds: kind === "proof" ? [id] : [],
     checkInIds: kind === "check-in" ? [id] : [],
+    streakEventIds: kind === "streak" ? [id] : undefined,
     includeReplaced: true,
   });
   const post = feed.items[0];
   if (!post || post.kind === "screen-time") notFound();
+  if (post.kind === "streak") {
+    const replies = await getPrisma().socialReply.findMany({
+      ...replyInclude,
+      where: { circleId, streakEventId: id },
+    });
+    return (
+      <>
+        <BackButton />
+        <h1 className="sr-only">{post.author.name}’s streak</h1>
+        <PostCard post={post} detail />
+        <section id="comments" className="scroll-mt-6">
+          <h2 className="mb-4 text-base font-semibold">Comments</h2>
+          <SocialReplyThread
+            key={id}
+            targetType="STREAK_EVENT"
+            targetId={id}
+            initialReplies={replies.map(toThreadReply)}
+            currentUserId={session.user.id}
+            contextLabel={`Commenting on ${post.author.name}’s streak`}
+            replyLabel="Add a comment"
+            defaultExpanded
+            composerVisible
+            scrollOnExpand={false}
+          />
+        </section>
+      </>
+    );
+  }
   if (post.kind === "check-in") {
     const update = await getPrisma().checkInUpdate.findFirst({
       where: { id, circleId },

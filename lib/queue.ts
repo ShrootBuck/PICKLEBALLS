@@ -19,6 +19,7 @@ export type JobPayloads = {
   "reconcile-missed-tasks": Record<string, never>;
   "prune-expired-data": Record<string, never>;
   "recover-media-posts": Record<string, never>;
+  "streak-reminders": Record<string, never>;
 };
 export type JobName = keyof JobPayloads;
 export const queues: Record<JobName, Omit<Queue, "name">> = {
@@ -37,6 +38,7 @@ export const queues: Record<JobName, Omit<Queue, "name">> = {
   "reconcile-missed-tasks": { policy: "exclusive", expireInSeconds: 3600 },
   "prune-expired-data": { policy: "exclusive", expireInSeconds: 600 },
   "recover-media-posts": { policy: "exclusive", expireInSeconds: 300 },
+  "streak-reminders": { policy: "exclusive", expireInSeconds: 600 },
 };
 
 export function jobIdForKey(name: string, key: string) {

@@ -1,5 +1,12 @@
 "use client";
-import { ArrowRight, Camera, Plus, Sparkles, Target } from "lucide-react";
+import {
+  ArrowRight,
+  Camera,
+  Flame,
+  Plus,
+  Sparkles,
+  Target,
+} from "lucide-react";
 import Link from "next/link";
 import { useSocial } from "@/components/social/social-provider";
 import { Button } from "@/components/ui/button";
@@ -16,6 +23,13 @@ export function HomeActions() {
         >
           <Target className="size-4" />
           Your goals
+        </Link>
+        <Link
+          href="/streaks"
+          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground"
+        >
+          <Flame className="size-4" />
+          Streaks
         </Link>
         <Link
           href="/wrapped"

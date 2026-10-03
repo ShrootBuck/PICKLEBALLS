@@ -57,7 +57,8 @@ type ReplyTargetType =
   | "CHECK_IN_UPDATE"
   | "PROOF"
   | "REVIEW"
-  | "BUCKET_ITEM";
+  | "BUCKET_ITEM"
+  | "STREAK_EVENT";
 
 type SocialReply = ThreadReply;
 
@@ -386,7 +387,10 @@ export function SocialReplyThread({
   const generatedId = useId();
   const threadId = `reply-thread-${generatedId.replaceAll(":", "")}`;
   const inputId = `${threadId}-input`;
-  const commenting = targetType === "PROOF" || targetType === "BUCKET_ITEM";
+  const commenting =
+    targetType === "PROOF" ||
+    targetType === "BUCKET_ITEM" ||
+    targetType === "STREAK_EVENT";
   const [replies, setReplies] = useState(() => chronological(initialReplies));
   const [hasMore, setHasMore] = useState(
     initialHasMore ?? initialReplies.length === 50,

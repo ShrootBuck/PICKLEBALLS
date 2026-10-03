@@ -10,6 +10,7 @@ import { sendPushToUser } from "@/lib/push";
 import type { JobPayloads } from "@/lib/queue";
 import { pruneExpiredData } from "@/lib/retention";
 import { readScreenTime } from "@/lib/screen-time-server";
+import { sendStreakReminders } from "@/lib/streaks";
 import { reconcileMissedTasks, submitProof } from "@/lib/tasks";
 
 export const handlers = {
@@ -142,6 +143,7 @@ export const handlers = {
     if (failed) throw new Error(`${failed} circles failed reconciliation`);
   },
   "prune-expired-data": async () => pruneExpiredData(),
+  "streak-reminders": async () => sendStreakReminders(),
   "recover-media-posts": async () => {
     const prisma = getPrisma();
     const pending = await prisma.pendingProof.findMany({

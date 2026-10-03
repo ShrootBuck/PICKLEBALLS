@@ -9,6 +9,7 @@ import {
 } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
 import { socialAuthorSelect } from "@/lib/social-data";
+import { getWrappedStreaks } from "@/lib/streaks";
 import { requireDateKey } from "@/lib/time";
 import { shiftDateKey } from "@/lib/timeblocks";
 import { serializable } from "@/lib/transaction";
@@ -57,6 +58,7 @@ export async function getWrapped(
     readings,
     wins,
     topReplies,
+    streaks,
   ] = await Promise.all([
     prisma.membership.findMany({
       where: { circleId },
@@ -141,6 +143,7 @@ export async function getWrapped(
           { proof: { replacedById: null } },
           { checkInUpdateId: { not: null } },
           { bucketItemId: { not: null } },
+          { streakEventId: { not: null } },
           { commitmentId: { not: null } },
           { review: { proof: { replacedById: null } } },
           { checkInId: { not: null } },
@@ -159,6 +162,7 @@ export async function getWrapped(
         review: { select: { proofId: true } },
       },
     }),
+    getWrappedStreaks(circleId, week, now),
   ]);
   const counts = new Map(verified.map((row) => [row.ownerId, row._count._all]));
   const current = readings.filter(
@@ -202,18 +206,20 @@ export async function getWrapped(
         ? postHref(circleId, "check-in", reply.checkInUpdateId)
         : reply.bucketItemId
           ? bucketItemHref(circleId, reply.bucketItemId)
-          : reply.commitment
-            ? memberHref(
-                circleId,
-                reply.commitment.userId,
-                "tasks",
-                reply.commitment.day.toISOString().slice(0, 10),
-              )
-            : reply.review
-              ? postHref(circleId, "proof", reply.review.proofId)
-              : reply.checkInId
-                ? squadHref(circleId, reply.checkInId)
-                : null
+          : reply.streakEventId
+            ? postHref(circleId, "streak", reply.streakEventId)
+            : reply.commitment
+              ? memberHref(
+                  circleId,
+                  reply.commitment.userId,
+                  "tasks",
+                  reply.commitment.day.toISOString().slice(0, 10),
+                )
+              : reply.review
+                ? postHref(circleId, "proof", reply.review.proofId)
+                : reply.checkInId
+                  ? squadHref(circleId, reply.checkInId)
+                  : null
     : null;
   return {
     circleId,
@@ -234,6 +240,8 @@ export async function getWrapped(
       verified: counts.get(user.id) ?? 0,
     })),
     mostImproved,
+    streaks,
+    streakDays: streaks.reduce((sum, item) => sum + item.done, 0),
     screenTimeCount: current.length,
     topReply:
       reply && replyHref

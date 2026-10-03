@@ -2215,3 +2215,357 @@ section:first-child > .mood-group-label {
     animation: none;
   }
 }
+
+/* Streaks. The ember takes the theme color and warms it toward fire. */
+.streak-ember {
+  --ember-outer: color-mix(in oklch, var(--primary) 58%, #ff6a3d);
+  --ember-inner: color-mix(in oklch, var(--primary) 42%, #ffc35c);
+  --ember-core: color-mix(in oklch, var(--primary) 22%, #fff4dc);
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.streak-ember::before {
+  content: "";
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 62%,
+    color-mix(in oklch, var(--ember-outer) 55%, transparent),
+    transparent 68%
+  );
+  opacity: var(--ember-glow, 0.35);
+  scale: var(--ember-glow-scale, 0.8);
+  transition:
+    opacity 600ms ease,
+    scale 900ms var(--ease-spring);
+}
+.streak-ember[data-tier="flame"] {
+  --ember-glow: 0.5;
+  --ember-glow-scale: 0.95;
+}
+.streak-ember[data-tier="blaze"] {
+  --ember-glow: 0.7;
+  --ember-glow-scale: 1.1;
+}
+.streak-ember[data-tier="inferno"] {
+  --ember-glow: 0.95;
+  --ember-glow-scale: 1.3;
+}
+.streak-ember svg {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.streak-ember .flame-outer {
+  fill: var(--ember-outer);
+}
+.streak-ember .flame-inner {
+  fill: var(--ember-inner);
+}
+.streak-ember .flame-core {
+  fill: var(--ember-core);
+}
+.streak-ember .flame-body,
+.streak-ember .flame-flicker,
+.streak-ember .flame-flicker-inner,
+.streak-ember .flame-side {
+  transform-box: view-box;
+  transform-origin: 32px 58px;
+}
+.streak-ember .flame-body {
+  scale: var(--ember-scale, 0.62);
+  transition: scale 900ms var(--ease-bounce);
+}
+.streak-ember[data-tier="flame"] .flame-body {
+  --ember-scale: 0.8;
+}
+.streak-ember[data-tier="blaze"] .flame-body,
+.streak-ember[data-tier="inferno"] .flame-body {
+  --ember-scale: 0.94;
+}
+.streak-ember .flame-flicker {
+  animation: ember-flicker 2.6s ease-in-out infinite;
+}
+.streak-ember .flame-flicker-inner {
+  animation: ember-flicker 1.8s ease-in-out infinite reverse;
+}
+.streak-ember .flame-side {
+  animation: ember-flicker 2.1s ease-in-out infinite;
+  opacity: 0.85;
+}
+.streak-ember .ember-spark {
+  fill: var(--ember-inner);
+  animation: ember-rise 2.4s ease-out infinite;
+  opacity: 0;
+}
+.streak-ember .ember-spark:nth-of-type(2) {
+  animation-delay: 0.8s;
+}
+.streak-ember .ember-spark:nth-of-type(3) {
+  animation-delay: 1.6s;
+}
+.streak-ember[data-dim] {
+  filter: grayscale(0.85);
+  opacity: 0.55;
+}
+@keyframes ember-flicker {
+  0%,
+  100% {
+    transform: scale(1, 1) skewX(0deg);
+  }
+  25% {
+    transform: scale(0.97, 1.05) skewX(1.5deg);
+  }
+  50% {
+    transform: scale(1.03, 0.97) skewX(-1deg);
+  }
+  75% {
+    transform: scale(0.99, 1.03) skewX(0.6deg);
+  }
+}
+@keyframes ember-rise {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: var(--drift, 0) -28px;
+  }
+}
+
+.streak-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.streak-ring > svg {
+  position: absolute;
+  inset: 0;
+  rotate: -90deg;
+}
+.streak-ring-track {
+  stroke: var(--border);
+}
+.streak-ring-value {
+  stroke: var(--primary);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1100ms var(--ease-snappy);
+}
+@starting-style {
+  .streak-ring-value {
+    stroke-dashoffset: var(--ring-length);
+  }
+}
+
+.streak-count {
+  font-size: 2.5rem;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+}
+.streak-card[data-size="hero"] .streak-count {
+  font-size: clamp(3.5rem, 12vw, 5rem);
+}
+
+.streak-week {
+  display: flex;
+  gap: 6px;
+}
+.streak-week li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.streak-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+}
+.streak-dot[data-state="done"] {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.streak-dot[data-state="slipped"] {
+  background: var(--destructive);
+  border-color: var(--destructive);
+}
+.streak-dot[data-state="missed"] {
+  border-color: color-mix(in oklch, var(--destructive) 55%, var(--border));
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 2px,
+    color-mix(in oklch, var(--destructive) 35%, transparent) 2px 3.5px
+  );
+}
+.streak-dot[data-state="pending"] {
+  border-style: dashed;
+  border-color: var(--muted-foreground);
+}
+.streak-dot[data-state="none"] {
+  opacity: 0.3;
+}
+.streak-week li[data-today] {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.streak-heatmap {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+.streak-heatmap-cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--muted);
+}
+.streak-heatmap-cell[data-state="done"] {
+  background: color-mix(
+    in oklch,
+    var(--primary) var(--level, 100%),
+    var(--muted)
+  );
+}
+.streak-heatmap-cell[data-state="slipped"] {
+  background: color-mix(in oklch, var(--destructive) 80%, var(--muted));
+}
+.streak-heatmap-cell[data-state="missed"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklch, var(--destructive) 50%, transparent);
+}
+.streak-heatmap-cell[data-state="pending"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--muted-foreground);
+}
+.streak-heatmap-cell[data-state="outside"] {
+  background: color-mix(in oklch, var(--muted) 40%, transparent);
+}
+
+.hold-button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.hold-button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: color-mix(in oklch, var(--primary-foreground) 24%, transparent);
+  transform-origin: left center;
+  transform: scaleX(var(--hold, 0));
+}
+.hold-button[data-holding] {
+  scale: 0.98;
+}
+.hold-button[data-done] svg {
+  animation: pop-in 0.5s var(--ease-bounce);
+}
+
+.streak-celebration {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 50% 40%,
+      color-mix(in oklch, var(--primary) 22%, transparent),
+      transparent 60%
+    ),
+    color-mix(in oklch, var(--background) 92%, transparent);
+  backdrop-filter: blur(6px);
+  transition: opacity 300ms ease;
+}
+.streak-celebration[data-starting-style],
+.streak-celebration[data-ending-style] {
+  opacity: 0;
+}
+.streak-celebration-body {
+  position: relative;
+  display: flex;
+  max-width: 22rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+  animation: pop-in 0.7s var(--ease-bounce) backwards;
+}
+.streak-celebration-number {
+  font-size: clamp(5rem, 22vw, 8rem);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.07em;
+  font-variant-numeric: tabular-nums;
+}
+.streak-confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.streak-confetti span {
+  position: absolute;
+  top: -5%;
+  left: var(--x);
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--c);
+  animation: confetti-fall var(--duration) var(--delay)
+    cubic-bezier(0.25, 0.6, 0.5, 1) forwards;
+  opacity: 0;
+}
+.streak-confetti span:nth-child(3n) {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift), 105vh, 0) rotate(var(--spin));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streak-ember .flame-flicker,
+  .streak-ember .flame-flicker-inner,
+  .streak-ember .flame-side,
+  .streak-ember .ember-spark,
+  .streak-celebration-body,
+  .streak-confetti span {
+    animation: none;
+  }
+  .streak-confetti {
+    display: none;
+  }
+}

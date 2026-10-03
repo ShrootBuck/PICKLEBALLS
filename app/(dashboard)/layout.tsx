@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { BellSlot } from "@/components/layout/bell-slot";
 import { SocialProvider } from "@/components/social/social-provider";
 import { SocialShell } from "@/components/social/social-shell";
+import { StreakCelebrationHost } from "@/components/streaks/streak-celebration";
 import { countBucketVotesAwaiting } from "@/lib/bucket-list-data";
 import { listMyCircles } from "@/lib/circles";
 import { getPrisma } from "@/lib/prisma";
@@ -75,6 +76,7 @@ export default async function DashboardLayout({
       >
         {children}
       </SocialShell>
+      <StreakCelebrationHost />
     </SocialProvider>
   );
 }

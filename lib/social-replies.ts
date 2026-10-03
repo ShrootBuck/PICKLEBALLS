@@ -211,6 +211,44 @@ export async function createSocialReply(
       return reply;
     }
 
+    if (targetType === "STREAK_EVENT") {
+      const event = await transaction.streakEvent.findFirst({
+        where: { id: targetId, circleId, streak: { visibility: "CIRCLE" } },
+        select: {
+          id: true,
+          user: { select: { name: true } },
+          streak: { select: { title: true, emoji: true } },
+        },
+      });
+      if (!event) throw new DomainError("Streak post not found.", 404);
+
+      const reply = await transaction.socialReply.create({
+        data: {
+          authorId,
+          circleId,
+          streakEventId: event.id,
+          body,
+          mediaIds,
+        },
+        include: { author: { select: authorSelect } },
+      });
+      await transaction.activityEvent.create({
+        data: {
+          circleId,
+          actorId: authorId,
+          kind: "REPLY_POSTED",
+          entityId: event.id,
+          summary: `replied to ${event.user.name}'s streak “${event.streak.emoji} ${event.streak.title}”`,
+          metadata: { targetType, replyId: reply.id },
+        },
+      });
+      await notifyReplyReceived(
+        { replyId: reply.id, authorId, circleId },
+        notifications,
+      );
+      return reply;
+    }
+
     const review = await transaction.taskProofReview.findFirst({
       where: { id: targetId, circleId },
       select: {

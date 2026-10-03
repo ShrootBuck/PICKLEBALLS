@@ -1,4 +1,12 @@
-import { CalendarDays, CheckSquare, Image, Smartphone } from "lucide-react";
+import {
+  CalendarDays,
+  CheckSquare,
+  Flame,
+  Image,
+  Plus,
+  Smartphone,
+  Trophy,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CircleDestination } from "@/components/circles/circle-destination";
@@ -6,7 +14,10 @@ import { Feed } from "@/components/social/feed";
 import { AddTaskButton } from "@/components/social/home-actions";
 import { ProfileDayPicker } from "@/components/social/profile-day-picker";
 import { TaskList } from "@/components/social/task-list";
+import { StreakCard } from "@/components/streaks/streak-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { buttonVariants } from "@/components/ui/button";
+import { newStreakHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
 import {
@@ -19,6 +30,7 @@ import {
   socialTaskInclude,
   toSocialTask,
 } from "@/lib/social-data";
+import { getMemberStreaks } from "@/lib/streaks";
 import { currentTaskFilter } from "@/lib/task-policy";
 import {
   formatDayShort,
@@ -79,7 +91,8 @@ export async function MemberProfile({
     params.day <= today
       ? params.day
       : today;
-  const tab = params.tab === "tasks" ? "tasks" : "posts";
+  const tab =
+    params.tab === "tasks" || params.tab === "streaks" ? params.tab : "posts";
   const monday = shiftDateKey(
     today,
     -((requireDateKey(today).getUTCDay() + 6) % 7),
@@ -132,6 +145,10 @@ export async function MemberProfile({
       select: { reading: { select: { dailyAverageMinutes: true } } },
     }),
   ]);
+  const streaks =
+    tab === "streaks"
+      ? await getMemberStreaks(circleId, id, session.user.id)
+      : null;
   const stats = weeklyTasks.map(toSocialTask);
   const profileQuery = new URLSearchParams({ circle: circleId, day });
   const taskQuery = new URLSearchParams({
@@ -139,6 +156,7 @@ export async function MemberProfile({
     tab: "tasks",
     day,
   });
+  const streakQuery = new URLSearchParams({ circle: circleId, tab: "streaks" });
   return (
     <>
       <header className="flex items-start gap-4">
@@ -220,9 +238,58 @@ export async function MemberProfile({
           <CheckSquare className="size-4" />
           Tasks
         </Link>
+        <Link
+          className="line-tab"
+          href={`${base}?${streakQuery}`}
+          aria-current={tab === "streaks" ? "page" : undefined}
+        >
+          <Flame className="size-4" />
+          Streaks
+        </Link>
       </nav>
       {tab === "posts" && feed ? (
         <Feed key={`${id}:posts`} memberId={id} initial={feed} />
+      ) : tab === "streaks" && streaks ? (
+        <>
+          {streaks.active.length ? (
+            <div className="grid items-start gap-4 sm:grid-cols-2">
+              {streaks.active.map((view) => (
+                <StreakCard key={view.id} view={view} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {mine
+                ? "No streaks going yet. Pick something to quit or build."
+                : `${subject.user.name} doesn’t have a streak going right now.`}
+            </p>
+          )}
+          {mine && (
+            <Link
+              href={newStreakHref}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <Plus data-icon="inline-start" />
+              New streak
+            </Link>
+          )}
+          {streaks.retired.length > 0 && (
+            <section className="flex flex-col gap-3" aria-labelledby="trophies">
+              <h2
+                id="trophies"
+                className="flex items-center gap-2 text-sm font-semibold"
+              >
+                <Trophy className="size-4 text-primary" />
+                Trophies
+              </h2>
+              <div className="grid items-start gap-4 sm:grid-cols-2">
+                {streaks.retired.map((view) => (
+                  <StreakCard key={view.id} view={view} />
+                ))}
+              </div>
+            </section>
+          )}
+        </>
       ) : (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">

@@ -1,15 +1,18 @@
 import {
   Activity,
+  BellRing,
   CheckCircle2,
   CircleDashed,
   ClockAlert,
   Flag,
+  Flame,
   History,
   MessageCircle,
   Mountain,
   PartyPopper,
   PencilLine,
   TriangleAlert,
+  Trophy,
   Upload,
 } from "lucide-react";
 
@@ -40,6 +43,14 @@ export function activityIcon(kind: string) {
       return Flag;
     case "BUCKET_ITEM_COMPLETED":
       return PartyPopper;
+    case "STREAK_STARTED":
+    case "STREAK_MILESTONE":
+    case "STREAK_REMINDER":
+      return Flame;
+    case "STREAK_RETIRED":
+      return Trophy;
+    case "STREAK_NUDGE":
+      return BellRing;
     default:
       return CircleDashed;
   }

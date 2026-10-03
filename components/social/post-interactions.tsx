@@ -39,6 +39,14 @@ import { appFetch } from "@/lib/app-refresh";
 import { memberHref, postHref } from "@/lib/navigation";
 import type { InteractivePost } from "@/lib/social-types";
 
+function likeTarget(post: InteractivePost) {
+  return post.kind === "proof"
+    ? "PROOF"
+    : post.kind === "streak"
+      ? "STREAK_EVENT"
+      : "CHECK_IN_UPDATE";
+}
+
 async function copyPostLink(post: InteractivePost) {
   try {
     await navigator.clipboard.writeText(
@@ -141,7 +149,7 @@ export function PostInteractions({
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          targetType: post.kind === "proof" ? "PROOF" : "CHECK_IN_UPDATE",
+          targetType: likeTarget(post),
           targetId: post.id,
           liked,
         }),
@@ -220,7 +228,7 @@ function PostComments({
   } | null>(null);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const targetType = post.kind === "proof" ? "PROOF" : "CHECK_IN_UPDATE";
+  const targetType = likeTarget(post);
   // biome-ignore lint/correctness/useExhaustiveDependencies: attempt retries a failed comments request
   useEffect(() => {
     if (!open) return;
@@ -266,11 +274,17 @@ function PostComments({
           <DialogTitle>
             {post.kind === "proof"
               ? "Proof and comments"
-              : "Check-in and comments"}
+              : post.kind === "streak"
+                ? "Streak and comments"
+                : "Check-in and comments"}
           </DialogTitle>
           <DialogDescription>
             {post.author.name} ·{" "}
-            {post.kind === "proof" ? post.title : "Check-in"}
+            {post.kind === "proof"
+              ? post.title
+              : post.kind === "streak"
+                ? `${post.emoji} ${post.streakTitle}`
+                : "Check-in"}
           </DialogDescription>
         </DialogHeader>
         <div className="post-discussion-layout">

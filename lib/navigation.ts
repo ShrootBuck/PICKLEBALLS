@@ -18,7 +18,7 @@ export function squadHref(circleId: string, focusId?: string | null) {
 
 export function postHref(
   circleId: string,
-  kind: "proof" | "check-in" | "screen-time",
+  kind: "proof" | "check-in" | "screen-time" | "streak",
   id: string,
 ) {
   if (kind === "screen-time")
@@ -30,10 +30,18 @@ export function bucketItemHref(circleId: string, id: string) {
   return `/bucket-list/${encodeURIComponent(id)}?${new URLSearchParams({ circle: circleId })}`;
 }
 
+// A hash, not a search param, so opening the form never changes the page key.
+export const newStreakHash = "#new";
+export const newStreakHref = `/streaks${newStreakHash}`;
+
+export function streakHref(circleId: string, id: string) {
+  return `/streaks/${encodeURIComponent(id)}?${new URLSearchParams({ circle: circleId })}`;
+}
+
 export function memberHref(
   circleId: string,
   userId: string,
-  tab: "posts" | "tasks" = "posts",
+  tab: "posts" | "tasks" | "streaks" = "posts",
   day?: string,
 ) {
   const query = new URLSearchParams({ circle: circleId, tab });

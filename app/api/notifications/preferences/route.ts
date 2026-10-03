@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { jsonError, readJson } from "@/lib/api";
 import type { NotificationPrefs } from "@/lib/notification-policy";
-import { getNotificationPrefs } from "@/lib/notifications";
+import {
+  getNotificationPrefs,
+  notificationPrefsSelect,
+} from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
 import { notificationPreferencesSchema } from "@/lib/schemas";
@@ -38,16 +41,14 @@ export async function PUT(request: Request) {
         { status: 400 },
       );
     }
-    const prefs = await getPrisma().notificationPreference.upsert({
-      where: { userId: auth.session.user.id },
-      update: parsed.data,
-      create: { userId: auth.session.user.id, ...parsed.data },
-    });
-    return NextResponse.json({
-      preferences: {
-        proofsSubmitted: prefs.proofsSubmitted,
-      } satisfies NotificationPrefs,
-    });
+    const preferences: NotificationPrefs =
+      await getPrisma().notificationPreference.upsert({
+        where: { userId: auth.session.user.id },
+        update: parsed.data,
+        create: { userId: auth.session.user.id, ...parsed.data },
+        select: notificationPrefsSelect,
+      });
+    return NextResponse.json({ preferences });
   } catch (error) {
     return jsonError(error);
   }

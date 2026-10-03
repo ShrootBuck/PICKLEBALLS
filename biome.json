@@ -14,7 +14,8 @@
       "!dist",
       "!build",
       "!.agents",
-      "!.codex"
+      "!.codex",
+      "!.delta"
     ]
   },
   "formatter": {

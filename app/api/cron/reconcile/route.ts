@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { usesLocalWorker } from "@/lib/queue";
+import { sendStreakReminders } from "@/lib/streaks";
 import { reconcileMissedTasks } from "@/lib/tasks";
 
 export const runtime = "nodejs";
@@ -39,8 +40,17 @@ export async function GET(request: Request) {
     }
   }
 
+  let streakReminders = 0;
+  let remindersFailed = false;
+  try {
+    streakReminders = (await sendStreakReminders()).sent;
+  } catch (error) {
+    remindersFailed = true;
+    console.warn("Streak reminders failed", { error });
+  }
+
   return NextResponse.json(
-    { reconciled, failedCircles },
-    { status: failedCircles ? 500 : 200 },
+    { reconciled, failedCircles, streakReminders },
+    { status: failedCircles || remindersFailed ? 500 : 200 },
   );
 }

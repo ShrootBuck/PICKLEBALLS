@@ -5,7 +5,13 @@ import { serializable } from "@/lib/transaction";
 
 export const postLikeSchema = z
   .object({
-    targetType: z.enum(["PROOF", "CHECK_IN_UPDATE", "REPLY", "REVIEW"]),
+    targetType: z.enum([
+      "PROOF",
+      "CHECK_IN_UPDATE",
+      "REPLY",
+      "REVIEW",
+      "STREAK_EVENT",
+    ]),
     targetId: z.string().min(1).max(100),
     liked: z.boolean(),
   })
@@ -27,6 +33,7 @@ export async function setPostLike(
         CHECK_IN_UPDATE: "checkInUpdateId",
         REPLY: "replyId",
         REVIEW: "reviewId",
+        STREAK_EVENT: "streakEventId",
       }[input.targetType]]: input.targetId,
     };
     const query = {
@@ -39,7 +46,9 @@ export async function setPostLike(
         ? tx.checkInUpdate.findFirst(query)
         : input.targetType === "REPLY"
           ? tx.socialReply.findFirst(query)
-          : tx.taskProofReview.findFirst(query));
+          : input.targetType === "STREAK_EVENT"
+            ? tx.streakEvent.findFirst(query)
+            : tx.taskProofReview.findFirst(query));
     if (!target) throw new DomainError("Post not found.", 404);
     if (input.liked) {
       await tx.postLike.createMany({

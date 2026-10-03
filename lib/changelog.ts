@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1791011995047,
+    title: "Streaks for quitting or building anything",
+    description:
+      "Start a personal streak from the new Streaks page. Quit something like caffeine by confirming each day once it’s over, and log slips with a note whenever they happen, or build a habit by logging it any time, as often as you like. Track money saved or amounts done, watch your flame grow, and see every day on a six-month calendar. Circle streaks post milestones your friends can like and comment on, and friends can nudge you before a streak breaks. You can also keep a streak private, get daily reminders, and retire a finished streak as a trophy on your profile.",
+  },
+  {
     timestamp: 1790912644543,
     title: "Your week, wrapped",
     description:

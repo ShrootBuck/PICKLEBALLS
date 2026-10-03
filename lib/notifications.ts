@@ -46,32 +46,40 @@ export async function withNotifications<T>(
   return result;
 }
 
+export const notificationPrefsSelect = {
+  proofsSubmitted: true,
+  streakReminders: true,
+  streakWarnings: true,
+  streakMorningHour: true,
+  streakEveningHour: true,
+} as const satisfies Record<keyof NotificationPrefs, true>;
+
 export async function getNotificationPrefs(
   userId: string,
   prisma: Prisma.TransactionClient = getPrisma(),
 ): Promise<NotificationPrefs> {
   const row = await prisma.notificationPreference.findUnique({
     where: { userId },
-    select: { proofsSubmitted: true },
+    select: notificationPrefsSelect,
   });
-  if (!row) return { ...defaultNotificationPrefs };
-  return {
-    proofsSubmitted: row.proofsSubmitted,
-  };
+  return row ? { ...row } : { ...defaultNotificationPrefs };
 }
 
-async function getNotificationPrefsByUser(
+export async function getNotificationPrefsByUser(
   userIds: string[],
   prisma: Prisma.TransactionClient,
 ) {
   const rows = userIds.length
     ? await prisma.notificationPreference.findMany({
         where: { userId: { in: userIds } },
-        select: { userId: true, proofsSubmitted: true },
+        select: { userId: true, ...notificationPrefsSelect },
       })
     : [];
   const byUser = new Map(
-    rows.map((row) => [row.userId, { proofsSubmitted: row.proofsSubmitted }]),
+    rows.map(({ userId, ...prefs }): [string, NotificationPrefs] => [
+      userId,
+      prefs,
+    ]),
   );
   return (userId: string): NotificationPrefs =>
     byUser.get(userId) ?? { ...defaultNotificationPrefs };
@@ -221,6 +229,13 @@ export async function notifyReplyReceived(
         },
       },
       bucketItem: { select: { id: true, proposerId: true, title: true } },
+      streakEvent: {
+        select: {
+          id: true,
+          userId: true,
+          streak: { select: { title: true, emoji: true } },
+        },
+      },
     },
   });
   if (!reply || reply.authorId !== input.authorId) return [];
@@ -283,6 +298,13 @@ export async function notifyReplyReceived(
       entityId: reply.bucketItem.id,
       url: `${bucketItemHref(input.circleId, reply.bucketItem.id)}#comments`,
     });
+  } else if (reply.streakEvent) {
+    jobs.push({
+      recipientId: reply.streakEvent.userId,
+      context: `your streak “${reply.streakEvent.streak.emoji} ${reply.streakEvent.streak.title}”`,
+      entityId: reply.streakEvent.id,
+      url: `${postHref(input.circleId, "streak", reply.streakEvent.id)}#comments`,
+    });
   }
 
   // Proof comments and verdict replies now share one discussion.
@@ -299,7 +321,9 @@ export async function notifyReplyReceived(
             ? { reviewId: reply.review.id }
             : reply.bucketItem
               ? { bucketItemId: reply.bucketItem.id }
-              : null;
+              : reply.streakEvent
+                ? { streakEventId: reply.streakEvent.id }
+                : null;
   const destination = jobs[0];
   if (!target || !destination) return [];
 

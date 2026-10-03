@@ -11,6 +11,14 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { appFetch } from "@/lib/app-refresh";
 import type { NotificationPrefs } from "@/lib/notification-policy";
 
@@ -20,7 +28,27 @@ const PREF_META = [
     label: "Friends’ proof photos",
     hint: "Push alerts when a friend posts proof. Photos always appear in your inbox.",
   },
+  {
+    key: "streakReminders",
+    label: "Streak reminders",
+    hint: "A morning check for quit streaks and an evening reminder for build streaks you haven’t logged.",
+  },
+  {
+    key: "streakWarnings",
+    label: "Last-chance streak warnings",
+    hint: "A heads-up in the evening when a streak would break at midnight.",
+  },
 ] as const;
+
+const HOUR_META = [
+  { key: "streakMorningHour", label: "Morning reminder" },
+  { key: "streakEveningHour", label: "Evening reminder" },
+] as const;
+
+const hourItems = Array.from({ length: 24 }, (_, hour) => ({
+  value: String(hour),
+  label: `${hour % 12 || 12} ${hour < 12 ? "AM" : "PM"}`,
+}));
 
 export function NotificationPreferences() {
   const id = useId();
@@ -48,10 +76,13 @@ export function NotificationPreferences() {
     return () => controller.abort();
   }, [attempt, version, saving]);
 
-  async function toggle(key: keyof NotificationPrefs, checked: boolean) {
+  async function save<K extends keyof NotificationPrefs>(
+    key: K,
+    value: NotificationPrefs[K],
+  ) {
     if (!prefs || saving) return;
     const previous = prefs;
-    const next = { ...prefs, [key]: checked };
+    const next = { ...prefs, [key]: value };
     setPrefs(next);
     setSaving(true);
     setSaveError(null);
@@ -73,8 +104,8 @@ export function NotificationPreferences() {
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
         Replies to your posts and threads you’ve commented in always appear in
-        your inbox, along with proof verdicts. Push alerts arrive when enabled
-        on this device.
+        your inbox, along with proof verdicts and streak nudges. Push alerts
+        arrive when enabled on this device.
       </p>
       {prefs ? (
         <FieldGroup className="gap-3">
@@ -97,8 +128,43 @@ export function NotificationPreferences() {
                 aria-describedby={`${id}-${meta.key}-help`}
                 checked={prefs[meta.key]}
                 disabled={saving}
-                onCheckedChange={(checked) => toggle(meta.key, checked)}
+                onCheckedChange={(checked) => save(meta.key, checked)}
               />
+            </Field>
+          ))}
+          {HOUR_META.map((meta) => (
+            <Field
+              key={meta.key}
+              orientation="horizontal"
+              data-disabled={saving}
+            >
+              <FieldContent>
+                <FieldLabel htmlFor={`${id}-${meta.key}`}>
+                  {meta.label}
+                </FieldLabel>
+                <FieldDescription>Phoenix time</FieldDescription>
+              </FieldContent>
+              <Select
+                items={hourItems}
+                value={String(prefs[meta.key])}
+                onValueChange={(value) => {
+                  if (value !== null) save(meta.key, Number(value));
+                }}
+                disabled={saving}
+              >
+                <SelectTrigger id={`${id}-${meta.key}`} className="w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    {hourItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </Field>
           ))}
         </FieldGroup>

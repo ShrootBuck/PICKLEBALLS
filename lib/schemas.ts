@@ -24,6 +24,7 @@ export const socialReplySchema = z
       "PROOF",
       "REVIEW",
       "BUCKET_ITEM",
+      "STREAK_EVENT",
     ]),
     targetId: z.string().trim().min(1).max(100),
     body: z.string().trim().max(500),
@@ -58,8 +59,14 @@ export const pushSubscriptionSchema = z.object({
   userAgent: z.string().trim().max(500).optional(),
 });
 
+const reminderHour = z.number().int().min(0).max(23);
+// Streak fields are optional so a tab from the previous release can still save.
 export const notificationPreferencesSchema = z.object({
   proofsSubmitted: z.boolean(),
+  streakReminders: z.boolean().optional(),
+  streakWarnings: z.boolean().optional(),
+  streakMorningHour: reminderHour.optional(),
+  streakEveningHour: reminderHour.optional(),
 });
 export const proofReviewSchema = z
   .object({

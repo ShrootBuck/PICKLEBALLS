@@ -218,8 +218,8 @@ export function NotificationBell({
                     </EmptyMedia>
                     <EmptyTitle>No notifications yet</EmptyTitle>
                     <EmptyDescription>
-                      Replies, proof photos, verdicts, and bucket list votes
-                      will appear here.
+                      Replies, proof photos, verdicts, bucket list votes, and
+                      streak reminders will appear here.
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>

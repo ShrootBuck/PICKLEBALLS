@@ -4,7 +4,7 @@ import type { FeedPost, PostKind } from "@/lib/social-types";
 const cursorSchema = z
   .object({
     time: z.string().datetime(),
-    kind: z.enum(["proof", "check-in", "screen-time"]),
+    kind: z.enum(["proof", "check-in", "screen-time", "streak"]),
     id: z.string().min(1).max(100),
     circle: z.string().min(1).max(100),
     member: z.string().max(100),

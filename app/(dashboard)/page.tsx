@@ -4,10 +4,12 @@ import { MoodLauncher } from "@/components/mood/mood-launcher";
 import { ScreenTimeReminder } from "@/components/screen-time/reminder";
 import { HomeActions } from "@/components/social/home-actions";
 import { HomeFeed } from "@/components/social/home-feed";
+import { StreakToday } from "@/components/streaks/streak-today";
 import { postValence } from "@/lib/mood";
 import { getPrisma } from "@/lib/prisma";
 import { getPageSession, requirePageMembership } from "@/lib/request";
 import { getFeedPage } from "@/lib/social-data";
+import { getStreaksNeedingLog } from "@/lib/streaks";
 import { formatHistoryTime, phoenixDateKey, requireDateKey } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Home" };
@@ -16,7 +18,7 @@ export default async function HomePage() {
   if (!session) return <LandingPage />;
   const { membership } = await requirePageMembership();
   const context = { viewerId: session.user.id, circleId: membership.circleId };
-  const [feed, pending, latest] = await Promise.all([
+  const [feed, pending, latest, streaks] = await Promise.all([
     getFeedPage({ ...context, timelineOnly: true }),
     getFeedPage({ ...context, awaitingOnly: true }),
     getPrisma().checkInUpdate.findFirst({
@@ -29,11 +31,13 @@ export default async function HomePage() {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       select: { mood: true, valence: true, createdAt: true },
     }),
+    getStreaksNeedingLog(membership.circleId, session.user.id),
   ]);
   const latestValence = latest ? postValence(latest) : null;
   return (
     <>
       <h1 className="sr-only">Home</h1>
+      <StreakToday streaks={streaks} />
       <MoodLauncher
         latest={
           latest && latestValence != null

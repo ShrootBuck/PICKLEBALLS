@@ -6,6 +6,7 @@ import {
   Camera,
   ClipboardList,
   Clock3,
+  Flame,
   MessageCircle,
   Plus,
 } from "lucide-react";
@@ -52,6 +53,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { appFetch, holdAppRefresh } from "@/lib/app-refresh";
 import { uploadMedia } from "@/lib/media-upload";
+import { newStreakHref } from "@/lib/navigation";
 import type { SocialTask } from "@/lib/social-types";
 import {
   formatDayShort,
@@ -371,6 +373,23 @@ function ComposerForm({
                 <ArrowRight data-icon="inline-end" />
               </Button>
             ))}
+            <Button
+              variant="outline"
+              className="composer-choice"
+              onClick={() => {
+                onClose();
+                router.push(newStreakHref);
+              }}
+            >
+              <Flame data-icon="inline-start" />
+              <span className="flex flex-1 flex-col items-start gap-1">
+                <span>Start a streak</span>
+                <span className="font-normal text-muted-foreground">
+                  Quit something or build a daily habit.
+                </span>
+              </span>
+              <ArrowRight data-icon="inline-end" />
+            </Button>
           </div>
         )}
         {mode === "task" && (

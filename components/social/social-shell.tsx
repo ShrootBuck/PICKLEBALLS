@@ -8,6 +8,7 @@ import {
   Circle,
   CircleAlert,
   Clock3,
+  Flame,
   Gauge,
   History,
   Home,
@@ -54,6 +55,7 @@ const destinations = [
   { href: "/squad", label: "Squad", icon: Users },
   { href: "/bucket-list", label: "Bucket list", icon: Mountain },
   { href: "/goals", label: "Goals", icon: Target, railOnly: true },
+  { href: "/streaks", label: "Streaks", icon: Flame, railOnly: true },
   { href: "/wrapped", label: "Wrapped", icon: Sparkles, railOnly: true },
   // Weekly and reached from the Home reminder, so mobile keeps it in the circle menu.
   {
@@ -97,6 +99,7 @@ export function SocialShell({
     ) ||
     pathname.startsWith("/superadmin") ||
     pathname.startsWith("/goals") ||
+    pathname.startsWith("/streaks") ||
     pathname === "/wrapped";
   useLayoutEffect(() => {
     const node = scrollRef.current;
@@ -341,6 +344,12 @@ export function SocialShell({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="md:hidden"
+                  render={<Link href="/streaks" />}
+                >
+                  <Flame /> Streaks
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="md:hidden"
                   render={<Link href="/wrapped" />}
                 >
                   <Sparkles /> Wrapped
@@ -390,7 +399,7 @@ export function SocialShell({
             <Button
               variant="ghost"
               className="md:hidden"
-              aria-label="Create a task, proof, or check-in"
+              aria-label="Create a task, proof, check-in, or streak"
               onClick={() => openComposer()}
             >
               <Plus data-icon="inline-start" />

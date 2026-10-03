@@ -129,6 +129,7 @@ export async function getFeedPage({
   limit = 20,
   proofIds,
   checkInIds,
+  streakEventIds,
   includeReplaced = false,
   pendingOnly = false,
   awaitingOnly = false,
@@ -141,6 +142,7 @@ export async function getFeedPage({
   limit?: number;
   proofIds?: string[];
   checkInIds?: string[];
+  streakEventIds?: string[];
   includeReplaced?: boolean;
   pendingOnly?: boolean;
   awaitingOnly?: boolean;
@@ -172,6 +174,7 @@ export async function getFeedPage({
     take: size + 1,
     proofIds,
     checkInIds,
+    streakEventIds,
     includeReplaced,
     pendingOnly,
     awaitingOnly,
@@ -205,6 +208,7 @@ async function readPosts({
   take,
   proofIds,
   checkInIds,
+  streakEventIds,
   includeReplaced = false,
   pendingOnly = false,
   awaitingOnly = false,
@@ -219,6 +223,7 @@ async function readPosts({
   take?: number;
   proofIds?: string[];
   checkInIds?: string[];
+  streakEventIds?: string[];
   includeReplaced?: boolean;
   pendingOnly?: boolean;
   awaitingOnly?: boolean;
@@ -227,7 +232,7 @@ async function readPosts({
   until?: Date;
 }): Promise<FeedPost[]> {
   const prisma = getPrisma();
-  const [proofs, updates, screenTimes, members] = await Promise.all([
+  const [proofs, updates, screenTimes, streaks, members] = await Promise.all([
     prisma.taskProof.findMany({
       where: {
         circleId,
@@ -322,6 +327,33 @@ async function readPosts({
       take,
       include: { user: { select: socialAuthorSelect }, reading: true },
     }),
+    prisma.streakEvent.findMany({
+      where: {
+        circleId,
+        // Private streaks never post, but the feed must not depend on that.
+        streak: { visibility: "CIRCLE" },
+        ...(memberId ? { userId: memberId } : {}),
+        ...(pendingOnly || awaitingOnly
+          ? { id: { in: [] } }
+          : streakEventIds
+            ? { id: { in: streakEventIds } }
+            : proofIds || checkInIds
+              ? { id: { in: [] } }
+              : {}),
+        ...feedBoundary("streak", "createdAt", cursor),
+        ...(since ? { createdAt: { gt: since, lte: until } } : {}),
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take,
+      include: {
+        user: { select: socialAuthorSelect },
+        streak: {
+          select: { title: true, emoji: true, kind: true, unitLabel: true },
+        },
+        likes: { where: { userId: viewerId }, select: { id: true }, take: 1 },
+        _count: { select: { likes: true, replies: true } },
+      },
+    }),
     prisma.membership.findMany({
       where: { circleId },
       select: { userId: true },
@@ -409,6 +441,28 @@ async function readPosts({
         likeCount: u._count.likes,
         likedByMe: u.likes.length > 0,
         commentCount: u._count.replies,
+      }),
+    ),
+    ...streaks.map(
+      (event): FeedPost => ({
+        kind: "streak",
+        id: event.id,
+        circleId,
+        createdAt: event.createdAt.toISOString(),
+        author: event.user,
+        body: null,
+        event: event.kind,
+        streakId: event.streakId,
+        streakTitle: event.streak.title,
+        emoji: event.streak.emoji,
+        streakKind: event.streak.kind,
+        unitLabel: event.streak.unitLabel,
+        count: event.count,
+        costCents: event.costCents,
+        units: event.units,
+        likeCount: event._count.likes,
+        likedByMe: event.likes.length > 0,
+        commentCount: event._count.replies,
       }),
     ),
   ].sort(compareFeedPosts);

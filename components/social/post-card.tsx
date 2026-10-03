@@ -98,7 +98,7 @@ function InteractivePostCard({
   return (
     <article
       className="social-post"
-      aria-label={`${post.author.name}’s ${post.kind === "proof" ? "proof" : "check-in"}`}
+      aria-label={`${post.author.name}’s ${post.kind === "proof" ? "proof" : post.kind === "streak" ? "streak" : "check-in"}`}
     >
       <header className="social-post-header">
         <PostAvatar author={post.author} href={authorHref} />
@@ -112,6 +112,12 @@ function InteractivePostCard({
             </Link>
             {post.kind === "check-in" &&
               (post.mood ? " · Mood check-in" : " · Check-in")}
+            {post.kind === "streak" &&
+              (post.event === "STARTED"
+                ? " · New streak"
+                : post.event === "MILESTONE"
+                  ? " · Streak milestone"
+                  : " · Retired streak")}
           </p>
         </div>
         <PostMenu post={post} />

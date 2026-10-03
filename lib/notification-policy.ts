@@ -11,6 +11,8 @@ export const inboxKinds: ActivityKind[] = [
   "BUCKET_ITEM_APPROVED",
   "BUCKET_ITEM_COMPLETION_REQUESTED",
   "BUCKET_ITEM_COMPLETED",
+  "STREAK_NUDGE",
+  "STREAK_REMINDER",
 ];
 
 // The bell inbox only shows the last 24 hours; nothing older is offered.
@@ -22,10 +24,19 @@ export function notificationInboxSince(now = Date.now()) {
 
 export type NotificationPrefs = {
   proofsSubmitted: boolean;
+  streakReminders: boolean;
+  streakWarnings: boolean;
+  // Phoenix hours, 0 to 23.
+  streakMorningHour: number;
+  streakEveningHour: number;
 };
 
 export const defaultNotificationPrefs: NotificationPrefs = {
   proofsSubmitted: true,
+  streakReminders: true,
+  streakWarnings: true,
+  streakMorningHour: 9,
+  streakEveningHour: 23,
 };
 
 export function shouldCreateNotification(kind: ActivityKind) {
@@ -38,6 +49,9 @@ export function shouldPushNotification(
 ) {
   return (
     shouldCreateNotification(kind) &&
-    (kind !== "PROOF_SUBMITTED" || prefs.proofsSubmitted)
+    (kind !== "PROOF_SUBMITTED" || prefs.proofsSubmitted) &&
+    (kind !== "STREAK_REMINDER" ||
+      prefs.streakReminders ||
+      prefs.streakWarnings)
   );
 }
