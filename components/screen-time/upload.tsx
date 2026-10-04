@@ -31,6 +31,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { holdAppRefresh, requestAppRefresh } from "@/lib/app-refresh";
 import { uploadMedia } from "@/lib/media-upload";
 import { formatScreenTime, screenTimeWeekLabel } from "@/lib/screen-time";
+import { waitForScreenTimeRead } from "@/lib/screen-time-read-client";
 
 export function ScreenTimeUpload({
   weekStart,
@@ -46,8 +47,8 @@ export function ScreenTimeUpload({
   const [file, setFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadedId = useRef<string | null>(null);
-  const [checkingStatus, setCheckingStatus] = useState(false);
-  const [statusCheck, setStatusCheck] = useState(0);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [takingLonger, setTakingLonger] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [status, setStatus, uploadPercent] = useUploadStatus();
@@ -62,55 +63,41 @@ export function ScreenTimeUpload({
     } catch {}
   }, [storageKey]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: The explicit Check status action starts one new request.
   useEffect(() => {
     if (!runId) return;
-    const activeRunId = runId;
     let disposed = false;
     const controller = new AbortController();
-    setCheckingStatus(true);
-    async function checkStatus() {
-      try {
-        const response = await fetch(
-          `/api/screen-time/read?runId=${encodeURIComponent(activeRunId)}`,
-          { cache: "no-store", signal: controller.signal },
-        );
-        const result = await response.json();
+    setReconnecting(false);
+    setTakingLonger(false);
+    const slowTimer = setTimeout(() => setTakingLonger(true), 60000);
+    void waitForScreenTimeRead(runId, controller.signal, (value) => {
+      if (!disposed) setReconnecting(value);
+    })
+      .then((result) => {
         if (disposed) return;
-        if (
-          (response.ok && result.pending) ||
-          response.status >= 500 ||
-          response.status === 429
-        ) {
-          return;
-        }
-        if (response.ok && result.reading) {
+        if ("reading" in result) {
           setSavedAverage(result.reading.dailyAverageMinutes);
           setFile(null);
           if (inputRef.current) inputRef.current.value = "";
           uploadedId.current = null;
           requestAppRefresh();
         } else {
-          setError(
-            result.error ?? "Could not read this screenshot. Try again.",
-          );
+          setError(result.error);
         }
         try {
           localStorage.removeItem(storageKey);
         } catch {}
         setRunId(null);
-      } catch {
-        // Preserve the run so returning or checking manually can retry.
-      } finally {
-        if (!disposed) setCheckingStatus(false);
-      }
-    }
-    void checkStatus();
+      })
+      .catch(() => {
+        // Unmounting stops observation only. The saved read resumes on return.
+      });
     return () => {
       disposed = true;
+      clearTimeout(slowTimer);
       controller.abort();
     };
-  }, [runId, storageKey, statusCheck]);
+  }, [runId, storageKey]);
 
   const busy = pending || runId !== null;
 
@@ -123,7 +110,7 @@ export function ScreenTimeUpload({
       const mediaId =
         uploadedId.current ?? (await uploadMedia([file], setStatus))[0];
       uploadedId.current = mediaId;
-      setStatus("Reading screen time… This can take a minute.");
+      setStatus("Starting screenshot read…");
       const response = await fetch("/api/screen-time/read", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -212,7 +199,7 @@ export function ScreenTimeUpload({
               </FieldDescription>
               <FieldDescription>
                 Valid screenshots post automatically to the leaderboard and your
-                timeline. Keep this page open until background reading starts.
+                timeline once checked.
               </FieldDescription>
             </Field>
           </FieldGroup>
@@ -222,8 +209,26 @@ export function ScreenTimeUpload({
             ) : (
               <Upload data-icon="inline-start" />
             )}
-            {busy ? "Reading screenshot…" : "Upload and post"}
+            {runId
+              ? "Reading screenshot…"
+              : pending
+                ? "Uploading…"
+                : "Upload and post"}
           </Button>
+          <div aria-live="polite" aria-atomic="true">
+            {status && !runId && (
+              <UploadStatus status={status} percent={uploadPercent} />
+            )}
+            {runId && (
+              <p className="text-sm text-muted-foreground">
+                {reconnecting
+                  ? "Connection interrupted. Reconnecting automatically."
+                  : takingLonger
+                    ? "This is taking longer than usual. Your screenshot is saved, and the result will appear here automatically."
+                    : "Checking your weekly average. Your result will appear here automatically."}
+              </p>
+            )}
+          </div>
         </form>
         <Collapsible>
           <CollapsibleTrigger
@@ -258,30 +263,6 @@ export function ScreenTimeUpload({
             </div>
           </CollapsibleContent>
         </Collapsible>
-        {status && <UploadStatus status={status} percent={uploadPercent} />}
-        {status && uploadPercent === null && (
-          <output className="text-sm text-muted-foreground">
-            {status} Keep this page open until background reading starts.
-          </output>
-        )}
-        {runId && (
-          <Alert>
-            <AlertTitle>Reading in the background</AlertTitle>
-            <AlertDescription>
-              You can leave this page. Valid screenshots post automatically.
-              Return here or check the status to see the result.
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={checkingStatus}
-                onClick={() => setStatusCheck((value) => value + 1)}
-              >
-                {checkingStatus ? "Checking…" : "Check status"}
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
         {error && (
           <Alert variant="destructive">
             <AlertTitle>Could not finish</AlertTitle>
