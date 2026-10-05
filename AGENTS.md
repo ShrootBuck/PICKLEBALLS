@@ -12,25 +12,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 Never use em dashes in copy. Use commas, colons, parentheses, or separate sentences instead.
 
-# BLOCKING (temporary, remove soon)
-
-freezes the app for two Discord accounts:
-`1104218586039455774` and `776576621678297138`.
-- Lives entirely in `app/layout.tsx`: the `BLOCKED_DISCORD_IDS` set, the extra
-  `discordId` and Discord `accounts` fields in the root layout's user query, the
-  `blocked` check, and `inert={blocked}` on `<body>` (plus its comment).
-- `blocked` is true when either `User.discordId` or a linked Discord account ID
-  is in the set, so older accounts with a null `discordId` still match.
-- `inert` on `<body>` makes the whole page ignore clicks, taps, hover, text
-  selection, focus, Tab, and typing, including portaled dialogs and toasts. The
-  page still renders and live-refreshes, so it looks normal. Browser controls
-  (address bar, refresh, closing the tab) still work. There is no overlay
-  element.
-- No other file, migration, or setting is involved.
-- To remove: delete the set, the `blocked` check, and the `inert` prop and
-  comment, and restore the query's `select` to `{ primaryColor: true }`. Then
-  redeploy from a computer, since both accounts are locked out until then.
-
 # Changelog — noteworthy features only
 
 Treat `lib/changelog.ts` as a curated list of product updates, not a development log. Add an entry only for a substantial new capability, removal, or workflow/rule change that ordinary users would care about. Being user-visible is not enough. Ask: would someone want to learn about this because it changes what they can do or how they use the app? If the benefit is just that the app looks nicer, runs more smoothly, or works as expected, skip it. When in doubt, leave it out.

@@ -98,11 +98,6 @@ export const metadata: Metadata = {
   ),
 };
 
-const BLOCKED_DISCORD_IDS = new Set([
-  "1104218586039455774",
-  "776576621678297138",
-]);
-
 export default async function RootLayout({
   children,
 }: {
@@ -112,23 +107,10 @@ export default async function RootLayout({
   const user = session
     ? await getPrisma().user.findUnique({
         where: { id: session.user.id },
-        select: {
-          primaryColor: true,
-          discordId: true,
-          accounts: {
-            where: { providerId: "discord" },
-            select: { accountId: true },
-          },
-        },
+        select: { primaryColor: true },
       })
     : null;
   const primaryColor = parsePrimaryColor(user?.primaryColor);
-  // User.discordId can be null for older accounts, so check the linked account too.
-  const blocked =
-    user !== null &&
-    [user.discordId, ...user.accounts.map((a) => a.accountId)].some(
-      (id) => id !== null && BLOCKED_DISCORD_IDS.has(id),
-    );
   return (
     <html
       lang="en"
@@ -139,11 +121,7 @@ export default async function RootLayout({
       <head>
         <link rel="apple-touch-icon" href="/apple-icon" />
       </head>
-      {/* inert also disables hit-testing, so portaled dialogs and toasts are covered without an overlay. */}
-      <body
-        inert={blocked}
-        className="flex h-dvh min-h-0 flex-col overflow-hidden touch-manipulation antialiased"
-      >
+      <body className="flex h-dvh min-h-0 flex-col overflow-hidden touch-manipulation antialiased">
         <VisualViewportSync />
         <RegisterSw />
         <AppRefreshProvider
