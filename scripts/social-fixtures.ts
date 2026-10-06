@@ -67,9 +67,9 @@ await prisma.membership.create({
   data: { userId: "demo-you", circleId: "demo-other", role: "OWNER" },
 });
 for (const [index, owner, title, status] of [
-  [0, "demo-eddie", "Finish the physics problem set", "PENDING"],
-  [1, "demo-sam", "Read chapter 5 and write my notes", "APPROVED"],
-  [2, "demo-you", "Practice integrals for 30 minutes", "APPROVED"],
+  [0, "demo-eddie", "Finish the physics problem set", "DONE"],
+  [1, "demo-sam", "Read chapter 5 and write my notes", "DONE"],
+  [2, "demo-you", "Practice integrals for 30 minutes", "DONE"],
   [3, "demo-you", "Finish the CS assignment", null],
   [4, "demo-you", "Review tomorrow’s physics material", null],
   [5, "demo-jules", "Make a start on the essay", "CHALLENGED"],
@@ -82,12 +82,8 @@ for (const [index, owner, title, status] of [
       day,
       dueAt,
       title,
-      status:
-        status === "APPROVED"
-          ? "VERIFIED"
-          : status === "PENDING"
-            ? "AWAITING_REVIEW"
-            : "OPEN",
+      status: status === "DONE" ? "DONE" : "OPEN",
+      ...(status ? { proofSubmittedAt: ago(10 + index * 20) } : {}),
     },
   });
   if (!status) continue;
@@ -105,7 +101,6 @@ for (const [index, owner, title, status] of [
         index === 0
           ? "Finally got the last one. The units were the problem the whole time."
           : "Done for today. See you tomorrow.",
-      reviewStatus: status,
       image: {
         create: {
           data: proofImage,
@@ -115,17 +110,13 @@ for (const [index, owner, title, status] of [
           height: 1125,
         },
       },
-      ...(status !== "PENDING"
+      ...(status === "CHALLENGED"
         ? {
-            reviews: {
+            challenge: {
               create: {
                 circleId: "demo-circle",
-                reviewerId: owner === "demo-you" ? "demo-eddie" : "demo-you",
-                decision: status,
-                note:
-                  status === "APPROVED"
-                    ? "The work and answers are all there. Nice."
-                    : "Add the last page so we can check it.",
+                challengerId: "demo-you",
+                reason: "Add the last page so we can check it.",
               },
             },
           }
@@ -228,5 +219,5 @@ for (const [i, userId] of ["demo-you", "demo-eddie", "demo-sam"].entries())
   }
 await prisma.$disconnect();
 console.log(
-  "Seeded four local members, 28 posts, tasks, verdicts, and two weeks of confirmed screen time.",
+  "Seeded four local members, 28 posts, tasks, a challenge, and two weeks of confirmed screen time.",
 );

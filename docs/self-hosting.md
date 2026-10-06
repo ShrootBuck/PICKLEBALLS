@@ -113,7 +113,8 @@ Next.js may reload an old tab when it detects version skew; unsent form/chat tex
 may be lost. The web's 300-second shutdown allowance covers the AI's 285-second
 run limit, but crashes and network failures can still interrupt streams. The
 single worker pauses during replacement and retries unfinished durable jobs.
-Database changes must remain compatible with both overlapping releases.
+Migrations may break the old release during the overlap; brief errors there are
+acceptable. Migrations must never lose data that is still wanted (see AGENTS.md).
 
 ## Migration verification
 
@@ -154,10 +155,10 @@ Server credentials and migration artifacts are under root-only
 
 Cloud-resource deletion is being handled separately. Do not rely on Vercel,
 Neon, R2 or Trigger as a rollback target: the owner is retiring those services,
-and they never mirrored writes made after cutover. Roll back the web image in
-Coolify only while its schema remains compatible. Add fields/tables first,
-deploy readers and writers, and remove old schema in a later release after
-all old instances are gone. Cloudflare DNS and the Tunnel remain required.
+and they never mirrored writes made after cutover. Rolling back the web image
+in Coolify only works while the older code still matches the current schema.
+After a breaking migration, roll forward with a fix instead. Cloudflare DNS and
+the Tunnel remain required.
 
 Off-machine backups are intentionally omitted at the owner's request. Docker
 volumes survive container redeployment but do not protect against disk failure.

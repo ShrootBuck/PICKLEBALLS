@@ -27,7 +27,7 @@ export function AuthScreen({ children }: { children: ReactNode }) {
             {[
               "Make a promise for today.",
               "Share proof within 24 hours.",
-              "Get a verdict from your circle.",
+              "Keep your circle honest.",
             ].map((text) => (
               <p key={text} className="flex items-center gap-3 text-sm">
                 <Check className="size-4 text-primary" />

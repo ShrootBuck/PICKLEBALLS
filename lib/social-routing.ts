@@ -12,7 +12,7 @@ export async function resolveLegacyFocus(
     prisma.taskProof.findFirst({
       where: {
         circleId,
-        OR: [{ id: focusId }, { reviews: { some: { id: focusId } } }],
+        OR: [{ id: focusId }, { challenge: { id: focusId } }],
       },
       select: { id: true },
     }),

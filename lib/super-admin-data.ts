@@ -88,7 +88,7 @@ export async function getAdminOverview() {
     taskStatuses,
     tasksThisWeek,
     proofs,
-    proofsAwaitingReview,
+    proofsChallenged,
     checkIns,
     replies,
     likes,
@@ -119,7 +119,7 @@ export async function getAdminOverview() {
     prisma.commitment.count({ where: { createdAt: { gte: weekAgo } } }),
     prisma.taskProof.count({ where: { replacedById: null } }),
     prisma.taskProof.count({
-      where: { replacedById: null, reviewStatus: "PENDING" },
+      where: { replacedById: null, challenge: { isNot: null } },
     }),
     prisma.checkInUpdate.count(),
     prisma.socialReply.count(),
@@ -227,7 +227,7 @@ export async function getAdminOverview() {
     },
     content: {
       proofs,
-      proofsAwaitingReview,
+      proofsChallenged,
       checkIns,
       replies,
       likes,
@@ -366,7 +366,7 @@ export async function getAdminUser(userId: string) {
         select: {
           commitments: true,
           proofs: true,
-          proofReviews: true,
+          proofChallenges: true,
           checkInUpdates: true,
           socialReplies: true,
           postLikes: true,

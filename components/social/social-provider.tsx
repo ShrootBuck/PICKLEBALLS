@@ -98,22 +98,11 @@ export function SocialProvider({
       for (const [key, page] of feeds.current) {
         feeds.current.set(key, {
           ...page,
-          items: page.items
-            .map((item) =>
-              postKey(item) === postKey(post)
-                ? ({ ...item, ...patch } as FeedPost)
-                : item,
-            )
-            .filter(
-              (item) =>
-                (key !== "!review" ||
-                  (item.kind === "proof" && item.canReview)) &&
-                (key !== "!pending" ||
-                  (item.kind === "proof" && item.canReview)) &&
-                (key !== "!timeline" ||
-                  item.kind !== "proof" ||
-                  !item.canReview),
-            ),
+          items: page.items.map((item) =>
+            postKey(item) === postKey(post)
+              ? ({ ...item, ...patch } as FeedPost)
+              : item,
+          ),
         });
       }
       setPostRevision((value) => value + 1);

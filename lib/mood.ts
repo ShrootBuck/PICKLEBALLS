@@ -27,28 +27,6 @@ export function moodTone(valence: number): MoodTone {
   return level < 3 ? "unpleasant" : level > 3 ? "pleasant" : "neutral";
 }
 
-// Band centers for check-ins saved on the old five-point scale.
-const legacyValence: Record<number, number> = {
-  1: -86,
-  2: -57,
-  3: 0,
-  4: 57,
-  5: 86,
-};
-
-export function postValence(post: {
-  valence?: number | null;
-  mood?: number | null;
-}) {
-  if (post.valence != null) return post.valence;
-  return post.mood == null ? null : (legacyValence[post.mood] ?? null);
-}
-
-/** Older releases read only the five-point mood. */
-export function legacyMood(valence: number) {
-  return [1, 2, 2, 3, 4, 4, 5][moodLevel(valence)];
-}
-
 const colorStops = [
   [-100, 0.64, 0.19, 300],
   [-66, 0.66, 0.17, 278],

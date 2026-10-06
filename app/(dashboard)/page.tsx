@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import { LandingPage } from "@/components/landing/landing-page";
 import { MoodLauncher } from "@/components/mood/mood-launcher";
 import { ScreenTimeReminder } from "@/components/screen-time/reminder";
+import { Feed } from "@/components/social/feed";
 import { HomeActions } from "@/components/social/home-actions";
-import { HomeFeed } from "@/components/social/home-feed";
 import { StreakToday } from "@/components/streaks/streak-today";
-import { postValence } from "@/lib/mood";
 import { getPrisma } from "@/lib/prisma";
 import { getPageSession, requirePageMembership } from "@/lib/request";
 import { getFeedPage } from "@/lib/social-data";
@@ -18,31 +17,29 @@ export default async function HomePage() {
   if (!session) return <LandingPage />;
   const { membership } = await requirePageMembership();
   const context = { viewerId: session.user.id, circleId: membership.circleId };
-  const [feed, pending, latest, streaks] = await Promise.all([
-    getFeedPage({ ...context, timelineOnly: true }),
-    getFeedPage({ ...context, awaitingOnly: true }),
+  const [feed, latest, streaks] = await Promise.all([
+    getFeedPage(context),
     getPrisma().checkInUpdate.findFirst({
       where: {
         userId: session.user.id,
         circleId: membership.circleId,
         day: requireDateKey(phoenixDateKey()),
-        OR: [{ valence: { not: null } }, { mood: { not: null } }],
+        valence: { not: null },
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      select: { mood: true, valence: true, createdAt: true },
+      select: { valence: true, createdAt: true },
     }),
     getStreaksNeedingLog(membership.circleId, session.user.id),
   ]);
-  const latestValence = latest ? postValence(latest) : null;
   return (
     <>
       <h1 className="sr-only">Home</h1>
       <StreakToday streaks={streaks} />
       <MoodLauncher
         latest={
-          latest && latestValence != null
+          latest?.valence != null
             ? {
-                valence: latestValence,
+                valence: latest.valence,
                 time: formatHistoryTime(latest.createdAt),
               }
             : null
@@ -53,7 +50,7 @@ export default async function HomePage() {
         userId={session.user.id}
         circleId={membership.circleId}
       />
-      <HomeFeed timeline={feed} pending={pending} />
+      <Feed initial={feed} />
     </>
   );
 }

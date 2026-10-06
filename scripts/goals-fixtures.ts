@@ -72,7 +72,7 @@ for (const [index, userId, title] of [
       day: requireDateKey(shiftDateKey(week, 3)),
       dueAt: new Date(posted.getTime() + 86_400_000),
       createdAt: new Date(posted.getTime() - 3_600_000),
-      status: "VERIFIED",
+      status: "DONE",
       goalId:
         index === 0
           ? "demo-goal-codeforces"
@@ -91,7 +91,6 @@ for (const [index, userId, title] of [
       startedAt: new Date(posted.getTime() - 3_600_000),
       completedAt: posted,
       isLate: false,
-      reviewStatus: "APPROVED",
       image: {
         create: {
           data: bytes,

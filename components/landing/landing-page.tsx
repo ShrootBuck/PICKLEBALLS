@@ -75,7 +75,7 @@ export function LandingPage() {
                 </Avatar>
                 <span className="mt-1 text-xs">{name}</span>
                 <span className="text-[10px] text-muted-foreground">
-                  {count} verified
+                  {count} done
                 </span>
               </div>
             ))}
@@ -92,7 +92,7 @@ export function LandingPage() {
             </div>
             <Badge variant="success">
               <BadgeCheck />
-              Verified
+              Done
             </Badge>
           </div>
           <div className="landing-receipt">
@@ -130,7 +130,7 @@ export function LandingPage() {
           [
             "03",
             "Keep each other going.",
-            "A friend verifies the work. Everyone sees the progress.",
+            "Friends see the progress and call out anything that looks off.",
           ],
         ].map(([n, title, body]) => (
           <li key={n}>

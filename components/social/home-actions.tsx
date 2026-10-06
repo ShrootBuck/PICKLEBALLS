@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 export function HomeActions() {
   const { tasks, openComposer } = useSocial();
-  const done = tasks.filter((task) => task.status === "VERIFIED").length;
+  const done = tasks.filter((task) => task.status === "DONE").length;
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-4 text-sm">
@@ -41,8 +41,8 @@ export function HomeActions() {
             {tasks.length === 0
               ? "No tasks yet today."
               : done === tasks.length
-                ? "All tasks verified. You showed up."
-                : `${done} of ${tasks.length} tasks verified today`}
+                ? "All tasks done. You showed up."
+                : `${done} of ${tasks.length} tasks done today`}
           </span>
           <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
         </Link>

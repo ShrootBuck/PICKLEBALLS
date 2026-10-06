@@ -134,7 +134,7 @@ export default async function GoalsPage({
                       />
                     )}
                     <p className="text-sm">
-                      {goal._count.tasks} verified{" "}
+                      {goal._count.tasks} done{" "}
                       {goal._count.tasks === 1 ? "task" : "tasks"}
                     </p>
                     {target && (

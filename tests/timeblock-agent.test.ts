@@ -8,7 +8,7 @@ test("agent inspects, receives a validation error, repairs, and checks successiv
   const initial = {
     id: "proof-1",
     title: "Physics",
-    status: "VERIFIED" as const,
+    status: "DONE" as const,
     included: true,
     startedAt: "2026-09-07T16:00",
     completedAt: "2026-09-07T17:00",
@@ -101,7 +101,7 @@ test("agent inspects, receives a validation error, repairs, and checks successiv
   expect(edits[2].before).toBe(
     reportFingerprint(edits[1].rows, edits[1].routine),
   );
-  expect(edits[2].rows[0].status).toBe("VERIFIED");
+  expect(edits[2].rows[0].status).toBe("DONE");
   const checks = results
     .filter((tool) => !tool.dynamic && tool.toolName === "inspectSchedule")
     .map((tool) => tool.output);

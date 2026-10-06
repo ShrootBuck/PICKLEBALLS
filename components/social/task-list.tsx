@@ -82,7 +82,7 @@ export function TaskList({
           >
             <div className="flex items-start gap-3">
               <span className="mt-0.5 text-muted-foreground">
-                {task.status === "VERIFIED" ? (
+                {task.status === "DONE" ? (
                   <Check className="size-5 text-success" />
                 ) : (
                   <Circle className="size-5" />
@@ -119,13 +119,13 @@ export function TaskList({
                 </p>
                 <Badge
                   variant={
-                    task.proof?.reviewStatus === "CHALLENGED"
+                    task.proof?.challenged
                       ? "destructive"
                       : taskStatusVariant(task.status)
                   }
                   className="mt-1 w-fit"
                 >
-                  {task.proof?.reviewStatus === "CHALLENGED"
+                  {task.proof?.challenged
                     ? "Challenged"
                     : taskStatusLabel(task.status)}
                 </Badge>
@@ -156,7 +156,7 @@ export function TaskList({
               {mine &&
                 task.status !== "MISSED" &&
                 (editable || !!task.proofSubmittedAt) &&
-                (!task.proof || task.proof.reviewStatus === "CHALLENGED") && (
+                (!task.proof || task.proof.challenged) && (
                   <Button
                     size="sm"
                     onClick={() => openComposer({ mode: "proof", task })}

@@ -32,7 +32,7 @@ Validation: `bun test`, `bun run test:social` (Docker and FFmpeg required), `bun
 
 Screen-time AI reads and video processing require `TRIGGER_SECRET_KEY`. Push delivery uses Trigger.dev when configured and retains direct local delivery without a worker. Authorization remains in the API routes. Task payloads contain IDs, not image bytes or credentials.
 
-Retired proof-description columns and the screen-time notification preference remain in PostgreSQL for compatibility with older running deployments, but are `@ignore`d in Prisma and are not exposed or used by the app. Historical enum values remain readable; retired reminder notifications are excluded from inbox queries, counts, and push delivery.
+Historical activity enum values remain readable; retired reminder notifications are excluded from inbox queries, counts, and push delivery.
 
 ## Vercel pipeline (recommended)
 

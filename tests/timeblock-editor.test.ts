@@ -17,7 +17,7 @@ const proof: TimeblockDraftRow = {
   startedAt: "2026-09-08T16:00",
   completedAt: "2026-09-08T17:00",
   included: true,
-  status: "VERIFIED",
+  status: "DONE",
 };
 const manual: TimeblockDraftRow = {
   ...proof,
@@ -41,7 +41,7 @@ describe("timeblock editing", () => {
       },
       due,
     );
-    expect(result[0].status).toBe("VERIFIED");
+    expect(result[0].status).toBe("DONE");
     expect(result[0].title).toBe("Physics problem set");
     expect(result[1]).toEqual(manual);
     expect(rows[0]).toEqual(proof);
@@ -197,5 +197,17 @@ describe("timeblock editing", () => {
     expect(draftFingerprint([{ ...proof, included: false }, manual])).not.toBe(
       draftFingerprint(rows),
     );
+  });
+  test("drafts saved with approval-era statuses still load", () => {
+    const restored = parseTimeblockDraft(
+      JSON.stringify({
+        version: 1,
+        rows: [
+          { ...proof, status: "VERIFIED" },
+          { ...proof, id: "proof-2", status: "AWAITING_REVIEW" },
+        ],
+      }),
+    );
+    expect(restored?.map((row) => row.status)).toEqual(["DONE", "DONE"]);
   });
 });

@@ -4,7 +4,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { DomainError } from "@/lib/errors";
 import { getPrisma } from "@/lib/prisma";
 
-// A retry re-reads the state after a competing upload, edit, or verdict.
+// A retry re-reads the state after a competing upload, edit, or challenge.
 // Callbacks must contain database work only; send notifications after commit.
 export async function serializable<T>(
   work: (tx: Prisma.TransactionClient) => Promise<T>,

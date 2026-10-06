@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1791264150684,
+    title: "Proof counts when you post it",
+    description:
+      "Approvals are gone. Posting proof finishes your task right away, and it shows up in the timeline like any other post. Friends can still challenge proof with a reason for 24 hours after it posts, which reopens the task until you post new proof. Past approvals now appear as likes, and their comments stay in the discussion.",
+  },
+  {
     timestamp: 1791250263404,
     title: "Weekly wrapped is gone",
     description:

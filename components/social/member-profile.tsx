@@ -99,7 +99,7 @@ export async function MemberProfile({
   );
   const nextMonday = shiftDateKey(monday, 7);
   const screenWeek = latestScreenTimeWeek();
-  const [feed, tasks, weeklyTasks, verdicts, screenTime] = await Promise.all([
+  const [feed, tasks, weeklyTasks, comments, screenTime] = await Promise.all([
     tab === "posts"
       ? getFeedPage({ viewerId: session.user.id, circleId, memberId: id })
       : null,
@@ -124,9 +124,9 @@ export async function MemberProfile({
       },
       include: socialTaskInclude,
     }),
-    getPrisma().taskProofReview.count({
+    getPrisma().socialReply.count({
       where: {
-        reviewerId: id,
+        authorId: id,
         circleId,
         createdAt: {
           gte: phoenixWallToDate(monday, 0, 0, 0, 0) ?? undefined,
@@ -189,14 +189,14 @@ export async function MemberProfile({
         <div className="profile-stats">
           {[
             {
-              label: "Tasks verified",
-              value: stats.filter((t) => t.status === "VERIFIED").length,
+              label: "Tasks done",
+              value: stats.filter((t) => t.status === "DONE").length,
             },
             {
               label: "Tasks missed",
               value: stats.filter((t) => t.status === "MISSED").length,
             },
-            { label: "Verdicts given", value: verdicts },
+            { label: "Comments", value: comments },
           ].map((stat) => (
             <div key={stat.label}>
               <p className="profile-stat-number">{stat.value}</p>
@@ -303,8 +303,8 @@ export async function MemberProfile({
           </div>
           {day === today && (
             <p className="text-xs text-muted-foreground">
-              Submit proof within 24 hours of creating a task. Reviews have no
-              deadline.
+              Submit proof within 24 hours of creating a task. Friends can
+              challenge it for a day after it posts.
             </p>
           )}
           <TaskList

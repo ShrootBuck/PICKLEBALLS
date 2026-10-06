@@ -2,8 +2,8 @@
 
 Pickle Balls is a private social accountability app. Home shows friends’ daily
 progress, proof, and check-ins. Each check-in has its own likes and discussion.
-Profiles collect posts and daily tasks; Squad collects proof that needs a verdict.
-One peer approval verifies a task. Phoenix-day deadlines, screen-time rankings,
+Profiles collect posts and daily tasks. Posting proof completes a task, and
+friends can challenge it for 24 hours. Phoenix-day deadlines, screen-time rankings,
 and weekly timeblock PDFs keep the work grounded.
 
 ## Stack
@@ -72,19 +72,23 @@ while the previous release remains live.
 migrations. Run it only when a reset is intentional.
 
 Treat committed migrations as immutable. If an applied migration is wrong,
-add a corrective migration instead of editing the old SQL. Production changes
-must also work with the release currently serving traffic:
+add a corrective migration instead of editing the old SQL.
 
-1. **Expand:** add nullable columns, new tables, or new enum values without
-   removing anything the old release uses.
-2. **Backfill and switch:** migrate existing rows in bounded batches, then
-   deploy code that reads the new shape. Dual-write during transitions when
-   necessary.
-3. **Contract:** in a later deploy, remove old columns, constraints, or enum
-   values only after no live code uses them.
+Backward compatibility with the release currently serving traffic is not
+required. A migration may rename, drop, or reshape schema in the same deploy as
+the code that needs it, and unused columns, tables, and enum values should be
+deleted rather than kept for older releases. What must never happen is losing
+data that is still wanted:
 
-Never combine a destructive rename, drop, or required-column change with the
-code switch in one deploy. Keep large data backfills out of the Vercel build.
+- Move data before removing its old home: rename instead of dropping and
+  recreating, backfill new columns, and convert rows into the new shape.
+- Wrap destructive migrations in a single transaction so a failure leaves the
+  database untouched.
+- Check the migration against a populated database (see
+  `tests/challenge-migration.test.ts` for a PGlite example that replays every
+  migration).
+- Prisma does not track hand-written `CHECK` constraints. Dropping a column
+  silently drops constraints that mention it, so recreate them.
 
 One-time note: databases created with the old `db push` flow have no
 migration history. Mark the baseline as applied once instead of replaying it:

@@ -11,7 +11,7 @@ import {
 } from "@/components/social/post-interactions";
 import { PostTimestamp } from "@/components/social/post-timestamp";
 import { useSocial } from "@/components/social/social-provider";
-import { ReviewProof } from "@/components/squad/review-proof";
+import { ChallengeProof } from "@/components/squad/challenge-proof";
 import { memberHref, postHref } from "@/lib/navigation";
 import type { FeedPost } from "@/lib/social-types";
 
@@ -34,7 +34,7 @@ export function PostCard({
   const { viewer, patchPost } = useSocial();
   useEffect(() => {
     // Post details may be outside the feed's first page. Keep every cached copy
-    // current when a verdict or comment refreshes the detail route.
+    // current when a challenge or comment refreshes the detail route.
     if (detail) patchPost(post, post);
   }, [detail, post, patchPost]);
   const href = postHref(post.circleId, post.kind, post.id);
@@ -59,7 +59,7 @@ export function PostCard({
             </Link>
             {post.kind === "screen-time" && " · Screen time"}
             {post.kind === "check-in" &&
-              (post.mood ? " · Mood check-in" : " · Check-in")}
+              (post.valence != null ? " · Mood check-in" : " · Check-in")}
             {post.kind === "streak" &&
               (post.event === "STARTED"
                 ? " · New streak"
@@ -73,11 +73,10 @@ export function PostCard({
       <PostBody post={post} />
       <footer className="social-post-actions">
         <PostInteractions post={post} onChange={onChange} />
-        {post.kind === "proof" && post.canReview && (
-          <ReviewProof
+        {post.kind === "proof" && post.canChallenge && (
+          <ChallengeProof
             proofId={post.id}
             taskTitle={post.title}
-            requiredApprovals={post.requiredApprovals}
             evidence={
               <MediaGallery
                 ids={post.mediaIds}
@@ -85,13 +84,11 @@ export function PostCard({
                 compact
               />
             }
-            onReviewed={(_, _decision, result) => {
+            onChallenged={() => {
               const patch = {
-                canReview: false,
-                reviewStatus: result.proofStatus,
-                approvalCount: result.approvalCount,
-                requiredApprovals: result.requiredApprovals,
-                commentCount: post.commentCount + (result.hasComment ? 1 : 0),
+                canChallenge: false,
+                challenged: true,
+                commentCount: post.commentCount + 1,
               };
               patchPost(post, patch);
               onChange?.(patch);

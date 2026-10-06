@@ -125,7 +125,7 @@ export function SocialComposer(props: ComposerProps) {
           {(mode === "task" || mode === "proof") && (
             <SheetDescription>
               {mode === "task"
-                ? "Submit proof within 24 hours of creating a task. Reviews have no deadline."
+                ? "Submit proof within 24 hours of creating a task. Friends can challenge it for a day after it posts."
                 : (task?.title ?? "Pick the task you finished.")}
             </SheetDescription>
           )}
@@ -231,7 +231,7 @@ function ComposerForm({
       item.status !== "MISSED" &&
       (new Date(item.dueAt).getTime() > Date.now() ||
         !!item.proofSubmittedAt) &&
-      (!item.proof || item.proof.reviewStatus === "CHALLENGED"),
+      (!item.proof || item.proof.challenged),
   );
   const ready =
     mode === "task" || (mode === "proof" && task && step === "details");
@@ -302,7 +302,7 @@ function ComposerForm({
           mode === "task"
             ? "Task saved. Make it happen."
             : mode === "proof"
-              ? "Proof posted. Your friends can review it."
+              ? "Proof posted. Task done."
               : "Check-in posted.",
         type: "success",
       });

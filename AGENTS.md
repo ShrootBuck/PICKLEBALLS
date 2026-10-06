@@ -33,10 +33,19 @@ Treat `lib/changelog.ts` as a curated list of product updates, not a development
   direct Postgres URL, configured as `DATABASE_URL` and `DIRECT_DATABASE_URL`.
 - Schema changes: `bunx prisma migrate dev --name x` (local), commit SQL, then
   push main. Both independent Coolify web and worker containers run
-  `migrate deploy --config prisma.deploy.config.ts` before startup. Use additive,
-  backward-compatible migrations so old and new web releases can overlap.
-  Never `db push` or `migrate dev`
-  against production. See `docs/self-hosting.md` for deployment and rollback.
+  `migrate deploy --config prisma.deploy.config.ts` before startup. Never
+  `db push` or `migrate dev` against production. See `docs/self-hosting.md`
+  for deployment and rollback.
+- Backward compatibility is not required. Rename, drop, or reshape schema in
+  the same release as the code that needs it, and delete unused columns,
+  tables, enum values, and compatibility shims instead of keeping them for
+  older releases. A brief error in the old release during a deploy is fine.
+- Never lose data that is still wanted. Before dropping or reshaping anything,
+  move the data it holds (rename instead of drop and recreate, backfill, or
+  convert into the new shape). Wrap destructive migrations in one
+  transaction, check them against a populated database, and never let a
+  change to one table delete unrelated rows. Only discard data for features
+  that were deliberately removed.
 
 <!-- TRIGGER.DEV SKILLS START -->
 ## Trigger.dev agent skills

@@ -1,4 +1,3 @@
-import { legacyMood, type MoodCheckInInput } from "@/lib/mood";
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -7,20 +6,20 @@ import { DomainError } from "@/lib/errors";
 import { sanitizeImage } from "@/lib/image";
 import { claimMedia } from "@/lib/media";
 import { mediaIdsSchema } from "@/lib/media-policy";
+import type { MoodCheckInInput } from "@/lib/mood";
 import {
-  notifyProofReviewed,
+  notifyProofChallenged,
   notifyProofSubmitted,
   withNotifications,
 } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
 import { putMedia } from "@/lib/r2";
-import { commitmentInputSchema, proofReviewSchema } from "@/lib/schemas";
+import { commitmentInputSchema, proofChallengeSchema } from "@/lib/schemas";
 import {
+  canChallengeProof,
   canEditTask,
   canSubmitProof,
   isLateProof,
-  proofApprovalProgress,
-  requiredApprovalsForCircle,
   shouldMarkMissed,
   taskDeadline,
 } from "@/lib/task-policy";
@@ -126,9 +125,6 @@ export async function createCommitment(
         title: parsed.data.title,
         goalId: parsed.data.goalId ?? null,
         dueAt,
-        requiredApprovals: requiredApprovalsForCircle(
-          await transaction.membership.count({ where: { circleId } }),
-        ),
         createdAt: now,
       },
     });
@@ -177,7 +173,7 @@ export async function updateCommitment(
     });
     if (current._count.proofs > 0 || processing > 0) {
       throw new DomainError(
-        "This task already has proof. Its promise stays fixed so reviews remain honest.",
+        "This task already has proof. Its promise stays fixed so challenges remain fair.",
         409,
       );
     }
@@ -294,20 +290,18 @@ export async function submitProof(
           where: { replacedById: null },
           orderBy: { submittedAt: "desc" },
           take: 1,
+          include: { challenge: { select: { id: true } } },
         },
       },
     });
     if (!task) throw new DomainError("Task not found.", 404);
+    const currentProof = task.proofs[0];
+    if (task.status === "DONE" || (currentProof && !currentProof.challenge)) {
+      throw new DomainError("This task already has proof.", 409);
+    }
     if (!canSubmitProof(task, now)) {
       throw new DomainError(
         "The submission window is closed. Missed tasks cannot receive new or replacement proof.",
-        409,
-      );
-    }
-    const currentProof = task.proofs[0];
-    if (currentProof && currentProof.reviewStatus !== "CHALLENGED") {
-      throw new DomainError(
-        "This task already has proof waiting on a verdict.",
         409,
       );
     }
@@ -340,195 +334,113 @@ export async function submitProof(
         data: { replacedById: proof.id },
       });
     }
-    const memberCount = await transaction.membership.count({
-      where: { circleId },
-    });
-    const needed =
-      task.requiredApprovals ?? requiredApprovalsForCircle(memberCount);
     await transaction.commitment.update({
       where: { id: task.id },
       data: {
-        requiredApprovals: needed,
         proofSubmittedAt: task.proofSubmittedAt ?? now,
-        status: "AWAITING_REVIEW",
+        status: "DONE",
       },
     });
     await notifyProofSubmitted(
       { proofId: proof.id, actorId: userId, circleId },
       notifications,
     );
-    if (needed === 0) {
-      // Solo circle: no peers to review, so the proof verifies on post.
-      await transaction.taskProof.update({
-        where: { id: proof.id },
-        data: { reviewStatus: "APPROVED" },
-      });
-      await transaction.commitment.update({
-        where: { id: task.id },
-        data: { status: "VERIFIED" },
-      });
-      await transaction.activityEvent.create({
-        data: {
-          circleId,
-          actorId: userId,
-          kind: "PROOF_APPROVED",
-          entityId: proof.id,
-          summary: `verified proof for “${task.title}” (solo circle)`,
-        },
-      });
-      return { ...proof, reviewStatus: "APPROVED" as const };
-    }
     await transaction.activityEvent.create({
       data: {
         circleId,
         actorId: userId,
         kind: "PROOF_SUBMITTED",
         entityId: proof.id,
-        summary: `${currentProof ? "replaced" : "submitted"} proof for “${task.title}”${proof.isLate ? ", late" : ""}`,
+        summary: `${currentProof ? "replaced" : "posted"} proof for “${task.title}”${proof.isLate ? ", late" : ""}`,
       },
     });
     return proof;
   });
 }
 
-export { requiredApprovalsForCircle };
-export async function reviewProof(
+export async function challengeProof(
   proofId: string,
-  reviewerId: string,
+  challengerId: string,
   circleId: string,
   input: unknown,
   now = new Date(),
 ) {
-  const parsed = proofReviewSchema.safeParse(input);
+  const parsed = proofChallengeSchema.safeParse(input);
   if (!parsed.success)
     throw new DomainError(
-      "Challenges need a reason. Comments must be 500 characters or fewer.",
+      "Say what is missing. Reasons must be 500 characters or fewer.",
     );
 
   try {
     return await withNotifications(async (transaction, notifications) => {
       const proof = await transaction.taskProof.findFirst({
-        where: { id: proofId, circleId, replacedById: null },
-        include: { commitment: true, reviews: true },
+        where: { id: proofId, circleId },
+        include: {
+          commitment: { select: { status: true, title: true } },
+          challenge: { select: { id: true } },
+        },
       });
       if (!proof) throw new DomainError("Proof not found.", 404);
-      if (proof.ownerId === reviewerId)
-        throw new DomainError(
-          "You cannot review your own homework. Nice try.",
-          403,
-        );
-      if (proof.commitment.status === "MISSED" || proof.isLate)
-        throw new DomainError(
-          "This task did not receive proof before its submission deadline.",
-          409,
-        );
-      if (proof.reviewStatus !== "PENDING") {
-        throw new DomainError("This proof already has a verdict.", 409);
-      }
-      if (proof.reviews.some((r) => r.reviewerId === reviewerId)) {
-        throw new DomainError("You already reviewed this proof.", 409);
-      }
-      const members = await transaction.membership.findMany({
-        where: { circleId },
+      if (proof.ownerId === challengerId)
+        throw new DomainError("You cannot challenge your own proof.", 403);
+      if (proof.challenge)
+        throw new DomainError("This proof was already challenged.", 409);
+      const member = await transaction.membership.findUnique({
+        where: { userId_circleId: { userId: challengerId, circleId } },
         select: { userId: true },
       });
-      if (!members.some((member) => member.userId === reviewerId))
+      if (!member)
         throw new DomainError("You are no longer in this circle.", 403);
-      const progress = proofApprovalProgress(
-        proof.ownerId,
-        members.map((m) => m.userId),
-        [...proof.reviews, { reviewerId, decision: parsed.data.decision }],
-        proof.commitment.requiredApprovals,
-      );
-      if (proof.commitment.requiredApprovals === null)
-        await transaction.commitment.update({
-          where: { id: proof.commitmentId },
-          data: { requiredApprovals: progress.requiredApprovals },
-        });
-      const isChallenge = parsed.data.decision === "CHALLENGED";
+      if (
+        !canChallengeProof(
+          {
+            ...proof,
+            challenged: false,
+            taskStatus: proof.commitment.status,
+          },
+          challengerId,
+          now,
+        )
+      )
+        throw new DomainError(
+          "Proof can only be challenged within 24 hours of posting.",
+          409,
+        );
 
-      const review = await transaction.taskProofReview.create({
+      const challenge = await transaction.proofChallenge.create({
         data: {
           proofId,
-          reviewerId,
+          challengerId,
           circleId,
-          decision: parsed.data.decision,
-          note: parsed.data.note || null,
+          reason: parsed.data.reason,
           createdAt: now,
         },
       });
-
-      await notifyProofReviewed(
-        { reviewId: review.id, reviewerId, circleId },
+      await transaction.commitment.update({
+        where: { id: proof.commitmentId },
+        data: { status: "OPEN" },
+      });
+      await transaction.activityEvent.create({
+        data: {
+          circleId,
+          actorId: challengerId,
+          kind: "PROOF_CHALLENGED",
+          entityId: proofId,
+          summary: `challenged proof for “${proof.commitment.title}”`,
+        },
+      });
+      await notifyProofChallenged(
+        { challengeId: challenge.id, challengerId, circleId },
         notifications,
       );
-
-      if (isChallenge) {
-        await transaction.taskProof.update({
-          where: { id: proofId },
-          data: { reviewStatus: "CHALLENGED" },
-        });
-        await transaction.commitment.update({
-          where: { id: proof.commitmentId },
-          data: { status: "OPEN" },
-        });
-        await transaction.activityEvent.create({
-          data: {
-            circleId,
-            actorId: reviewerId,
-            kind: "PROOF_CHALLENGED",
-            entityId: proofId,
-            summary: `challenged proof for “${proof.commitment.title}”`,
-          },
-        });
-        return { ...review, ...progress, proofStatus: "CHALLENGED" as const };
-      }
-
-      const { approvalCount: approvals, requiredApprovals: needed } = progress;
-
-      if (approvals >= needed) {
-        await transaction.taskProof.update({
-          where: { id: proofId },
-          data: { reviewStatus: "APPROVED" },
-        });
-        await transaction.commitment.update({
-          where: { id: proof.commitmentId },
-          data: { status: "VERIFIED" },
-        });
-        await transaction.activityEvent.create({
-          data: {
-            circleId,
-            actorId: reviewerId,
-            kind: "PROOF_APPROVED",
-            entityId: proofId,
-            summary: `approved proof for “${proof.commitment.title}” (${approvals}/${needed})`,
-          },
-        });
-      } else {
-        // Keep pending, still needs more approvals
-        await transaction.activityEvent.create({
-          data: {
-            circleId,
-            actorId: reviewerId,
-            kind: "PROOF_APPROVED",
-            entityId: proofId,
-            summary: `approved proof for “${proof.commitment.title}” (${approvals}/${needed}); needs ${needed - approvals} more`,
-          },
-        });
-      }
-      return {
-        ...review,
-        ...progress,
-        proofStatus:
-          approvals >= needed ? ("APPROVED" as const) : ("PENDING" as const),
-      };
+      return challenge;
     });
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      throw new DomainError("You already reviewed this proof.", 409);
+      throw new DomainError("This proof was already challenged.", 409);
     }
     throw error;
   }
@@ -564,7 +476,6 @@ export async function setCheckIn(
         ...(mood
           ? {
               mediaIds: mood.mediaIds ?? [],
-              mood: legacyMood(mood.valence),
               valence: mood.valence,
               feelings: mood.feelings,
               impacts: mood.impacts,

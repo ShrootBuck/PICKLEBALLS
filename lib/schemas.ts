@@ -22,7 +22,6 @@ export const socialReplySchema = z
       "CHECK_IN",
       "CHECK_IN_UPDATE",
       "PROOF",
-      "REVIEW",
       "BUCKET_ITEM",
       "STREAK_EVENT",
       "SCREEN_TIME",
@@ -62,26 +61,16 @@ export const pushSubscriptionSchema = z.object({
 });
 
 const reminderHour = z.number().int().min(0).max(23);
-// Streak fields are optional so a tab from the previous release can still save.
 export const notificationPreferencesSchema = z.object({
   proofsSubmitted: z.boolean(),
-  streakReminders: z.boolean().optional(),
-  streakWarnings: z.boolean().optional(),
-  streakMorningHour: reminderHour.optional(),
-  streakEveningHour: reminderHour.optional(),
+  streakReminders: z.boolean(),
+  streakWarnings: z.boolean(),
+  streakMorningHour: reminderHour,
+  streakEveningHour: reminderHour,
 });
-export const proofReviewSchema = z
-  .object({
-    decision: z.enum(["APPROVED", "CHALLENGED"]),
-    note: z.string().trim().max(500).optional().default(""),
-  })
-  .refine(
-    (review) => review.decision === "APPROVED" || review.note.length > 0,
-    {
-      message: "Explain what is missing before challenging proof.",
-      path: ["note"],
-    },
-  );
+export const proofChallengeSchema = z.object({
+  reason: z.string().trim().min(1).max(500),
+});
 
 const localDateTimeSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 

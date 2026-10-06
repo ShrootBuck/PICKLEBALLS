@@ -7,9 +7,12 @@ const rowSchema = z.object({
   title: z.string().max(160),
   startedAt: z.string().max(30),
   completedAt: z.string().max(30),
-  status: z
-    .enum(["OPEN", "AWAITING_REVIEW", "VERIFIED", "MISSED", "RENEGOTIATED"])
-    .nullable(),
+  // Drafts live on devices, so map statuses saved before approvals were removed.
+  status: z.preprocess(
+    (status) =>
+      status === "VERIFIED" || status === "AWAITING_REVIEW" ? "DONE" : status,
+    z.enum(["OPEN", "DONE", "MISSED", "RENEGOTIATED"]).nullable(),
+  ),
   included: z.boolean(),
 });
 export const timeblockDraftSchema = z.object({

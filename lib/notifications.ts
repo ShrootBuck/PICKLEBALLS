@@ -25,7 +25,7 @@ type NotificationContext = {
   pushes: Array<() => Promise<unknown>>;
 };
 
-// Inbox rows commit with the post/review/reply. Network calls run only after
+// Inbox rows commit with the post/challenge/reply. Network calls run only after
 // commit, and a retried transaction discards its previous delivery callbacks.
 export async function withNotifications<T>(
   work: (
@@ -215,19 +215,6 @@ export async function notifyReplyReceived(
           commitment: { select: { title: true } },
         },
       },
-      review: {
-        select: {
-          id: true,
-          reviewerId: true,
-          proof: {
-            select: {
-              id: true,
-              ownerId: true,
-              commitment: { select: { title: true } },
-            },
-          },
-        },
-      },
       bucketItem: { select: { id: true, proposerId: true, title: true } },
       streakEvent: {
         select: {
@@ -276,22 +263,6 @@ export async function notifyReplyReceived(
       entityId: reply.proof.id,
       url: `${postHref(input.circleId, "proof", reply.proof.id)}#comments`,
     });
-  } else if (reply.review) {
-    jobs.push({
-      recipientId: reply.review.reviewerId,
-      context: "your review",
-      entityId: reply.review.proof.id,
-      url: `${postHref(input.circleId, "proof", reply.review.proof.id)}&focus=${encodeURIComponent(reply.review.id)}#comments`,
-    });
-    // A reply to a review is also aimed at the proof owner.
-    if (reply.review.proof.ownerId !== reply.review.reviewerId) {
-      jobs.push({
-        recipientId: reply.review.proof.ownerId,
-        context: `a review on your proof for “${reply.review.proof.commitment.title}”`,
-        entityId: reply.review.proof.id,
-        url: `${postHref(input.circleId, "proof", reply.review.proof.id)}&focus=${encodeURIComponent(reply.review.id)}#comments`,
-      });
-    }
   } else if (reply.bucketItem) {
     jobs.push({
       recipientId: reply.bucketItem.proposerId,
@@ -315,8 +286,6 @@ export async function notifyReplyReceived(
     });
   }
 
-  // Proof comments and verdict replies now share one discussion.
-  const discussionProofId = reply.proof?.id ?? reply.review?.proof.id;
   const target = reply.commitment
     ? { commitmentId: reply.commitment.id }
     : reply.checkInUpdate
@@ -325,29 +294,20 @@ export async function notifyReplyReceived(
         ? { checkInId: reply.checkIn.id }
         : reply.proof
           ? { proofId: reply.proof.id }
-          : reply.review
-            ? { reviewId: reply.review.id }
-            : reply.bucketItem
-              ? { bucketItemId: reply.bucketItem.id }
-              : reply.streakEvent
-                ? { streakEventId: reply.streakEvent.id }
-                : reply.screenTimeSubmission
-                  ? { screenTimeSubmissionId: reply.screenTimeSubmission.id }
-                  : null;
+          : reply.bucketItem
+            ? { bucketItemId: reply.bucketItem.id }
+            : reply.streakEvent
+              ? { streakEventId: reply.streakEvent.id }
+              : reply.screenTimeSubmission
+                ? { screenTimeSubmissionId: reply.screenTimeSubmission.id }
+                : null;
   const destination = jobs[0];
   if (!target || !destination) return [];
 
   const participants = await prisma.socialReply.findMany({
     where: {
       circleId: input.circleId,
-      ...(discussionProofId
-        ? {
-            OR: [
-              { proofId: discussionProofId },
-              { review: { proofId: discussionProofId } },
-            ],
-          }
-        : target),
+      ...target,
       // Delayed jobs must not notify people about replies from before they joined.
       createdAt: { lte: reply.createdAt },
       authorId: { not: input.authorId },
@@ -355,18 +315,16 @@ export async function notifyReplyReceived(
     distinct: ["authorId"],
     select: { authorId: true },
   });
-  if (discussionProofId) {
-    const reviewers = await prisma.taskProofReview.findMany({
+  if (reply.proof) {
+    const challenge = await prisma.proofChallenge.findFirst({
       where: {
         circleId: input.circleId,
-        proofId: discussionProofId,
-        note: { not: null },
+        proofId: reply.proof.id,
         createdAt: { lte: reply.createdAt },
       },
-      select: { reviewerId: true },
+      select: { challengerId: true },
     });
-    for (const reviewer of reviewers)
-      participants.push({ authorId: reviewer.reviewerId });
+    if (challenge) participants.push({ authorId: challenge.challengerId });
   }
   for (const participant of participants) {
     jobs.push({
@@ -467,8 +425,8 @@ export async function notifyProofSubmitted(
           dedupeKey: `proof:${proof.id}:${member.userId}`,
           kind: "PROOF_SUBMITTED",
           entityId: proof.id,
-          title: `${proof.owner.name} submitted proof for “${proof.commitment.title}”`,
-          body: note || "Needs your review.",
+          title: `${proof.owner.name} posted proof for “${proof.commitment.title}”`,
+          body: note || "Tap to see it.",
           data: {
             url: postHref(input.circleId, "proof", proof.id),
             proofId: proof.id,
@@ -481,23 +439,22 @@ export async function notifyProofSubmitted(
   );
 }
 
-export async function notifyProofReviewed(
+export async function notifyProofChallenged(
   input: {
-    reviewId: string;
-    reviewerId: string;
+    challengeId: string;
+    challengerId: string;
     circleId: string;
   },
   context?: NotificationContext,
 ) {
   const prisma = context?.prisma ?? getPrisma();
-  const review = await prisma.taskProofReview.findFirst({
-    where: { id: input.reviewId, circleId: input.circleId },
+  const challenge = await prisma.proofChallenge.findFirst({
+    where: { id: input.challengeId, circleId: input.circleId },
     select: {
       id: true,
-      decision: true,
-      note: true,
-      reviewerId: true,
-      reviewer: { select: { name: true } },
+      reason: true,
+      challengerId: true,
+      challenger: { select: { name: true } },
       proof: {
         select: {
           id: true,
@@ -507,25 +464,20 @@ export async function notifyProofReviewed(
       },
     },
   });
-  if (!review || review.reviewerId !== input.reviewerId) return null;
-  const approved = review.decision === "APPROVED";
-  const note = snippet(review.note);
+  if (!challenge || challenge.challengerId !== input.challengerId) return null;
   return createNotificationAndPush(
     {
-      recipientId: review.proof.ownerId,
-      actorId: input.reviewerId,
+      recipientId: challenge.proof.ownerId,
+      actorId: input.challengerId,
       circleId: input.circleId,
-      dedupeKey: `review:${review.id}:${review.proof.ownerId}`,
-      kind: approved ? "PROOF_APPROVED" : "PROOF_CHALLENGED",
-      entityId: review.proof.id,
-      title: approved
-        ? `${review.reviewer.name} approved your proof for “${review.proof.commitment.title}”`
-        : `${review.reviewer.name} challenged your proof for “${review.proof.commitment.title}”`,
-      body: note || (approved ? "Verified. Nice." : "Needs a better receipt."),
+      dedupeKey: `challenge:${challenge.id}:${challenge.proof.ownerId}`,
+      kind: "PROOF_CHALLENGED",
+      entityId: challenge.proof.id,
+      title: `${challenge.challenger.name} challenged your proof for “${challenge.proof.commitment.title}”`,
+      body: snippet(challenge.reason) || "Post new proof to finish the task.",
       data: {
-        url: `${postHref(input.circleId, "proof", review.proof.id)}&focus=${encodeURIComponent(review.id)}#comments`,
-        reviewId: review.id,
-        decision: review.decision,
+        url: `${postHref(input.circleId, "proof", challenge.proof.id)}&focus=${encodeURIComponent(challenge.id)}#comments`,
+        challengeId: challenge.id,
       },
     },
     context,

@@ -11,13 +11,7 @@ export type LikeTarget =
   | "CHECK_IN_UPDATE"
   | "STREAK_EVENT"
   | "SCREEN_TIME";
-export type ProofStatus = "PENDING" | "APPROVED" | "CHALLENGED";
-export type TaskStatus =
-  | "OPEN"
-  | "AWAITING_REVIEW"
-  | "VERIFIED"
-  | "MISSED"
-  | "RENEGOTIATED";
+export type TaskStatus = "OPEN" | "DONE" | "MISSED" | "RENEGOTIATED";
 
 type PostBase = {
   id: string;
@@ -35,19 +29,15 @@ export type ProofPost = PostBase & {
   title: string;
   commitmentId: string;
   mediaIds: string[];
-  reviewStatus: ProofStatus;
-  canReview: boolean;
+  challenged: boolean;
+  canChallenge: boolean;
   expired: boolean;
-  requiredApprovals: number;
-  approvalCount: number;
-  verifiedBy: string | null;
 };
 
 export type CheckInPost = PostBase & {
   kind: "check-in";
   mediaIds: string[];
   signal: string;
-  mood?: number | null;
   valence?: number | null;
   feelings?: string[];
   impacts?: string[];
@@ -91,7 +81,7 @@ export type SocialTask = {
   dueAt: string;
   proofSubmittedAt?: string | null;
   status: TaskStatus;
-  proof: { id: string; reviewStatus: ProofStatus } | null;
+  proof: { id: string; challenged: boolean } | null;
   goal?: { id: string; title: string } | null;
 };
 
@@ -101,7 +91,6 @@ export type SocialMember = SocialAuthor & {
   tasks: SocialTask[];
   signal: string | null;
   note: string | null;
-  mood: number | null;
   valence: number | null;
 };
 

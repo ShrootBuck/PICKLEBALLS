@@ -1,7 +1,7 @@
 import { compareFeedPosts } from "@/lib/feed-cursor";
 import { type FeedPage, postKey } from "@/lib/social-types";
 
-// Refresh through the oldest visible post so loaded pages receive new verdicts
+// Refresh through the oldest visible post so loaded pages receive new challenges
 // and comment counts too. The server still serves each page in batches of 20.
 export async function refreshFeedPages(
   current: FeedPage,

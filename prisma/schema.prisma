@@ -14,8 +14,7 @@ enum MembershipRole {
 
 enum CommitmentStatus {
   OPEN
-  AWAITING_REVIEW
-  VERIFIED
+  DONE
   MISSED
   RENEGOTIATED
 }
@@ -23,28 +22,6 @@ enum CommitmentStatus {
 enum DailySignal {
   YAY
   NAY
-  // Kept for zero-downtime compatibility with the previous deployment.
-  // New code never writes these values.
-  WORKING
-  CLEAR
-  AT_RISK
-}
-
-enum ProofReviewStatus {
-  PENDING
-  APPROVED
-  CHALLENGED
-}
-
-enum ProofReviewDecision {
-  APPROVED
-  CHALLENGED
-}
-
-enum AIAssessmentStatus {
-  PENDING
-  SUCCEEDED
-  FAILED
 }
 
 enum ActivityKind {
@@ -140,7 +117,7 @@ model User {
   memberships         Membership[]
   commitments         Commitment[]
   proofs              TaskProof[]
-  proofReviews        TaskProofReview[]
+  proofChallenges     ProofChallenge[]
   checkIns            CheckIn[]
   checkInUpdates      CheckInUpdate[]
   activities          ActivityEvent[]
@@ -161,7 +138,6 @@ model User {
   bucketCompletionRequests BucketItem[]    @relation("BucketItemCompletionRequests")
   bucketVotes         BucketVote[]
   goals               Goal[]
-  weeklyWins          WeeklyWin[]          @ignore
   streaks             Streak[]
   streakEvents        StreakEvent[]
   streakNudgesSent    StreakNudge[]        @relation("StreakNudgesSent")
@@ -235,7 +211,7 @@ model Circle {
   memberships   Membership[]
   commitments   Commitment[]
   proofs        TaskProof[]
-  proofReviews  TaskProofReview[]
+  proofChallenges ProofChallenge[]
   checkIns      CheckIn[]
   checkInUpdates CheckInUpdate[]
   activities    ActivityEvent[]
@@ -248,7 +224,6 @@ model Circle {
   screenTimeSubmissions ScreenTimeSubmission[]
   bucketItems   BucketItem[]
   goals         Goal[]
-  weeklyWins    WeeklyWin[] @ignore
   streaks       Streak[]
   streakEvents  StreakEvent[]
 }
@@ -298,10 +273,7 @@ model Commitment {
   circleId         String
   day              DateTime         @db.Date
   title            String           @db.VarChar(100)
-  // Retired task criteria: retained for rolling deployments, excluded from the client.
-  definitionOfDone String           @default("") @db.VarChar(500) @ignore
   dueAt            DateTime
-  requiredApprovals Int?
   proofSubmittedAt DateTime?
   status           CommitmentStatus @default(OPEN)
   createdAt        DateTime         @default(now())
@@ -359,25 +331,6 @@ model GoalMilestone {
 
   @@index([goalId, position])
   @@index([completedAt])
-}
-
-// Retired with Wrapped: the table stays so an older release can still run
-// during a rolling deploy. Drop it in a later migration.
-model WeeklyWin {
-  id        String   @id @default(cuid())
-  userId    String
-  circleId  String
-  weekStart DateTime @db.Date
-  body      String   @db.VarChar(280)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, circleId, weekStart])
-  @@index([circleId, weekStart])
-  @@ignore
 }
 
 // Self-reported personal streaks. Day status is derived from entries, so a
@@ -482,21 +435,13 @@ model TaskProof {
   startedAt          DateTime
   completedAt        DateTime
   isLate             Boolean
-  // Retired photo descriptions: excluded from the client; retained for rolling deployments.
-  aiStatus           AIAssessmentStatus @default(PENDING) @ignore
-  aiVisibleEvidence  String? @ignore
-  aiUncertainty      String? @ignore
-  aiReviewerQuestion String? @ignore
-  aiTaskMatch        String? @ignore
-  aiOneLiner         String? @ignore
-  reviewStatus       ProofReviewStatus  @default(PENDING)
   replacedById       String?            @unique
 
   commitment Commitment        @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
   owner      User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   circle     Circle            @relation(fields: [circleId], references: [id], onDelete: Cascade)
   image      TaskProofImage?
-  reviews    TaskProofReview[]
+  challenge  ProofChallenge?
   replies    SocialReply[]
   likes      PostLike[]
   replacedBy TaskProof?        @relation("ProofReplacement", fields: [replacedById], references: [id], onDelete: SetNull)
@@ -521,25 +466,22 @@ model TaskProofImage {
   proof TaskProof @relation(fields: [proofId], references: [id], onDelete: Cascade)
 }
 
-model TaskProofReview {
-  id         String              @id @default(cuid())
-  proofId    String
-  reviewerId String
-  circleId   String
-  decision   ProofReviewDecision
-  note       String?            @db.VarChar(500)
-  createdAt  DateTime            @default(now())
+// A friend's dispute of proof. One challenge reopens the task for new proof.
+model ProofChallenge {
+  id           String   @id @default(cuid())
+  proofId      String   @unique
+  challengerId String
+  circleId     String
+  reason       String   @db.VarChar(500)
+  createdAt    DateTime @default(now())
 
-  proof    TaskProof @relation(fields: [proofId], references: [id], onDelete: Cascade)
-  reviewer User      @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
-  circle   Circle    @relation(fields: [circleId], references: [id], onDelete: Cascade)
-  replies  SocialReply[]
-  likes    PostLike[]
+  proof      TaskProof  @relation(fields: [proofId], references: [id], onDelete: Cascade)
+  challenger User       @relation(fields: [challengerId], references: [id], onDelete: Cascade)
+  circle     Circle     @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  likes      PostLike[]
 
-  @@unique([proofId, reviewerId])
-  @@index([proofId])
   @@index([circleId, createdAt])
-  @@index([reviewerId, createdAt])
+  @@index([challengerId, createdAt])
 }
 
 model CheckIn {
@@ -570,8 +512,6 @@ model CheckInUpdate {
   signal    DailySignal
   blocker   String?     @db.VarChar(500)
   feelings  String[]    @default([])
-  // Legacy 1-5 scale. New check-ins also store it so older releases can read them.
-  mood      Int?
   // -100 (very unpleasant) to 100 (very pleasant).
   valence   Int?
   impacts   String[]    @default([])
@@ -602,7 +542,6 @@ model SocialReply {
   checkInId    String?
   checkInUpdateId String?
   proofId      String?
-  reviewId     String?
   bucketItemId String?
   streakEventId String?
   screenTimeSubmissionId String?
@@ -616,7 +555,6 @@ model SocialReply {
   checkIn    CheckIn?         @relation(fields: [checkInId], references: [id], onDelete: Cascade)
   checkInUpdate CheckInUpdate? @relation(fields: [checkInUpdateId], references: [id], onDelete: Cascade)
   proof      TaskProof?       @relation(fields: [proofId], references: [id], onDelete: Cascade)
-  review     TaskProofReview? @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   bucketItem BucketItem?      @relation(fields: [bucketItemId], references: [id], onDelete: Cascade)
   streakEvent StreakEvent?    @relation(fields: [streakEventId], references: [id], onDelete: Cascade)
   screenTimeSubmission ScreenTimeSubmission? @relation(fields: [screenTimeSubmissionId], references: [id], onDelete: Cascade)
@@ -626,7 +564,6 @@ model SocialReply {
   @@index([checkInId, createdAt])
   @@index([checkInUpdateId, createdAt])
   @@index([proofId, createdAt])
-  @@index([reviewId, createdAt])
   @@index([bucketItemId, createdAt])
   @@index([streakEventId, createdAt])
   @@index([screenTimeSubmissionId, createdAt])
@@ -641,7 +578,7 @@ model PostLike {
   proofId         String?
   checkInUpdateId String?
   replyId         String?
-  reviewId        String?
+  challengeId     String?
   streakEventId   String?
   screenTimeSubmissionId String?
   createdAt       DateTime @default(now())
@@ -651,21 +588,21 @@ model PostLike {
   proof         TaskProof?       @relation(fields: [proofId], references: [id], onDelete: Cascade)
   checkInUpdate CheckInUpdate?   @relation(fields: [checkInUpdateId], references: [id], onDelete: Cascade)
   reply         SocialReply?     @relation(fields: [replyId], references: [id], onDelete: Cascade)
-  review        TaskProofReview? @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  challenge     ProofChallenge?  @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   streakEvent   StreakEvent?     @relation(fields: [streakEventId], references: [id], onDelete: Cascade)
   screenTimeSubmission ScreenTimeSubmission? @relation(fields: [screenTimeSubmissionId], references: [id], onDelete: Cascade)
 
   @@unique([userId, proofId])
   @@unique([userId, checkInUpdateId])
   @@unique([userId, replyId])
-  @@unique([userId, reviewId])
+  @@unique([userId, challengeId])
   @@unique([userId, streakEventId])
   @@unique([userId, screenTimeSubmissionId])
   @@index([circleId])
   @@index([proofId])
   @@index([checkInUpdateId])
   @@index([replyId])
-  @@index([reviewId])
+  @@index([challengeId])
   @@index([streakEventId])
   @@index([screenTimeSubmissionId])
 }
@@ -752,13 +689,7 @@ model Notification {
 model NotificationPreference {
   userId String @id
 
-  replies         Boolean @default(true)
   proofsSubmitted Boolean @default(true)
-  proofReviews    Boolean @default(true)
-  taskMissed      Boolean @default(true)
-  taskCreated     Boolean @default(false)
-  checkIns        Boolean @default(false)
-  screenTime      Boolean @default(true) @ignore
   streakReminders Boolean @default(true)
   streakWarnings  Boolean @default(true)
   // Phoenix hours (0-23). Morning asks about yesterday's quit streaks; evening

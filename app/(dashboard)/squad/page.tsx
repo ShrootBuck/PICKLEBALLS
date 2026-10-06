@@ -1,19 +1,17 @@
-import { ArrowUpRight, CheckCheck, List, Users } from "lucide-react";
+import { ArrowUpRight, List, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CircleDestination } from "@/components/circles/circle-destination";
 import { PageHeader } from "@/components/layout/page-header";
 import { MoodBadge } from "@/components/mood/mood-display";
-import { Feed } from "@/components/social/feed";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { postValence } from "@/lib/mood";
 import { memberHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
-import { getFeedPage, getSocialMembers } from "@/lib/social-data";
+import { getSocialMembers } from "@/lib/social-data";
 import { resolveLegacyFocus } from "@/lib/social-routing";
 import { formatReplyTime } from "@/lib/time";
 
@@ -47,14 +45,10 @@ export default async function SquadPage({
     if (!destination) notFound();
     redirect(destination);
   }
-  const view =
-    params.view === "members" || params.view === "log" ? params.view : "review";
-  const [members, memberCount, pending, events] = await Promise.all([
+  const view = params.view === "log" ? "log" : "members";
+  const [members, memberCount, events] = await Promise.all([
     view === "members" ? getSocialMembers(circleId) : [],
     getPrisma().membership.count({ where: { circleId } }),
-    view === "review"
-      ? getFeedPage({ viewerId: session.user.id, circleId, pendingOnly: true })
-      : null,
     view === "log"
       ? getPrisma().activityEvent.findMany({
           where: { circleId },
@@ -68,7 +62,7 @@ export default async function SquadPage({
     <>
       <PageHeader
         title="Squad"
-        description={`${memberCount} ${memberCount === 1 ? "member" : "members"} in this circle. Review each other’s proof and see who showed up.`}
+        description={`${memberCount} ${memberCount === 1 ? "member" : "members"} in this circle. See who showed up today.`}
         actions={
           <Button
             nativeButton={false}
@@ -86,28 +80,19 @@ export default async function SquadPage({
         <Link
           href="/squad"
           className="line-tab"
-          aria-current={view === "review" ? "page" : undefined}
-        >
-          <CheckCheck className="size-4" />
-          Review
-        </Link>
-        <Link
-          href="/squad?view=members"
-          className="line-tab"
           aria-current={view === "members" ? "page" : undefined}
         >
           <Users className="size-4" />
           Members
         </Link>
       </nav>
-      {view === "review" && pending && <Feed initial={pending} reviewOnly />}
       {view === "members" && (
         <div className="flex flex-col">
           {members.map((member) => {
-            const verified = member.tasks.filter(
-              (task) => task.status === "VERIFIED",
+            const done = member.tasks.filter(
+              (task) => task.status === "DONE",
             ).length;
-            const valence = postValence(member);
+            const valence = member.valence;
             return (
               <Link
                 key={member.id}
@@ -125,7 +110,7 @@ export default async function SquadPage({
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {member.tasks.length
-                      ? `${verified}/${member.tasks.length} tasks verified`
+                      ? `${done}/${member.tasks.length} tasks done`
                       : "No tasks today"}
                   </p>
                   {member.note && (

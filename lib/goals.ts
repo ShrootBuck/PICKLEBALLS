@@ -193,7 +193,7 @@ export async function getGoals(circleId: string, viewerId: string) {
     include: {
       user: { select: socialAuthorSelect },
       milestones: { select: { completedAt: true } },
-      _count: { select: { tasks: { where: { status: "VERIFIED" } } } },
+      _count: { select: { tasks: { where: { status: "DONE" } } } },
     },
   });
 }

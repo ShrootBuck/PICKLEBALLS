@@ -4,12 +4,10 @@ import {
   formatFeelings,
   impacts,
   journalPrompts,
-  legacyMood,
   moodCheckInSchema,
   moodColor,
   moodLevelLabel,
   nearestFeelings,
-  postValence,
   relatedFeelings,
   suggestedImpacts,
 } from "@/lib/mood";
@@ -39,16 +37,6 @@ test("the slider splits into seven bands with neutral in the middle", () => {
   expect(moodLevelLabel(14)).toBe("Neutral");
   expect(moodLevelLabel(15)).toBe("Slightly pleasant");
   expect(moodLevelLabel(100)).toBe("Very pleasant");
-});
-
-test("old five-point moods map onto the slider and back", () => {
-  for (const mood of [1, 2, 3, 4, 5]) {
-    const valence = postValence({ mood });
-    expect(valence).not.toBeNull();
-    expect(legacyMood(valence ?? 0)).toBe(mood);
-  }
-  expect(postValence({ mood: 2, valence: 40 })).toBe(40);
-  expect(postValence({ mood: null, valence: null })).toBeNull();
 });
 
 test("mood colors cover the whole scale", () => {

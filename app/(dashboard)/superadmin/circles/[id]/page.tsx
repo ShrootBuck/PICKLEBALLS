@@ -61,7 +61,7 @@ export default async function SuperAdminCirclePage({
   if (!data) notFound();
   const { circle, members, taskStatuses } = data;
   const tasks = circle._count.commitments;
-  const verified = taskStatuses.VERIFIED ?? 0;
+  const done = taskStatuses.DONE ?? 0;
 
   return (
     <>
@@ -88,7 +88,7 @@ export default async function SuperAdminCirclePage({
         <Stat
           label="Tasks"
           value={formatNumber(tasks)}
-          hint={`${tasks ? Math.round((verified / tasks) * 100) : 0}% verified, ${formatNumber(taskStatuses.MISSED ?? 0)} missed`}
+          hint={`${tasks ? Math.round((done / tasks) * 100) : 0}% done, ${formatNumber(taskStatuses.MISSED ?? 0)} missed`}
         />
         <Stat label="Proofs" value={formatNumber(circle._count.proofs)} />
         <Stat

@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { jsonError, readJson } from "@/lib/api";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
-import { reviewProof } from "@/lib/tasks";
+import { challengeProof } from "@/lib/tasks";
 
 export const runtime = "nodejs";
 
 export async function POST(
   request: Request,
-  context: RouteContext<"/api/proofs/[id]/review">,
+  context: RouteContext<"/api/proofs/[id]/challenge">,
 ) {
   if (!hasSameOrigin(request))
     return NextResponse.json({ error: "Bad origin." }, { status: 403 });
@@ -16,15 +16,15 @@ export async function POST(
   if (!auth)
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   try {
-    await limitAction(auth.session.user.id, "reviews", 30, 60_000);
+    await limitAction(auth.session.user.id, "challenges", 30, 60_000);
     const { id } = await context.params;
-    const review = await reviewProof(
+    const challenge = await challengeProof(
       id,
       auth.session.user.id,
       auth.membership.circleId,
       await readJson(request),
     );
-    return NextResponse.json({ review }, { status: 201 });
+    return NextResponse.json({ challenge }, { status: 201 });
   } catch (error) {
     return jsonError(error);
   }
