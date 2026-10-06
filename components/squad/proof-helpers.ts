@@ -41,6 +41,8 @@ export type ProofRow = {
   commitment: {
     title: string;
     dueAt: Date;
+    proofSubmittedAt?: Date | null;
+    requiredApprovals?: number | null;
     status: string;
   };
   replies: ReplyRow[];
@@ -88,10 +90,15 @@ export function toProofCard(
     reviewStatus: proof.reviewStatus,
     expired:
       proof.commitment.status === "MISSED" ||
-      shouldMarkMissed(proof.commitment.status, proof.commitment.dueAt),
+      shouldMarkMissed(
+        proof.commitment.status,
+        proof.commitment.dueAt,
+        new Date(),
+        proof.commitment.proofSubmittedAt,
+      ),
     approvals: proof.reviews.filter((review) => review.decision === "APPROVED")
       .length,
-    requiredApprovals,
+    requiredApprovals: proof.commitment.requiredApprovals ?? requiredApprovals,
     alreadyReviewed: mine != null,
     myReview: mine,
     reviews: mappedReviews,

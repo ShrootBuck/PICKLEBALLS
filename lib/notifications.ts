@@ -435,8 +435,7 @@ export async function notifyProofSubmitted(
   if (
     !proof ||
     proof.ownerId !== input.actorId ||
-    proof.commitment.status === "MISSED" ||
-    proof.commitment.dueAt <= new Date()
+    proof.commitment.status === "MISSED"
   )
     return [];
   const members = await prisma.membership.findMany({
@@ -546,6 +545,8 @@ export async function notifyBucketItem(
       title: true,
       details: true,
       completionRequestedAt: true,
+      scheduledFor: true,
+      planVersion: true,
     },
   });
   if (!item) return [];
@@ -563,25 +564,29 @@ export async function notifyBucketItem(
   const messages = {
     PROPOSED: {
       kind: "BUCKET_ITEM_PROPOSED",
-      title: `${name} wants to add “${item.title}” to the bucket list`,
+      title: item.scheduledFor
+        ? `${name} set a plan for “${item.title}”`
+        : `${name} proposed “${item.title}”`,
       body:
         snippet(item.details) ||
-        "It joins the list once everyone is in. Cast your vote.",
+        (item.scheduledFor
+          ? "Check the date and RSVP. Previous RSVPs do not carry over."
+          : "Interested? Say so, then make a plan together."),
     },
     APPROVED: {
       kind: "BUCKET_ITEM_APPROVED",
       title: `“${item.title}” made the bucket list`,
-      body: "Everyone is in. Now make it happen.",
+      body: "Enough people are going. The plan is on.",
     },
     COMPLETION_REQUESTED: {
       kind: "BUCKET_ITEM_COMPLETION_REQUESTED",
       title: `${name} wants to check off “${item.title}”`,
-      body: "Confirm you did it. It’s checked off once everyone confirms.",
+      body: "Participants can confirm they did it. The circle can follow along.",
     },
     COMPLETED: {
       kind: "BUCKET_ITEM_COMPLETED",
       title: `“${item.title}” is checked off the bucket list`,
-      body: "Everyone confirmed. One less thing for someday.",
+      body: "The participants confirmed. One less thing for someday.",
     },
   } satisfies Record<
     BucketItemEvent,
@@ -604,7 +609,7 @@ export async function notifyBucketItem(
           recipientId: member.userId,
           actorId: input.actorId,
           circleId: input.circleId,
-          dedupeKey: `bucket:${input.event.toLowerCase()}:${item.id}${round}:${member.userId}`,
+          dedupeKey: `bucket:${input.event.toLowerCase()}:${item.id}:v${item.planVersion}${round}:${member.userId}`,
           kind: message.kind,
           entityId: item.id,
           title: message.title,

@@ -42,7 +42,8 @@ export const bucketItemInputSchema = z.object({
 });
 
 export const bucketVoteSchema = z.object({
-  stage: z.enum(["PROPOSAL", "COMPLETION"]),
+  stage: z.enum(["PROPOSAL", "RSVP", "COMPLETION"]),
+  planVersion: z.number().int().min(0),
   inFavor: z.boolean(),
 });
 
@@ -96,4 +97,16 @@ export const timeblockPdfSchema = z.object({
       }),
     )
     .max(MAX_TIMEBLOCKS),
+});
+
+export const bucketPlanSchema = z.object({
+  scheduledFor: z.string().datetime(),
+  minimumParticipants: z.number().int().min(1).max(1000),
+  everyoneRequired: z.boolean(),
+  planVersion: z.number().int().min(0),
+});
+
+export const bucketCompletionSchema = z.object({
+  planVersion: z.number().int().min(0),
+  participantIds: z.array(z.string().min(1).max(100)).min(1).max(1000),
 });

@@ -105,6 +105,7 @@ enum BucketItemStatus {
 }
 
 enum BucketVoteStage {
+  RSVP
   PROPOSAL
   COMPLETION
 }
@@ -300,6 +301,8 @@ model Commitment {
   // Retired task criteria: retained for rolling deployments, excluded from the client.
   definitionOfDone String           @default("") @db.VarChar(500) @ignore
   dueAt            DateTime
+  requiredApprovals Int?
+  proofSubmittedAt DateTime?
   status           CommitmentStatus @default(OPEN)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -866,6 +869,12 @@ model TimeblockChatAttachment {
 // Every current member must vote yes before an idea joins the list, and again
 // before it is checked off. Withdrawn ideas stay stored with their comments.
 model BucketItem {
+  scheduledFor             DateTime?
+  minimumParticipants      Int     @default(2)
+  everyoneRequired         Boolean @default(false)
+  requiredMemberIds        String[] @default([])
+  completionParticipantIds String[] @default([])
+  planVersion              Int     @default(0)
   id                      String           @id @default(cuid())
   circleId                String
   proposerId              String

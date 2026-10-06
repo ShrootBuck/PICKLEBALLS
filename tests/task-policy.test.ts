@@ -39,15 +39,15 @@ test("late-night tasks keep their full 24 hours across midnight", () => {
   expect(shouldMarkMissed("OPEN", due, new Date("2026-09-17T16:00:00Z"))).toBe(
     false,
   );
-  expect(currentTaskFilter(created)).toEqual({
-    dueAt: { gt: created },
+  expect(currentTaskFilter(created)).toMatchObject({
     status: { not: "MISSED" },
+    OR: [{ dueAt: { gt: created } }, { proofSubmittedAt: { not: null } }],
   });
 });
 
-test("the verification deadline includes pending reviews and preserves verified tasks", () => {
+test("the submission deadline never expires pending reviews", () => {
   const due = taskDeadline(new Date("2026-09-20T20:15:00Z"));
-  for (const status of ["OPEN", "RENEGOTIATED", "AWAITING_REVIEW"]) {
+  for (const status of ["OPEN", "RENEGOTIATED"]) {
     expect(shouldMarkMissed(status, due, new Date(due.getTime() - 1))).toBe(
       false,
     );
@@ -60,4 +60,20 @@ test("the verification deadline includes pending reviews and preserves verified 
     shouldMarkMissed("VERIFIED", due, new Date(due.getTime() + 86_400_000)),
   ).toBe(false);
   expect(shouldMarkMissed("MISSED", due, due)).toBe(false);
+});
+
+test("on-time submissions and later challenges never expire", () => {
+  const due = new Date("2026-01-01");
+  const later = new Date("2027-01-01");
+  expect(shouldMarkMissed("AWAITING_REVIEW", due, later)).toBe(false);
+  expect(shouldMarkMissed("OPEN", due, later, new Date("2025-12-31"))).toBe(
+    false,
+  );
+});
+test("a fixed approval target survives joining and leaving, as do earned approvals", () => {
+  const reviews = [{ reviewerId: "departed", decision: "APPROVED" }];
+  expect(proofApprovalProgress("owner", ["owner", "new"], reviews, 4)).toEqual({
+    approvalCount: 1,
+    requiredApprovals: 4,
+  });
 });

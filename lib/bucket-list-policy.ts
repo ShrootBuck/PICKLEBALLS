@@ -1,18 +1,24 @@
-export type BucketVoteStage = "PROPOSAL" | "COMPLETION";
+export type BucketVoteStage = "PROPOSAL" | "RSVP" | "COMPLETION";
 export type BucketItemStatus =
   | "PROPOSED"
   | "ACTIVE"
   | "COMPLETED"
   | "WITHDRAWN";
-
 export type BucketPerson = {
   id: string;
   name: string;
   image: string | null;
   initials: string;
 };
-
-export type BucketItemView = {
+export type BucketPlan = {
+  scheduledFor: Date | string | null;
+  minimumParticipants: number;
+  everyoneRequired: boolean;
+  requiredMemberIds: string[];
+  completionParticipantIds: string[];
+  planVersion: number;
+};
+export type BucketItemView = Omit<BucketPlan, "scheduledFor"> & {
   id: string;
   title: string;
   details: string | null;
@@ -21,23 +27,25 @@ export type BucketItemView = {
   createdAt: string;
   approvedAt: string | null;
   completedAt: string | null;
+  scheduledFor: string | null;
   completionRequestedAt: string | null;
   completionRequestedBy: BucketPerson | null;
-  // The vote currently open on this item, if any.
   stage: BucketVoteStage | null;
   inFavor: BucketPerson[];
   against: BucketPerson[];
   waiting: BucketPerson[];
+  participants: BucketPerson[];
   memberCount: number;
   myVote: boolean | null;
   canVote: boolean;
   needsMyVote: boolean;
   canWithdraw: boolean;
   canCancelCompletion: boolean;
+  canPlan: boolean;
+  canComplete: boolean;
   replyCount: number;
 };
-
-export type BucketItemRow = {
+export type BucketItemRow = BucketPlan & {
   id: string;
   title: string;
   details: string | null;
@@ -50,78 +58,129 @@ export type BucketItemRow = {
   completionRequestedAt: Date | null;
   completionRequestedById: string | null;
   completionRequestedBy: BucketPerson | null;
-  votes: { userId: string; stage: BucketVoteStage; inFavor: boolean }[];
+  votes: {
+    userId: string;
+    stage: BucketVoteStage;
+    inFavor: boolean;
+    user?: BucketPerson;
+  }[];
   _count: { replies: number };
 };
-
 export function openBucketVoteStage(item: {
   status: BucketItemStatus;
   completionRequestedAt: Date | string | null;
+  scheduledFor?: Date | string | null;
 }): BucketVoteStage | null {
-  if (item.status === "PROPOSED") return "PROPOSAL";
-  if (item.status === "ACTIVE" && item.completionRequestedAt)
-    return "COMPLETION";
-  return null;
+  if (item.status === "COMPLETED" || item.status === "WITHDRAWN") return null;
+  if (item.completionRequestedAt) return "COMPLETION";
+  return item.scheduledFor ? "RSVP" : "PROPOSAL";
 }
-
-// Only current members count. Someone who left can neither block nor carry a
-// vote, and someone who joined mid-vote must weigh in too.
+// The caller supplies a fixed electorate for completion or everyone-needed plans.
 export function bucketTally(
   memberIds: string[],
   votes: { userId: string; inFavor: boolean }[],
 ) {
   const members = new Set(memberIds);
-  const inFavor = new Set<string>();
-  const against = new Set<string>();
-  for (const vote of votes) {
-    if (!members.has(vote.userId)) continue;
-    (vote.inFavor ? inFavor : against).add(vote.userId);
-  }
-  const waiting = [...members].filter(
-    (id) => !inFavor.has(id) && !against.has(id),
+  const yes = new Set(
+    votes
+      .filter((v) => members.has(v.userId) && v.inFavor)
+      .map((v) => v.userId),
+  );
+  const no = new Set(
+    votes
+      .filter((v) => members.has(v.userId) && !v.inFavor)
+      .map((v) => v.userId),
   );
   return {
-    inFavor: [...inFavor],
-    against: [...against],
-    waiting,
-    unanimous: members.size > 0 && inFavor.size === members.size,
+    inFavor: [...yes],
+    against: [...no],
+    waiting: [...members].filter((id) => !yes.has(id) && !no.has(id)),
+    unanimous: members.size > 0 && yes.size === members.size,
   };
 }
-
+export function bucketPlanReady(
+  plan: Pick<
+    BucketPlan,
+    "minimumParticipants" | "everyoneRequired" | "requiredMemberIds"
+  >,
+  goingIds: string[],
+) {
+  const going = new Set(goingIds);
+  return plan.everyoneRequired
+    ? plan.requiredMemberIds.length > 0 &&
+        plan.requiredMemberIds.every((id) => going.has(id))
+    : going.size >= plan.minimumParticipants;
+}
 export function toBucketItemView(
   item: BucketItemRow,
   members: BucketPerson[],
   viewer: { id: string; role: "OWNER" | "MEMBER" },
+  historicalPeople: BucketPerson[] = [],
 ): BucketItemView {
   const stage = openBucketVoteStage(item);
-  const votes = stage ? item.votes.filter((vote) => vote.stage === stage) : [];
-  const tally = bucketTally(
-    members.map((member) => member.id),
-    votes,
+  const isMember = members.some((p) => p.id === viewer.id);
+  const owner = isMember && viewer.role === "OWNER";
+  const byId = new Map(
+    [
+      ...historicalPeople,
+      ...members,
+      ...item.votes.flatMap((v) => (v.user ? [v.user] : [])),
+    ].map((p) => [p.id, p]),
   );
-  const byId = new Map(members.map((member) => [member.id, member]));
   const people = (ids: string[]) =>
-    ids.flatMap((id) => {
-      const person = byId.get(id);
-      return person ? [person] : [];
-    });
-  const myVote = votes.find((vote) => vote.userId === viewer.id)?.inFavor;
-  // Proposing an idea, or asking to check it off, is already a yes.
-  const author =
-    stage === "PROPOSAL"
-      ? item.proposerId
-      : stage === "COMPLETION"
-        ? item.completionRequestedById
-        : null;
-  const isMember = byId.has(viewer.id);
-  const canVote = stage !== null && isMember && author !== viewer.id;
-  const owner = viewer.role === "OWNER" && isMember;
+    ids.map(
+      (id) =>
+        byId.get(id) ?? {
+          id,
+          name: "Former member",
+          initials: "FM",
+          image: null,
+        },
+    );
+  const electorate =
+    stage === "COMPLETION"
+      ? item.completionParticipantIds
+      : item.everyoneRequired && item.scheduledFor
+        ? [...new Set([...item.requiredMemberIds, ...members.map((m) => m.id)])]
+        : stage === "RSVP"
+          ? [
+              ...new Set([
+                ...members.map((m) => m.id),
+                ...item.votes
+                  .filter((v) => v.stage === "RSVP")
+                  .map((v) => v.userId),
+              ]),
+            ]
+          : members.map((m) => m.id);
+  const votes = item.votes.filter((v) => v.stage === (stage ?? "COMPLETION"));
+  const tally = bucketTally(electorate, votes);
+  const going = item.votes
+    .filter((v) => v.stage === "RSVP" && v.inFavor)
+    .map((v) => v.userId);
+  const participants =
+    item.completionRequestedAt || item.status === "COMPLETED"
+      ? item.completionParticipantIds
+      : going;
+  const canVote =
+    !!stage &&
+    isMember &&
+    (stage !== "COMPLETION" ||
+      item.completionParticipantIds.includes(viewer.id));
+  const myVote = votes.find((v) => v.userId === viewer.id)?.inFavor ?? null;
   return {
     id: item.id,
     title: item.title,
     details: item.details,
     status: item.status,
     proposer: item.proposer,
+    scheduledFor: item.scheduledFor
+      ? new Date(item.scheduledFor).toISOString()
+      : null,
+    minimumParticipants: item.minimumParticipants,
+    everyoneRequired: item.everyoneRequired,
+    requiredMemberIds: item.requiredMemberIds,
+    completionParticipantIds: item.completionParticipantIds,
+    planVersion: item.planVersion,
     createdAt: item.createdAt.toISOString(),
     approvedAt: item.approvedAt?.toISOString() ?? null,
     completedAt: item.completedAt?.toISOString() ?? null,
@@ -131,88 +190,86 @@ export function toBucketItemView(
     inFavor: people(tally.inFavor),
     against: people(tally.against),
     waiting: people(tally.waiting),
+    participants: people(participants),
     memberCount: members.length,
-    myVote: myVote ?? null,
+    myVote,
     canVote,
-    needsMyVote: canVote && myVote === undefined,
+    needsMyVote: canVote && myVote === null,
     canWithdraw:
-      item.status === "PROPOSED" && (item.proposerId === viewer.id || owner),
+      (item.status === "PROPOSED" || item.status === "ACTIVE") &&
+      (item.proposerId === viewer.id || owner),
     canCancelCompletion:
       stage === "COMPLETION" &&
       (item.completionRequestedById === viewer.id || owner),
+    canPlan:
+      isMember &&
+      !item.completionRequestedAt &&
+      (item.status === "PROPOSED" || item.status === "ACTIVE") &&
+      (item.proposerId === viewer.id || owner),
+    canComplete:
+      isMember &&
+      item.status === "ACTIVE" &&
+      !!item.scheduledFor &&
+      new Date(item.scheduledFor).getTime() <= Date.now() &&
+      !item.completionRequestedAt &&
+      going.includes(viewer.id),
     replyCount: item._count.replies,
   };
 }
-
-const newestFirst = (a: string | null, b: string | null) =>
-  (b ?? "").localeCompare(a ?? "");
-
-// Votes waiting on the viewer come first; everything else is newest first.
 export function groupBucketItems(items: BucketItemView[]) {
-  const byAttention = (a: BucketItemView, b: BucketItemView) =>
+  const attention = (a: BucketItemView, b: BucketItemView) =>
     Number(b.needsMyVote) - Number(a.needsMyVote) ||
-    Number(b.stage !== null) - Number(a.stage !== null);
+    b.createdAt.localeCompare(a.createdAt);
   return {
     voting: items
-      .filter((item) => item.status === "PROPOSED")
-      .sort(
-        (a, b) => byAttention(a, b) || newestFirst(a.createdAt, b.createdAt),
-      ),
+      .filter(
+        (i) =>
+          i.status === "PROPOSED" ||
+          (i.status === "ACTIVE" &&
+            !i.scheduledFor &&
+            !i.completionRequestedAt),
+      )
+      .sort(attention),
     list: items
-      .filter((item) => item.status === "ACTIVE")
-      .sort(
-        (a, b) => byAttention(a, b) || newestFirst(a.approvedAt, b.approvedAt),
-      ),
+      .filter(
+        (i) =>
+          i.status === "ACTIVE" &&
+          (!!i.scheduledFor || !!i.completionRequestedAt),
+      )
+      .sort(attention),
     done: items
-      .filter((item) => item.status === "COMPLETED")
-      .sort((a, b) => newestFirst(a.completedAt, b.completedAt)),
+      .filter((i) => i.status === "COMPLETED")
+      .sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? "")),
   };
 }
-
 export function formatPeople(people: { name: string }[]) {
-  const names = people.map((person) => person.name);
+  const names = people.map((p) => p.name);
   if (names.length <= 2) return names.join(" and ");
   if (names.length === 3) return `${names[0]}, ${names[1]}, and ${names[2]}`;
   return `${names.slice(0, 2).join(", ")}, and ${names.length - 2} others`;
 }
-
 export function describeBucketVote(item: BucketItemView, viewerId: string) {
   if (!item.stage) return null;
-  const proposal = item.stage === "PROPOSAL";
   const named = (people: BucketPerson[]) =>
     formatPeople(
-      [...people]
-        .sort((a, b) => Number(b.id === viewerId) - Number(a.id === viewerId))
-        .map((person) => ({
-          name: person.id === viewerId ? "you" : person.name,
-        })),
+      people.map((p) => ({ name: p.id === viewerId ? "you" : p.name })),
     );
-  const capitalized = (text: string) =>
-    text.charAt(0).toUpperCase() + text.slice(1);
-  const one = item.against.length === 1;
-  const onlyViewer = one && item.against[0].id === viewerId;
-  const requester = item.completionRequestedBy;
+  const completion = item.stage === "COMPLETION";
   return {
-    count: `${item.inFavor.length} of ${item.memberCount} ${proposal ? "in" : "confirmed"}`,
-    requested:
-      !proposal && requester
-        ? `${requester.id === viewerId ? "You" : requester.name} asked to check this off`
+    count: completion
+      ? `${item.inFavor.length} of ${item.completionParticipantIds.length} confirmed`
+      : item.stage === "PROPOSAL"
+        ? `${item.inFavor.length} interested`
+        : `${item.inFavor.length} going · ${item.everyoneRequired ? "everyone needed" : `${item.minimumParticipants} needed`}`,
+    requested: completion
+      ? `${item.completionRequestedBy?.name ?? "Someone"} asked to check this off`
+      : null,
+    waiting:
+      completion && item.waiting.length
+        ? `Waiting on ${named(item.waiting)}`
         : null,
-    waiting: item.waiting.length ? `Waiting on ${named(item.waiting)}` : null,
-    against: !item.against.length
-      ? null
-      : onlyViewer
-        ? proposal
-          ? "You’re out"
-          : "You said not yet"
-        : `${capitalized(named(item.against))} ${
-            proposal
-              ? one
-                ? "is out"
-                : "are out"
-              : one
-                ? "says not yet"
-                : "say not yet"
-          }`,
+    against: item.against.length
+      ? `${named(item.against)}: ${completion ? "not yet" : item.stage === "RSVP" ? "can't make it" : "not interested"}`
+      : null,
   };
 }

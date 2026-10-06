@@ -11,7 +11,14 @@ import { socialAuthorSelect } from "@/lib/social-data";
 const bucketItemInclude = {
   proposer: { select: socialAuthorSelect },
   completionRequestedBy: { select: socialAuthorSelect },
-  votes: { select: { userId: true, stage: true, inFavor: true } },
+  votes: {
+    select: {
+      userId: true,
+      stage: true,
+      inFavor: true,
+      user: { select: socialAuthorSelect },
+    },
+  },
   _count: { select: { replies: true } },
 } satisfies Prisma.BucketItemInclude;
 
@@ -22,11 +29,19 @@ export function bucketVotesAwaitingFilter(circleId: string, userId: string) {
     OR: [
       {
         status: "PROPOSED",
+        scheduledFor: null,
         votes: { none: { userId, stage: "PROPOSAL" } },
+      },
+      {
+        status: { in: ["PROPOSED", "ACTIVE"] },
+        scheduledFor: { not: null },
+        completionRequestedAt: null,
+        votes: { none: { userId, stage: "RSVP" } },
       },
       {
         status: "ACTIVE",
         completionRequestedAt: { not: null },
+        completionParticipantIds: { has: userId },
         votes: { none: { userId, stage: "COMPLETION" } },
       },
     ],
@@ -66,9 +81,24 @@ export async function getBucketList(
       include: bucketItemInclude,
     }),
   ]);
+  const historicalPeople = await getPrisma().user.findMany({
+    where: {
+      id: {
+        in: [
+          ...new Set(
+            items.flatMap((item) => [
+              ...item.requiredMemberIds,
+              ...item.completionParticipantIds,
+            ]),
+          ),
+        ],
+      },
+    },
+    select: socialAuthorSelect,
+  });
   return {
     items: items.map((item) =>
-      toBucketItemView(item, members.people, members.viewer),
+      toBucketItemView(item, members.people, members.viewer, historicalPeople),
     ),
     memberCount: members.people.length,
   };
@@ -87,8 +117,26 @@ export async function getBucketItem(
     }),
   ]);
   if (!item) return null;
+  const historicalPeople = await getPrisma().user.findMany({
+    where: {
+      id: {
+        in: [
+          ...new Set([
+            ...item.requiredMemberIds,
+            ...item.completionParticipantIds,
+          ]),
+        ],
+      },
+    },
+    select: socialAuthorSelect,
+  });
   return {
-    item: toBucketItemView(item, members.people, members.viewer),
+    item: toBucketItemView(
+      item,
+      members.people,
+      members.viewer,
+      historicalPeople,
+    ),
     members: members.people,
   };
 }

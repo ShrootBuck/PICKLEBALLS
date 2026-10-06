@@ -2,14 +2,28 @@ export function taskDeadline(createdAt: Date) {
   return new Date(createdAt.getTime() + 24 * 60 * 60 * 1000);
 }
 
-// The board only contains tasks within their 24-hour window.
+// Keep unfinished, timely submissions visible until their review is resolved.
 export function currentTaskFilter(now = new Date()) {
-  return { dueAt: { gt: now }, status: { not: "MISSED" as const } };
+  return {
+    status: { not: "MISSED" as const },
+    OR: [
+      { dueAt: { gt: now } },
+      {
+        proofSubmittedAt: { not: null },
+        status: {
+          in: [
+            "OPEN" as const,
+            "RENEGOTIATED" as const,
+            "AWAITING_REVIEW" as const,
+          ],
+        },
+      },
+    ],
+  };
 }
 
-export function reviewableCommitmentFilter(now = new Date()) {
+export function reviewableCommitmentFilter() {
   return {
-    dueAt: { gt: now },
     status: { notIn: ["MISSED" as const, "VERIFIED" as const] },
   };
 }
@@ -37,9 +51,12 @@ export function shouldMarkMissed(
   status: string,
   dueAt: Date,
   now = new Date(),
+  proofSubmittedAt: Date | string | null = null,
 ) {
   return (
-    ["OPEN", "RENEGOTIATED", "AWAITING_REVIEW"].includes(status) && dueAt <= now
+    !proofSubmittedAt &&
+    ["OPEN", "RENEGOTIATED"].includes(status) &&
+    dueAt <= now
   );
 }
 
@@ -47,18 +64,33 @@ export function proofApprovalProgress(
   ownerId: string,
   memberIds: string[],
   reviews: { reviewerId: string; decision: string }[],
+  requiredApprovals?: number | null,
 ) {
   const peers = new Set(memberIds.filter((id) => id !== ownerId));
   const approved = new Set(
     reviews
       .filter(
         (review) =>
-          review.decision === "APPROVED" && peers.has(review.reviewerId),
+          review.decision === "APPROVED" &&
+          review.reviewerId !== ownerId &&
+          (requiredApprovals != null || peers.has(review.reviewerId)),
       )
       .map((review) => review.reviewerId),
   );
   return {
     approvalCount: approved.size,
-    requiredApprovals: requiredApprovalsForCircle(new Set(memberIds).size),
+    requiredApprovals:
+      requiredApprovals ?? requiredApprovalsForCircle(new Set(memberIds).size),
   };
+}
+
+export function canSubmitProof(
+  task: { dueAt: Date; proofSubmittedAt?: Date | null; status: string },
+  now = new Date(),
+) {
+  return (
+    task.status !== "MISSED" &&
+    task.status !== "VERIFIED" &&
+    (canEditTask(task.dueAt, now) || !!task.proofSubmittedAt)
+  );
 }

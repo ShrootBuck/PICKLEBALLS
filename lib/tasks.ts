@@ -17,6 +17,7 @@ import { putMedia } from "@/lib/r2";
 import { commitmentInputSchema, proofReviewSchema } from "@/lib/schemas";
 import {
   canEditTask,
+  canSubmitProof,
   isLateProof,
   proofApprovalProgress,
   requiredApprovalsForCircle,
@@ -34,7 +35,8 @@ export async function reconcileMissedTasks(circleId: string, now = new Date()) {
     where: {
       circleId,
       createdAt: { lte: cutoff },
-      status: { in: ["OPEN", "RENEGOTIATED", "AWAITING_REVIEW"] },
+      status: { in: ["OPEN", "RENEGOTIATED"] },
+      proofSubmittedAt: null,
     },
     orderBy: { createdAt: "asc" },
     take: 25,
@@ -63,7 +65,8 @@ export async function reconcileMissedTasks(circleId: string, now = new Date()) {
         where: {
           id: task.id,
           createdAt: { lte: cutoff },
-          status: { in: ["OPEN", "RENEGOTIATED", "AWAITING_REVIEW"] },
+          status: { in: ["OPEN", "RENEGOTIATED"] },
+          proofSubmittedAt: null,
         },
         data: { status: "MISSED" },
       });
@@ -76,7 +79,7 @@ export async function reconcileMissedTasks(circleId: string, now = new Date()) {
           actorId: task.userId,
           kind: "TASK_MISSED",
           entityId: task.id,
-          summary: `missed “${task.title}”: not verified within 24 hours`,
+          summary: `missed “${task.title}”: no proof submitted within 24 hours`,
         },
       });
     }
@@ -123,6 +126,9 @@ export async function createCommitment(
         title: parsed.data.title,
         goalId: parsed.data.goalId ?? null,
         dueAt,
+        requiredApprovals: requiredApprovalsForCircle(
+          await transaction.membership.count({ where: { circleId } }),
+        ),
         createdAt: now,
       },
     });
@@ -292,7 +298,7 @@ export async function submitProof(
       },
     });
     if (!task) throw new DomainError("Task not found.", 404);
-    if (!canEditTask(task.dueAt, now)) {
+    if (!canSubmitProof(task, now)) {
       throw new DomainError(
         "The submission window is closed. Missed tasks cannot receive new or replacement proof.",
         409,
@@ -315,7 +321,7 @@ export async function submitProof(
         submittedAt: pendingProofId ? new Date() : now,
         startedAt,
         completedAt,
-        isLate: isLateProof(task.dueAt, now),
+        isLate: !task.proofSubmittedAt && isLateProof(task.dueAt, now),
         mediaIds,
         ...(image && objectKey
           ? { image: { create: { ...image, data: null, objectKey } } }
@@ -337,18 +343,21 @@ export async function submitProof(
     const memberCount = await transaction.membership.count({
       where: { circleId },
     });
-    const needed = requiredApprovalsForCircle(memberCount);
-    // Timely queued media may finish later. Preserve its history without reopening
-    // or auto-verifying an expired task.
-    const expired =
-      task.status === "MISSED" ||
-      !canEditTask(task.dueAt, pendingProofId ? new Date() : now);
-    if (!expired)
-      await notifyProofSubmitted(
-        { proofId: proof.id, actorId: userId, circleId },
-        notifications,
-      );
-    if (needed === 0 && !expired) {
+    const needed =
+      task.requiredApprovals ?? requiredApprovalsForCircle(memberCount);
+    await transaction.commitment.update({
+      where: { id: task.id },
+      data: {
+        requiredApprovals: needed,
+        proofSubmittedAt: task.proofSubmittedAt ?? now,
+        status: "AWAITING_REVIEW",
+      },
+    });
+    await notifyProofSubmitted(
+      { proofId: proof.id, actorId: userId, circleId },
+      notifications,
+    );
+    if (needed === 0) {
       // Solo circle: no peers to review, so the proof verifies on post.
       await transaction.taskProof.update({
         where: { id: proof.id },
@@ -369,10 +378,6 @@ export async function submitProof(
       });
       return { ...proof, reviewStatus: "APPROVED" as const };
     }
-    await transaction.commitment.update({
-      where: { id: task.id },
-      data: { status: task.status === "MISSED" ? "MISSED" : "AWAITING_REVIEW" },
-    });
     await transaction.activityEvent.create({
       data: {
         circleId,
@@ -412,12 +417,9 @@ export async function reviewProof(
           "You cannot review your own homework. Nice try.",
           403,
         );
-      if (
-        proof.commitment.status === "MISSED" ||
-        !canEditTask(proof.commitment.dueAt, now)
-      )
+      if (proof.commitment.status === "MISSED" || proof.isLate)
         throw new DomainError(
-          "This task expired without verification within 24 hours.",
+          "This task did not receive proof before its submission deadline.",
           409,
         );
       if (proof.reviewStatus !== "PENDING") {
@@ -436,7 +438,13 @@ export async function reviewProof(
         proof.ownerId,
         members.map((m) => m.userId),
         [...proof.reviews, { reviewerId, decision: parsed.data.decision }],
+        proof.commitment.requiredApprovals,
       );
+      if (proof.commitment.requiredApprovals === null)
+        await transaction.commitment.update({
+          where: { id: proof.commitmentId },
+          data: { requiredApprovals: progress.requiredApprovals },
+        });
       const isChallenge = parsed.data.decision === "CHALLENGED";
 
       const review = await transaction.taskProofReview.create({

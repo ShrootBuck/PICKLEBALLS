@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { jsonError } from "@/lib/api";
+import { jsonError, readJson } from "@/lib/api";
 import {
   cancelBucketItemCompletion,
   requestBucketItemCompletion,
@@ -25,6 +25,7 @@ export async function POST(
       id,
       auth.session.user.id,
       auth.membership.circleId,
+      await readJson(request),
     );
     return NextResponse.json({ item });
   } catch (error) {

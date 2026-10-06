@@ -107,7 +107,7 @@ export function TaskList({
                   </Link>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Due{" "}
+                  Proof due{" "}
                   {new Date(task.dueAt).toLocaleString("en-US", {
                     timeZone: "America/Phoenix",
                     month: "short",
@@ -153,7 +153,9 @@ export function TaskList({
                   <ArrowUpRight data-icon="inline-start" /> View proof
                 </Button>
               )}
-              {editable &&
+              {mine &&
+                task.status !== "MISSED" &&
+                (editable || !!task.proofSubmittedAt) &&
                 (!task.proof || task.proof.reviewStatus === "CHALLENGED") && (
                   <Button
                     size="sm"

@@ -27,21 +27,15 @@ import { cn } from "@/lib/utils";
 
 function StatusBadge({ item }: { item: BucketItemView }) {
   if (item.status === "COMPLETED") return <Badge variant="success">Done</Badge>;
-  if (item.needsMyVote)
-    return (
-      <Badge>
-        {item.stage === "PROPOSAL" ? "Needs your vote" : "Confirm it"}
-      </Badge>
-    );
   if (item.stage === "COMPLETION")
     return <Badge variant="secondary">Checking off</Badge>;
-  if (item.stage === "PROPOSAL")
-    return item.against.length ? (
-      <Badge variant="outline">Not everyone’s in</Badge>
-    ) : (
-      <Badge variant="secondary">Up for a vote</Badge>
-    );
-  return <Badge variant="outline">On the list</Badge>;
+  if (item.stage === "PROPOSAL") return <Badge variant="secondary">Idea</Badge>;
+  if (item.needsMyVote) return <Badge>RSVP</Badge>;
+  return (
+    <Badge variant={item.status === "ACTIVE" ? "success" : "outline"}>
+      {item.status === "ACTIVE" ? "Plan is on" : "Gathering RSVPs"}
+    </Badge>
+  );
 }
 
 export function BucketItemCard({
@@ -86,6 +80,18 @@ export function BucketItemCard({
           <StatusBadge item={item} />
         </CardAction>
       </CardHeader>
+      {item.scheduledFor && (
+        <CardContent>
+          <p className="text-sm font-medium">
+            {new Date(item.scheduledFor).toLocaleString("en-US", {
+              timeZone: "America/Phoenix",
+              dateStyle: "medium",
+              timeStyle: "short",
+            })}{" "}
+            · Phoenix
+          </p>
+        </CardContent>
+      )}
       {item.details && (
         <CardContent>
           <p
@@ -130,15 +136,15 @@ export function BucketItemCard({
         ) : (
           <p className="text-xs text-muted-foreground">
             {item.status === "COMPLETED" && item.completedAt
-              ? `Everyone confirmed · Checked off ${formatCalendarDate(item.completedAt)}`
+              ? `Participants confirmed · Checked off ${formatCalendarDate(item.completedAt)}`
               : item.approvedAt
-                ? `Everyone’s in · On the list since ${formatCalendarDate(item.approvedAt)}`
+                ? `On the list since ${formatCalendarDate(item.approvedAt)}`
                 : null}
           </p>
         )}
       </CardContent>
       {(item.status !== "COMPLETED" || !detail) && (
-        <CardFooter className="gap-2">
+        <CardFooter className="flex-wrap gap-2">
           <BucketItemActions item={item} />
           {!detail && (
             <Link

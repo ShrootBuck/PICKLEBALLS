@@ -81,6 +81,7 @@ export type SocialTask = {
   title: string;
   day: string;
   dueAt: string;
+  proofSubmittedAt?: string | null;
   status: TaskStatus;
   proof: { id: string; reviewStatus: ProofStatus } | null;
   goal?: { id: string; title: string } | null;

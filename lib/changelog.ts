@@ -8,6 +8,18 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1791248044720,
+    title: "Plans for whoever can make it",
+    description:
+      "Share bucket-list ideas, pick a date, and collect separate RSVPs. Set a minimum attendance or explicitly require everyone. Only the people who participated confirm completion, and changing the date starts fresh RSVPs.",
+  },
+  {
+    timestamp: 1791248044719,
+    title: "Submit on time, review when you can",
+    description:
+      "Submit proof within 24 hours of creating a task. On-time proof stays reviewable indefinitely, including uploads still processing. Challenges still reopen the task and allow replacement proof. Each task keeps the half-circle approval count it started with, even when membership changes.",
+  },
+  {
     timestamp: 1791018339329,
     title: "Streaks drop the emoji",
     description:

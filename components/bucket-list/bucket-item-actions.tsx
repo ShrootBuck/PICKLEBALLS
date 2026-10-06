@@ -11,8 +11,10 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useState } from "react";
+import { PlanItem } from "@/components/bucket-list/plan-item";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -22,23 +24,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { appFetch } from "@/lib/app-refresh";
 import type { BucketItemView } from "@/lib/bucket-list-policy";
 
-type ActionItem = Pick<
-  BucketItemView,
-  | "id"
-  | "title"
-  | "status"
-  | "stage"
-  | "myVote"
-  | "canVote"
-  | "canWithdraw"
-  | "canCancelCompletion"
-  | "memberCount"
->;
+type ActionItem = BucketItemView;
 
 async function send(url: string, method: string, body?: unknown) {
   const response = await appFetch(url, {
@@ -73,7 +65,9 @@ function ConfirmAction({
   confirmLabel,
   destructive = false,
   onConfirm,
+  children,
 }: {
+  children?: ReactNode;
   trigger: ReactNode;
   title: string;
   description: string;
@@ -117,6 +111,7 @@ function ConfirmAction({
           <DialogTitle className="leading-snug">{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+        {children}
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
@@ -145,6 +140,7 @@ function ConfirmAction({
 }
 
 export function BucketItemActions({ item }: { item: ActionItem }) {
+  const [excluded, setExcluded] = useState<string[]>([]);
   const router = useRouter();
   const pathname = usePathname();
   const [pendingVote, setPendingVote] = useState<boolean | null>(null);
@@ -157,7 +153,7 @@ export function BucketItemActions({ item }: { item: ActionItem }) {
     optimistic && optimistic.from === item.myVote
       ? optimistic.vote
       : item.myVote;
-  const solo = item.memberCount <= 1;
+  const solo = item.participants.length <= 1;
   const url = `/api/bucket-list/${encodeURIComponent(item.id)}`;
 
   async function cast(inFavor: boolean) {
@@ -167,16 +163,17 @@ export function BucketItemActions({ item }: { item: ActionItem }) {
     try {
       const status = await send(`${url}/vote`, "PUT", {
         stage: item.stage,
+        planVersion: item.planVersion,
         inFavor,
       });
       if (status === "ACTIVE" && item.status === "PROPOSED")
         toast.add({
-          title: "Everyone’s in. It made the bucket list.",
+          title: "Enough people are going. The plan is on.",
           type: "success",
         });
       if (status === "COMPLETED")
         toast.add({
-          title: "Everyone confirmed. It’s checked off.",
+          title: "The participants confirmed. It is checked off.",
           type: "success",
         });
     } catch (error) {
@@ -187,7 +184,7 @@ export function BucketItemActions({ item }: { item: ActionItem }) {
     }
   }
 
-  const proposal = item.stage === "PROPOSAL";
+  const proposal = item.stage !== "COMPLETION";
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2">
       {item.stage && item.canVote && (
@@ -206,11 +203,15 @@ export function BucketItemActions({ item }: { item: ActionItem }) {
             ) : (
               <CircleCheckBig data-icon="inline-start" />
             )}
-            {proposal ? "I’m in" : "Confirm"}
+            {item.stage === "PROPOSAL"
+              ? "Interested"
+              : proposal
+                ? "Going"
+                : "Confirm"}
           </Button>
           <Button
             size="sm"
-            variant={vote === false ? "destructive" : "outline"}
+            variant={vote === false ? "secondary" : "outline"}
             aria-pressed={vote === false}
             disabled={pendingVote !== null}
             onClick={() => cast(false)}
@@ -222,11 +223,16 @@ export function BucketItemActions({ item }: { item: ActionItem }) {
             ) : (
               <Hourglass data-icon="inline-start" />
             )}
-            {proposal ? "I’m out" : "Not yet"}
+            {item.stage === "PROPOSAL"
+              ? "Not interested"
+              : proposal
+                ? "Can't make it"
+                : "Not yet"}
           </Button>
         </>
       )}
-      {item.status === "ACTIVE" && !item.stage && (
+      {item.canPlan && <PlanItem key={item.planVersion} item={item} />}
+      {item.canComplete && (
         <ConfirmAction
           trigger={
             <>
@@ -237,21 +243,51 @@ export function BucketItemActions({ item }: { item: ActionItem }) {
           title={`Check off “${item.title}”?`}
           description={
             solo
-              ? "You’re the only member, so it’s checked off right away."
-              : "Everyone in your circle has to confirm you did it. Until then, it stays on the list."
+              ? "You are the only participant, so it is checked off right away."
+              : "Only the people going on this plan need to confirm. Their participant list is fixed when you ask."
           }
-          confirmLabel={solo ? "Check it off" : "Ask everyone to confirm"}
+          confirmLabel={solo ? "Check it off" : "Ask participants to confirm"}
           onConfirm={async () => {
-            const status = await send(`${url}/completion`, "POST");
+            const status = await send(`${url}/completion`, "POST", {
+              planVersion: item.planVersion,
+              participantIds: item.participants
+                .filter((p) => !excluded.includes(p.id))
+                .map((p) => p.id),
+            });
             toast.add({
               title:
                 status === "COMPLETED"
                   ? "Checked off. Nice work."
-                  : "Asked everyone to confirm.",
+                  : "Asked the participants to confirm.",
               type: "success",
             });
           }}
-        />
+        >
+          <div className="flex flex-col gap-3">
+            <p className="text-sm">
+              Who actually participated? Uncheck anyone who could not make it.
+              Include yourself.
+            </p>
+            {item.participants.map((person) => (
+              <Field key={person.id} orientation="horizontal">
+                <Checkbox
+                  id={`attended-${item.id}-${person.id}`}
+                  checked={!excluded.includes(person.id)}
+                  onCheckedChange={(checked) =>
+                    setExcluded((ids) =>
+                      checked
+                        ? ids.filter((id) => id !== person.id)
+                        : [...ids, person.id],
+                    )
+                  }
+                />
+                <FieldLabel htmlFor={`attended-${item.id}-${person.id}`}>
+                  {person.name}
+                </FieldLabel>
+              </Field>
+            ))}
+          </div>
+        </ConfirmAction>
       )}
       {item.canCancelCompletion && (
         <ConfirmAction
@@ -263,7 +299,7 @@ export function BucketItemActions({ item }: { item: ActionItem }) {
             </>
           }
           title="Cancel the check-off?"
-          description="Everyone’s confirmations are cleared, and it stays on the list. You can ask again later."
+          description="Participants' confirmations are cleared, and it stays on the list. You can ask again later."
           confirmLabel="Cancel check-off"
           onConfirm={async () => {
             await send(`${url}/completion`, "DELETE");
@@ -281,7 +317,7 @@ export function BucketItemActions({ item }: { item: ActionItem }) {
             </>
           }
           title={`Withdraw “${item.title}”?`}
-          description="It leaves the vote and won’t join the bucket list. You can propose it again later."
+          description="This cancels the idea or plan. You can propose it again later."
           confirmLabel="Withdraw idea"
           onConfirm={async () => {
             await send(url, "DELETE");

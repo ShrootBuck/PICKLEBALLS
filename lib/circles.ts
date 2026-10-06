@@ -1,12 +1,7 @@
 import "server-only";
 
 import { randomBytes } from "node:crypto";
-import { settleBucketItems } from "@/lib/bucket-list-settle";
 import { getPrisma } from "@/lib/prisma";
-import {
-  proofApprovalProgress,
-  reviewableCommitmentFilter,
-} from "@/lib/task-policy";
 import { serializable } from "@/lib/transaction";
 
 export { ACTIVE_CIRCLE_COOKIE, parseActiveCircleId } from "@/lib/circle-cookie";
@@ -62,64 +57,13 @@ export async function listMyCircles(userId: string) {
   });
 }
 
-// Removing a member can lower the approval threshold for pending proofs and
-// complete bucket list votes that were only waiting on them.
+// Membership changes never settle votes or change existing proof requirements.
 export async function removeCircleMember(
   userId: string,
   circleId: string,
-  actorId: string,
+  _actorId: string,
 ) {
-  return serializable(async (tx) => {
-    const deleted = await tx.membership.deleteMany({
-      where: { userId, circleId, role: "MEMBER" },
-    });
-    if (!deleted.count) return deleted;
-    const [members, proofs] = await Promise.all([
-      tx.membership.findMany({ where: { circleId }, select: { userId: true } }),
-      tx.taskProof.findMany({
-        where: {
-          circleId,
-          reviewStatus: "PENDING",
-          replacedById: null,
-          commitment: reviewableCommitmentFilter(),
-        },
-        select: {
-          id: true,
-          ownerId: true,
-          commitmentId: true,
-          reviews: {
-            select: { reviewerId: true, decision: true },
-          },
-        },
-      }),
-    ]);
-    for (const proof of proofs) {
-      const progress = proofApprovalProgress(
-        proof.ownerId,
-        members.map((m) => m.userId),
-        proof.reviews,
-      );
-      if (progress.approvalCount < progress.requiredApprovals) continue;
-      await tx.taskProof.update({
-        where: { id: proof.id },
-        data: { reviewStatus: "APPROVED" },
-      });
-      await tx.commitment.update({
-        where: { id: proof.commitmentId },
-        data: { status: "VERIFIED" },
-      });
-      await tx.activityEvent.create({
-        data: {
-          circleId,
-          actorId,
-          kind: "PROOF_APPROVED",
-          entityId: proof.id,
-          summary:
-            "verified proof after the circle changed; the approval threshold was met",
-        },
-      });
-    }
-    await settleBucketItems(tx, circleId);
-    return deleted;
-  });
+  return serializable((tx) =>
+    tx.membership.deleteMany({ where: { userId, circleId, role: "MEMBER" } }),
+  );
 }

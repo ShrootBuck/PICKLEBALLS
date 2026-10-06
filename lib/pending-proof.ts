@@ -2,7 +2,7 @@ import "server-only";
 import { DomainError } from "@/lib/errors";
 import { mediaIdsSchema } from "@/lib/media-policy";
 import { getPrisma } from "@/lib/prisma";
-import { canEditTask } from "@/lib/task-policy";
+import { canSubmitProof } from "@/lib/task-policy";
 import { validateProofTimes } from "@/lib/tasks";
 import { serializable } from "@/lib/transaction";
 
@@ -34,7 +34,7 @@ export async function queueProof(
       include: { proofs: { where: { replacedById: null }, take: 1 } },
     });
     if (!task) throw new DomainError("Task not found.", 404);
-    if (!canEditTask(task.dueAt, now))
+    if (!canSubmitProof(task, now))
       throw new DomainError(
         "The submission window is closed. Missed tasks cannot receive new or replacement proof.",
         409,
@@ -72,6 +72,10 @@ export async function queueProof(
         "Attachments are unavailable or already posted. Choose them again.",
         409,
       );
+    await tx.commitment.update({
+      where: { id: task.id },
+      data: { proofSubmittedAt: task.proofSubmittedAt ?? now },
+    });
     return pending;
   });
 }

@@ -72,6 +72,8 @@ export default async function HistoryPage({
               select: {
                 title: true,
                 dueAt: true,
+                proofSubmittedAt: true,
+                requiredApprovals: true,
                 status: true,
               },
             },

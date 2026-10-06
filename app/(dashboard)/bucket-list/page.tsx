@@ -57,7 +57,7 @@ export default async function BucketListPage({
     <>
       <PageHeader
         title="Bucket list"
-        description="Big things your circle wants to do someday. An idea joins the list once everyone is in, and it’s checked off once everyone confirms you did it."
+        description="Share ideas, make plans, and go with whoever can make it. Only participants confirm completion."
         actions={<ProposeIdea circleId={circleId} memberCount={memberCount} />}
       />
       {items.length === 0 ? (
@@ -77,28 +77,28 @@ export default async function BucketListPage({
         <>
           {voting.length > 0 && (
             <PageSection
-              title="Up for a vote"
-              description="Everyone has to be in before an idea joins the list."
+              title="Ideas and upcoming plans"
+              description="Show interest, then RSVP when there is a date."
             >
               {voting.map(card)}
             </PageSection>
           )}
           <PageSection
-            title="On the list"
-            description="Everyone’s in. Check one off once you’ve done it."
+            title="Ready to go"
+            description="These plans have enough people going."
           >
             {list.length ? (
               list.map(card)
             ) : (
               <p className="text-sm text-muted-foreground">
-                Nothing has everyone’s vote yet.
+                No plans have reached their attendance requirement yet.
               </p>
             )}
           </PageSection>
           {done.length > 0 && (
             <PageSection
               title="Done"
-              description="Checked off with everyone’s confirmation."
+              description="Checked off by the people who participated."
             >
               {done.map(card)}
             </PageSection>

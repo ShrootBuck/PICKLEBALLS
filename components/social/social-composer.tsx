@@ -125,7 +125,7 @@ export function SocialComposer(props: ComposerProps) {
           {(mode === "task" || mode === "proof") && (
             <SheetDescription>
               {mode === "task"
-                ? "Each task must be verified within 24 hours of creation."
+                ? "Submit proof within 24 hours of creating a task. Reviews have no deadline."
                 : (task?.title ?? "Pick the task you finished.")}
             </SheetDescription>
           )}
@@ -228,7 +228,9 @@ function ComposerForm({
   ]);
   const eligible = tasks.filter(
     (item) =>
-      new Date(item.dueAt).getTime() > Date.now() &&
+      item.status !== "MISSED" &&
+      (new Date(item.dueAt).getTime() > Date.now() ||
+        !!item.proofSubmittedAt) &&
       (!item.proof || item.proof.reviewStatus === "CHALLENGED"),
   );
   const ready =

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   type BucketItemRow,
+  bucketPlanReady,
   bucketTally,
   describeBucketVote,
   formatPeople,
@@ -21,6 +22,12 @@ const member = (id: string) => ({ id, role: "MEMBER" as const });
 
 function row(overrides: Partial<BucketItemRow> = {}): BucketItemRow {
   return {
+    scheduledFor: null,
+    minimumParticipants: 2,
+    everyoneRequired: false,
+    requiredMemberIds: [],
+    completionParticipantIds: members.map((p) => p.id),
+    planVersion: 0,
     id: "item",
     title: "Go skydiving",
     details: null,
@@ -90,8 +97,12 @@ test("each status has at most one open vote", () => {
     openBucketVoteStage({ status: "PROPOSED", completionRequestedAt: null }),
   ).toBe("PROPOSAL");
   expect(
-    openBucketVoteStage({ status: "ACTIVE", completionRequestedAt: null }),
-  ).toBeNull();
+    openBucketVoteStage({
+      status: "ACTIVE",
+      scheduledFor: at,
+      completionRequestedAt: null,
+    }),
+  ).toBe("RSVP");
   expect(
     openBucketVoteStage({ status: "ACTIVE", completionRequestedAt: at }),
   ).toBe("COMPLETION");
@@ -113,7 +124,7 @@ test("proposers are already in; everyone else votes and can change their vote", 
   const proposer = toBucketItemView(item, members, member("sam"));
   expect(proposer).toMatchObject({
     stage: "PROPOSAL",
-    canVote: false,
+    canVote: true,
     needsMyVote: false,
     canWithdraw: true,
     myVote: true,
@@ -156,7 +167,7 @@ test("a check-off vote ignores proposal votes and lets the requester or owner ca
   const requester = toBucketItemView(item, members, member("eddie"));
   expect(requester).toMatchObject({
     stage: "COMPLETION",
-    canVote: false,
+    canVote: true,
     canCancelCompletion: true,
     canWithdraw: false,
     myVote: true,
@@ -214,6 +225,8 @@ test("votes waiting on the viewer come first in each section", () => {
   const listed = view({
     id: "listed",
     status: "ACTIVE",
+    scheduledFor: new Date(),
+    votes: [{ userId: "zayd", stage: "RSVP", inFavor: true }],
     approvedAt: new Date("2026-09-20T00:00:00Z"),
   });
   const confirming = view({
@@ -248,49 +261,50 @@ test("votes waiting on the viewer come first in each section", () => {
   expect(groups.done.map((item) => item.id)).toEqual(["recent", "old"]);
 });
 
-test("vote summaries name the viewer as you", () => {
-  const proposal = toBucketItemView(
-    row({
-      votes: [
-        { userId: "sam", stage: "PROPOSAL", inFavor: true },
-        { userId: "jules", stage: "PROPOSAL", inFavor: false },
-      ],
-    }),
-    members,
-    owner,
-  );
-  expect(describeBucketVote(proposal, "zayd")).toEqual({
-    count: "1 of 4 in",
-    requested: null,
-    waiting: "Waiting on you and Eddie",
-    against: "Jules is out",
+test("interest is separate from RSVPs and only participants confirm", () => {
+  const item = row({
+    scheduledFor: new Date(),
+    status: "PROPOSED",
+    votes: [{ userId: "sam", stage: "PROPOSAL", inFavor: true }],
   });
-  expect(describeBucketVote(proposal, "jules")?.against).toBe("You’re out");
-  const checkOff = toBucketItemView(
-    row({
-      status: "ACTIVE",
-      approvedAt: new Date(),
-      completionRequestedAt: new Date(),
-      completionRequestedById: "zayd",
-      completionRequestedBy: person("zayd"),
-      votes: [
-        { userId: "zayd", stage: "COMPLETION", inFavor: true },
-        { userId: "sam", stage: "COMPLETION", inFavor: false },
-        { userId: "jules", stage: "COMPLETION", inFavor: false },
-      ],
-    }),
-    members,
-    owner,
-  );
-  expect(describeBucketVote(checkOff, "zayd")).toEqual({
-    count: "1 of 4 confirmed",
-    requested: "You asked to check this off",
-    waiting: "Waiting on Eddie",
-    against: "Sam and Jules say not yet",
+  expect(toBucketItemView(item, members, member("sam"))).toMatchObject({
+    stage: "RSVP",
+    myVote: null,
+    needsMyVote: true,
   });
-  expect(describeBucketVote(checkOff, "sam")?.against).toBe(
-    "You and Jules say not yet",
+  const completion = row({
+    status: "ACTIVE",
+    completionRequestedAt: new Date(),
+    completionParticipantIds: ["sam", "eddie"],
+    votes: [{ userId: "sam", stage: "COMPLETION", inFavor: true }],
+  });
+  expect(toBucketItemView(completion, members, owner).canVote).toBe(false);
+  const view = toBucketItemView(
+    completion,
+    [...members, person("new")],
+    member("eddie"),
   );
+  expect(view.waiting.map((p) => p.id)).toEqual(["eddie"]);
+  expect(describeBucketVote(view, "eddie")?.count).toBe("1 of 2 confirmed");
+});
+test("seven can go without the eighth; everyone-needed uses the saved roster", () => {
+  expect(
+    bucketPlanReady(
+      {
+        minimumParticipants: 2,
+        everyoneRequired: false,
+        requiredMemberIds: [],
+      },
+      ["a", "b", "c", "d", "e", "f", "g"],
+    ),
+  ).toBe(true);
+  const plan = {
+    minimumParticipants: 2,
+    everyoneRequired: true,
+    requiredMemberIds: ["a", "b"],
+  };
+  expect(bucketPlanReady(plan, ["a", "new"])).toBe(false);
+  expect(bucketPlanReady(plan, ["a", "b"])).toBe(true);
 });
 
 test("long name lists stay short", () => {

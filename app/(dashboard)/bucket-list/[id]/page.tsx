@@ -28,20 +28,38 @@ function VoteBreakdown({
   members: BucketPerson[];
   viewerId: string;
 }) {
-  const proposal = item.stage === "PROPOSAL";
+  const proposal = item.stage !== "COMPLETION";
   const inFavor = new Set(item.inFavor.map((person) => person.id));
   const against = new Set(item.against.map((person) => person.id));
   return (
     <PageSection
-      title={proposal ? "Who’s in" : "Who confirmed"}
+      title={
+        item.stage === "PROPOSAL"
+          ? "Interested"
+          : proposal
+            ? "RSVPs"
+            : "Participant confirmations"
+      }
       description={
         proposal
-          ? "It joins the list once everyone is in. Votes can change until then."
-          : "It’s checked off once everyone confirms. Votes can change until then."
+          ? "Interest and RSVPs are optional unless this plan explicitly needs everyone."
+          : "Only the participants listed here need to confirm. New members do not change this list."
       }
     >
       <ul className="flex flex-col divide-y divide-border rounded-lg border">
-        {members.map((member) => {
+        {(proposal
+          ? [
+              ...new Map(
+                [
+                  ...members,
+                  ...item.inFavor,
+                  ...item.against,
+                  ...item.waiting,
+                ].map((person) => [person.id, person]),
+              ).values(),
+            ]
+          : item.participants
+        ).map((member) => {
           const state = inFavor.has(member.id)
             ? "in"
             : against.has(member.id)
@@ -71,13 +89,17 @@ function VoteBreakdown({
               >
                 {state === "in"
                   ? proposal
-                    ? "In"
+                    ? item.stage === "PROPOSAL"
+                      ? "Interested"
+                      : "Going"
                     : "Confirmed"
                   : state === "out"
                     ? proposal
-                      ? "Out"
+                      ? item.stage === "PROPOSAL"
+                        ? "Not interested"
+                        : "Can't make it"
                       : "Not yet"
-                    : "Waiting"}
+                    : "No response"}
               </Badge>
             </li>
           );

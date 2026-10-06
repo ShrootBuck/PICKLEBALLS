@@ -524,7 +524,7 @@ test("challenge, deliberate replacement restrictions, and old URLs preserve proo
   ).rejects.toThrow("promise stays fixed");
 });
 
-test("solo circles verify immediately; task deadlines close new and replacement proof", async () => {
+test("solo circles verify immediately; deadlines close first submissions but allow challenged replacements", async () => {
   const solo = await task(ids.owner, ids.solo);
   const posted = await submitProof(
     solo.id,
@@ -573,7 +573,7 @@ test("solo circles verify immediately; task deadlines close new and replacement 
       now,
       new Date("2026-09-09T20:00:00Z"),
     ),
-  ).rejects.toThrow("window is closed");
+  ).resolves.toMatchObject({ isLate: false, reviewStatus: "PENDING" });
 });
 
 test("unready or wrong-circle media rolls back proof creation and preserves retry", async () => {
@@ -1041,7 +1041,7 @@ test("half the circle must approve; partial approvals stay queued and concurrent
     reviewStatus: "APPROVED",
     createdAt: posted.submittedAt.toISOString(),
   });
-  // New members affect pending work, never reopen an already verified proof.
+  // New members never reopen an already verified proof.
   const extra = `extra-${randomUUID()}`;
   await prisma.user.create({
     data: { id: extra, email: `${extra}@example.invalid`, name: "New member" },
@@ -1053,7 +1053,7 @@ test("half the circle must approve; partial approvals stay queued and concurrent
   ).toHaveLength(0);
 });
 
-test("removing a member lowers the threshold and verifies pending proof", async () => {
+test("removing a member does not lower the threshold or verify pending proof", async () => {
   const { removeCircleMember } = await import("@/lib/circles");
   const circleId = `departing-${randomUUID()}`;
   await prisma.circle.create({
@@ -1096,14 +1096,14 @@ test("removing a member lowers the threshold and verifies pending proof", async 
   expect(
     (await prisma.taskProof.findUniqueOrThrow({ where: { id: posted.id } }))
       .reviewStatus,
-  ).toBe("APPROVED");
+  ).toBe("PENDING");
   expect(
     (
       await prisma.commitment.findUniqueOrThrow({
         where: { id: commitment.id },
       })
     ).status,
-  ).toBe("VERIFIED");
+  ).toBe("AWAITING_REVIEW");
 });
 
 test("pending queue pagination is newest first and cannot reuse timeline cursors", async () => {
@@ -1336,7 +1336,7 @@ test("overnight tasks remain visible and accept queued proof after midnight", as
   expect(posted.isLate).toBe(false);
 });
 
-test("hourly reconciliation expires all unverified tasks, including queued media, exactly once", async () => {
+test("hourly reconciliation misses only tasks without an accepted submission", async () => {
   const { queueProof } = await import("@/lib/pending-proof");
   const circle = await prisma.circle.create({
     data: { slug: `expiration-${randomUUID()}`, name: "Expiration" },
@@ -1407,48 +1407,25 @@ test("hourly reconciliation expires all unverified tasks, including queued media
     new Date(createdAt.getTime() + 1),
   );
 
-  // Deadline enforcement does not wait for cron to update the stored status.
-  await expect(
-    reviewProof(pending.id, ids.peer, circle.id, { decision: "APPROVED" }, now),
-  ).rejects.toThrow("expired");
-  expect(
-    (
-      await getFeedPage({
-        viewerId: ids.peer,
-        circleId: circle.id,
-        awaitingOnly: true,
-      })
-    ).items,
-  ).toHaveLength(0);
-  const history = await getFeedPage({
+  const reviewQueue = await getFeedPage({
     viewerId: ids.peer,
     circleId: circle.id,
-    timelineOnly: true,
+    awaitingOnly: true,
   });
-  expect(history.items.find((post) => post.id === pending.id)).toMatchObject({
-    expired: true,
-    canReview: false,
-  });
-
-  expect((await reconcileMissedTasks(circle.id, now)).count).toBe(4);
+  expect(
+    reviewQueue.items.find((post) => post.id === pending.id),
+  ).toMatchObject({ expired: false, canReview: true });
+  expect((await reconcileMissedTasks(circle.id, now)).count).toBe(2);
   expect((await reconcileMissedTasks(circle.id, now)).count).toBe(0);
-  const missedIds = [open.id, renegotiated.id, awaiting.id, encoding.id];
   expect(
     await prisma.commitment.count({
-      where: {
-        id: { in: missedIds },
-        status: "MISSED",
-      },
+      where: { id: { in: [open.id, renegotiated.id] }, status: "MISSED" },
     }),
-  ).toBe(4);
+  ).toBe(2);
   expect(
-    await prisma.activityEvent.count({
-      where: {
-        circleId: circle.id,
-        kind: "TASK_MISSED",
-      },
-    }),
-  ).toBe(4);
+    (await prisma.commitment.findUniqueOrThrow({ where: { id: awaiting.id } }))
+      .status,
+  ).toBe("AWAITING_REVIEW");
   expect(
     (await prisma.commitment.findUniqueOrThrow({ where: { id: verified.id } }))
       .status,
@@ -1457,8 +1434,18 @@ test("hourly reconciliation expires all unverified tasks, including queued media
     (await prisma.commitment.findUniqueOrThrow({ where: { id: fresh.id } }))
       .status,
   ).toBe("OPEN");
-
-  // A previously accepted submission still publishes, without reviving a missed task.
+  const muchLater = new Date(now.getTime() + 365 * 86_400_000);
+  expect(
+    (
+      await reviewProof(
+        pending.id,
+        ids.peer,
+        circle.id,
+        { decision: "APPROVED" },
+        muchLater,
+      )
+    ).proofStatus,
+  ).toBe("APPROVED");
   const published = await submitProof(
     encoding.id,
     ids.owner,
@@ -1473,19 +1460,35 @@ test("hourly reconciliation expires all unverified tasks, including queued media
   expect(
     (await prisma.commitment.findUniqueOrThrow({ where: { id: encoding.id } }))
       .status,
-  ).toBe("MISSED");
+  ).toBe("AWAITING_REVIEW");
+  expect(
+    (
+      await reviewProof(
+        published.id,
+        ids.peer,
+        circle.id,
+        { decision: "APPROVED" },
+        muchLater,
+      )
+    ).proofStatus,
+  ).toBe("APPROVED");
+  expect(
+    await prisma.notification.count({
+      where: { entityId: published.id, kind: "PROOF_SUBMITTED" },
+    }),
+  ).toBe(1);
   await expect(
-    reviewProof(
-      published.id,
-      ids.peer,
+    submitProof(
+      open.id,
+      ids.owner,
       circle.id,
-      { decision: "APPROVED" },
+      [await media(ids.owner, circle.id)],
+      null,
+      createdAt,
+      now,
       now,
     ),
-  ).rejects.toThrow("expired");
-  expect(
-    await prisma.notification.count({ where: { entityId: published.id } }),
-  ).toBe(0);
+  ).rejects.toThrow("submission window");
 });
 
 test("reconciliation drains multiple batches and never duplicates missed activity", async () => {
@@ -1501,7 +1504,7 @@ test("reconciliation drains multiple batches and never duplicates missed activit
       createdAt,
       dueAt: now,
       title: `Task ${index}`,
-      status: "AWAITING_REVIEW" as const,
+      status: "OPEN" as const,
     })),
   });
   const firstBatch = await reconcileMissedTasks(circle.id, now);
@@ -1576,4 +1579,335 @@ test("inbox rows commit with mutations and roll back with a failed transaction",
   expect(
     await prisma.notification.findUnique({ where: { dedupeKey } }),
   ).toBeNull();
+});
+
+test("tasks freeze half-circle approvals and preserve departed reviewers' approvals", async () => {
+  const circleId = `fixed-${randomUUID()}`;
+  const users = Array.from({ length: 8 }, () => `fixed-user-${randomUUID()}`);
+  await prisma.user.createMany({
+    data: users.map((id) => ({ id, email: `${id}@example.invalid`, name: id })),
+  });
+  await prisma.circle.create({
+    data: { id: circleId, slug: circleId, name: "Fixed requirements" },
+  });
+  await prisma.membership.createMany({
+    data: users.slice(0, 4).map((userId) => ({ userId, circleId })),
+  });
+  const commitment = await task(users[0], circleId);
+  expect(commitment.requiredApprovals).toBe(2);
+  await prisma.membership.createMany({
+    data: users.slice(4).map((userId) => ({ userId, circleId })),
+  });
+  const largerTask = await task(users[0], circleId);
+  expect(largerTask.requiredApprovals).toBe(4);
+  const posted = await submitProof(
+    commitment.id,
+    users[0],
+    circleId,
+    [await media(users[0], circleId)],
+    null,
+    start,
+    now,
+    now,
+  );
+  await reviewProof(
+    posted.id,
+    users[1],
+    circleId,
+    { decision: "APPROVED" },
+    now,
+  );
+  const { removeCircleMember } = await import("@/lib/circles");
+  await removeCircleMember(users[1], circleId, users[0]);
+  expect(
+    (
+      await prisma.commitment.findUniqueOrThrow({
+        where: { id: commitment.id },
+      })
+    ).status,
+  ).toBe("AWAITING_REVIEW");
+  const feed = await getFeedPage({
+    circleId,
+    viewerId: users[2],
+    pendingOnly: true,
+  });
+  expect(feed.items.find((p) => p.id === posted.id)).toMatchObject({
+    approvalCount: 1,
+    requiredApprovals: 2,
+  });
+  expect(
+    (
+      await reviewProof(
+        posted.id,
+        users[2],
+        circleId,
+        { decision: "APPROVED" },
+        now,
+      )
+    ).proofStatus,
+  ).toBe("APPROVED");
+  await removeCircleMember(users[3], circleId, users[0]);
+  expect(
+    (
+      await prisma.commitment.findUniqueOrThrow({
+        where: { id: largerTask.id },
+      })
+    ).requiredApprovals,
+  ).toBe(4);
+});
+
+test("a late challenge reopens an on-time task and permits replacement proof", async () => {
+  const { queueProof } = await import("@/lib/pending-proof");
+  const posted = await proof();
+  const later = new Date(now.getTime() + 200 * 86_400_000);
+  expect(
+    (
+      await reviewProof(
+        posted.id,
+        ids.peer,
+        ids.circle,
+        { decision: "CHALLENGED", note: "Need a clearer photo" },
+        later,
+      )
+    ).proofStatus,
+  ).toBe("CHALLENGED");
+  await reconcileMissedTasks(ids.circle, later);
+  expect(
+    (
+      await prisma.commitment.findUniqueOrThrow({
+        where: { id: posted.commitmentId },
+      })
+    ).status,
+  ).toBe("OPEN");
+  const queued = await queueProof(
+    posted.commitmentId,
+    ids.owner,
+    ids.circle,
+    [await media()],
+    null,
+    start,
+    now,
+    later,
+  );
+  const replacement = await submitProof(
+    posted.commitmentId,
+    ids.owner,
+    ids.circle,
+    queued.mediaIds,
+    null,
+    start,
+    now,
+    later,
+    queued.id,
+  );
+  expect(replacement.isLate).toBe(false);
+  expect(
+    (
+      await reviewProof(
+        replacement.id,
+        ids.peer,
+        ids.circle,
+        { decision: "APPROVED" },
+        later,
+      )
+    ).proofStatus,
+  ).toBe("APPROVED");
+});
+
+test("bucket ideas become opt-in dated plans, resist stale RSVPs, and confirm only actual participants", async () => {
+  const {
+    proposeBucketItem,
+    planBucketItem,
+    voteOnBucketItem,
+    requestBucketItemCompletion,
+  } = await import("@/lib/bucket-list");
+  const { getBucketItem, countBucketVotesAwaiting } = await import(
+    "@/lib/bucket-list-data"
+  );
+  const { removeCircleMember } = await import("@/lib/circles");
+  const circleId = `plans-${randomUUID()}`;
+  const people = Array.from({ length: 8 }, () => `planner-${randomUUID()}`);
+  await prisma.user.createMany({
+    data: people.map((id) => ({
+      id,
+      email: `${id}@example.invalid`,
+      name: id,
+    })),
+  });
+  await prisma.circle.create({
+    data: { id: circleId, slug: circleId, name: "Topgolf" },
+  });
+  await prisma.membership.createMany({
+    data: people.map((userId, index) => ({
+      userId,
+      circleId,
+      role: index === 0 ? ("OWNER" as const) : ("MEMBER" as const),
+    })),
+  });
+  const idea = await proposeBucketItem(
+    people[0],
+    circleId,
+    { circleId, title: "Topgolf" },
+    now,
+  );
+  expect(idea.status).toBe("PROPOSED");
+  const when = new Date(now.getTime() + 86_400_000);
+  const settings = {
+    scheduledFor: when.toISOString(),
+    minimumParticipants: 3,
+    everyoneRequired: false,
+    planVersion: 0,
+  };
+  await expect(
+    planBucketItem(idea.id, people[1], circleId, settings, now),
+  ).rejects.toThrow("proposer");
+  await planBucketItem(idea.id, people[0], circleId, settings, now);
+  await expect(
+    voteOnBucketItem(
+      idea.id,
+      people[1],
+      circleId,
+      { stage: "RSVP", inFavor: true, planVersion: 0 },
+      now,
+    ),
+  ).rejects.toThrow("changed");
+  for (const userId of people.slice(0, 7))
+    await voteOnBucketItem(
+      idea.id,
+      userId,
+      circleId,
+      { stage: "RSVP", inFavor: true, planVersion: 1 },
+      now,
+    );
+  await voteOnBucketItem(
+    idea.id,
+    people[7],
+    circleId,
+    { stage: "RSVP", inFavor: false, planVersion: 1 },
+    now,
+  );
+  expect((await getBucketItem(circleId, idea.id, people[7]))?.item.status).toBe(
+    "ACTIVE",
+  );
+  // Rescheduling clears RSVPs, not interest, and old browser actions cannot carry over.
+  await planBucketItem(
+    idea.id,
+    people[0],
+    circleId,
+    { ...settings, planVersion: 1 },
+    now,
+  );
+  const fresh = (await getBucketItem(circleId, idea.id, people[0]))?.item;
+  expect(fresh).toMatchObject({
+    stage: "RSVP",
+    myVote: null,
+    status: "PROPOSED",
+    planVersion: 2,
+  });
+  for (const userId of people.slice(0, 3))
+    await voteOnBucketItem(
+      idea.id,
+      userId,
+      circleId,
+      { stage: "RSVP", inFavor: true, planVersion: 2 },
+      now,
+    );
+  // Dropping below the minimum reopens attendance, and people can rejoin.
+  await voteOnBucketItem(
+    idea.id,
+    people[2],
+    circleId,
+    { stage: "RSVP", inFavor: false, planVersion: 2 },
+    now,
+  );
+  expect((await getBucketItem(circleId, idea.id, people[0]))?.item.status).toBe(
+    "PROPOSED",
+  );
+  await voteOnBucketItem(
+    idea.id,
+    people[2],
+    circleId,
+    { stage: "RSVP", inFavor: true, planVersion: 2 },
+    now,
+  );
+  await expect(
+    requestBucketItemCompletion(
+      idea.id,
+      people[7],
+      circleId,
+      { planVersion: 2, participantIds: people.slice(0, 2) },
+      when,
+    ),
+  ).rejects.toThrow("someone going");
+  // Third RSVP was a no-show. Only two actual attendees need to confirm.
+  await requestBucketItemCompletion(
+    idea.id,
+    people[0],
+    circleId,
+    { planVersion: 2, participantIds: people.slice(0, 2) },
+    when,
+  );
+  expect(await countBucketVotesAwaiting(circleId, people[7])).toBe(0);
+  await expect(
+    voteOnBucketItem(
+      idea.id,
+      people[7],
+      circleId,
+      { stage: "COMPLETION", inFavor: true, planVersion: 2 },
+      when,
+    ),
+  ).rejects.toThrow("participants");
+  await removeCircleMember(people[1], circleId, people[0]);
+  expect((await getBucketItem(circleId, idea.id, people[0]))?.item.status).toBe(
+    "ACTIVE",
+  );
+  // Removing a member must not silently finish the vote. Rejoining can finish it.
+  await prisma.membership.create({ data: { userId: people[1], circleId } });
+  expect(
+    (
+      await voteOnBucketItem(
+        idea.id,
+        people[1],
+        circleId,
+        { stage: "COMPLETION", inFavor: true, planVersion: 2 },
+        when,
+      )
+    ).status,
+  ).toBe("COMPLETED");
+
+  const all = await proposeBucketItem(
+    people[0],
+    circleId,
+    { circleId, title: "Everyone trip" },
+    now,
+  );
+  await planBucketItem(
+    all.id,
+    people[0],
+    circleId,
+    { ...settings, everyoneRequired: true },
+    now,
+  );
+  for (const userId of people.slice(0, 7))
+    await voteOnBucketItem(
+      all.id,
+      userId,
+      circleId,
+      { stage: "RSVP", inFavor: true, planVersion: 1 },
+      now,
+    );
+  await removeCircleMember(people[7], circleId, people[0]);
+  expect((await getBucketItem(circleId, all.id, people[0]))?.item.status).toBe(
+    "PROPOSED",
+  );
+  await planBucketItem(
+    all.id,
+    people[0],
+    circleId,
+    { ...settings, everyoneRequired: true, planVersion: 1 },
+    now,
+  );
+  expect(
+    (await getBucketItem(circleId, all.id, people[0]))?.item.requiredMemberIds,
+  ).toHaveLength(7);
 });

@@ -22,7 +22,7 @@ import { appFetch } from "@/lib/app-refresh";
 
 export function ProposeIdea({
   circleId,
-  memberCount,
+  memberCount: _memberCount,
 }: {
   circleId: string;
   memberCount: number;
@@ -33,7 +33,6 @@ export function ProposeIdea({
   const [details, setDetails] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const solo = memberCount <= 1;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,7 +61,7 @@ export function ProposeIdea({
         title:
           result.item?.status === "ACTIVE"
             ? "Added to your bucket list."
-            : "Idea proposed. Now everyone votes.",
+            : "Idea added. See who is interested.",
         type: "success",
       });
       setOpen(false);
@@ -94,9 +93,8 @@ export function ProposeIdea({
         <DialogHeader>
           <DialogTitle>Propose a bucket list idea</DialogTitle>
           <DialogDescription>
-            {solo
-              ? "You’re the only member, so it goes straight onto the list."
-              : "It joins the bucket list once everyone in your circle is in."}
+            Start with an idea. Interest is optional, and you can set a date and
+            collect RSVPs when you are ready.
           </DialogDescription>
         </DialogHeader>
         <form id={`propose-${id}`} onSubmit={submit} aria-busy={pending}>

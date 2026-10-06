@@ -51,6 +51,7 @@ export function toSocialTask(task: {
   title: string;
   day: Date;
   dueAt: Date;
+  proofSubmittedAt?: Date | null;
   status: SocialTask["status"];
   proofs: NonNullable<SocialTask["proof"]>[];
   goal?: SocialTask["goal"];
@@ -60,7 +61,15 @@ export function toSocialTask(task: {
     title: task.title,
     day: task.day.toISOString().slice(0, 10),
     dueAt: task.dueAt.toISOString(),
-    status: shouldMarkMissed(task.status, task.dueAt) ? "MISSED" : task.status,
+    proofSubmittedAt: task.proofSubmittedAt?.toISOString() ?? null,
+    status: shouldMarkMissed(
+      task.status,
+      task.dueAt,
+      new Date(),
+      task.proofSubmittedAt,
+    )
+      ? "MISSED"
+      : task.status,
     proof: task.proofs[0] ?? null,
     goal: task.goal ?? null,
   };
@@ -276,6 +285,8 @@ async function readPosts({
           select: {
             title: true,
             dueAt: true,
+            proofSubmittedAt: true,
+            requiredApprovals: true,
             status: true,
           },
         },
@@ -390,9 +401,19 @@ async function readPosts({
         reviewStatus: p.reviewStatus,
         expired:
           p.commitment.status === "MISSED" ||
-          shouldMarkMissed(p.commitment.status, p.commitment.dueAt),
+          shouldMarkMissed(
+            p.commitment.status,
+            p.commitment.dueAt,
+            new Date(),
+            p.commitment.proofSubmittedAt,
+          ),
         canReview:
-          !shouldMarkMissed(p.commitment.status, p.commitment.dueAt) &&
+          !shouldMarkMissed(
+            p.commitment.status,
+            p.commitment.dueAt,
+            new Date(),
+            p.commitment.proofSubmittedAt,
+          ) &&
           p.commitment.status !== "MISSED" &&
           p.commitment.status !== "VERIFIED" &&
           p.replacedById === null &&
@@ -403,6 +424,7 @@ async function readPosts({
           p.ownerId,
           members.map((m) => m.userId),
           p.reviews,
+          p.commitment.requiredApprovals,
         ),
         verifiedBy:
           p.reviews

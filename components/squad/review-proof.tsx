@@ -107,8 +107,8 @@ export function ReviewProof({
         title:
           decision === "APPROVED"
             ? review.proofStatus === "APPROVED"
-              ? "Everyone approved. Proof verified."
-              : "Your approval is saved. Waiting for the rest of the circle."
+              ? "Proof verified."
+              : "Your approval is saved. Waiting for more approvals."
             : "Proof challenged.",
         type: decision === "APPROVED" ? "success" : "warning",
       });
