@@ -19,9 +19,11 @@ import {
   postValence,
 } from "@/lib/mood";
 import { postHref, streakHref } from "@/lib/navigation";
+import { formatScreenTime } from "@/lib/screen-time";
 import type {
   CheckInPost,
   InteractivePost,
+  ScreenTimePost,
   StreakPost,
 } from "@/lib/social-types";
 
@@ -132,8 +134,31 @@ function StreakBody({ post }: { post: StreakPost }) {
   );
 }
 
+function ScreenTimeBody({ post }: { post: ScreenTimePost }) {
+  return (
+    <>
+      <p className="mb-2 text-lg font-semibold">
+        {formatScreenTime(post.dailyAverageMinutes)} daily average
+      </p>
+      <p className="mb-3 text-sm text-muted-foreground">
+        Week of {post.weekStart}
+      </p>
+      <div className="feed-media">
+        <MediaGallery ids={[post.mediaId]} />
+      </div>
+      <Link
+        href={`/screen-time?${new URLSearchParams({ circle: post.circleId, week: post.weekStart })}`}
+        className="mt-3 inline-block text-sm underline"
+      >
+        View screen-time leaderboard
+      </Link>
+    </>
+  );
+}
+
 export function PostBody({ post }: { post: InteractivePost }) {
   if (post.kind === "streak") return <StreakBody post={post} />;
+  if (post.kind === "screen-time") return <ScreenTimeBody post={post} />;
   const href = postHref(post.circleId, post.kind, post.id);
   return (
     <>

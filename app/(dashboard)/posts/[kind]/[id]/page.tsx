@@ -42,7 +42,10 @@ export default async function PostPage({
   const { kind, id } = await params;
   const query = await searchParams;
   if (
-    (kind !== "proof" && kind !== "check-in" && kind !== "streak") ||
+    (kind !== "proof" &&
+      kind !== "check-in" &&
+      kind !== "streak" &&
+      kind !== "screen-time") ||
     id.length > 100
   )
     notFound();
@@ -73,10 +76,39 @@ export default async function PostPage({
     proofIds: kind === "proof" ? [id] : [],
     checkInIds: kind === "check-in" ? [id] : [],
     streakEventIds: kind === "streak" ? [id] : undefined,
+    screenTimeIds: kind === "screen-time" ? [id] : undefined,
     includeReplaced: true,
   });
   const post = feed.items[0];
-  if (!post || post.kind === "screen-time") notFound();
+  if (!post) notFound();
+  if (post.kind === "screen-time") {
+    const replies = await getPrisma().socialReply.findMany({
+      ...replyInclude,
+      where: { circleId, screenTimeSubmissionId: id },
+    });
+    return (
+      <>
+        <BackButton />
+        <h1 className="sr-only">{post.author.name}’s screen time</h1>
+        <PostCard post={post} detail />
+        <section id="comments" className="scroll-mt-6">
+          <h2 className="mb-4 text-base font-semibold">Comments</h2>
+          <SocialReplyThread
+            key={id}
+            targetType="SCREEN_TIME"
+            targetId={id}
+            initialReplies={replies.map(toThreadReply)}
+            currentUserId={session.user.id}
+            contextLabel={`Commenting on ${post.author.name}’s screen time`}
+            replyLabel="Add a comment"
+            defaultExpanded
+            composerVisible
+            scrollOnExpand={false}
+          />
+        </section>
+      </>
+    );
+  }
   if (post.kind === "streak") {
     const replies = await getPrisma().socialReply.findMany({
       ...replyInclude,

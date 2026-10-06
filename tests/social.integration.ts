@@ -681,6 +681,44 @@ test("screen-time readings stay private until confirmation and confirmation is i
       where: { readingId: reading.id },
     }),
   ).toBe(1);
+
+  expect(
+    await setPostLike(ids.peer, ids.circle, {
+      targetType: "SCREEN_TIME",
+      targetId: first.id,
+      liked: true,
+    }),
+  ).toEqual({ likeCount: 1, likedByMe: true });
+  await createSocialReply(ids.peer, ids.circle, {
+    targetType: "SCREEN_TIME",
+    targetId: first.id,
+    body: "Nice drop this week",
+  });
+  const notification = await prisma.notification.findFirstOrThrow({
+    where: {
+      recipientId: ids.owner,
+      kind: "REPLY_POSTED",
+      entityId: first.id,
+    },
+  });
+  expect((notification.data as { url: string }).url).toContain(
+    `/posts/screen-time/${first.id}`,
+  );
+  const detail = await getFeedPage({
+    viewerId: ids.peer,
+    circleId: ids.circle,
+    proofIds: [],
+    checkInIds: [],
+    screenTimeIds: [first.id],
+  });
+  expect(detail.items).toHaveLength(1);
+  expect(detail.items[0]).toMatchObject({
+    kind: "screen-time",
+    id: first.id,
+    likeCount: 1,
+    likedByMe: true,
+    commentCount: 1,
+  });
 });
 
 test("pending video proof stays private, reserves attachments, and publishes exactly once after encoding", async () => {

@@ -11,6 +11,7 @@ export const postLikeSchema = z
       "REPLY",
       "REVIEW",
       "STREAK_EVENT",
+      "SCREEN_TIME",
     ]),
     targetId: z.string().min(1).max(100),
     liked: z.boolean(),
@@ -34,6 +35,7 @@ export async function setPostLike(
         REPLY: "replyId",
         REVIEW: "reviewId",
         STREAK_EVENT: "streakEventId",
+        SCREEN_TIME: "screenTimeSubmissionId",
       }[input.targetType]]: input.targetId,
     };
     const query = {
@@ -48,7 +50,9 @@ export async function setPostLike(
           ? tx.socialReply.findFirst(query)
           : input.targetType === "STREAK_EVENT"
             ? tx.streakEvent.findFirst(query)
-            : tx.taskProofReview.findFirst(query));
+            : input.targetType === "SCREEN_TIME"
+              ? tx.screenTimeSubmission.findFirst(query)
+              : tx.taskProofReview.findFirst(query));
     if (!target) throw new DomainError("Post not found.", 404);
     if (input.liked) {
       await tx.postLike.createMany({

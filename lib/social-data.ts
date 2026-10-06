@@ -139,6 +139,7 @@ export async function getFeedPage({
   proofIds,
   checkInIds,
   streakEventIds,
+  screenTimeIds,
   includeReplaced = false,
   pendingOnly = false,
   awaitingOnly = false,
@@ -152,6 +153,7 @@ export async function getFeedPage({
   proofIds?: string[];
   checkInIds?: string[];
   streakEventIds?: string[];
+  screenTimeIds?: string[];
   includeReplaced?: boolean;
   pendingOnly?: boolean;
   awaitingOnly?: boolean;
@@ -184,6 +186,7 @@ export async function getFeedPage({
     proofIds,
     checkInIds,
     streakEventIds,
+    screenTimeIds,
     includeReplaced,
     pendingOnly,
     awaitingOnly,
@@ -218,6 +221,7 @@ async function readPosts({
   proofIds,
   checkInIds,
   streakEventIds,
+  screenTimeIds,
   includeReplaced = false,
   pendingOnly = false,
   awaitingOnly = false,
@@ -233,6 +237,7 @@ async function readPosts({
   proofIds?: string[];
   checkInIds?: string[];
   streakEventIds?: string[];
+  screenTimeIds?: string[];
   includeReplaced?: boolean;
   pendingOnly?: boolean;
   awaitingOnly?: boolean;
@@ -329,14 +334,23 @@ async function readPosts({
       where: {
         circleId,
         ...(memberId ? { userId: memberId } : {}),
-        ...(pendingOnly || awaitingOnly || proofIds || checkInIds
+        ...(pendingOnly || awaitingOnly
           ? { id: { in: [] } }
-          : {}),
+          : screenTimeIds
+            ? { id: { in: screenTimeIds } }
+            : proofIds || checkInIds || streakEventIds
+              ? { id: { in: [] } }
+              : {}),
         ...feedBoundary("screen-time", "submittedAt", cursor),
       },
       orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
       take,
-      include: { user: { select: socialAuthorSelect }, reading: true },
+      include: {
+        user: { select: socialAuthorSelect },
+        reading: true,
+        likes: { where: { userId: viewerId }, select: { id: true }, take: 1 },
+        _count: { select: { likes: true, replies: true } },
+      },
     }),
     prisma.streakEvent.findMany({
       where: {
@@ -348,7 +362,7 @@ async function readPosts({
           ? { id: { in: [] } }
           : streakEventIds
             ? { id: { in: streakEventIds } }
-            : proofIds || checkInIds
+            : proofIds || checkInIds || screenTimeIds
               ? { id: { in: [] } }
               : {}),
         ...feedBoundary("streak", "createdAt", cursor),
@@ -379,9 +393,9 @@ async function readPosts({
         createdAt: submission.submittedAt.toISOString(),
         author: submission.user,
         body: null,
-        likeCount: 0,
-        likedByMe: false,
-        commentCount: 0,
+        likeCount: submission._count.likes,
+        likedByMe: submission.likes.length > 0,
+        commentCount: submission._count.replies,
         mediaId: submission.reading.mediaId,
         weekStart: submission.weekStart.toISOString().slice(0, 10),
         dailyAverageMinutes: submission.reading.dailyAverageMinutes,

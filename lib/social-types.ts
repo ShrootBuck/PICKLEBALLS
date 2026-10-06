@@ -6,7 +6,11 @@ export type SocialAuthor = {
 };
 
 export type PostKind = "proof" | "check-in" | "screen-time" | "streak";
-export type LikeTarget = "PROOF" | "CHECK_IN_UPDATE" | "STREAK_EVENT";
+export type LikeTarget =
+  | "PROOF"
+  | "CHECK_IN_UPDATE"
+  | "STREAK_EVENT"
+  | "SCREEN_TIME";
 export type ProofStatus = "PENDING" | "APPROVED" | "CHALLENGED";
 export type TaskStatus =
   | "OPEN"
@@ -66,14 +70,18 @@ export type StreakPost = PostBase & {
   units: number | null;
 };
 
-export type InteractivePost = ProofPost | CheckInPost | StreakPost;
 export type ScreenTimePost = PostBase & {
   kind: "screen-time";
   mediaId: string;
   weekStart: string;
   dailyAverageMinutes: number;
 };
-export type FeedPost = InteractivePost | ScreenTimePost;
+export type InteractivePost =
+  | ProofPost
+  | CheckInPost
+  | StreakPost
+  | ScreenTimePost;
+export type FeedPost = InteractivePost;
 export type FeedPage = { items: FeedPost[]; nextCursor: string | null };
 
 export type SocialTask = {

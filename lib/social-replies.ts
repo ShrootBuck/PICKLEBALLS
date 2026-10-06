@@ -249,6 +249,41 @@ export async function createSocialReply(
       return reply;
     }
 
+    if (targetType === "SCREEN_TIME") {
+      const submission = await transaction.screenTimeSubmission.findFirst({
+        where: { id: targetId, circleId },
+        select: { id: true, user: { select: { name: true } } },
+      });
+      if (!submission)
+        throw new DomainError("Screen-time post not found.", 404);
+
+      const reply = await transaction.socialReply.create({
+        data: {
+          authorId,
+          circleId,
+          screenTimeSubmissionId: submission.id,
+          body,
+          mediaIds,
+        },
+        include: { author: { select: authorSelect } },
+      });
+      await transaction.activityEvent.create({
+        data: {
+          circleId,
+          actorId: authorId,
+          kind: "REPLY_POSTED",
+          entityId: submission.id,
+          summary: `replied to ${submission.user.name}'s screen time`,
+          metadata: { targetType, replyId: reply.id },
+        },
+      });
+      await notifyReplyReceived(
+        { replyId: reply.id, authorId, circleId },
+        notifications,
+      );
+      return reply;
+    }
+
     const review = await transaction.taskProofReview.findFirst({
       where: { id: targetId, circleId },
       select: {

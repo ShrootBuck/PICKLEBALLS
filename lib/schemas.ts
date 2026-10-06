@@ -25,6 +25,7 @@ export const socialReplySchema = z
       "REVIEW",
       "BUCKET_ITEM",
       "STREAK_EVENT",
+      "SCREEN_TIME",
     ]),
     targetId: z.string().trim().min(1).max(100),
     body: z.string().trim().max(500),

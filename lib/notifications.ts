@@ -236,6 +236,7 @@ export async function notifyReplyReceived(
           streak: { select: { title: true } },
         },
       },
+      screenTimeSubmission: { select: { id: true, userId: true } },
     },
   });
   if (!reply || reply.authorId !== input.authorId) return [];
@@ -305,6 +306,13 @@ export async function notifyReplyReceived(
       entityId: reply.streakEvent.id,
       url: `${postHref(input.circleId, "streak", reply.streakEvent.id)}#comments`,
     });
+  } else if (reply.screenTimeSubmission) {
+    jobs.push({
+      recipientId: reply.screenTimeSubmission.userId,
+      context: "your screen time",
+      entityId: reply.screenTimeSubmission.id,
+      url: `${postHref(input.circleId, "screen-time", reply.screenTimeSubmission.id)}#comments`,
+    });
   }
 
   // Proof comments and verdict replies now share one discussion.
@@ -323,7 +331,9 @@ export async function notifyReplyReceived(
               ? { bucketItemId: reply.bucketItem.id }
               : reply.streakEvent
                 ? { streakEventId: reply.streakEvent.id }
-                : null;
+                : reply.screenTimeSubmission
+                  ? { screenTimeSubmissionId: reply.screenTimeSubmission.id }
+                  : null;
   const destination = jobs[0];
   if (!target || !destination) return [];
 

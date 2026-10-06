@@ -58,7 +58,8 @@ type ReplyTargetType =
   | "PROOF"
   | "REVIEW"
   | "BUCKET_ITEM"
-  | "STREAK_EVENT";
+  | "STREAK_EVENT"
+  | "SCREEN_TIME";
 
 type SocialReply = ThreadReply;
 
@@ -390,7 +391,8 @@ export function SocialReplyThread({
   const commenting =
     targetType === "PROOF" ||
     targetType === "BUCKET_ITEM" ||
-    targetType === "STREAK_EVENT";
+    targetType === "STREAK_EVENT" ||
+    targetType === "SCREEN_TIME";
   const [replies, setReplies] = useState(() => chronological(initialReplies));
   const [hasMore, setHasMore] = useState(
     initialHasMore ?? initialReplies.length === 50,

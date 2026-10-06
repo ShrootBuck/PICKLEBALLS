@@ -605,6 +605,7 @@ model SocialReply {
   reviewId     String?
   bucketItemId String?
   streakEventId String?
+  screenTimeSubmissionId String?
   body         String           @db.VarChar(500)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -618,6 +619,7 @@ model SocialReply {
   review     TaskProofReview? @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   bucketItem BucketItem?      @relation(fields: [bucketItemId], references: [id], onDelete: Cascade)
   streakEvent StreakEvent?    @relation(fields: [streakEventId], references: [id], onDelete: Cascade)
+  screenTimeSubmission ScreenTimeSubmission? @relation(fields: [screenTimeSubmissionId], references: [id], onDelete: Cascade)
   likes      PostLike[]
 
   @@index([commitmentId, createdAt])
@@ -627,6 +629,7 @@ model SocialReply {
   @@index([reviewId, createdAt])
   @@index([bucketItemId, createdAt])
   @@index([streakEventId, createdAt])
+  @@index([screenTimeSubmissionId, createdAt])
   @@index([circleId, createdAt])
   @@index([authorId, createdAt])
 }
@@ -640,6 +643,7 @@ model PostLike {
   replyId         String?
   reviewId        String?
   streakEventId   String?
+  screenTimeSubmissionId String?
   createdAt       DateTime @default(now())
 
   user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -649,18 +653,21 @@ model PostLike {
   reply         SocialReply?     @relation(fields: [replyId], references: [id], onDelete: Cascade)
   review        TaskProofReview? @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   streakEvent   StreakEvent?     @relation(fields: [streakEventId], references: [id], onDelete: Cascade)
+  screenTimeSubmission ScreenTimeSubmission? @relation(fields: [screenTimeSubmissionId], references: [id], onDelete: Cascade)
 
   @@unique([userId, proofId])
   @@unique([userId, checkInUpdateId])
   @@unique([userId, replyId])
   @@unique([userId, reviewId])
   @@unique([userId, streakEventId])
+  @@unique([userId, screenTimeSubmissionId])
   @@index([circleId])
   @@index([proofId])
   @@index([checkInUpdateId])
   @@index([replyId])
   @@index([reviewId])
   @@index([streakEventId])
+  @@index([screenTimeSubmissionId])
 }
 
 model ActivityEvent {
@@ -837,6 +844,8 @@ model ScreenTimeSubmission {
   user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   circle  Circle            @relation(fields: [circleId], references: [id], onDelete: Cascade)
   reading ScreenTimeReading @relation(fields: [readingId], references: [id], onDelete: Cascade)
+  replies SocialReply[]
+  likes   PostLike[]
 
   @@unique([userId, circleId, weekStart])
   @@index([circleId, weekStart])

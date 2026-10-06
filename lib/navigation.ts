@@ -21,8 +21,6 @@ export function postHref(
   kind: "proof" | "check-in" | "screen-time" | "streak",
   id: string,
 ) {
-  if (kind === "screen-time")
-    return `/screen-time?${new URLSearchParams({ circle: circleId })}`;
   return `/posts/${kind}/${encodeURIComponent(id)}?${new URLSearchParams({ circle: circleId })}`;
 }
 

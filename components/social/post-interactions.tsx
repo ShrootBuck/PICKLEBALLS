@@ -44,7 +44,9 @@ function likeTarget(post: InteractivePost) {
     ? "PROOF"
     : post.kind === "streak"
       ? "STREAK_EVENT"
-      : "CHECK_IN_UPDATE";
+      : post.kind === "screen-time"
+        ? "SCREEN_TIME"
+        : "CHECK_IN_UPDATE";
 }
 
 async function copyPostLink(post: InteractivePost) {
@@ -276,7 +278,9 @@ function PostComments({
               ? "Proof and comments"
               : post.kind === "streak"
                 ? "Streak and comments"
-                : "Check-in and comments"}
+                : post.kind === "screen-time"
+                  ? "Screen time and comments"
+                  : "Check-in and comments"}
           </DialogTitle>
           <DialogDescription>
             {post.author.name} ·{" "}
@@ -284,7 +288,9 @@ function PostComments({
               ? post.title
               : post.kind === "streak"
                 ? post.streakTitle
-                : "Check-in"}
+                : post.kind === "screen-time"
+                  ? `Week of ${post.weekStart}`
+                  : "Check-in"}
           </DialogDescription>
         </DialogHeader>
         <div className="post-discussion-layout">

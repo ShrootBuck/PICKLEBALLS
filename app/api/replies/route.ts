@@ -46,6 +46,7 @@ export async function GET(request: Request) {
         "REVIEW",
         "BUCKET_ITEM",
         "STREAK_EVENT",
+        "SCREEN_TIME",
       ]),
       targetId: z.string().min(1).max(100),
       before: z.string().min(1).max(100).optional(),
@@ -76,6 +77,7 @@ export async function GET(request: Request) {
       REVIEW: "reviewId",
       BUCKET_ITEM: "bucketItemId",
       STREAK_EVENT: "streakEventId",
+      SCREEN_TIME: "screenTimeSubmissionId",
     }[targetType];
     const where = { circleId: auth.membership.circleId, [field]: targetId };
     const cursor = before
