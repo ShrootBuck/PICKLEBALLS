@@ -2,10 +2,9 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
-import sharp from "sharp";
 
 const origin = "http://localhost:3317";
-const output = "/private/tmp/pb-goals-wrapped";
+const output = "/private/tmp/pb-goals";
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 try {
@@ -143,70 +142,7 @@ try {
   assert.equal(csrf.status(), 403);
   await peer.close();
 
-  await page.goto(`${origin}/wrapped`);
-  await page
-    .getByRole("heading", { name: "Your week, wrapped.", exact: true })
-    .waitFor();
-  await page.getByText("50m less", { exact: false }).waitFor();
-  const latestWeekLabel = await page
-    .getByRole("navigation", { name: "Recap weeks" })
-    .locator("p")
-    .innerText();
-  await page.screenshot({
-    path: `${output}/wrapped-desktop.png`,
-    caret: "initial",
-  });
-  await page
-    .getByRole("button", { name: "Edit your win", exact: true })
-    .click();
-  const winField = page.getByLabel("Your win", { exact: true });
-  const winText =
-    (await winField.inputValue()) ===
-    "Built two features and actually checked them in a browser."
-      ? "Made room for the long-term goal, one task at a time."
-      : "Built two features and actually checked them in a browser.";
-  await winField.fill(winText);
-  await page.getByRole("button", { name: "Save win", exact: true }).click();
-  await page
-    .getByRole("dialog", {
-      name: "What are you proud of this week?",
-      exact: true,
-    })
-    .waitFor({ state: "hidden" });
-  await page.getByText(winText, { exact: true }).waitFor();
-  const downloadPromise = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Download card", exact: true })
-    .click();
-  const download = await downloadPromise;
-  await download.saveAs(`${output}/wrapped-card.png`);
-  const metadata = await sharp(`${output}/wrapped-card.png`).metadata();
-  assert.equal(metadata.width, 1080);
-  assert.equal(metadata.height, 1350);
-  assert.equal(metadata.format, "png");
-  await page.getByRole("link", { name: "Previous week", exact: true }).click();
-  await page.getByRole("link", { name: "Latest week", exact: true }).waitFor();
-  await page.getByRole("link", { name: "Latest week", exact: true }).click();
-  await page.waitForURL(`${origin}/wrapped`);
-  await page
-    .getByRole("navigation", { name: "Recap weeks" })
-    .getByText(latestWeekLabel, { exact: true })
-    .waitFor();
-  await page
-    .getByRole("heading", { name: "Your week, wrapped.", exact: true })
-    .waitFor();
-  console.log(
-    "Wrapped: highlights, screen-time comparison, personal win, week navigation, and 1080x1350 PNG passed.",
-  );
-
   await page.setViewportSize({ width: 390, height: 844 });
-  await page
-    .getByText("Your win is in the recap.", { exact: true })
-    .waitFor({ state: "hidden" });
-  await page.screenshot({
-    path: `${output}/wrapped-mobile.png`,
-    caret: "initial",
-  });
   assert.equal(
     await page.evaluate(
       () => document.documentElement.scrollWidth > innerWidth,
@@ -230,7 +166,6 @@ try {
   await page
     .getByRole("button", { name: "Circle menu: After school", exact: true })
     .click();
-  await page.getByRole("menuitem", { name: "Wrapped", exact: true }).waitFor();
   await page.getByRole("menuitem", { name: "Goals", exact: true }).waitFor();
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 320, height: 740 });
@@ -240,16 +175,6 @@ try {
     ),
     false,
   );
-  const anonymous = await browser.newContext();
-  assert.equal(
-    (
-      await anonymous.request.get(
-        `${origin}/api/wrapped/card?circle=demo-circle`,
-      )
-    ).status(),
-    401,
-  );
-  await anonymous.close();
   await context.request.post(`${origin}/api/circles/active`, {
     headers: { Origin: origin },
     data: { circleId: "demo-other" },
@@ -262,12 +187,6 @@ try {
       })
     ).status(),
     404,
-  );
-  assert.equal(
-    (
-      await context.request.get(`${origin}/api/wrapped/card?circle=demo-circle`)
-    ).status(),
-    409,
   );
   assert.deepEqual(errors, []);
   console.log(

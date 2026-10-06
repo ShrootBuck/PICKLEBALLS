@@ -142,7 +142,7 @@ try {
   console.log(await run(["bun", "test", "./tests/media.integration.ts"], env));
   if (!process.argv.includes("--media-only"))
     console.log(
-      await run(["bun", "test", "./tests/goals-wrapped.integration.ts"], env),
+      await run(["bun", "test", "./tests/goals.integration.ts"], env),
     );
   if (!process.argv.includes("--media-only"))
     console.log(
@@ -150,7 +150,7 @@ try {
     );
   if (process.argv.includes("--serve")) {
     console.log(await run(["bun", "scripts/social-fixtures.ts"], env));
-    console.log(await run(["bun", "scripts/goals-wrapped-fixtures.ts"], env));
+    console.log(await run(["bun", "scripts/goals-fixtures.ts"], env));
     console.log(await run(["bun", "scripts/streak-fixtures.ts"], env));
     if (process.argv.includes("--video"))
       console.log(await run(["bun", "scripts/media-fixtures.ts"], env));

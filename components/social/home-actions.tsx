@@ -1,12 +1,5 @@
 "use client";
-import {
-  ArrowRight,
-  Camera,
-  Flame,
-  Plus,
-  Sparkles,
-  Target,
-} from "lucide-react";
+import { ArrowRight, Camera, Flame, Plus, Target } from "lucide-react";
 import Link from "next/link";
 import { useSocial } from "@/components/social/social-provider";
 import { Button } from "@/components/ui/button";
@@ -30,13 +23,6 @@ export function HomeActions() {
         >
           <Flame className="size-4" />
           Streaks
-        </Link>
-        <Link
-          href="/wrapped"
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground"
-        >
-          <Sparkles className="size-4" />
-          Weekly wrapped
         </Link>
       </div>
       <Button

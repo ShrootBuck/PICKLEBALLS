@@ -16,7 +16,6 @@ const {
   getStreakBoard,
   getStreakDetail,
   getStreaksNeedingLog,
-  getWrappedStreaks,
   nudgeStreak,
   removeStreakEntry,
   sendStreakReminders,
@@ -612,18 +611,4 @@ test("undo is limited to open days and milestones post once per run", async () =
   await expect(
     removeStreakEntry(streak.id, oldest.id, ownerId, circleId, at(seventh, 22)),
   ).rejects.toThrow("locked in");
-
-  const week = {
-    startKey: "2026-10-04",
-    endKey: "2026-10-10",
-    startAt: at("2026-10-04", 0),
-    endAt: at(seventh, 0),
-  };
-  const wrapped = await getWrappedStreaks(circleId, week, at("2026-10-12", 9));
-  expect(wrapped.find((item) => item.id === streak.id)).toMatchObject({
-    possible: 6,
-    done: 6,
-    milestones: [],
-  });
-  expect(wrapped.some((item) => item.title === "Read")).toBe(false);
 });

@@ -65,7 +65,7 @@ for (const [index, userId, title] of [
 ] as const) {
   const task = await prisma.commitment.create({
     data: {
-      id: `demo-wrapped-task-${index}`,
+      id: `demo-goal-task-${index}`,
       circleId: "demo-circle",
       userId,
       title,
@@ -83,7 +83,7 @@ for (const [index, userId, title] of [
   });
   await prisma.taskProof.create({
     data: {
-      id: `demo-wrapped-proof-${index}`,
+      id: `demo-goal-proof-${index}`,
       commitmentId: task.id,
       circleId: "demo-circle",
       ownerId: userId,
@@ -108,67 +108,5 @@ await prisma.commitment.update({
   where: { id: "demo-task-2" },
   data: { goalId: "demo-goal-codeforces" },
 });
-await prisma.weeklyWin.createMany({
-  data: [
-    {
-      userId: "demo-you",
-      circleId: "demo-circle",
-      weekStart: requireDateKey(week),
-      body: "Solved a problem I would have given up on a month ago.",
-    },
-    {
-      userId: "demo-eddie",
-      circleId: "demo-circle",
-      weekStart: requireDateKey(week),
-      body: "The script exists. Now we just have to convince everyone to act in it.",
-    },
-  ],
-});
-const reply = await prisma.socialReply.create({
-  data: {
-    circleId: "demo-circle",
-    authorId: "demo-jules",
-    proofId: "demo-wrapped-proof-0",
-    body: "The character development is actually insane.",
-    createdAt: posted,
-  },
-});
-await prisma.postLike.createMany({
-  data: ["demo-you", "demo-sam"].map((userId) => ({
-    userId,
-    circleId: "demo-circle",
-    replyId: reply.id,
-  })),
-});
-for (const [key, minutes] of [
-  [shiftDateKey(week, -7), 180],
-  [week, 130],
-] as const) {
-  const reading = await prisma.screenTimeReading.create({
-    data: {
-      circleId: "demo-circle",
-      userId: "demo-you",
-      weekStart: requireDateKey(key),
-      dailyAverageMinutes: minutes,
-      mediaId: `demo-wrapped-screen-${key}`,
-    },
-  });
-  await prisma.screenTimeSubmission.upsert({
-    where: {
-      userId_circleId_weekStart: {
-        userId: "demo-you",
-        circleId: "demo-circle",
-        weekStart: requireDateKey(key),
-      },
-    },
-    create: {
-      userId: "demo-you",
-      circleId: "demo-circle",
-      weekStart: requireDateKey(key),
-      readingId: reading.id,
-    },
-    update: { readingId: reading.id },
-  });
-}
 await prisma.$disconnect();
-console.log("Seeded goals and a completed weekly recap.");
+console.log("Seeded goals with linked, verified tasks.");

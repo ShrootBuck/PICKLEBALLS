@@ -161,7 +161,7 @@ model User {
   bucketCompletionRequests BucketItem[]    @relation("BucketItemCompletionRequests")
   bucketVotes         BucketVote[]
   goals               Goal[]
-  weeklyWins          WeeklyWin[]
+  weeklyWins          WeeklyWin[]          @ignore
   streaks             Streak[]
   streakEvents        StreakEvent[]
   streakNudgesSent    StreakNudge[]        @relation("StreakNudgesSent")
@@ -248,7 +248,7 @@ model Circle {
   screenTimeSubmissions ScreenTimeSubmission[]
   bucketItems   BucketItem[]
   goals         Goal[]
-  weeklyWins    WeeklyWin[]
+  weeklyWins    WeeklyWin[] @ignore
   streaks       Streak[]
   streakEvents  StreakEvent[]
 }
@@ -361,6 +361,8 @@ model GoalMilestone {
   @@index([completedAt])
 }
 
+// Retired with Wrapped: the table stays so an older release can still run
+// during a rolling deploy. Drop it in a later migration.
 model WeeklyWin {
   id        String   @id @default(cuid())
   userId    String
@@ -375,6 +377,7 @@ model WeeklyWin {
 
   @@unique([userId, circleId, weekStart])
   @@index([circleId, weekStart])
+  @@ignore
 }
 
 // Self-reported personal streaks. Day status is derived from entries, so a

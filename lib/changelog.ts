@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1791250263404,
+    title: "Weekly wrapped is gone",
+    description:
+      "The Wrapped page, weekly wins, and downloadable recap cards have been removed. Goals, streaks, and screen time work the same as before.",
+  },
+  {
     timestamp: 1791248044720,
     title: "Plans for whoever can make it",
     description:
