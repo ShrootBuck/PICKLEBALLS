@@ -1,6 +1,7 @@
 import "server-only";
 
 import { randomBytes } from "node:crypto";
+import { DomainError } from "@/lib/errors";
 import { getPrisma } from "@/lib/prisma";
 import { serializable } from "@/lib/transaction";
 
@@ -61,9 +62,21 @@ export async function listMyCircles(userId: string) {
 export async function removeCircleMember(
   userId: string,
   circleId: string,
-  _actorId: string,
+  actorId: string,
 ) {
-  return serializable((tx) =>
-    tx.membership.deleteMany({ where: { userId, circleId, role: "MEMBER" } }),
-  );
+  return serializable(async (tx) => {
+    const actor = await tx.membership.findUnique({
+      where: { userId_circleId: { userId: actorId, circleId } },
+    });
+    if (actor?.role !== "OWNER")
+      throw new DomainError("Only the circle owner can remove members.", 403);
+    const result = await tx.membership.deleteMany({
+      where: { userId, circleId, role: "MEMBER" },
+    });
+    if (result.count)
+      await tx.notification.deleteMany({
+        where: { circleId, recipientId: userId },
+      });
+    return result;
+  });
 }

@@ -6,10 +6,12 @@ import {
   Heart,
   MessageCircle,
   MoreHorizontal,
+  Trash2,
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { DeleteAction } from "@/components/settings/delete-action";
 import { PostBody } from "@/components/social/post-body";
 import { useSocial } from "@/components/social/social-provider";
 import {
@@ -69,46 +71,91 @@ async function copyPostLink(post: InteractivePost) {
   }
 }
 
-export function PostMenu({ post }: { post: InteractivePost }) {
-  const { viewer } = useSocial();
+export function PostMenu({
+  post,
+  detail = false,
+}: {
+  post: InteractivePost;
+  detail?: boolean;
+}) {
+  const { viewer, removePost } = useSocial();
+  const [deleting, setDeleting] = useState(false);
+  const mine = post.author.id === viewer.id;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button variant="ghost" size="icon-sm" aria-label="Post options" />
-        }
-      >
-        <MoreHorizontal />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuGroup>
-          <DropdownMenuItem
-            render={<Link href={postHref(post.circleId, post.kind, post.id)} />}
-          >
-            <ExternalLink />
-            Open post
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void copyPostLink(post)}>
-            <Copy />
-            Copy link
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            render={
-              <Link
-                href={
-                  post.author.id === viewer.id
-                    ? "/profile"
-                    : memberHref(post.circleId, post.author.id)
-                }
-              />
-            }
-          >
-            <UserRound />
-            View profile
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      {mine && post.kind !== "streak" && (
+        <DeleteAction
+          open={deleting}
+          onOpenChange={setDeleting}
+          hideTrigger
+          label={post.kind === "proof" ? "Remove proof" : "Delete post"}
+          title={
+            post.kind === "proof"
+              ? "Remove this task's proof?"
+              : "Delete this post?"
+          }
+          description={
+            post.kind === "proof"
+              ? "This permanently removes all proof versions, attachments, reviews, and comments for this task. A verified result stays verified. Unreviewed proof can no longer receive approvals. Your task stays in history."
+              : post.kind === "screen-time"
+                ? "This removes your submission and screenshots for this week, including earlier reads, comments, and likes. You can submit again during the reporting window."
+                : "This permanently removes this check-in, its attachments, comments, and likes. Earlier check-ins stay in your history."
+          }
+          endpoint={`/api/content/${post.kind}/${post.id}`}
+          body={{ circleId: post.circleId }}
+          redirectTo={detail ? "/" : undefined}
+          onDeleted={() => removePost(post)}
+        />
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="ghost" size="icon-sm" aria-label="Post options" />
+          }
+        >
+          <MoreHorizontal />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              render={
+                <Link href={postHref(post.circleId, post.kind, post.id)} />
+              }
+            >
+              <ExternalLink />
+              Open post
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void copyPostLink(post)}>
+              <Copy />
+              Copy link
+            </DropdownMenuItem>
+            {mine && post.kind !== "streak" && (
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setDeleting(true)}
+              >
+                <Trash2 />
+                {post.kind === "proof" ? "Remove proof" : "Delete post"}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              render={
+                <Link
+                  href={
+                    post.author.id === viewer.id
+                      ? "/profile"
+                      : memberHref(post.circleId, post.author.id)
+                  }
+                />
+              }
+            >
+              <UserRound />
+              View profile
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }
 

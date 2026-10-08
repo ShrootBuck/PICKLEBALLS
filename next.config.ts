@@ -1,4 +1,6 @@
+import { availableParallelism } from "node:os";
 import type { NextConfig } from "next";
+import { releaseCommit } from "./lib/release-id";
 
 const storageEndpoint =
   process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT;
@@ -14,7 +16,8 @@ const mediaOrigin =
         : "";
 
 const nextConfig: NextConfig = {
-  deploymentId: process.env.SOURCE_COMMIT || undefined,
+  deploymentId: releaseCommit || undefined,
+  experimental: { cpus: availableParallelism() },
   output: process.env.PB_SELF_HOSTED === "true" ? "standalone" : undefined,
   devIndicators:
     process.env.PB_TEST_DATABASE === "disposable-docker" ? false : undefined,

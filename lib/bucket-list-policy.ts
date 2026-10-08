@@ -40,6 +40,7 @@ export type BucketItemView = Omit<BucketPlan, "scheduledFor"> & {
   canVote: boolean;
   needsMyVote: boolean;
   canWithdraw: boolean;
+  canDelete: boolean;
   canCancelCompletion: boolean;
   canPlan: boolean;
   canComplete: boolean;
@@ -50,8 +51,8 @@ export type BucketItemRow = BucketPlan & {
   title: string;
   details: string | null;
   status: BucketItemStatus;
-  proposerId: string;
-  proposer: BucketPerson;
+  proposerId: string | null;
+  proposer: BucketPerson | null;
   createdAt: Date;
   approvedAt: Date | null;
   completedAt: Date | null;
@@ -172,7 +173,13 @@ export function toBucketItemView(
     title: item.title,
     details: item.details,
     status: item.status,
-    proposer: item.proposer,
+    canDelete: owner || (isMember && item.proposerId === viewer.id),
+    proposer: item.proposer ?? {
+      id: "deleted",
+      name: "Deleted member",
+      initials: "DM",
+      image: null,
+    },
     scheduledFor: item.scheduledFor
       ? new Date(item.scheduledFor).toISOString()
       : null,

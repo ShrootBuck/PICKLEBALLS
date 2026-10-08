@@ -4,16 +4,22 @@ import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { NotificationPreferences } from "@/components/notifications/notification-preferences";
 import { PushToggle } from "@/components/notifications/push-toggle";
+import { AccountSettings } from "@/components/settings/account-settings";
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
 import { SignOutButton } from "@/components/settings/sign-out-button";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getPrisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/request";
 
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
-  await requireSession();
+  const { session } = await requireSession();
+  const chat = await getPrisma().timeblockChat.findUnique({
+    where: { userId: session.user.id },
+    select: { id: true },
+  });
   return (
     <>
       <PageHeader
@@ -21,6 +27,7 @@ export default async function SettingsPage() {
         description="Your appearance, notifications, and account."
       />
       <AppearanceSettings />
+      <AccountSettings userId={session.user.id} chatId={chat?.id} />
       <Card className="max-w-2xl">
         <CardHeader>
           <CardTitle>Notifications</CardTitle>

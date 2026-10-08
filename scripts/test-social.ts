@@ -1,6 +1,7 @@
 /** Disposable Postgres regression suite. --serve also starts an isolated UI fixture. */
 import { createHmac, randomUUID } from "node:crypto";
 import { cp, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "pg";
 
@@ -45,7 +46,7 @@ try {
     "POSTGRES_DB=pickleballs_test",
     "-p",
     "127.0.0.1::5432",
-    "postgres:17-alpine",
+    "postgres:18.6-alpine",
   ]);
   containerStarted = true;
   const mapped = await run(["docker", "port", name, "5432/tcp"]);
@@ -95,7 +96,7 @@ try {
     R2_SECRET_ACCESS_KEY: "disposable",
     R2_BUCKET: "media",
     PB_TEST_R2_ENDPOINT: "http://127.0.0.1:3318",
-    TMPDIR: "/private/tmp",
+    TMPDIR: tmpdir(),
   };
   const migrations = (await readdir(join(root, "prisma/migrations")))
     .filter((item) => /^\d/.test(item))
@@ -132,6 +133,21 @@ try {
     INSERT INTO "SocialReply" (id,"authorId","circleId","checkInId",body,"updatedAt") VALUES ('old-reply','legacy-user','legacy-circle','old-day','Historical discussion',now());`);
   await pg.end();
   await run(["bunx", "--bun", "prisma", "migrate", "deploy"], env);
+  // Applying SQL is not enough: catch schema edits with missing migrations.
+  await run(
+    [
+      "bunx",
+      "--bun",
+      "prisma",
+      "migrate",
+      "diff",
+      "--from-config-datasource",
+      "--to-schema",
+      "prisma/schema.prisma",
+      "--exit-code",
+    ],
+    env,
+  );
   console.log(
     "Migrated a populated disposable database, including legacy check-ins.",
   );
@@ -140,6 +156,9 @@ try {
       await run(["bun", "test", "./tests/social.integration.ts"], env),
     );
   console.log(await run(["bun", "test", "./tests/media.integration.ts"], env));
+  console.log(
+    await run(["bun", "test", "./tests/deletions.integration.ts"], env),
+  );
   if (!process.argv.includes("--media-only"))
     console.log(
       await run(["bun", "test", "./tests/goals.integration.ts"], env),

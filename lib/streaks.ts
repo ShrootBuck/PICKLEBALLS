@@ -1,3 +1,4 @@
+import { queueReplyMedia } from "@/lib/deletion-storage";
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { DomainError } from "@/lib/errors";
@@ -242,6 +243,18 @@ export async function deleteStreak(
 ) {
   return serializable(async (tx) => {
     const streak = await loadOwnStreak(tx, streakId, userId, circleId);
+    await queueReplyMedia(tx, { streakEvent: { streakId: streak.id } });
+    const events = await tx.streakEvent.findMany({
+      where: { streakId: streak.id },
+      select: { id: true },
+    });
+    const ids = [streak.id, ...events.map((event) => event.id)];
+    await tx.activityEvent.deleteMany({
+      where: { circleId, entityId: { in: ids } },
+    });
+    await tx.notification.deleteMany({
+      where: { circleId, entityId: { in: ids } },
+    });
     await tx.streak.delete({ where: { id: streak.id } });
     return { id: streak.id };
   });

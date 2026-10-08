@@ -17,6 +17,7 @@
 
 # production
 /build
+.release-commit
 
 # misc
 .DS_Store

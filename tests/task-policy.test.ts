@@ -40,7 +40,7 @@ test("late-night tasks keep their full 24 hours across midnight", () => {
     false,
   );
   expect(currentTaskFilter(created)).toMatchObject({
-    status: { not: "MISSED" },
+    status: { notIn: ["MISSED", "CANCELLED"] },
     OR: [{ dueAt: { gt: created } }, { proofSubmittedAt: { not: null } }],
   });
 });

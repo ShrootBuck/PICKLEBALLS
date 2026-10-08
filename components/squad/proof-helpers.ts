@@ -51,8 +51,8 @@ export type ProofRow = {
     decision: "APPROVED" | "CHALLENGED";
     note: string | null;
     createdAt: Date;
-    reviewerId: string;
-    reviewer: { name: string };
+    reviewerId: string | null;
+    reviewer: { name: string } | null;
     replies: ReplyRow[];
   }>;
 };
@@ -67,8 +67,8 @@ export function toProofCard(
     decision: review.decision,
     note: review.note,
     createdAt: review.createdAt.toISOString(),
-    reviewerName: review.reviewer.name,
-    reviewerId: review.reviewerId,
+    reviewerName: review.reviewer?.name ?? "Deleted member",
+    reviewerId: review.reviewerId ?? "deleted",
     replies: review.replies.map(toThreadReply),
   }));
   const reviewerByReviewId = new Map(
@@ -89,6 +89,7 @@ export function toProofCard(
     submittedAt: proof.submittedAt.toISOString(),
     reviewStatus: proof.reviewStatus,
     expired:
+      proof.commitment.status === "CANCELLED" ||
       proof.commitment.status === "MISSED" ||
       shouldMarkMissed(
         proof.commitment.status,
@@ -107,6 +108,7 @@ export function toProofCard(
 }
 
 const TASK_STATUS_LABELS: Record<string, string> = {
+  CANCELLED: "Cancelled",
   OPEN: "Open",
   AWAITING_REVIEW: "Needs verdict",
   VERIFIED: "Verified",

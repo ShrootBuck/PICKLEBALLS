@@ -74,16 +74,23 @@ export async function DELETE(
     );
   }
   const { id } = await context.params;
-  const deleted = await removeCircleMember(
-    id,
-    auth.membership.circleId,
-    auth.session.user.id,
-  );
-  if (!deleted.count) {
-    return NextResponse.json(
-      { error: "Member not found. Owners cannot be deleted." },
-      { status: 404 },
+  try {
+    const deleted = await removeCircleMember(
+      id,
+      auth.membership.circleId,
+      auth.session.user.id,
     );
+    if (!deleted.count) {
+      return NextResponse.json(
+        {
+          error:
+            "Member not found. Transfer ownership before removing an owner.",
+        },
+        { status: 404 },
+      );
+    }
+    return NextResponse.json({ deleted: true });
+  } catch (error) {
+    return jsonError(error);
   }
-  return NextResponse.json({ deleted: true });
 }

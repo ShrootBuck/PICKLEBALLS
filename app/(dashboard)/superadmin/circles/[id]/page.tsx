@@ -205,10 +205,12 @@ export default async function SuperAdminCirclePage({
                       </span>
                       <span className="text-xs text-muted-foreground">
                         <Link
-                          href={userHref(item.proposer.id)}
+                          href={
+                            item.proposer ? userHref(item.proposer.id) : "#"
+                          }
                           className="hover:underline"
                         >
-                          {item.proposer.name}
+                          {item.proposer?.name ?? "Deleted member"}
                         </Link>
                         , <RelativeTime date={item.createdAt} />
                       </span>

@@ -5,13 +5,15 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { jsonError, readJson } from "@/lib/api";
+import { queueObjectDeletion } from "@/lib/deletion-storage";
+import { deletionMembership } from "@/lib/deletions";
 import { DomainError } from "@/lib/errors";
 import { mediaPartBytes, uploadTicketSchema } from "@/lib/media-policy";
-import { getPrisma } from "@/lib/prisma";
 import { workerAvailable } from "@/lib/queue";
 import { r2 } from "@/lib/r2";
 import { limitAction } from "@/lib/rate-limit";
 import { getRequestMembership, hasSameOrigin } from "@/lib/request";
+import { serializable } from "@/lib/transaction";
 
 export const runtime = "nodejs";
 export async function POST(request: Request) {
@@ -59,16 +61,30 @@ export async function POST(request: Request) {
           }),
           { expiresIn: 600 },
         );
-    await getPrisma().mediaUpload.create({
-      data: {
-        id,
-        ownerId: auth.session.user.id,
-        circleId: auth.membership.circleId,
-        ...input,
-        objectKey: key,
-        uploadId: multipart?.UploadId,
-      },
-    });
+    try {
+      await serializable(async (tx) => {
+        await deletionMembership(
+          tx,
+          auth.session.user.id,
+          auth.membership.circleId,
+        );
+        await tx.mediaUpload.create({
+          data: {
+            id,
+            ownerId: auth.session.user.id,
+            circleId: auth.membership.circleId,
+            ...input,
+            objectKey: key,
+            uploadId: multipart?.UploadId,
+          },
+        });
+      });
+    } catch (error) {
+      await serializable((tx) =>
+        queueObjectDeletion(tx, key, false, multipart?.UploadId),
+      );
+      throw error;
+    }
     return Response.json({
       id,
       url,

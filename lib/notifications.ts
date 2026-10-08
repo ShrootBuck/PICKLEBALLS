@@ -277,12 +277,13 @@ export async function notifyReplyReceived(
       url: `${postHref(input.circleId, "proof", reply.proof.id)}#comments`,
     });
   } else if (reply.review) {
-    jobs.push({
-      recipientId: reply.review.reviewerId,
-      context: "your review",
-      entityId: reply.review.proof.id,
-      url: `${postHref(input.circleId, "proof", reply.review.proof.id)}&focus=${encodeURIComponent(reply.review.id)}#comments`,
-    });
+    if (reply.review.reviewerId)
+      jobs.push({
+        recipientId: reply.review.reviewerId,
+        context: "your review",
+        entityId: reply.review.proof.id,
+        url: `${postHref(input.circleId, "proof", reply.review.proof.id)}&focus=${encodeURIComponent(reply.review.id)}#comments`,
+      });
     // A reply to a review is also aimed at the proof owner.
     if (reply.review.proof.ownerId !== reply.review.reviewerId) {
       jobs.push({
@@ -293,12 +294,13 @@ export async function notifyReplyReceived(
       });
     }
   } else if (reply.bucketItem) {
-    jobs.push({
-      recipientId: reply.bucketItem.proposerId,
-      context: `your bucket list idea “${reply.bucketItem.title}”`,
-      entityId: reply.bucketItem.id,
-      url: `${bucketItemHref(input.circleId, reply.bucketItem.id)}#comments`,
-    });
+    if (reply.bucketItem.proposerId)
+      jobs.push({
+        recipientId: reply.bucketItem.proposerId,
+        context: `your bucket list idea “${reply.bucketItem.title}”`,
+        entityId: reply.bucketItem.id,
+        url: `${bucketItemHref(input.circleId, reply.bucketItem.id)}#comments`,
+      });
   } else if (reply.streakEvent) {
     jobs.push({
       recipientId: reply.streakEvent.userId,
@@ -366,7 +368,8 @@ export async function notifyReplyReceived(
       select: { reviewerId: true },
     });
     for (const reviewer of reviewers)
-      participants.push({ authorId: reviewer.reviewerId });
+      if (reviewer.reviewerId)
+        participants.push({ authorId: reviewer.reviewerId });
   }
   for (const participant of participants) {
     jobs.push({
@@ -519,8 +522,8 @@ export async function notifyProofReviewed(
       kind: approved ? "PROOF_APPROVED" : "PROOF_CHALLENGED",
       entityId: review.proof.id,
       title: approved
-        ? `${review.reviewer.name} approved your proof for “${review.proof.commitment.title}”`
-        : `${review.reviewer.name} challenged your proof for “${review.proof.commitment.title}”`,
+        ? `${review.reviewer?.name ?? "Deleted member"} approved your proof for “${review.proof.commitment.title}”`
+        : `${review.reviewer?.name ?? "Deleted member"} challenged your proof for “${review.proof.commitment.title}”`,
       body: note || (approved ? "Verified. Nice." : "Needs a better receipt."),
       data: {
         url: `${postHref(input.circleId, "proof", review.proof.id)}&focus=${encodeURIComponent(review.id)}#comments`,

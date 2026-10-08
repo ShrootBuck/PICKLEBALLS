@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { drainObjectDeletions } from "@/lib/deletion-storage";
 import { getPrisma } from "@/lib/prisma";
 import { usesLocalWorker } from "@/lib/queue";
 import { sendStreakReminders } from "@/lib/streaks";
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
   if (process.env.TRIGGER_SCHEDULES_ENABLED === "true")
     return Response.json({ skipped: true, scheduler: "trigger.dev" });
 
+  await drainObjectDeletions();
   const circles = await getPrisma().circle.findMany({ select: { id: true } });
   let reconciled = 0;
   let failedCircles = 0;

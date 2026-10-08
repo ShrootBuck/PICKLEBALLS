@@ -11,7 +11,14 @@ const rowSchema = z.object({
   status: z.preprocess(
     (status) => (status === "DONE" ? "VERIFIED" : status),
     z
-      .enum(["OPEN", "AWAITING_REVIEW", "VERIFIED", "MISSED", "RENEGOTIATED"])
+      .enum([
+        "OPEN",
+        "AWAITING_REVIEW",
+        "VERIFIED",
+        "MISSED",
+        "RENEGOTIATED",
+        "CANCELLED",
+      ])
       .nullable(),
   ),
   included: z.boolean(),

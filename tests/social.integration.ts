@@ -1631,7 +1631,11 @@ test("tasks freeze half-circle approvals and preserve departed reviewers' approv
     data: { id: circleId, slug: circleId, name: "Fixed requirements" },
   });
   await prisma.membership.createMany({
-    data: users.slice(0, 4).map((userId) => ({ userId, circleId })),
+    data: users.slice(0, 4).map((userId, index) => ({
+      userId,
+      circleId,
+      role: index === 0 ? "OWNER" : "MEMBER",
+    })),
   });
   const commitment = await task(users[0], circleId);
   expect(commitment.requiredApprovals).toBe(2);

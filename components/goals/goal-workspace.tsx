@@ -12,6 +12,7 @@ import {
 import { type FormEvent, useId, useState } from "react";
 import { GoalEditor, saveGoalAction } from "@/components/goals/goal-editor";
 import { PageSection } from "@/components/layout/page-header";
+import { DeleteAction } from "@/components/settings/delete-action";
 import { useSocial } from "@/components/social/social-provider";
 import { TaskList } from "@/components/social/task-list";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -137,6 +138,14 @@ export function GoalWorkspace({
               Reopen goal
             </Button>
           )}
+          <DeleteAction
+            label="Delete goal"
+            title="Delete this goal?"
+            description="This permanently removes the goal and its milestones. Linked tasks and their proof stay in your history."
+            endpoint={`/api/content/goal/${goal.id}`}
+            body={{ circleId }}
+            redirectTo="/goals"
+          />
           {pending && <Spinner aria-label="Saving goal" />}
         </div>
       )}

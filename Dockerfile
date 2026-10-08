@@ -12,6 +12,8 @@ RUN node node_modules/prisma/build/index.js generate
 
 FROM dependencies AS source
 COPY --chown=node:node . .
+ARG SOURCE_COMMIT
+RUN node scripts/write-release-commit.mjs
 
 FROM source AS build
 ARG S3_PUBLIC_ENDPOINT=https://s3.pickle-balls.com
@@ -19,13 +21,15 @@ ARG NEXT_PUBLIC_APP_URL=https://pickle-balls.com
 ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
 ENV PB_SELF_HOSTED=true NEXT_TELEMETRY_DISABLED=1
 # Build-only placeholders, never copied into runtime environment configuration.
-RUN NODE_OPTIONS=--max-old-space-size=3072 DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build DISCORD_CLIENT_ID=build DISCORD_CLIENT_SECRET=build BETTER_AUTH_SECRET=build-only-not-a-runtime-secret-000000 node node_modules/next/dist/bin/next build
+RUN NODE_OPTIONS=--max-old-space-size-percentage=100 DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build DISCORD_CLIENT_ID=build DISCORD_CLIENT_SECRET=build BETTER_AUTH_SECRET=build-only-not-a-runtime-secret-000000 node node_modules/next/dist/bin/next build
 
 FROM dependencies AS web
 WORKDIR /app
 ENV NODE_ENV=production HOSTNAME=0.0.0.0 PORT=3000 NEXT_TELEMETRY_DISABLED=1
 COPY --from=build --chown=node:node /app/.next/standalone ./
+COPY --from=build --chown=node:node /app/.release-commit ./
 COPY --from=build --chown=node:node /app/.next/static ./release-static
+COPY --from=build --chown=node:node /app/prisma ./prisma
 COPY --chown=node:node prisma.deploy.config.ts ./
 COPY --chown=node:node deploy/start-web.sh ./start-web.sh
 COPY --chown=node:node deploy/healthcheck.mjs ./deploy/healthcheck.mjs
@@ -46,6 +50,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -r
 
 FROM worker-dependencies AS worker
 COPY --chown=node:node . .
+ARG SOURCE_COMMIT
+RUN node scripts/write-release-commit.mjs
 ENV NODE_ENV=production PB_SELF_HOSTED=true BACKGROUND_BACKEND=postgres
 USER node
 EXPOSE 3001

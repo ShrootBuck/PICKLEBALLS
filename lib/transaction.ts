@@ -8,11 +8,13 @@ import { getPrisma } from "@/lib/prisma";
 // Callbacks must contain database work only; send notifications after commit.
 export async function serializable<T>(
   work: (tx: Prisma.TransactionClient) => Promise<T>,
+  options: { timeout?: number } = {},
 ): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await getPrisma().$transaction(work, {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        ...options,
       });
     } catch (error) {
       if (

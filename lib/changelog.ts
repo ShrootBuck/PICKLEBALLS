@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1791434877131,
+    title: "Your account, your exit",
+    description:
+      "Delete your account, leave a circle, transfer ownership, or delete a circle you own. Remove your replies at any time, delete goals and posts, and permanently remove bucket-list plans you proposed or manage. Cancelling a task leaves a visible record, and removing proof keeps an already verified result.",
+  },
+  {
     timestamp: 1791433201771,
     title: "Approvals are back",
     description:

@@ -1,3 +1,4 @@
+import { deleteContent } from "@/lib/deletions";
 import "server-only";
 
 import { DomainError } from "@/lib/errors";
@@ -200,7 +201,7 @@ export async function createSocialReply(
           actorId: authorId,
           kind: "REPLY_POSTED",
           entityId: item.id,
-          summary: `replied to ${item.proposer.name}'s bucket list idea “${item.title}”`,
+          summary: `replied to ${item.proposer?.name ?? "Deleted member"}'s bucket list idea “${item.title}”`,
           metadata: { targetType, replyId: reply.id },
         },
       });
@@ -313,7 +314,7 @@ export async function createSocialReply(
         actorId: authorId,
         kind: "REPLY_POSTED",
         entityId: review.proof.id,
-        summary: `replied to ${review.reviewer.name}'s ${review.decision === "CHALLENGED" ? "challenge" : "approval"} on “${review.proof.commitment.title}”`,
+        summary: `replied to ${review.reviewer?.name ?? "Deleted member"}'s ${review.decision === "CHALLENGED" ? "challenge" : "approval"} on “${review.proof.commitment.title}”`,
         metadata: { targetType, replyId: reply.id },
       },
     });
@@ -360,21 +361,7 @@ export async function deleteSocialReply(
   replyId: string,
   authorId: string,
   circleId: string,
-  now = new Date(),
+  _now = new Date(),
 ) {
-  const reply = await getPrisma().socialReply.findFirst({
-    where: { id: replyId, circleId },
-  });
-  if (!reply) throw new DomainError("Reply not found.", 404);
-  if (reply.authorId !== authorId) {
-    throw new DomainError("You can only delete your own replies.", 403);
-  }
-  if (!canEditReply(reply.createdAt, now)) {
-    throw new DomainError(
-      "Delete window closed. 10 minutes, then it is set in stone.",
-      409,
-    );
-  }
-  await getPrisma().socialReply.delete({ where: { id: reply.id } });
-  return { id: reply.id };
+  return deleteContent("reply", replyId, authorId, circleId);
 }

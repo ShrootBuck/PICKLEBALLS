@@ -45,7 +45,7 @@ export function DeleteMemberButton({
       );
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        setError(body.error ?? "Could not delete member. Try again.");
+        setError(body.error ?? "Could not remove member. Try again.");
         return;
       }
       setOpen(false);
@@ -74,16 +74,16 @@ export function DeleteMemberButton({
           <Button
             variant="destructive"
             size="sm"
-            aria-label={`Delete ${name}`}
+            aria-label={`Remove ${name}`}
           />
         }
       >
         <Trash2 data-icon="inline-start" />
-        Delete
+        Remove
       </DialogTrigger>
       <DialogContent showCloseButton={!pending}>
         <DialogHeader>
-          <DialogTitle>Delete {name} from this circle?</DialogTitle>
+          <DialogTitle>Remove {name} from this circle?</DialogTitle>
           <DialogDescription>
             They will lose access to this circle. Their past posts and account
             will stay. They can rejoin with a new invite.
@@ -103,7 +103,7 @@ export function DeleteMemberButton({
             Cancel
           </Button>
           <Button variant="destructive" disabled={pending} onClick={remove}>
-            {pending && <Spinner data-icon="inline-start" />}Delete member
+            {pending && <Spinner data-icon="inline-start" />}Remove member
           </Button>
         </DialogFooter>
       </DialogContent>

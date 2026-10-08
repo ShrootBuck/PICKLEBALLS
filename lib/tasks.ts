@@ -161,7 +161,7 @@ export async function updateCommitment(
       include: { _count: { select: { proofs: true } } },
     });
     if (!current) throw new DomainError("Task not found.", 404);
-    if (!canEditTask(current.dueAt, now)) {
+    if (current.status === "CANCELLED" || !canEditTask(current.dueAt, now)) {
       throw new DomainError(
         "The task deadline passed; the edit window is closed.",
         409,
@@ -175,7 +175,11 @@ export async function updateCommitment(
     const processing = await transaction.pendingProof.count({
       where: { commitmentId: taskId, proofId: null, dismissed: false },
     });
-    if (current._count.proofs > 0 || processing > 0) {
+    if (
+      current.proofSubmittedAt ||
+      current._count.proofs > 0 ||
+      processing > 0
+    ) {
       throw new DomainError(
         "This task already has proof. Its promise stays fixed so reviews remain honest.",
         409,
@@ -417,7 +421,11 @@ export async function reviewProof(
           "You cannot review your own homework. Nice try.",
           403,
         );
-      if (proof.commitment.status === "MISSED" || proof.isLate)
+      if (
+        proof.commitment.status === "CANCELLED" ||
+        proof.commitment.status === "MISSED" ||
+        proof.isLate
+      )
         throw new DomainError(
           "This task did not receive proof before its submission deadline.",
           409,

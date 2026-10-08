@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
+import { DeleteAction } from "@/components/settings/delete-action";
 import { useSocial } from "@/components/social/social-provider";
 import { TaskDiscussion } from "@/components/social/task-discussion";
 import {
@@ -72,7 +73,11 @@ export function TaskList({
         </Empty>
       )}
       {tasks.map((task) => {
-        const editable = mine && new Date(task.dueAt).getTime() > Date.now();
+        const editable =
+          mine &&
+          task.status !== "CANCELLED" &&
+          task.status !== "VERIFIED" &&
+          new Date(task.dueAt).getTime() > Date.now();
         return (
           <article
             key={task.id}
@@ -132,7 +137,7 @@ export function TaskList({
               </div>
             </div>
             <div className="mt-3 flex flex-wrap justify-end gap-2">
-              {editable && !task.proof && (
+              {editable && !task.proof && !task.proofSubmittedAt && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -155,6 +160,8 @@ export function TaskList({
               )}
               {mine &&
                 task.status !== "MISSED" &&
+                task.status !== "CANCELLED" &&
+                task.status !== "VERIFIED" &&
                 (editable || !!task.proofSubmittedAt) &&
                 (!task.proof || task.proof.reviewStatus === "CHALLENGED") && (
                   <Button
@@ -166,6 +173,16 @@ export function TaskList({
                   </Button>
                 )}
             </div>
+            {mine &&
+              !["VERIFIED", "MISSED", "CANCELLED"].includes(task.status) && (
+                <DeleteAction
+                  label="Cancel task"
+                  title="Cancel this commitment?"
+                  description="The task stays in your history as Cancelled. Its proof, earlier proof versions, and proof discussions are permanently removed. Cancellation does not count as completing the task."
+                  endpoint={`/api/content/task/${task.id}`}
+                  body={{ circleId }}
+                />
+              )}
             <TaskDiscussion
               taskId={task.id}
               title={task.title}

@@ -1,4 +1,5 @@
 import { setTimeout } from "node:timers/promises";
+import { drainObjectDeletions } from "@/lib/deletion-storage";
 import { DomainError } from "@/lib/errors";
 import { startMediaProcessing, startPendingProof } from "@/lib/media-dispatch";
 import { deleteVideoOriginal, processVideoMedia } from "@/lib/media-processing";
@@ -49,10 +50,15 @@ export const handlers = {
     // cannot deadlock the video worker. A restart resumes from durable DB state.
     while (true) {
       signal.throwIfAborted();
-      const pending = await prisma.pendingProof.findUniqueOrThrow({
+      const pending = await prisma.pendingProof.findUnique({
         where: { id },
       });
-      if (pending.proofId || pending.dismissed || pending.attempt !== attempt)
+      if (
+        !pending ||
+        pending.proofId ||
+        pending.dismissed ||
+        pending.attempt !== attempt
+      )
         return;
       const member = await prisma.membership.findUnique({
         where: {
@@ -145,6 +151,7 @@ export const handlers = {
   "prune-expired-data": async () => pruneExpiredData(),
   "streak-reminders": async () => sendStreakReminders(),
   "recover-media-posts": async () => {
+    await drainObjectDeletions();
     const prisma = getPrisma();
     const pending = await prisma.pendingProof.findMany({
       where: {

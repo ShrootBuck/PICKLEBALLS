@@ -18,6 +18,7 @@ enum CommitmentStatus {
   VERIFIED
   MISSED
   RENEGOTIATED
+  CANCELLED
 }
 
 enum DailySignal {
@@ -483,14 +484,14 @@ model TaskProofImage {
 model TaskProofReview {
   id         String              @id @default(cuid())
   proofId    String
-  reviewerId String
+  reviewerId String?
   circleId   String
   decision   ProofReviewDecision
   note       String?            @db.VarChar(500)
   createdAt  DateTime            @default(now())
 
   proof    TaskProof @relation(fields: [proofId], references: [id], onDelete: Cascade)
-  reviewer User      @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewer User?     @relation(fields: [reviewerId], references: [id], onDelete: SetNull)
   circle   Circle    @relation(fields: [circleId], references: [id], onDelete: Cascade)
   replies  SocialReply[]
   likes    PostLike[]
@@ -840,7 +841,7 @@ model BucketItem {
   planVersion              Int     @default(0)
   id                      String           @id @default(cuid())
   circleId                String
-  proposerId              String
+  proposerId              String?
   title                   String           @db.VarChar(100)
   details                 String?          @db.VarChar(500)
   status                  BucketItemStatus @default(PROPOSED)
@@ -853,7 +854,7 @@ model BucketItem {
   updatedAt               DateTime         @updatedAt
 
   circle                Circle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
-  proposer              User          @relation("BucketItemsProposed", fields: [proposerId], references: [id], onDelete: Cascade)
+  proposer              User?         @relation("BucketItemsProposed", fields: [proposerId], references: [id], onDelete: SetNull)
   completionRequestedBy User?         @relation("BucketItemCompletionRequests", fields: [completionRequestedById], references: [id], onDelete: SetNull)
   votes                 BucketVote[]
   replies               SocialReply[]
@@ -876,4 +877,15 @@ model BucketVote {
 
   @@id([itemId, stage, userId])
   @@index([userId])
+}
+
+// Durable cleanup survives account/circle deletion and transient storage failures.
+model ObjectDeletion {
+  key String @id
+  prefix Boolean @default(false)
+  uploadId String?
+  nextAttemptAt DateTime @default(now())
+  retryUntil DateTime
+  attempts Int @default(0)
+  @@index([nextAttemptAt])
 }

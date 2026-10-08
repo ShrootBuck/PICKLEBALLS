@@ -296,6 +296,7 @@ async function readPosts({
         },
         reviews: {
           select: {
+            id: true,
             reviewerId: true,
             decision: true,
             note: true,
@@ -427,6 +428,7 @@ async function readPosts({
             new Date(),
             p.commitment.proofSubmittedAt,
           ) &&
+          p.commitment.status !== "CANCELLED" &&
           p.commitment.status !== "MISSED" &&
           p.commitment.status !== "VERIFIED" &&
           p.replacedById === null &&
@@ -442,7 +444,7 @@ async function readPosts({
         verifiedBy:
           p.reviews
             .filter((r) => r.decision === "APPROVED")
-            .map((r) => r.reviewer.name)
+            .map((r) => r.reviewer?.name ?? "Deleted member")
             .join(", ") || null,
         likeCount: p._count.likes,
         likedByMe: p.likes.length > 0,

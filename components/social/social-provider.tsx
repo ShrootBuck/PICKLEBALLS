@@ -65,6 +65,7 @@ type SocialContext = {
   openComposer: (request?: ComposerRequest) => void;
   feeds: Map<string, FeedPage & { serverSignature: string }>;
   scrolls: Map<string, number>;
+  removePost: (post: FeedPost) => void;
   patchPost: (
     post: Pick<FeedPost, "kind" | "id">,
     patch: Partial<FeedPost>,
@@ -120,6 +121,23 @@ export function SocialProvider({
     },
     [],
   );
+  const removePost = useCallback((post: FeedPost) => {
+    for (const [key, page] of feeds.current) {
+      feeds.current.set(key, {
+        ...page,
+        items: page.items.filter(
+          (item) =>
+            postKey(item) !== postKey(post) &&
+            !(
+              item.kind === "proof" &&
+              post.kind === "proof" &&
+              item.commitmentId === post.commitmentId
+            ),
+        ),
+      });
+    }
+    setPostRevision((value) => value + 1);
+  }, []);
   return (
     <Context
       value={{
@@ -131,6 +149,7 @@ export function SocialProvider({
         feeds: feeds.current,
         scrolls: scrolls.current,
         patchPost,
+        removePost,
         openComposer: (request = { mode: "choose" }) => setComposer(request),
       }}
     >

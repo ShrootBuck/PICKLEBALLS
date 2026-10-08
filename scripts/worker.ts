@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { getPrisma } from "@/lib/prisma";
 import { createQueueClient, type JobName, type JobPayloads } from "@/lib/queue";
+import { releaseCommit } from "@/lib/release-id";
 import {
   handlers,
   markMediaFailed,
@@ -14,7 +15,17 @@ const health = createServer(async (_req, res) => {
   try {
     if (!ready) throw new Error("Not ready");
     await getPrisma().$queryRaw`SELECT 1`;
-    res.writeHead(200).end("ok");
+    res
+      .writeHead(200, {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      })
+      .end(
+        JSON.stringify({
+          status: "ok",
+          deployment: releaseCommit,
+        }),
+      );
   } catch {
     res.writeHead(503).end("unavailable");
   }

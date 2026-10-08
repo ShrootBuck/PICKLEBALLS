@@ -5,8 +5,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DeleteObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
+import { queueObjectDeletion } from "@/lib/deletion-storage";
 import { getPrisma } from "@/lib/prisma";
 import { mediaDownloadUrl, putMedia, r2 } from "@/lib/r2";
+import { serializable } from "@/lib/transaction";
 import { encodeVideo, probeVideo, videoPoster } from "@/lib/video-encoding";
 
 export async function processVideoMedia(id: string, signal: AbortSignal) {
@@ -113,15 +115,21 @@ export async function processVideoMedia(id: string, signal: AbortSignal) {
     await rm(directory, { recursive: true, force: true });
     if (!published) {
       // A lost DB acknowledgement may mean the update committed. Never delete a referenced result.
-      const current = await prisma.mediaUpload
-        .findUnique({ where: { id }, select: { objectKey: true } })
-        .catch(() => null);
-      if (current && current.objectKey !== key)
+      const current = await prisma.mediaUpload.findUnique({
+        where: { id },
+        select: { objectKey: true },
+      });
+      if (!current || current.objectKey !== key) {
+        await serializable(async (tx) => {
+          await queueObjectDeletion(tx, key);
+          await queueObjectDeletion(tx, posterKey);
+        });
         await Promise.allSettled(
           [key, posterKey].map((Key) =>
             client.send(new DeleteObjectCommand({ Bucket: bucket, Key })),
           ),
         );
+      }
     }
   }
 }

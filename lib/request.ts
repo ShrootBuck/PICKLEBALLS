@@ -4,7 +4,6 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { auth } from "@/lib/auth";
-import { ensureBootstrapMembership } from "@/lib/bootstrap";
 import { ACTIVE_CIRCLE_COOKIE, parseActiveCircleId } from "@/lib/circles";
 import { getPrisma } from "@/lib/prisma";
 
@@ -27,7 +26,7 @@ async function getMembership(
     include: { circle: true, user: true },
     orderBy: { createdAt: "asc" },
   });
-  return membership ?? ensureBootstrapMembership(userId);
+  return membership;
 }
 
 export async function getRequestMembership(requestHeaders: Headers) {

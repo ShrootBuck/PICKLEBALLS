@@ -228,21 +228,23 @@ function ReplyItem({
             {formatReplyTime(reply.createdAt)}
             {edited ? " · edited" : ""}
           </time>
-          {editable && !editing ? (
+          {!reply.verdict && mine && !editing ? (
             <span className="ml-auto flex basis-full items-center justify-end gap-1 sm:basis-auto">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 min-h-0 px-1.5 text-[11px]"
-                onClick={() => {
-                  setDraft(reply.body);
-                  setEditing(true);
-                }}
-              >
-                <Pencil data-icon="inline-start" />
-                Edit
-              </Button>
+              {editable && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 min-h-0 px-1.5 text-[11px]"
+                  onClick={() => {
+                    setDraft(reply.body);
+                    setEditing(true);
+                  }}
+                >
+                  <Pencil data-icon="inline-start" />
+                  Edit
+                </Button>
+              )}
               {confirmingDelete ? (
                 <Button
                   type="button"

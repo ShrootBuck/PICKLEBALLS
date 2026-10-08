@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AuthScreen } from "@/components/auth/auth-screen";
 import { CirclesManager } from "@/components/circles/circles-manager";
+import { AccountSettings } from "@/components/settings/account-settings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { auth } from "@/lib/auth";
 import { parseActiveCircleId } from "@/lib/circle-cookie";
@@ -23,6 +24,10 @@ export default async function CirclesPage({
     where: { userId: session.user.id },
     orderBy: { createdAt: "asc" },
     include: { circle: true },
+  });
+  const chat = await prisma.timeblockChat.findUnique({
+    where: { userId: session.user.id },
+    select: { id: true },
   });
   const activeId = parseActiveCircleId(headerStore.get("cookie"));
   const activeIsMember = memberships.some((m) => m.circleId === activeId);
@@ -59,6 +64,9 @@ export default async function CirclesPage({
           activeIsMember ? activeId : (memberships[0]?.circleId ?? null)
         }
       />
+      <div className="mt-4">
+        <AccountSettings userId={session.user.id} chatId={chat?.id} />
+      </div>
     </AuthScreen>
   );
 }

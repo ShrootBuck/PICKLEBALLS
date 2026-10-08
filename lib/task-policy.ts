@@ -5,7 +5,7 @@ export function taskDeadline(createdAt: Date) {
 // Keep unfinished, timely submissions visible until their review is resolved.
 export function currentTaskFilter(now = new Date()) {
   return {
-    status: { not: "MISSED" as const },
+    status: { notIn: ["MISSED" as const, "CANCELLED" as const] },
     OR: [
       { dueAt: { gt: now } },
       {
@@ -24,7 +24,9 @@ export function currentTaskFilter(now = new Date()) {
 
 export function reviewableCommitmentFilter() {
   return {
-    status: { notIn: ["MISSED" as const, "VERIFIED" as const] },
+    status: {
+      notIn: ["MISSED" as const, "VERIFIED" as const, "CANCELLED" as const],
+    },
   };
 }
 
@@ -63,7 +65,7 @@ export function shouldMarkMissed(
 export function proofApprovalProgress(
   ownerId: string,
   memberIds: string[],
-  reviews: { reviewerId: string; decision: string }[],
+  reviews: { id?: string; reviewerId: string | null; decision: string }[],
   requiredApprovals?: number | null,
 ) {
   const peers = new Set(memberIds.filter((id) => id !== ownerId));
@@ -73,9 +75,12 @@ export function proofApprovalProgress(
         (review) =>
           review.decision === "APPROVED" &&
           review.reviewerId !== ownerId &&
-          (requiredApprovals != null || peers.has(review.reviewerId)),
+          (requiredApprovals != null ||
+            (review.reviewerId != null && peers.has(review.reviewerId))),
       )
-      .map((review) => review.reviewerId),
+      .map(
+        (review, index) => review.reviewerId ?? review.id ?? `deleted-${index}`,
+      ),
   );
   return {
     approvalCount: approved.size,
@@ -89,6 +94,7 @@ export function canSubmitProof(
   now = new Date(),
 ) {
   return (
+    task.status !== "CANCELLED" &&
     task.status !== "MISSED" &&
     task.status !== "VERIFIED" &&
     (canEditTask(task.dueAt, now) || !!task.proofSubmittedAt)

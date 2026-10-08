@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
+import { CircleLifecycle } from "@/components/circles/circle-lifecycle";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -152,7 +153,7 @@ export function CirclesManager({
             circles.map((circle) => (
               <div
                 key={circle.id}
-                className="flex min-w-0 flex-col items-stretch gap-3 rounded-xl border px-3 py-3 sm:flex-row sm:items-center"
+                className="flex min-w-0 flex-col items-stretch gap-3 rounded-xl border px-3 py-3"
               >
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-sm font-medium">
@@ -163,6 +164,7 @@ export function CirclesManager({
                     {current === circle.id ? " · current" : ""}
                   </span>
                 </div>
+                <CircleLifecycle circle={circle} />
                 {
                   <Button
                     type="button"

@@ -1,3 +1,4 @@
+import { drainObjectDeletions } from "@/lib/deletion-storage";
 import { getPrisma } from "@/lib/prisma";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -25,6 +26,7 @@ export async function pruneExpiredData(now = new Date()) {
         },
       }),
     ]);
+  await drainObjectDeletions(now);
   return {
     sessions: sessions.count,
     verifications: verifications.count,

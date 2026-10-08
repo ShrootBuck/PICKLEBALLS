@@ -12,6 +12,8 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useState } from "react";
 import { PlanItem } from "@/components/bucket-list/plan-item";
+import { DeleteAction } from "@/components/settings/delete-action";
+import { useSocial } from "@/components/social/social-provider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -140,6 +142,7 @@ function ConfirmAction({
 }
 
 export function BucketItemActions({ item }: { item: ActionItem }) {
+  const { circleId } = useSocial();
   const [excluded, setExcluded] = useState<string[]>([]);
   const router = useRouter();
   const pathname = usePathname();
@@ -305,6 +308,16 @@ export function BucketItemActions({ item }: { item: ActionItem }) {
             await send(`${url}/completion`, "DELETE");
             toast.add({ title: "Check-off cancelled.", type: "info" });
           }}
+        />
+      )}
+      {item.canDelete && (
+        <DeleteAction
+          label="Delete idea"
+          title="Permanently delete this idea or plan?"
+          description="This removes the shared idea or plan, its votes, and everyone's comments. Withdraw it instead if you want to keep its history. This cannot be undone."
+          endpoint={`/api/content/bucket-item/${item.id}`}
+          body={{ circleId }}
+          redirectTo={pathname.includes(item.id) ? "/bucket-list" : undefined}
         />
       )}
       {item.canWithdraw && (

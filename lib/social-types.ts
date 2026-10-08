@@ -17,7 +17,8 @@ export type TaskStatus =
   | "AWAITING_REVIEW"
   | "VERIFIED"
   | "MISSED"
-  | "RENEGOTIATED";
+  | "RENEGOTIATED"
+  | "CANCELLED";
 
 type PostBase = {
   id: string;

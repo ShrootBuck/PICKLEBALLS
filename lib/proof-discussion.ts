@@ -61,7 +61,7 @@ export async function getProofDiscussion(
       createdAt: reply.createdAt.toISOString(),
       updatedAt: reply.updatedAt.toISOString(),
       replyContext: review
-        ? `Reply to ${review.reviewer.name}’s verdict`
+        ? `Reply to ${review.reviewer?.name ?? "Deleted member"}’s verdict`
         : undefined,
     })),
     hasMore: rows.length > 50,
@@ -70,7 +70,12 @@ export async function getProofDiscussion(
       id: review.id,
       body: review.note ?? "",
       createdAt: review.createdAt.toISOString(),
-      author: review.reviewer,
+      author: review.reviewer ?? {
+        id: "deleted",
+        name: "Deleted member",
+        initials: "DM",
+        image: null,
+      },
       verdict: review.decision,
     })),
   };

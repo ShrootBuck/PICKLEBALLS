@@ -68,7 +68,7 @@ export function PostCard({
                   : " · Retired streak")}
           </p>
         </div>
-        <PostMenu post={post} />
+        <PostMenu post={post} detail={detail} />
       </header>
       <PostBody post={post} />
       <footer className="social-post-actions">
