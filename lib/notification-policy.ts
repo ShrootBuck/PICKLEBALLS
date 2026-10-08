@@ -5,6 +5,7 @@ import type { ActivityKind } from "@/generated/prisma/enums";
 export const inboxKinds: ActivityKind[] = [
   "REPLY_POSTED",
   "PROOF_SUBMITTED",
+  "PROOF_APPROVED",
   "PROOF_CHALLENGED",
   "BUCKET_ITEM_PROPOSED",
   "BUCKET_ITEM_APPROVED",

@@ -68,12 +68,14 @@ const destinations = [
 
 export function SocialShell({
   circles,
+  pendingVerdicts,
   bucketVotes,
   superAdmin,
   bell,
   children,
 }: {
   circles: { id: string; name: string; role: "OWNER" | "MEMBER" }[];
+  pendingVerdicts: number;
   bucketVotes: number;
   superAdmin: boolean;
   bell: ReactNode;
@@ -88,7 +90,7 @@ export function SocialShell({
   const navigating = useRef(false);
   const [switching, setSwitching] = useState(false);
   const currentCircle = circles.find((item) => item.id === circleId);
-  const done = tasks.filter((task) => task.status === "DONE").length;
+  const verified = tasks.filter((task) => task.status === "VERIFIED").length;
   const wide =
     ["/screen-time", "/timeblock", "/history", "/admin", "/changelog"].includes(
       pathname,
@@ -157,10 +159,14 @@ export function SocialShell({
   }
 
   function navLinks(bottom: boolean) {
+    const proofs =
+      pendingVerdicts > 0 &&
+      `${pendingVerdicts} ${pendingVerdicts === 1 ? "proof" : "proofs"} to review`;
     const votes =
       bucketVotes > 0 &&
       `${bucketVotes} bucket list ${bucketVotes === 1 ? "vote" : "votes"} waiting on you`;
     const counts: Record<string, { count: number; label: string }> = {
+      "/squad": { count: pendingVerdicts, label: proofs || "" },
       "/bucket-list": { count: bucketVotes, label: votes || "" },
     };
     return destinations.flatMap(({ href, label, icon: Icon, railOnly }) => {
@@ -440,18 +446,18 @@ export function SocialShell({
                 <div className="mt-6 flex items-baseline justify-between">
                   <h2 className="text-sm font-semibold">Today</h2>
                   <span className="text-xs tabular-nums text-muted-foreground">
-                    {done}/{tasks.length} done
+                    {verified}/{tasks.length} verified
                   </span>
                 </div>
                 <Progress
-                  value={tasks.length ? (done / tasks.length) * 100 : 0}
-                  aria-label={`${done} of ${tasks.length} tasks done`}
+                  value={tasks.length ? (verified / tasks.length) * 100 : 0}
+                  aria-label={`${verified} of ${tasks.length} tasks verified`}
                   className="mt-3"
                 />
                 <div className="mt-4 flex flex-col gap-2.5">
                   {tasks.slice(0, 4).map((task) => {
                     const StatusIcon =
-                      task.status === "DONE"
+                      task.status === "VERIFIED"
                         ? Check
                         : task.status === "MISSED"
                           ? CircleAlert
@@ -467,7 +473,7 @@ export function SocialShell({
                         <StatusIcon
                           className={cn(
                             "mt-0.5 size-4 shrink-0",
-                            task.status === "DONE"
+                            task.status === "VERIFIED"
                               ? "text-success"
                               : "text-muted-foreground/40",
                           )}
@@ -493,6 +499,21 @@ export function SocialShell({
                   {tasks.length ? "All tasks" : "Add a task"}
                   <ArrowRight data-icon="inline-end" />
                 </Link>
+                {pendingVerdicts > 0 && (
+                  <Link href="/squad" className="review-nudge">
+                    <Users className="size-5" />
+                    <span>
+                      <strong className="block font-medium">
+                        Your friends showed up.
+                      </strong>
+                      <span className="text-xs text-muted-foreground">
+                        {pendingVerdicts} proof
+                        {pendingVerdicts === 1 ? " needs" : "s need"} a verdict.
+                      </span>
+                    </span>
+                    <ArrowRight className="ml-auto size-4" />
+                  </Link>
+                )}
               </aside>
             )}
           </div>

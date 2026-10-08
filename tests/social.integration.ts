@@ -23,7 +23,7 @@ const { createSocialReply } = await import("@/lib/social-replies");
 const {
   createCommitment,
   submitProof,
-  challengeProof,
+  reviewProof,
   updateCommitment,
   setCheckIn,
   reconcileMissedTasks,
@@ -77,34 +77,6 @@ async function proof() {
     ids.owner,
     ids.circle,
     [await media()],
-    null,
-    start,
-    now,
-    now,
-  );
-}
-async function challengeCircle(name: string) {
-  const circleId = `${name}-${randomUUID()}`;
-  await prisma.circle.create({
-    data: { id: circleId, slug: circleId, name },
-  });
-  await prisma.membership.createMany({
-    data: [ids.owner, ids.peer, ids.outsider].map((userId) => ({
-      userId,
-      circleId,
-      role: userId === ids.owner ? ("OWNER" as const) : ("MEMBER" as const),
-    })),
-  });
-  return circleId;
-}
-
-async function postProof(circleId: string) {
-  const commitment = await task(ids.owner, circleId);
-  return submitProof(
-    commitment.id,
-    ids.owner,
-    circleId,
-    [await media(ids.owner, circleId)],
     null,
     start,
     now,
@@ -247,50 +219,29 @@ test("pagination visits every record exactly once across equal timestamps and ki
   ).rejects.toThrow("Member not found");
 });
 
-test("proof is done immediately; a challenge updates its status without reordering", async () => {
+test("pending proof is immediate; verdict updates its status without reordering", async () => {
   const posted = await proof();
-  expect(
-    (
-      await prisma.commitment.findUniqueOrThrow({
-        where: { id: posted.commitmentId },
-      })
-    ).status,
-  ).toBe("DONE");
   let page = await getFeedPage({ viewerId: ids.peer, circleId: ids.circle });
   const before = page.items.find((p) => p.id === posted.id);
-  expect(before).toMatchObject({
-    kind: "proof",
-    challenged: false,
-    canChallenge: true,
-    expired: false,
-    commentCount: 0,
-  });
-  const ownerView = (
-    await getFeedPage({ viewerId: ids.owner, circleId: ids.circle })
-  ).items.find((p) => p.id === posted.id);
-  expect(ownerView).toMatchObject({ challenged: false, canChallenge: false });
-  await challengeProof(
+  expect(before?.kind === "proof" && before.canReview).toBe(true);
+  await reviewProof(
     posted.id,
     ids.peer,
     ids.circle,
-    { reason: "The last answer has no working." },
+    { decision: "APPROVED", note: "Every answer and working is visible." },
     now,
   );
   page = await getFeedPage({ viewerId: ids.peer, circleId: ids.circle });
   const after = page.items.find((p) => p.id === posted.id);
   expect(after?.createdAt).toBe(before?.createdAt);
-  expect(after).toMatchObject({
-    challenged: true,
-    canChallenge: false,
-    commentCount: 1,
-  });
+  expect(after?.kind === "proof" && after.reviewStatus).toBe("APPROVED");
   expect(
     (
       await prisma.commitment.findUniqueOrThrow({
         where: { id: posted.commitmentId },
       })
     ).status,
-  ).toBe("OPEN");
+  ).toBe("VERIFIED");
 });
 
 test("likes are idempotent, unique per target, isolated, and do not notify", async () => {
@@ -333,7 +284,7 @@ test("likes are idempotent, unique per target, isolated, and do not notify", asy
   ).rejects.toThrow();
 });
 
-test("comment and challenge likes persist, isolate circles, and cascade on deletion", async () => {
+test("comment and verdict likes persist, isolate circles, and cascade on deletion", async () => {
   const { getProofDiscussion } = await import("@/lib/proof-discussion");
   const posted = await proof();
   const reply = await createSocialReply(ids.owner, ids.circle, {
@@ -341,16 +292,16 @@ test("comment and challenge likes persist, isolate circles, and cascade on delet
     targetId: posted.id,
     body: "A comment worth liking",
   });
-  const challenge = await challengeProof(
+  const review = await reviewProof(
     posted.id,
     ids.peer,
     ids.circle,
-    { reason: "The second page is blurry." },
+    { decision: "APPROVED", note: "Looks good" },
     now,
   );
   for (const [targetType, targetId] of [
     ["REPLY", reply.id],
-    ["CHALLENGE", challenge.id],
+    ["REVIEW", review.id],
   ] as const) {
     const input = { targetType, targetId, liked: true };
     expect(
@@ -389,9 +340,9 @@ test("comment and challenge likes persist, isolate circles, and cascade on delet
     undefined,
     ids.owner,
   );
-  for (const rows of [peer.replies, peer.challenges])
+  for (const rows of [peer.replies, peer.verdicts])
     expect(rows[0]).toMatchObject({ likeCount: 1, likedByMe: true });
-  for (const rows of [owner.replies, owner.challenges])
+  for (const rows of [owner.replies, owner.verdicts])
     expect(rows[0]).toMatchObject({ likeCount: 1, likedByMe: false });
   await expect(
     Promise.resolve(
@@ -406,10 +357,10 @@ test("comment and challenge likes persist, isolate circles, and cascade on delet
     ),
   ).rejects.toThrow();
   await prisma.socialReply.delete({ where: { id: reply.id } });
-  await prisma.proofChallenge.delete({ where: { id: challenge.id } });
+  await prisma.taskProofReview.delete({ where: { id: review.id } });
   expect(
     await prisma.postLike.count({
-      where: { OR: [{ replyId: reply.id }, { challengeId: challenge.id }] },
+      where: { OR: [{ replyId: reply.id }, { reviewId: review.id }] },
     }),
   ).toBe(0);
   await expect(
@@ -504,45 +455,24 @@ test("each check-in has independent comments and likes, while day comments stay 
 
 test("challenge, deliberate replacement restrictions, and old URLs preserve proof history", async () => {
   const posted = await proof();
-  for (const reason of ["", "   ", "x".repeat(501)])
-    await expect(
-      challengeProof(posted.id, ids.peer, ids.circle, { reason }, now),
-    ).rejects.toThrow(
-      "Say what is missing. Reasons must be 500 characters or fewer.",
-    );
   await expect(
-    challengeProof(posted.id, ids.peer, ids.circle, {}, now),
-  ).rejects.toThrow("Say what is missing.");
+    reviewProof(
+      posted.id,
+      ids.peer,
+      ids.circle,
+      { decision: "CHALLENGED", note: "" },
+      now,
+    ),
+  ).rejects.toThrow("reason");
   await expect(
-    challengeProof(
+    reviewProof(
       posted.id,
       ids.owner,
       ids.circle,
-      { reason: "Mine is incomplete" },
+      { decision: "APPROVED", note: "Mine" },
       now,
     ),
-  ).rejects.toThrow("You cannot challenge your own proof.");
-  await expect(
-    challengeProof(
-      posted.id,
-      ids.outsider,
-      ids.circle,
-      { reason: "Not my circle" },
-      now,
-    ),
-  ).rejects.toThrow("You are no longer in this circle.");
-  await expect(
-    challengeProof(
-      posted.id,
-      ids.outsider,
-      ids.other,
-      { reason: "Wrong circle" },
-      now,
-    ),
-  ).rejects.toThrow("Proof not found.");
-  expect(
-    await prisma.proofChallenge.count({ where: { proofId: posted.id } }),
-  ).toBe(0);
+  ).rejects.toThrow("own homework");
   await expect(
     submitProof(
       posted.commitmentId,
@@ -554,30 +484,14 @@ test("challenge, deliberate replacement restrictions, and old URLs preserve proo
       now,
       now,
     ),
-  ).rejects.toThrow("This task already has proof.");
-  const challenge = await challengeProof(
+  ).rejects.toThrow("already has proof");
+  await reviewProof(
     posted.id,
     ids.peer,
     ids.circle,
-    { reason: "  The last page is missing.  " },
+    { decision: "CHALLENGED", note: "The last page is missing." },
     now,
   );
-  expect(challenge).toMatchObject({
-    proofId: posted.id,
-    challengerId: ids.peer,
-    circleId: ids.circle,
-    reason: "The last page is missing.",
-  });
-  expect(
-    await prisma.activityEvent.count({
-      where: { entityId: posted.id, kind: "PROOF_CHALLENGED" },
-    }),
-  ).toBe(1);
-  expect(
-    await prisma.notification.findUnique({
-      where: { dedupeKey: `challenge:${challenge.id}:${ids.owner}` },
-    }),
-  ).toMatchObject({ kind: "PROOF_CHALLENGED", recipientId: ids.owner });
   const replacement = await submitProof(
     posted.commitmentId,
     ids.owner,
@@ -599,10 +513,6 @@ test("challenge, deliberate replacement restrictions, and old URLs preserve proo
     `/posts/proof/${posted.id}`,
   );
   expect(await resolveLegacyFocus(ids.other, posted.id)).toBeNull();
-  const focused = await resolveLegacyFocus(ids.circle, challenge.id);
-  expect(focused).toContain(`/posts/proof/${posted.id}`);
-  expect(focused).toContain(`&focus=${challenge.id}#comments`);
-  expect(await resolveLegacyFocus(ids.other, challenge.id)).toBeNull();
   await expect(
     updateCommitment(
       posted.commitmentId,
@@ -614,7 +524,7 @@ test("challenge, deliberate replacement restrictions, and old URLs preserve proo
   ).rejects.toThrow("promise stays fixed");
 });
 
-test("solo circles finish on post; deadlines close first submissions but allow challenged replacements", async () => {
+test("solo circles verify immediately; deadlines close first submissions but allow challenged replacements", async () => {
   const solo = await task(ids.owner, ids.solo);
   const posted = await submitProof(
     solo.id,
@@ -626,16 +536,7 @@ test("solo circles finish on post; deadlines close first submissions but allow c
     now,
     now,
   );
-  expect(posted.isLate).toBe(false);
-  expect(
-    (await prisma.commitment.findUniqueOrThrow({ where: { id: solo.id } }))
-      .status,
-  ).toBe("DONE");
-  expect(
-    (await getFeedPage({ viewerId: ids.owner, circleId: ids.solo })).items.find(
-      (p) => p.id === posted.id,
-    ),
-  ).toMatchObject({ challenged: false, canChallenge: false });
+  expect(posted.reviewStatus).toBe("APPROVED");
   const previous = await task(
     ids.owner,
     ids.circle,
@@ -654,32 +555,13 @@ test("solo circles finish on post; deadlines close first submissions but allow c
     ),
   ).rejects.toThrow("window is closed");
   const challenged = await proof();
-  await challengeProof(
+  await reviewProof(
     challenged.id,
     ids.peer,
     ids.circle,
-    { reason: "Missing page" },
+    { decision: "CHALLENGED", note: "Missing page" },
     now,
   );
-  const afterDeadline = new Date("2026-09-09T20:00:00Z");
-  const replacement = await submitProof(
-    challenged.commitmentId,
-    ids.owner,
-    ids.circle,
-    [await media()],
-    "",
-    start,
-    now,
-    afterDeadline,
-  );
-  expect(replacement.isLate).toBe(false);
-  expect(
-    (
-      await prisma.commitment.findUniqueOrThrow({
-        where: { id: challenged.commitmentId },
-      })
-    ).status,
-  ).toBe("DONE");
   await expect(
     submitProof(
       challenged.commitmentId,
@@ -689,9 +571,9 @@ test("solo circles finish on post; deadlines close first submissions but allow c
       "",
       start,
       now,
-      afterDeadline,
+      new Date("2026-09-09T20:00:00Z"),
     ),
-  ).rejects.toThrow("This task already has proof.");
+  ).resolves.toMatchObject({ isLate: false, reviewStatus: "PENDING" });
 });
 
 test("unready or wrong-circle media rolls back proof creation and preserves retry", async () => {
@@ -727,13 +609,17 @@ test("unready or wrong-circle media rolls back proof creation and preserves retr
     now,
   );
   expect(posted.ownerNote).toBe("Keep this caption");
+  await reviewProof(
+    posted.id,
+    ids.peer,
+    ids.circle,
+    { decision: "APPROVED", note: "The evidence is clear without AI." },
+    now,
+  );
   expect(
-    (
-      await prisma.commitment.findUniqueOrThrow({
-        where: { id: commitment.id },
-      })
-    ).status,
-  ).toBe("DONE");
+    (await prisma.taskProof.findUniqueOrThrow({ where: { id: posted.id } }))
+      .reviewStatus,
+  ).toBe("APPROVED");
 });
 
 test("feed access rejects nonmembers and foreign profile filters", async () => {
@@ -1097,175 +983,229 @@ test("mood posts preserve full journals and feelings in circle timelines without
   ).rejects.toThrow("Member not found");
 });
 
-test("the challenge window closes 24 hours after proof posts", async () => {
-  const circleId = await challengeCircle("window");
-  const posted = await postProof(circleId);
-  const lastMoment = new Date(posted.submittedAt.getTime() + 86_400_000 - 1);
-  const closed = new Date(posted.submittedAt.getTime() + 86_400_000);
-  try {
-    setSystemTime(lastMoment);
-    expect(
-      (await getFeedPage({ viewerId: ids.peer, circleId })).items[0],
-    ).toMatchObject({ id: posted.id, canChallenge: true });
-    setSystemTime(closed);
-    expect(
-      (await getFeedPage({ viewerId: ids.peer, circleId })).items[0],
-    ).toMatchObject({ id: posted.id, canChallenge: false, expired: false });
-  } finally {
-    setSystemTime(now);
-  }
-  await expect(
-    challengeProof(
-      posted.id,
-      ids.peer,
-      circleId,
-      { reason: "Too late" },
-      closed,
-    ),
-  ).rejects.toThrow("Proof can only be challenged within 24 hours of posting.");
-  expect(
-    await prisma.proofChallenge.count({ where: { proofId: posted.id } }),
-  ).toBe(0);
-  expect(
-    (
-      await prisma.commitment.findUniqueOrThrow({
-        where: { id: posted.commitmentId },
-      })
-    ).status,
-  ).toBe("DONE");
-  await expect(
-    challengeProof(
-      posted.id,
-      ids.peer,
-      circleId,
-      { reason: "Just in time" },
-      lastMoment,
-    ),
-  ).resolves.toMatchObject({ proofId: posted.id, challengerId: ids.peer });
-});
-
-test("a proof accepts exactly one challenge, even from concurrent challengers", async () => {
-  const circleId = await challengeCircle("single-challenge");
-  const posted = await postProof(circleId);
-  const results = await Promise.allSettled([
-    challengeProof(posted.id, ids.peer, circleId, { reason: "Blurry" }, now),
-    challengeProof(
-      posted.id,
-      ids.outsider,
-      circleId,
-      { reason: "Cut off" },
-      now,
-    ),
-  ]);
-  const fulfilled = results.filter((result) => result.status === "fulfilled");
-  const rejected = results.filter((result) => result.status === "rejected");
-  expect(fulfilled).toHaveLength(1);
-  expect(rejected).toHaveLength(1);
-  expect(rejected[0].reason.message).toBe("This proof was already challenged.");
-  const challenge = fulfilled[0].value;
-  for (const challengerId of [ids.peer, ids.outsider])
-    await expect(
-      challengeProof(
-        posted.id,
-        challengerId,
-        circleId,
-        { reason: "Again" },
-        now,
-      ),
-    ).rejects.toThrow("This proof was already challenged.");
-  expect(
-    await prisma.proofChallenge.findMany({ where: { proofId: posted.id } }),
-  ).toEqual([challenge]);
-  expect(
-    await prisma.activityEvent.count({
-      where: { circleId, entityId: posted.id, kind: "PROOF_CHALLENGED" },
-    }),
-  ).toBe(1);
-  expect(
-    await prisma.notification.count({
-      where: { circleId, recipientId: ids.owner, kind: "PROOF_CHALLENGED" },
-    }),
-  ).toBe(1);
-  for (const viewerId of [ids.owner, ids.peer, ids.outsider])
-    expect((await getFeedPage({ viewerId, circleId })).items[0]).toMatchObject({
-      id: posted.id,
-      challenged: true,
-      canChallenge: false,
-      commentCount: 1,
-    });
-});
-
-test("replacement proof after a challenge finishes the task and can be challenged again", async () => {
-  const circleId = await challengeCircle("replacement");
-  const posted = await postProof(circleId);
-  await challengeProof(
-    posted.id,
-    ids.peer,
-    circleId,
-    { reason: "The photo is cropped." },
-    now,
-  );
-  const status = async () =>
-    (
-      await prisma.commitment.findUniqueOrThrow({
-        where: { id: posted.commitmentId },
-      })
-    ).status;
-  expect(await status()).toBe("OPEN");
-  const replacedAt = new Date(now.getTime() + 60_000);
-  const replacement = await submitProof(
-    posted.commitmentId,
-    ids.owner,
-    circleId,
-    [await media(ids.owner, circleId)],
-    "Full photo",
-    start,
-    replacedAt,
-    replacedAt,
-  );
-  expect(await status()).toBe("DONE");
-  const feed = await getFeedPage({ viewerId: ids.outsider, circleId });
-  expect(feed.items.map((post) => post.id)).toEqual([replacement.id]);
-  expect(feed.items[0]).toMatchObject({
-    challenged: false,
-    canChallenge: true,
-    commentCount: 0,
+test("half the circle must approve; partial approvals stay queued and concurrent final votes verify once", async () => {
+  const circleId = `half-circle-${randomUUID()}`;
+  const fourth = `fourth-${randomUUID()}`;
+  await prisma.user.create({
+    data: { id: fourth, email: `${fourth}@example.invalid`, name: "Fourth" },
   });
-  await expect(
-    challengeProof(posted.id, ids.outsider, circleId, { reason: "Old" }, now),
-  ).rejects.toThrow("This proof was already challenged.");
-  const second = await challengeProof(
-    replacement.id,
-    ids.outsider,
-    circleId,
-    { reason: "Still missing the last answer." },
-    replacedAt,
-  );
-  expect(second.proofId).toBe(replacement.id);
-  expect(await status()).toBe("OPEN");
-  const third = await submitProof(
-    posted.commitmentId,
+  await prisma.circle.create({
+    data: { id: circleId, slug: circleId, name: "Half the circle" },
+  });
+  await prisma.membership.createMany({
+    data: [ids.owner, ids.peer, ids.outsider, fourth].map((userId) => ({
+      userId,
+      circleId,
+    })),
+  });
+  const commitment = await task(ids.owner, circleId);
+  const posted = await submitProof(
+    commitment.id,
     ids.owner,
     circleId,
     [await media(ids.owner, circleId)],
     null,
     start,
-    replacedAt,
-    new Date(replacedAt.getTime() + 1),
+    now,
+    now,
   );
-  expect(await status()).toBe("DONE");
+  const verdict = {
+    decision: "APPROVED",
+    note: "All the required work is visible.",
+  };
+  await expect(
+    reviewProof(posted.id, ids.owner, circleId, verdict, now),
+  ).rejects.toThrow("own homework");
+  const first = await reviewProof(posted.id, ids.peer, circleId, verdict, now);
+  expect(first).toMatchObject({
+    proofStatus: "PENDING",
+    approvalCount: 1,
+    requiredApprovals: 2,
+  });
   expect(
     (
-      await prisma.taskProof.findUniqueOrThrow({
-        where: { id: replacement.id },
+      await prisma.commitment.findUniqueOrThrow({
+        where: { id: commitment.id },
       })
-    ).replacedById,
-  ).toBe(third.id);
+    ).status,
+  ).toBe("AWAITING_REVIEW");
+  for (const viewerId of [ids.owner, ids.peer, ids.outsider]) {
+    const pending = await getFeedPage({
+      viewerId,
+      circleId,
+    });
+    expect(pending.items).toHaveLength(1);
+    expect(pending.items[0]).toMatchObject({
+      id: posted.id,
+      reviewStatus: "PENDING",
+      approvalCount: 1,
+      requiredApprovals: 2,
+      canReview: viewerId === ids.outsider,
+    });
+  }
+  expect(
+    (await getFeedPage({ viewerId: ids.peer, circleId, pendingOnly: true }))
+      .items,
+  ).toHaveLength(0);
+  await expect(
+    reviewProof(posted.id, ids.peer, circleId, verdict, now),
+  ).rejects.toThrow("already reviewed");
+  const results = await Promise.allSettled([
+    reviewProof(posted.id, ids.outsider, circleId, verdict, now),
+    reviewProof(posted.id, fourth, circleId, verdict, now),
+  ]);
+  const fulfilled = results.filter((result) => result.status === "fulfilled");
+  const rejected = results.filter((result) => result.status === "rejected");
+  expect(fulfilled).toHaveLength(1);
+  expect(fulfilled[0].value.proofStatus).toBe("APPROVED");
+  expect(rejected).toHaveLength(1);
+  expect(rejected[0].reason.message).toBe("This proof already has a verdict.");
+  expect(
+    (
+      await prisma.commitment.findUniqueOrThrow({
+        where: { id: commitment.id },
+      })
+    ).status,
+  ).toBe("VERIFIED");
+  expect(
+    (await getFeedPage({ viewerId: ids.owner, circleId, awaitingOnly: true }))
+      .items,
+  ).toHaveLength(0);
+  expect(
+    (await getFeedPage({ viewerId: ids.owner, circleId })).items[0],
+  ).toMatchObject({
+    id: posted.id,
+    reviewStatus: "APPROVED",
+    createdAt: posted.submittedAt.toISOString(),
+  });
+  // New members never reopen an already verified proof.
+  const extra = `extra-${randomUUID()}`;
+  await prisma.user.create({
+    data: { id: extra, email: `${extra}@example.invalid`, name: "New member" },
+  });
+  await prisma.membership.create({ data: { userId: extra, circleId } });
+  expect(
+    (await getFeedPage({ viewerId: extra, circleId, awaitingOnly: true }))
+      .items,
+  ).toHaveLength(0);
 });
 
-test("proof discussion includes the challenge reason, paginates replies, and isolates circles", async () => {
+test("removing a member does not lower the threshold or verify pending proof", async () => {
+  const { removeCircleMember } = await import("@/lib/circles");
+  const circleId = `departing-${randomUUID()}`;
+  await prisma.circle.create({
+    data: { id: circleId, slug: circleId, name: "Departure" },
+  });
+  const fourth = `departing-fourth-${randomUUID()}`;
+  await prisma.user.create({
+    data: { id: fourth, email: `${fourth}@example.invalid`, name: "Fourth" },
+  });
+  await prisma.membership.createMany({
+    data: [ids.owner, ids.peer, ids.outsider, fourth].map((userId) => ({
+      userId,
+      circleId,
+      role: userId === ids.owner ? ("OWNER" as const) : ("MEMBER" as const),
+    })),
+  });
+  const commitment = await task(ids.owner, circleId);
+  const posted = await submitProof(
+    commitment.id,
+    ids.owner,
+    circleId,
+    [await media(ids.owner, circleId)],
+    null,
+    start,
+    now,
+    now,
+  );
+  await reviewProof(
+    posted.id,
+    ids.peer,
+    circleId,
+    { decision: "APPROVED", note: "Complete." },
+    now,
+  );
+  expect(
+    (await prisma.taskProof.findUniqueOrThrow({ where: { id: posted.id } }))
+      .reviewStatus,
+  ).toBe("PENDING");
+  await removeCircleMember(ids.outsider, circleId, ids.owner);
+  expect(
+    (await prisma.taskProof.findUniqueOrThrow({ where: { id: posted.id } }))
+      .reviewStatus,
+  ).toBe("PENDING");
+  expect(
+    (
+      await prisma.commitment.findUniqueOrThrow({
+        where: { id: commitment.id },
+      })
+    ).status,
+  ).toBe("AWAITING_REVIEW");
+});
+
+test("pending queue pagination is newest first and cannot reuse timeline cursors", async () => {
+  const circleId = `queue-${randomUUID()}`;
+  await prisma.circle.create({
+    data: { id: circleId, slug: circleId, name: "Queue" },
+  });
+  await prisma.membership.createMany({
+    data: [ids.owner, ids.peer].map((userId) => ({ userId, circleId })),
+  });
+  const commitment = await task(ids.owner, circleId);
+  await prisma.taskProof.createMany({
+    data: Array.from({ length: 25 }, (_, i) => ({
+      id: `${circleId}-${String(i).padStart(2, "0")}`,
+      circleId,
+      ownerId: ids.owner,
+      commitmentId: commitment.id,
+      isLate: false,
+      submittedAt: new Date(now.getTime() + i * 1000),
+      startedAt: start,
+      completedAt: now,
+    })),
+  });
+  expect(
+    (await getFeedPage({ viewerId: ids.owner, circleId, awaitingOnly: true }))
+      .items,
+  ).toHaveLength(0);
+  const first = await getFeedPage({
+    viewerId: ids.peer,
+    circleId,
+    awaitingOnly: true,
+  });
+  const next = await getFeedPage({
+    viewerId: ids.peer,
+    circleId,
+    awaitingOnly: true,
+    cursor: first.nextCursor ?? undefined,
+  });
+  expect([...first.items, ...next.items].map((p) => p.id)).toEqual(
+    Array.from(
+      { length: 25 },
+      (_, i) => `${circleId}-${String(24 - i).padStart(2, "0")}`,
+    ),
+  );
+  expect(next.nextCursor).toBeNull();
+  await expect(
+    getFeedPage({
+      viewerId: ids.peer,
+      circleId,
+      cursor: first.nextCursor ?? undefined,
+    }),
+  ).rejects.toThrow("Invalid feed cursor");
+});
+
+test("proof discussion includes verdict conversations, paginates replies, and isolates circles", async () => {
   const { getProofDiscussion } = await import("@/lib/proof-discussion");
   const posted = await proof();
+  const review = await reviewProof(
+    posted.id,
+    ids.peer,
+    ids.circle,
+    { decision: "APPROVED" },
+    now,
+  );
+  expect(review.note).toBeNull();
   const later = new Date(now.getTime() + 1000);
   await prisma.socialReply.createMany({
     data: Array.from({ length: 55 }, (_, index) => ({
@@ -1273,43 +1213,16 @@ test("proof discussion includes the challenge reason, paginates replies, and iso
       circleId: ids.circle,
       authorId: ids.owner,
       body: `Comment ${index}`,
-      proofId: posted.id,
+      ...(index % 2 ? { reviewId: review.id } : { proofId: posted.id }),
       createdAt: later,
     })),
   });
-  const commentCount = async () =>
-    (
-      await getFeedPage({
-        viewerId: ids.owner,
-        circleId: ids.circle,
-        proofIds: [posted.id],
-        checkInIds: [],
-      })
-    ).items[0].commentCount;
-  expect((await getProofDiscussion(ids.circle, posted.id)).challenges).toEqual(
-    [],
-  );
-  expect(await commentCount()).toBe(55);
-  const challenge = await challengeProof(
-    posted.id,
-    ids.peer,
-    ids.circle,
-    { reason: "The graph axes are unlabeled." },
-    now,
-  );
   const first = await getProofDiscussion(ids.circle, posted.id);
   expect(first.replies).toHaveLength(50);
   expect(first.hasMore).toBe(true);
-  expect(first.challenges).toHaveLength(1);
-  expect(first.challenges[0]).toMatchObject({
-    id: challenge.id,
-    body: "The graph axes are unlabeled.",
-    createdAt: now.toISOString(),
-    author: { id: ids.peer },
-    likeCount: 0,
-    likedByMe: false,
-    challenge: true,
-  });
+  expect(first.verdicts).toHaveLength(1);
+  expect(first.verdicts[0]).toMatchObject({ body: "", verdict: "APPROVED" });
+  expect(first.replies.some((reply) => reply.replyContext)).toBe(true);
   const second = await getProofDiscussion(
     ids.circle,
     posted.id,
@@ -1317,22 +1230,39 @@ test("proof discussion includes the challenge reason, paginates replies, and iso
   );
   expect(second.replies).toHaveLength(5);
   expect(second.hasMore).toBe(false);
-  expect(second.challenges).toHaveLength(1);
   expect(
     new Set([...first.replies, ...second.replies].map((reply) => reply.id))
       .size,
   ).toBe(55);
   const other = await getProofDiscussion(ids.other, posted.id);
   expect(other.replies).toEqual([]);
-  expect(other.challenges).toEqual([]);
+  expect(other.verdicts).toEqual([]);
   await expect(
     getProofDiscussion(ids.other, posted.id, first.replies[0].id),
   ).rejects.toThrow("Reply not found");
-  expect(await commentCount()).toBe(56);
-  expect(await resolveLegacyFocus(ids.circle, challenge.id)).toBe(
-    `/posts/proof/${posted.id}?circle=${ids.circle}&focus=${challenge.id}#comments`,
+  const feed = await getFeedPage({
+    viewerId: ids.owner,
+    circleId: ids.circle,
+    proofIds: [posted.id],
+    checkInIds: [],
+  });
+  expect(feed.items[0].commentCount).toBe(55);
+  await prisma.taskProofReview.update({
+    where: { id: review.id },
+    data: { note: "Nice work" },
+  });
+  const withNote = await getProofDiscussion(ids.circle, posted.id);
+  expect(withNote.verdicts[0].body).toBe("Nice work");
+  const updated = await getFeedPage({
+    viewerId: ids.owner,
+    circleId: ids.circle,
+    proofIds: [posted.id],
+    checkInIds: [],
+  });
+  expect(updated.items[0].commentCount).toBe(56);
+  expect(await resolveLegacyFocus(ids.circle, review.id)).toContain(
+    "#comments",
   );
-  expect(await resolveLegacyFocus(ids.other, challenge.id)).toBeNull();
 });
 
 test("check-in media is claimed atomically and included in the feed", async () => {
@@ -1467,9 +1397,9 @@ test("hourly reconciliation misses only tasks without an accepted submission", a
     },
     postedAt,
   );
-  const done = await task(ids.owner, circle.id, createdAt);
-  const posted = await submitProof(
-    done.id,
+  const awaiting = await task(ids.owner, circle.id, createdAt);
+  const pending = await submitProof(
+    awaiting.id,
     ids.owner,
     circle.id,
     [await media(ids.owner, circle.id)],
@@ -1478,9 +1408,9 @@ test("hourly reconciliation misses only tasks without an accepted submission", a
     postedAt,
     postedAt,
   );
-  const disputed = await task(ids.owner, circle.id, createdAt);
-  const challenged = await submitProof(
-    disputed.id,
+  const verified = await task(ids.owner, circle.id, createdAt);
+  const approved = await submitProof(
+    verified.id,
     ids.owner,
     circle.id,
     [await media(ids.owner, circle.id)],
@@ -1489,11 +1419,11 @@ test("hourly reconciliation misses only tasks without an accepted submission", a
     postedAt,
     postedAt,
   );
-  await challengeProof(
-    challenged.id,
+  await reviewProof(
+    approved.id,
     ids.peer,
     circle.id,
-    { reason: "Only half the page is visible." },
+    { decision: "APPROVED" },
     postedAt,
   );
   const encoding = await task(ids.owner, circle.id, createdAt);
@@ -1513,20 +1443,15 @@ test("hourly reconciliation misses only tasks without an accepted submission", a
     circle.id,
     new Date(createdAt.getTime() + 1),
   );
-  const status = async (id: string) =>
-    (await prisma.commitment.findUniqueOrThrow({ where: { id } })).status;
 
-  const feed = await getFeedPage({ viewerId: ids.peer, circleId: circle.id });
-  expect(feed.items.find((post) => post.id === posted.id)).toMatchObject({
-    expired: false,
-    challenged: false,
-    canChallenge: true,
+  const reviewQueue = await getFeedPage({
+    viewerId: ids.peer,
+    circleId: circle.id,
+    awaitingOnly: true,
   });
-  expect(feed.items.find((post) => post.id === challenged.id)).toMatchObject({
-    expired: false,
-    challenged: true,
-    canChallenge: false,
-  });
+  expect(
+    reviewQueue.items.find((post) => post.id === pending.id),
+  ).toMatchObject({ expired: false, canReview: true });
   expect((await reconcileMissedTasks(circle.id, now)).count).toBe(2);
   expect((await reconcileMissedTasks(circle.id, now)).count).toBe(0);
   expect(
@@ -1534,35 +1459,30 @@ test("hourly reconciliation misses only tasks without an accepted submission", a
       where: { id: { in: [open.id, renegotiated.id] }, status: "MISSED" },
     }),
   ).toBe(2);
-  expect(await status(done.id)).toBe("DONE");
-  expect(await status(disputed.id)).toBe("OPEN");
-  expect(await status(encoding.id)).toBe("OPEN");
-  expect(await status(fresh.id)).toBe("OPEN");
+  expect(
+    (await prisma.commitment.findUniqueOrThrow({ where: { id: awaiting.id } }))
+      .status,
+  ).toBe("AWAITING_REVIEW");
+  expect(
+    (await prisma.commitment.findUniqueOrThrow({ where: { id: verified.id } }))
+      .status,
+  ).toBe("VERIFIED");
+  expect(
+    (await prisma.commitment.findUniqueOrThrow({ where: { id: fresh.id } }))
+      .status,
+  ).toBe("OPEN");
   const muchLater = new Date(now.getTime() + 365 * 86_400_000);
-  expect((await reconcileMissedTasks(circle.id, muchLater)).count).toBe(1);
-  expect(await status(fresh.id)).toBe("MISSED");
-  expect(await status(disputed.id)).toBe("OPEN");
-  await expect(
-    challengeProof(
-      posted.id,
-      ids.peer,
-      circle.id,
-      { reason: "Far too late" },
-      muchLater,
-    ),
-  ).rejects.toThrow("within 24 hours");
-  const replacement = await submitProof(
-    disputed.id,
-    ids.owner,
-    circle.id,
-    [await media(ids.owner, circle.id)],
-    null,
-    createdAt,
-    postedAt,
-    muchLater,
-  );
-  expect(replacement.isLate).toBe(false);
-  expect(await status(disputed.id)).toBe("DONE");
+  expect(
+    (
+      await reviewProof(
+        pending.id,
+        ids.peer,
+        circle.id,
+        { decision: "APPROVED" },
+        muchLater,
+      )
+    ).proofStatus,
+  ).toBe("APPROVED");
   const published = await submitProof(
     encoding.id,
     ids.owner,
@@ -1574,8 +1494,21 @@ test("hourly reconciliation misses only tasks without an accepted submission", a
     queued.createdAt,
     queued.id,
   );
-  expect(published.isLate).toBe(false);
-  expect(await status(encoding.id)).toBe("DONE");
+  expect(
+    (await prisma.commitment.findUniqueOrThrow({ where: { id: encoding.id } }))
+      .status,
+  ).toBe("AWAITING_REVIEW");
+  expect(
+    (
+      await reviewProof(
+        published.id,
+        ids.peer,
+        circle.id,
+        { decision: "APPROVED" },
+        muchLater,
+      )
+    ).proofStatus,
+  ).toBe("APPROVED");
   expect(
     await prisma.notification.count({
       where: { entityId: published.id, kind: "PROOF_SUBMITTED" },
@@ -1634,35 +1567,20 @@ test("inbox rows commit with mutations and roll back with a failed transaction",
     where: { dedupeKey: `proof:${posted.id}:${ids.peer}` },
   });
   expect(submitted?.kind).toBe("PROOF_SUBMITTED");
-  const challenge = await challengeProof(
+  const review = await reviewProof(
     posted.id,
     ids.peer,
     ids.circle,
-    { reason: "The answers are not legible." },
+    { decision: "APPROVED" },
     now,
   );
   expect(
-    await prisma.notification.findUnique({
-      where: { dedupeKey: `challenge:${challenge.id}:${ids.owner}` },
-    }),
-  ).toMatchObject({
-    kind: "PROOF_CHALLENGED",
-    recipientId: ids.owner,
-    actorId: ids.peer,
-  });
-  // The challenger has not commented, but the challenge makes them a participant.
-  const ownerReply = await createSocialReply(ids.owner, ids.circle, {
-    targetType: "PROOF",
-    targetId: posted.id,
-    body: "Retaking the photo now",
-  });
-  expect(
     (
       await prisma.notification.findUnique({
-        where: { dedupeKey: `reply:${ownerReply.id}:${ids.peer}` },
+        where: { dedupeKey: `review:${review.id}:${ids.owner}` },
       })
     )?.kind,
-  ).toBe("REPLY_POSTED");
+  ).toBe("PROOF_APPROVED");
   const reply = await createSocialReply(ids.peer, ids.circle, {
     targetType: "PROOF",
     targetId: posted.id,
@@ -1700,26 +1618,104 @@ test("inbox rows commit with mutations and roll back with a failed transaction",
   ).toBeNull();
 });
 
+test("tasks freeze half-circle approvals and preserve departed reviewers' approvals", async () => {
+  const circleId = `fixed-${randomUUID()}`;
+  const users = Array.from({ length: 8 }, () => `fixed-user-${randomUUID()}`);
+  await prisma.user.createMany({
+    data: users.map((id) => ({ id, email: `${id}@example.invalid`, name: id })),
+  });
+  await prisma.circle.create({
+    data: { id: circleId, slug: circleId, name: "Fixed requirements" },
+  });
+  await prisma.membership.createMany({
+    data: users.slice(0, 4).map((userId) => ({ userId, circleId })),
+  });
+  const commitment = await task(users[0], circleId);
+  expect(commitment.requiredApprovals).toBe(2);
+  await prisma.membership.createMany({
+    data: users.slice(4).map((userId) => ({ userId, circleId })),
+  });
+  const largerTask = await task(users[0], circleId);
+  expect(largerTask.requiredApprovals).toBe(4);
+  const posted = await submitProof(
+    commitment.id,
+    users[0],
+    circleId,
+    [await media(users[0], circleId)],
+    null,
+    start,
+    now,
+    now,
+  );
+  await reviewProof(
+    posted.id,
+    users[1],
+    circleId,
+    { decision: "APPROVED" },
+    now,
+  );
+  const { removeCircleMember } = await import("@/lib/circles");
+  await removeCircleMember(users[1], circleId, users[0]);
+  expect(
+    (
+      await prisma.commitment.findUniqueOrThrow({
+        where: { id: commitment.id },
+      })
+    ).status,
+  ).toBe("AWAITING_REVIEW");
+  const feed = await getFeedPage({
+    circleId,
+    viewerId: users[2],
+    pendingOnly: true,
+  });
+  expect(feed.items.find((p) => p.id === posted.id)).toMatchObject({
+    approvalCount: 1,
+    requiredApprovals: 2,
+  });
+  expect(
+    (
+      await reviewProof(
+        posted.id,
+        users[2],
+        circleId,
+        { decision: "APPROVED" },
+        now,
+      )
+    ).proofStatus,
+  ).toBe("APPROVED");
+  await removeCircleMember(users[3], circleId, users[0]);
+  expect(
+    (
+      await prisma.commitment.findUniqueOrThrow({
+        where: { id: largerTask.id },
+      })
+    ).requiredApprovals,
+  ).toBe(4);
+});
+
 test("a late challenge reopens an on-time task and permits replacement proof", async () => {
   const { queueProof } = await import("@/lib/pending-proof");
   const posted = await proof();
-  const lastMoment = new Date(posted.submittedAt.getTime() + 86_400_000 - 1);
   const later = new Date(now.getTime() + 200 * 86_400_000);
-  await challengeProof(
-    posted.id,
-    ids.peer,
-    ids.circle,
-    { reason: "Need a clearer photo" },
-    lastMoment,
-  );
-  const status = async () =>
+  expect(
+    (
+      await reviewProof(
+        posted.id,
+        ids.peer,
+        ids.circle,
+        { decision: "CHALLENGED", note: "Need a clearer photo" },
+        later,
+      )
+    ).proofStatus,
+  ).toBe("CHALLENGED");
+  await reconcileMissedTasks(ids.circle, later);
+  expect(
     (
       await prisma.commitment.findUniqueOrThrow({
         where: { id: posted.commitmentId },
       })
-    ).status;
-  await reconcileMissedTasks(ids.circle, later);
-  expect(await status()).toBe("OPEN");
+    ).status,
+  ).toBe("OPEN");
   const queued = await queueProof(
     posted.commitmentId,
     ids.owner,
@@ -1742,17 +1738,17 @@ test("a late challenge reopens an on-time task and permits replacement proof", a
     queued.id,
   );
   expect(replacement.isLate).toBe(false);
-  expect(await status()).toBe("DONE");
-  await expect(
-    challengeProof(
-      replacement.id,
-      ids.peer,
-      ids.circle,
-      { reason: "Still blurry" },
-      replacement.submittedAt,
-    ),
-  ).resolves.toMatchObject({ proofId: replacement.id });
-  expect(await status()).toBe("OPEN");
+  expect(
+    (
+      await reviewProof(
+        replacement.id,
+        ids.peer,
+        ids.circle,
+        { decision: "APPROVED" },
+        later,
+      )
+    ).proofStatus,
+  ).toBe("APPROVED");
 });
 
 test("bucket ideas become opt-in dated plans, resist stale RSVPs, and confirm only actual participants", async () => {

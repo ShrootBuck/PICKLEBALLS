@@ -22,12 +22,24 @@ import { type FeedPage, type FeedPost, postKey } from "@/lib/social-types";
 export function Feed({
   initial,
   memberId,
+  reviewOnly = false,
+  awaitingOnly = false,
+  timelineOnly = false,
 }: {
   initial: FeedPage;
   memberId?: string;
+  reviewOnly?: boolean;
+  awaitingOnly?: boolean;
+  timelineOnly?: boolean;
 }) {
   const { feeds, openComposer, postRevision } = useSocial();
-  const key = memberId ?? "home";
+  const key = reviewOnly
+    ? "!review"
+    : awaitingOnly
+      ? "!pending"
+      : timelineOnly
+        ? "!timeline"
+        : (memberId ?? "home");
   const signature = JSON.stringify(initial);
   const previousSignature = useRef(signature);
   const [page, setPage] = useState<FeedPage>(() => {
@@ -80,6 +92,9 @@ export function Feed({
       async function readPage(cursor?: string): Promise<FeedPage> {
         const query = new URLSearchParams();
         if (memberId) query.set("memberId", memberId);
+        if (reviewOnly) query.set("filter", "review");
+        if (awaitingOnly) query.set("filter", "pending");
+        if (timelineOnly) query.set("filter", "timeline");
         if (cursor) query.set("cursor", cursor);
         const response = await fetch(`/api/feed?${query}`, {
           cache: "no-store",
@@ -145,11 +160,23 @@ export function Feed({
     >
       <section
         className="flex flex-col"
-        aria-label={memberId ? "Member posts" : "Circle timeline"}
+        aria-label={
+          awaitingOnly
+            ? "Proofs needing approval"
+            : memberId
+              ? "Member posts"
+              : "Circle timeline"
+        }
       >
         <div className="flex min-h-9 items-center justify-between gap-3">
           <h2 className="text-xs font-medium text-muted-foreground">
-            {memberId ? "Posts" : "Latest from your circle"}
+            {awaitingOnly
+              ? "Waiting for your approval"
+              : reviewOnly
+                ? "Waiting for your verdict"
+                : memberId
+                  ? "Posts"
+                  : "Latest from your circle"}
           </h2>
           <Button
             variant="ghost"
@@ -177,11 +204,21 @@ export function Feed({
               onChange={(patch) =>
                 setPage((current) => ({
                   ...current,
-                  items: current.items.map((item) =>
-                    postKey(item) === postKey(post)
-                      ? ({ ...item, ...patch } as FeedPost)
-                      : item,
-                  ),
+                  items:
+                    (reviewOnly &&
+                      "canReview" in patch &&
+                      patch.canReview === false) ||
+                    (awaitingOnly &&
+                      "canReview" in patch &&
+                      patch.canReview === false)
+                      ? current.items.filter(
+                          (item) => postKey(item) !== postKey(post),
+                        )
+                      : current.items.map((item) =>
+                          postKey(item) === postKey(post)
+                            ? ({ ...item, ...patch } as FeedPost)
+                            : item,
+                        ),
                 }))
               }
             />
@@ -192,14 +229,22 @@ export function Feed({
               <EmptyMedia variant="icon">
                 <Camera />
               </EmptyMedia>
-              <EmptyTitle>Good things start here</EmptyTitle>
+              <EmptyTitle>
+                {reviewOnly || awaitingOnly
+                  ? "You’re all caught up"
+                  : "Good things start here"}
+              </EmptyTitle>
               <EmptyDescription>
-                {memberId
-                  ? "Their proof and check-ins will appear here."
-                  : "Post some proof or check in."}
+                {awaitingOnly
+                  ? "No proofs are waiting for your approval. Check the timeline for your circle’s latest posts."
+                  : reviewOnly
+                    ? "No proof needs your verdict."
+                    : memberId
+                      ? "Their proof and check-ins will appear here."
+                      : "Post some proof or check in."}
               </EmptyDescription>
             </EmptyHeader>
-            {!memberId && (
+            {!memberId && !reviewOnly && !awaitingOnly && (
               <Button onClick={() => openComposer()}>
                 Make the first move
               </Button>

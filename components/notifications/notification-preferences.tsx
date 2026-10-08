@@ -104,7 +104,7 @@ export function NotificationPreferences() {
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
         Replies to your posts and threads you’ve commented in always appear in
-        your inbox, along with proof challenges and streak nudges. Push alerts
+        your inbox, along with proof verdicts and streak nudges. Push alerts
         arrive when enabled on this device.
       </p>
       {prefs ? (

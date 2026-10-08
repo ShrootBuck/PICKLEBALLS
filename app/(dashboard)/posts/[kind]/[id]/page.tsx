@@ -229,7 +229,7 @@ export default async function PostPage({
           targetType="PROOF"
           targetId={id}
           initialReplies={discussion.replies}
-          initialChallenges={discussion.challenges}
+          initialVerdicts={discussion.verdicts}
           initialHasMore={discussion.hasMore}
           focusId={typeof query.focus === "string" ? query.focus : undefined}
           currentUserId={session.user.id}

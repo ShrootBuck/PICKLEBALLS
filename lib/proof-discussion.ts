@@ -4,7 +4,7 @@ import { likeInclude, likeSummary } from "@/lib/like-summary";
 import { getPrisma } from "@/lib/prisma";
 import { socialAuthorSelect } from "@/lib/social-data";
 
-// A challenge's reason is read alongside the proof's comments.
+// Keep reviews as reviews, but read their conversations alongside post comments.
 export async function getProofDiscussion(
   circleId: string,
   proofId: string,
@@ -12,7 +12,7 @@ export async function getProofDiscussion(
   viewerId = "",
 ) {
   const prisma = getPrisma();
-  const where = { circleId, proofId };
+  const where = { circleId, OR: [{ proofId }, { review: { proofId } }] };
   const cursor = before
     ? await prisma.socialReply.findFirst({
         where: { ...where, id: before },
@@ -20,53 +20,58 @@ export async function getProofDiscussion(
       })
     : null;
   if (before && !cursor) throw new DomainError("Reply not found.", 404);
-  const [rows, challenge] = await Promise.all([
+  const [rows, reviews] = await Promise.all([
     prisma.socialReply.findMany({
       where: {
-        ...where,
-        ...(cursor
-          ? {
-              OR: [
-                { createdAt: { lt: cursor.createdAt } },
-                { createdAt: cursor.createdAt, id: { lt: cursor.id } },
-              ],
-            }
-          : {}),
+        AND: [
+          where,
+          ...(cursor
+            ? [
+                {
+                  OR: [
+                    { createdAt: { lt: cursor.createdAt } },
+                    { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+                  ],
+                },
+              ]
+            : []),
+        ],
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 51,
       include: {
         ...likeInclude(viewerId),
         author: { select: socialAuthorSelect },
+        review: { select: { reviewer: { select: { name: true } } } },
       },
     }),
-    prisma.proofChallenge.findFirst({
+    prisma.taskProofReview.findMany({
       where: { circleId, proofId },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       include: {
         ...likeInclude(viewerId),
-        challenger: { select: socialAuthorSelect },
+        reviewer: { select: socialAuthorSelect },
       },
     }),
   ]);
   return {
-    replies: rows.slice(0, 50).map((reply) => ({
+    replies: rows.slice(0, 50).map(({ review, ...reply }) => ({
       ...reply,
       ...likeSummary(reply),
       createdAt: reply.createdAt.toISOString(),
       updatedAt: reply.updatedAt.toISOString(),
+      replyContext: review
+        ? `Reply to ${review.reviewer.name}’s verdict`
+        : undefined,
     })),
     hasMore: rows.length > 50,
-    challenges: challenge
-      ? [
-          {
-            ...likeSummary(challenge),
-            id: challenge.id,
-            body: challenge.reason,
-            createdAt: challenge.createdAt.toISOString(),
-            author: challenge.challenger,
-            challenge: true as const,
-          },
-        ]
-      : [],
+    verdicts: reviews.map((review) => ({
+      ...likeSummary(review),
+      id: review.id,
+      body: review.note ?? "",
+      createdAt: review.createdAt.toISOString(),
+      author: review.reviewer,
+      verdict: review.decision,
+    })),
   };
 }

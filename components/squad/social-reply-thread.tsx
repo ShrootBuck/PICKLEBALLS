@@ -36,7 +36,8 @@ import { formatReplyTime } from "@/lib/time";
 export type ThreadReply = {
   likeCount?: number;
   likedByMe?: boolean;
-  challenge?: true;
+  verdict?: "APPROVED" | "CHALLENGED";
+  replyContext?: string;
   mediaIds?: string[];
   id: string;
   body: string;
@@ -55,6 +56,7 @@ type ReplyTargetType =
   | "CHECK_IN"
   | "CHECK_IN_UPDATE"
   | "PROOF"
+  | "REVIEW"
   | "BUCKET_ITEM"
   | "STREAK_EVENT"
   | "SCREEN_TIME";
@@ -93,8 +95,7 @@ function ReplyItem({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const editable =
-    !reply.challenge && mine && withinEditWindow(reply.createdAt);
+  const editable = !reply.verdict && mine && withinEditWindow(reply.createdAt);
   const edited = reply.updatedAt != null && reply.updatedAt !== reply.createdAt;
 
   const [likePending, setLikePending] = useState(false);
@@ -121,7 +122,7 @@ function ReplyItem({
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          targetType: reply.challenge ? "CHALLENGE" : "REPLY",
+          targetType: reply.verdict ? "REVIEW" : "REPLY",
           targetId: reply.id,
           liked: next,
         }),
@@ -199,7 +200,7 @@ function ReplyItem({
 
   return (
     <div
-      id={reply.challenge ? `challenge-${reply.id}` : `reply-${reply.id}`}
+      id={reply.verdict ? `verdict-${reply.id}` : `reply-${reply.id}`}
       className="flex scroll-mt-6 gap-2.5"
     >
       <Avatar className="size-7 shrink-0">
@@ -213,7 +214,13 @@ function ReplyItem({
           <span className="break-words text-[13px] font-medium">
             {reply.author.name}
           </span>
-          {reply.challenge && <Badge variant="destructive">Challenged</Badge>}
+          {reply.verdict && (
+            <Badge
+              variant={reply.verdict === "APPROVED" ? "success" : "destructive"}
+            >
+              {reply.verdict === "APPROVED" ? "Approved" : "Challenged"}
+            </Badge>
+          )}
           <time
             dateTime={reply.createdAt}
             className="shrink-0 text-[11px] text-muted-foreground tabular-nums"
@@ -263,6 +270,11 @@ function ReplyItem({
             </span>
           ) : null}
         </div>
+        {reply.replyContext && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {reply.replyContext}
+          </p>
+        )}
         {editing ? (
           <div className="mt-1.5 flex flex-col gap-1.5">
             <Textarea
@@ -340,7 +352,7 @@ export function SocialReplyThread({
   targetType,
   targetId,
   initialReplies,
-  initialChallenges,
+  initialVerdicts,
   initialHasMore,
   focusId,
   compact = false,
@@ -356,7 +368,7 @@ export function SocialReplyThread({
   targetType: ReplyTargetType;
   targetId: string;
   initialReplies: SocialReply[];
-  initialChallenges?: SocialReply[];
+  initialVerdicts?: SocialReply[];
   initialHasMore?: boolean;
   focusId?: string;
   compact?: boolean;
@@ -369,7 +381,7 @@ export function SocialReplyThread({
   onReplyCountChange?: (delta: number) => void;
   onDiscussionChange?: (discussion: {
     replies: SocialReply[];
-    challenges: SocialReply[];
+    verdicts: SocialReply[];
     hasMore: boolean;
   }) => void;
 }) {
@@ -385,10 +397,10 @@ export function SocialReplyThread({
   const [hasMore, setHasMore] = useState(
     initialHasMore ?? initialReplies.length === 50,
   );
-  const [challenges, setChallenges] = useState(initialChallenges ?? []);
+  const [verdicts, setVerdicts] = useState(initialVerdicts ?? []);
   useEffect(() => {
-    if (initialChallenges) setChallenges(initialChallenges);
-  }, [initialChallenges]);
+    if (initialVerdicts) setVerdicts(initialVerdicts);
+  }, [initialVerdicts]);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
   useEffect(() => {
     const fresh = chronological(initialReplies);
@@ -406,10 +418,10 @@ export function SocialReplyThread({
     });
     if (fresh.length < 50) setHasMore(false);
   }, [initialReplies]);
-  const latestDiscussion = useRef({ replies, challenges, hasMore });
+  const latestDiscussion = useRef({ replies, verdicts, hasMore });
   useEffect(() => {
-    latestDiscussion.current = { replies, challenges, hasMore };
-  }, [replies, challenges, hasMore]);
+    latestDiscussion.current = { replies, verdicts, hasMore };
+  }, [replies, verdicts, hasMore]);
   useEffect(
     () => () => {
       onDiscussionChange?.(latestDiscussion.current);
@@ -433,12 +445,12 @@ export function SocialReplyThread({
   const hiddenCount = Math.max(0, replies.length - visibleCount);
   const visibleReplies = chronological([
     ...replies.slice(-visibleCount),
-    ...challenges,
+    ...verdicts,
   ]);
   useEffect(() => {
     if (focusId)
       document
-        .getElementById(`challenge-${focusId}`)
+        .getElementById(`verdict-${focusId}`)
         ?.scrollIntoView({ block: "center" });
   }, [focusId]);
 
@@ -640,7 +652,7 @@ export function SocialReplyThread({
               <div className="flex flex-col gap-4" aria-live="polite">
                 {visibleReplies.map((reply) => (
                   <ReplyItem
-                    key={`${reply.challenge ? "challenge" : "reply"}-${reply.id}`}
+                    key={`${reply.verdict ? "verdict" : "reply"}-${reply.id}`}
                     reply={reply}
                     mine={
                       currentUserId != null && reply.author.id === currentUserId
@@ -650,7 +662,7 @@ export function SocialReplyThread({
                         current.map((item) =>
                           item.id === reply.id ? { ...item, ...state } : item,
                         );
-                      if (reply.challenge) setChallenges(update);
+                      if (reply.verdict) setVerdicts(update);
                       else setReplies(update);
                     }}
                     onEdited={(updated) =>

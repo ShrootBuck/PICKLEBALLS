@@ -13,7 +13,7 @@ const participantsFind = mock(async () => [
 const membersFind = mock(async () => [
   { userId: "owner" },
   { userId: "participant" },
-  { userId: "challenger" },
+  { userId: "reviewer" },
   { userId: "actor" },
 ]);
 const create = mock(async () => ({ id: "notification-1" }));
@@ -48,8 +48,12 @@ const sendPush = mock(async () => {});
 mock.module("@/lib/prisma", () => ({
   getPrisma: () => ({
     socialReply: { findFirst: replyFind, findMany: participantsFind },
-    proofChallenge: {
-      findFirst: async () => ({ challengerId: "challenger" }),
+    taskProofReview: {
+      findMany: async () => [
+        { reviewerId: "reviewer" },
+        { reviewerId: "actor" },
+        { reviewerId: "departed" },
+      ],
     },
     membership: { findMany: membersFind, findUnique: membershipFind },
     notificationPreference: {
@@ -112,14 +116,19 @@ beforeEach(() => {
     fn.mockClear();
 });
 
-test("retired task, check-in, and approval notices never create rows or pushes", async () => {
-  storedPrefs = { proofsSubmitted: true };
+test("retired task and check-in notices never create rows or pushes, even with old opt-ins", async () => {
+  storedPrefs = {
+    taskMissed: true,
+    taskCreated: true,
+    checkIns: true,
+    screenTime: true,
+    proofsSubmitted: true,
+  };
   for (const kind of [
     "TASK_MISSED",
     "TASK_CREATED",
     "TASK_RENEGOTIATED",
     "CHECK_IN_SET",
-    "PROOF_APPROVED",
   ] as const) {
     expect(await createNotificationAndPush({ ...input, kind })).toBeNull();
   }
@@ -128,7 +137,7 @@ test("retired task, check-in, and approval notices never create rows or pushes",
 });
 
 test("muting photo push keeps the photo in the inbox", async () => {
-  storedPrefs = { proofsSubmitted: false };
+  storedPrefs = { proofsSubmitted: false, screenTime: true };
   expect(
     await createNotificationAndPush({ ...input, kind: "PROOF_SUBMITTED" }),
   ).toEqual({ id: "notification-1" });
@@ -136,17 +145,26 @@ test("muting photo push keeps the photo in the inbox", async () => {
   expect(sendPush).not.toHaveBeenCalled();
 });
 
-test("direct replies and challenges always reach inbox and push", async () => {
-  storedPrefs = { proofsSubmitted: false };
-  for (const kind of ["REPLY_POSTED", "PROOF_CHALLENGED"] as const) {
+test("direct replies and verdicts always reach inbox and push", async () => {
+  storedPrefs = {
+    replies: false,
+    proofReviews: false,
+    proofsSubmitted: false,
+    screenTime: false,
+  };
+  for (const kind of [
+    "REPLY_POSTED",
+    "PROOF_APPROVED",
+    "PROOF_CHALLENGED",
+  ] as const) {
     await createNotificationAndPush({ ...input, kind });
   }
-  expect(create).toHaveBeenCalledTimes(2);
-  expect(sendPush).toHaveBeenCalledTimes(2);
+  expect(create).toHaveBeenCalledTimes(3);
+  expect(sendPush).toHaveBeenCalledTimes(3);
 });
 
 test("retired weekly reminders never create inbox rows or push", async () => {
-  storedPrefs = { proofsSubmitted: true };
+  storedPrefs = { proofsSubmitted: true, screenTime: true };
   expect(
     await createNotificationAndPush({
       ...input,
@@ -265,6 +283,15 @@ for (const [relation, field, target] of [
     { id: "target", ownerId: "owner", commitment: { title: "Task" } },
   ],
   [
+    "review",
+    "reviewId",
+    {
+      id: "target",
+      reviewerId: "reviewer",
+      proof: { id: "proof", ownerId: "owner", commitment: { title: "Task" } },
+    },
+  ],
+  [
     "bucketItem",
     "bucketItemId",
     { id: "target", proposerId: "owner", title: "Go skydiving" },
@@ -288,16 +315,29 @@ for (const [relation, field, target] of [
     expect(participantsFind).toHaveBeenCalledWith({
       where: {
         circleId: "circle",
-        [field]: "target",
+        ...(relation === "proof" || relation === "review"
+          ? {
+              OR: [
+                { proofId: relation === "proof" ? "target" : "proof" },
+                {
+                  review: {
+                    proofId: relation === "proof" ? "target" : "proof",
+                  },
+                },
+              ],
+            }
+          : { [field]: "target" }),
         createdAt: { lte: createdAt },
         authorId: { not: "actor" },
       },
       distinct: ["authorId"],
       select: { authorId: true },
     });
-    expect(upsert).toHaveBeenCalledTimes(relation === "proof" ? 3 : 2);
-    for (const recipientId of relation === "proof"
-      ? ["owner", "challenger", "participant"]
+    expect(upsert).toHaveBeenCalledTimes(
+      relation === "review" || relation === "proof" ? 3 : 2,
+    );
+    for (const recipientId of relation === "review" || relation === "proof"
+      ? ["owner", "reviewer", "participant"]
       : ["owner", "participant"]) {
       expect(upsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -318,11 +358,13 @@ for (const [relation, field, target] of [
             url:
               relation === "proof"
                 ? "/posts/proof/target?circle=circle#comments"
-                : relation === "checkInUpdate"
-                  ? "/posts/check-in/target?circle=circle#comments"
-                  : relation === "bucketItem"
-                    ? "/bucket-list/target?circle=circle#comments"
-                    : "/squad?circle=circle&focus=target",
+                : relation === "review"
+                  ? "/posts/proof/proof?circle=circle&focus=target#comments"
+                  : relation === "checkInUpdate"
+                    ? "/posts/check-in/target?circle=circle#comments"
+                    : relation === "bucketItem"
+                      ? "/bucket-list/target?circle=circle#comments"
+                      : "/squad?circle=circle&focus=target",
           }),
         }),
       }),

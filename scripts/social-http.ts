@@ -53,7 +53,10 @@ const proof = await prisma.taskProof.findFirstOrThrow({
 });
 assert.equal((await get("/api/feed", "")).status, 401);
 assert.equal((await get("/api/feed?memberId=test-outsider")).status, 404);
-assert.equal((await get("/api/feed?cursor=not-a-cursor")).status, 400);
+assert.equal(
+  (await get("/api/feed?filter=review&memberId=test-owner")).status,
+  400,
+);
 const data = await (await get("/api/feed")).json();
 assert(data.items.length > 0);
 assert(

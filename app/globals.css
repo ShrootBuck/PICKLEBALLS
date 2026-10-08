@@ -774,6 +774,15 @@
   border-radius: 8px;
   scroll-margin-block: 40px;
 }
+.review-nudge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
 .social-composer {
   width: 100%;
   max-height: 92dvh;
@@ -2144,6 +2153,14 @@ section:first-child > .mood-group-label {
   }
 }
 
+.review-nudge {
+  transition: color 160ms ease;
+}
+@media (hover: hover) {
+  .review-nudge:hover {
+    color: var(--foreground);
+  }
+}
 .social-day-panel a[href*="#task-"] {
   transition: color 160ms ease;
 }

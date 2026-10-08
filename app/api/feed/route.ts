@@ -10,9 +10,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   const query = z
     .object({
+      filter: z.enum(["review", "pending", "timeline"]).optional(),
       cursor: z.string().max(1500).optional(),
       memberId: z.string().min(1).max(100).optional(),
     })
+    .refine(
+      (value) => !(value.filter && value.memberId),
+      "Choose a profile or review filter.",
+    )
     .safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!query.success)
     return NextResponse.json({ error: "Invalid feed query." }, { status: 400 });
@@ -22,6 +27,9 @@ export async function GET(request: Request) {
         viewerId: auth.session.user.id,
         circleId: auth.membership.circleId,
         ...query.data,
+        pendingOnly: query.data.filter === "review",
+        timelineOnly: query.data.filter === "timeline",
+        awaitingOnly: query.data.filter === "pending",
       }),
       { headers: { "cache-control": "private, no-store" } },
     );

@@ -148,7 +148,7 @@ export function GoalWorkspace({
       <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
         <PageSection
           title="The milestones"
-          description="Marked complete by the person working on the goal. Linked tasks count once their proof is posted."
+          description="Marked complete by the person working on the goal. Linked task proof is reviewed separately."
         >
           {progress.total > 0 && (
             <div className="flex flex-col gap-2">
@@ -242,7 +242,7 @@ export function GoalWorkspace({
         </PageSection>
         <PageSection
           title="The work behind it"
-          description={`${goal.tasks.filter((task) => task.status === "DONE").length} done of ${goal.tasks.length} linked tasks.`}
+          description={`${goal.tasks.filter((task) => task.status === "VERIFIED").length} verified of ${goal.tasks.length} linked tasks.`}
           action={
             editable && (
               <div className="flex flex-wrap gap-2">

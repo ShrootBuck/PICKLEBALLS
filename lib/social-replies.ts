@@ -284,7 +284,44 @@ export async function createSocialReply(
       return reply;
     }
 
-    throw new DomainError("Choose something to reply to.");
+    const review = await transaction.taskProofReview.findFirst({
+      where: { id: targetId, circleId },
+      select: {
+        id: true,
+        decision: true,
+        reviewer: { select: { name: true } },
+        proof: {
+          select: { id: true, commitment: { select: { title: true } } },
+        },
+      },
+    });
+    if (!review) throw new DomainError("Review not found.", 404);
+
+    const reply = await transaction.socialReply.create({
+      data: {
+        authorId,
+        circleId,
+        reviewId: review.id,
+        body,
+        mediaIds,
+      },
+      include: { author: { select: authorSelect } },
+    });
+    await transaction.activityEvent.create({
+      data: {
+        circleId,
+        actorId: authorId,
+        kind: "REPLY_POSTED",
+        entityId: review.proof.id,
+        summary: `replied to ${review.reviewer.name}'s ${review.decision === "CHALLENGED" ? "challenge" : "approval"} on “${review.proof.commitment.title}”`,
+        metadata: { targetType, replyId: reply.id },
+      },
+    });
+    await notifyReplyReceived(
+      { replyId: reply.id, authorId, circleId },
+      notifications,
+    );
+    return reply;
   });
 }
 

@@ -7,11 +7,12 @@ const rowSchema = z.object({
   title: z.string().max(160),
   startedAt: z.string().max(30),
   completedAt: z.string().max(30),
-  // Drafts live on devices, so map statuses saved before approvals were removed.
+  // Drafts live on devices, so map the status saved while approvals were off.
   status: z.preprocess(
-    (status) =>
-      status === "VERIFIED" || status === "AWAITING_REVIEW" ? "DONE" : status,
-    z.enum(["OPEN", "DONE", "MISSED", "RENEGOTIATED"]).nullable(),
+    (status) => (status === "DONE" ? "VERIFIED" : status),
+    z
+      .enum(["OPEN", "AWAITING_REVIEW", "VERIFIED", "MISSED", "RENEGOTIATED"])
+      .nullable(),
   ),
   included: z.boolean(),
 });

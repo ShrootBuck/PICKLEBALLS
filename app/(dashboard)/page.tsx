@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { LandingPage } from "@/components/landing/landing-page";
 import { MoodLauncher } from "@/components/mood/mood-launcher";
 import { ScreenTimeReminder } from "@/components/screen-time/reminder";
-import { Feed } from "@/components/social/feed";
 import { HomeActions } from "@/components/social/home-actions";
+import { HomeFeed } from "@/components/social/home-feed";
 import { StreakToday } from "@/components/streaks/streak-today";
 import { getPrisma } from "@/lib/prisma";
 import { getPageSession, requirePageMembership } from "@/lib/request";
@@ -17,8 +17,9 @@ export default async function HomePage() {
   if (!session) return <LandingPage />;
   const { membership } = await requirePageMembership();
   const context = { viewerId: session.user.id, circleId: membership.circleId };
-  const [feed, latest, streaks] = await Promise.all([
-    getFeedPage(context),
+  const [feed, pending, latest, streaks] = await Promise.all([
+    getFeedPage({ ...context, timelineOnly: true }),
+    getFeedPage({ ...context, awaitingOnly: true }),
     getPrisma().checkInUpdate.findFirst({
       where: {
         userId: session.user.id,
@@ -50,7 +51,7 @@ export default async function HomePage() {
         userId={session.user.id}
         circleId={membership.circleId}
       />
-      <Feed initial={feed} />
+      <HomeFeed timeline={feed} pending={pending} />
     </>
   );
 }

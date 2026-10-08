@@ -27,9 +27,12 @@ function post(id: string, minute = 0): FeedPost {
     title: "Task",
     commitmentId: id,
     mediaIds: [],
-    challenged: false,
-    canChallenge: true,
+    reviewStatus: "PENDING",
+    canReview: true,
     expired: false,
+    requiredApprovals: 1,
+    approvalCount: 0,
+    verifiedBy: null,
   };
 }
 test("feed cursor is bound to circle and profile and rejects malformed input", () => {
@@ -82,7 +85,7 @@ test("explicit refresh updates older loaded posts without dropping the reading w
       return cursor
         ? {
             items: [
-              { ...old, challenged: true, canChallenge: false },
+              { ...old, reviewStatus: "APPROVED", canReview: false },
               { ...oldest, commentCount: 4, likeCount: 2 },
             ],
             nextCursor: "fresh-tail",
@@ -98,8 +101,8 @@ test("explicit refresh updates older loaded posts without dropping the reading w
     "oldest",
   ]);
   expect(refreshed.items[2]).toMatchObject({
-    challenged: true,
-    canChallenge: false,
+    reviewStatus: "APPROVED",
+    canReview: false,
   });
   expect(refreshed.items[3]).toMatchObject({ commentCount: 4, likeCount: 2 });
   expect(refreshed.nextCursor).toBe("fresh-tail");

@@ -225,7 +225,7 @@ function PostComments({
   const [open, setOpen] = useState(false);
   const [discussion, setDiscussion] = useState<{
     replies: ThreadReply[];
-    challenges?: ThreadReply[];
+    verdicts?: ThreadReply[];
     hasMore: boolean;
   } | null>(null);
   const [error, setError] = useState(false);
@@ -316,7 +316,7 @@ function PostComments({
                 targetType={targetType}
                 targetId={post.id}
                 initialReplies={discussion.replies}
-                initialChallenges={discussion.challenges}
+                initialVerdicts={discussion.verdicts}
                 initialHasMore={discussion.hasMore}
                 onDiscussionChange={setDiscussion}
                 currentUserId={viewerId}

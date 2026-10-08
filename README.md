@@ -2,8 +2,9 @@
 
 Pickle Balls is a private social accountability app. Home shows friends’ daily
 progress, proof, and check-ins. Each check-in has its own likes and discussion.
-Profiles collect posts and daily tasks. Posting proof completes a task, and
-friends can challenge it for 24 hours. Phoenix-day deadlines, screen-time rankings,
+Profiles collect posts and daily tasks; Squad collects proof that needs a verdict.
+Half the circle, rounded down, must approve proof to verify a task, and one
+challenge reopens it. Phoenix-day deadlines, screen-time rankings,
 and weekly timeblock PDFs keep the work grounded.
 
 ## Stack

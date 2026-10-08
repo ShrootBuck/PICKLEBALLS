@@ -107,12 +107,12 @@ export default async function SuperAdminUserPage({
         <Stat
           label="Tasks"
           value={formatNumber(user._count.commitments)}
-          hint={`${formatNumber(taskStatuses.DONE ?? 0)} done, ${formatNumber(taskStatuses.MISSED ?? 0)} missed`}
+          hint={`${formatNumber(taskStatuses.VERIFIED ?? 0)} verified, ${formatNumber(taskStatuses.MISSED ?? 0)} missed`}
         />
         <Stat
           label="Proofs"
           value={formatNumber(user._count.proofs)}
-          hint={`${plural(user._count.proofChallenges, "challenge")} given`}
+          hint={`${plural(user._count.proofReviews, "review")} given`}
         />
         <Stat
           label="Check-ins"

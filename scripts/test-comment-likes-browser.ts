@@ -71,7 +71,7 @@ try {
     false,
   );
   await page.unroute("**/api/likes");
-  await page.goto("http://localhost:3317/posts/proof/demo-proof-5");
+  await page.goto("http://localhost:3317/posts/proof/demo-proof-1");
   await page
     .getByRole("button", { name: /Like comment by/ })
     .first()
@@ -94,7 +94,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Passed: comment and challenge likes, count, reload persistence, unlike, mobile overflow, failed-save rollback.",
+    "Passed: comment and verdict likes, count, reload persistence, unlike, mobile overflow, failed-save rollback.",
   );
   console.log("Browser errors:", errors);
 } finally {

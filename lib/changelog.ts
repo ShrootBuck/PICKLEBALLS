@@ -8,10 +8,10 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
-    timestamp: 1791264150684,
-    title: "Proof counts when you post it",
+    timestamp: 1791433201771,
+    title: "Approvals are back",
     description:
-      "Approvals are gone. Posting proof finishes your task right away, and it shows up in the timeline like any other post. Friends can still challenge proof with a reason for 24 hours after it posts, which reopens the task until you post new proof. Past approvals now appear as likes, and their comments stay in the discussion.",
+      "Proof needs approvals from half your circle, rounded down, before a task is verified, and one challenge still sends it back. Proof posted while approvals were off stays verified, and earlier approvals and their comments are restored.",
   },
   {
     timestamp: 1791250263404,

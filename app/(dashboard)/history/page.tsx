@@ -24,6 +24,7 @@ import { formatFeelings, moodStyle } from "@/lib/mood";
 import { postHref, squadHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
+import { requiredApprovalsForCircle } from "@/lib/task-policy";
 import {
   formatDayLong,
   formatHistoryTime,
@@ -72,6 +73,7 @@ export default async function HistoryPage({
                 title: true,
                 dueAt: true,
                 proofSubmittedAt: true,
+                requiredApprovals: true,
                 status: true,
               },
             },
@@ -85,11 +87,24 @@ export default async function HistoryPage({
                 },
               },
             },
-            challenge: {
+            reviews: {
+              orderBy: { createdAt: "asc" },
               include: {
-                ...likeInclude(session.user.id),
-                challenger: {
-                  select: { id: true, name: true, image: true, initials: true },
+                reviewer: { select: { name: true } },
+                replies: {
+                  orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+                  take: 50,
+                  include: {
+                    ...likeInclude(session.user.id),
+                    author: {
+                      select: {
+                        id: true,
+                        name: true,
+                        image: true,
+                        initials: true,
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -113,7 +128,9 @@ export default async function HistoryPage({
     }),
   ]);
 
-  const done = tasks.filter((task) => task.status === "DONE").length;
+  const memberCount = members.length;
+  const verified = tasks.filter((task) => task.status === "VERIFIED").length;
+  const needed = requiredApprovalsForCircle(memberCount);
 
   const tasksByUser = new Map<string, typeof tasks>();
   for (const task of tasks) {
@@ -173,7 +190,7 @@ export default async function HistoryPage({
         description={
           tasks.length === 0
             ? "Nothing happened on this day."
-            : `${done} of ${tasks.length} tasks done across the squad.`
+            : `${verified} of ${tasks.length} tasks verified across the squad.`
         }
         actions={<HistoryNav day={dayKey} today={todayKey} />}
       >
@@ -219,8 +236,8 @@ export default async function HistoryPage({
                       },
                     ]
                   : [];
-            const userDone = userTasks.filter(
-              (task) => task.status === "DONE",
+            const userVerified = userTasks.filter(
+              (task) => task.status === "VERIFIED",
             ).length;
             return (
               <section
@@ -241,7 +258,7 @@ export default async function HistoryPage({
                     <p className="truncate text-[13px] text-muted-foreground">
                       {userTasks.length === 0
                         ? "No tasks"
-                        : `${userDone}/${userTasks.length} done`}
+                        : `${userVerified}/${userTasks.length} verified`}
                       {checkInItems.length > 0
                         ? ` · ${checkInItems.length} ${checkInItems.length === 1 ? "check-in" : "check-ins"}`
                         : ""}
@@ -256,8 +273,9 @@ export default async function HistoryPage({
                       return (
                         <ProofCard
                           key={task.id}
-                          proof={toProofCard(proof)}
+                          proof={toProofCard(proof, session.user.id, needed)}
                           viewerId={session.user.id}
+                          mode="history"
                         />
                       );
                     }

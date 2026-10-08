@@ -43,7 +43,7 @@ export default async function SuperAdminOverviewPage() {
   await requireSuperAdmin();
   const data = await getAdminOverview();
   const { users, circles, tasks, content, system } = data;
-  const done = tasks.byStatus.DONE ?? 0;
+  const verified = tasks.byStatus.VERIFIED ?? 0;
   const missed = tasks.byStatus.MISSED ?? 0;
   const aiTotals = data.aiRuns.reduce(
     (sum, row) => ({
@@ -101,12 +101,12 @@ export default async function SuperAdminOverviewPage() {
           <Stat
             label="Tasks"
             value={formatNumber(tasks.total)}
-            hint={`${formatNumber(tasks.thisWeek)} this week, ${percent(done, tasks.total)} done, ${percent(missed, tasks.total)} missed`}
+            hint={`${formatNumber(tasks.thisWeek)} this week, ${percent(verified, tasks.total)} verified, ${percent(missed, tasks.total)} missed`}
           />
           <Stat
             label="Proofs"
             value={formatNumber(content.proofs)}
-            hint={`${formatNumber(content.proofsChallenged)} challenged`}
+            hint={`${formatNumber(content.proofsAwaitingReview)} awaiting review`}
           />
           <Stat label="Mood check-ins" value={formatNumber(content.checkIns)} />
           <Stat

@@ -1,6 +1,6 @@
 "use client";
 
-import { Trophy } from "lucide-react";
+import { BadgeCheck, Trophy } from "lucide-react";
 import Link from "next/link";
 import { MediaGallery } from "@/components/media/media-gallery";
 import { ImpactList } from "@/components/mood/mood-display";
@@ -166,16 +166,39 @@ export function PostBody({ post }: { post: InteractivePost }) {
             >
               {post.title}
             </Link>
-            {(post.expired || post.challenged) && (
-              <Badge variant="destructive">
-                {post.expired ? "Expired" : "Challenged"}
-              </Badge>
-            )}
+            <Badge
+              variant={
+                post.expired
+                  ? "destructive"
+                  : post.reviewStatus === "APPROVED"
+                    ? "success"
+                    : post.reviewStatus === "CHALLENGED"
+                      ? "destructive"
+                      : "secondary"
+              }
+            >
+              {post.expired ? (
+                "Expired"
+              ) : post.reviewStatus === "APPROVED" ? (
+                <>
+                  <BadgeCheck data-icon="inline-start" /> Verified
+                </>
+              ) : post.reviewStatus === "CHALLENGED" ? (
+                "Challenged"
+              ) : (
+                `${post.approvalCount}/${post.requiredApprovals} approvals`
+              )}
+            </Badge>
           </div>
           <div className="feed-media">
             <MediaGallery ids={post.mediaIds} legacyProofId={post.id} />
           </div>
           {post.body && <p className="social-post-caption">{post.body}</p>}
+          {post.verifiedBy && post.reviewStatus === "APPROVED" && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Verified by {post.verifiedBy}
+            </p>
+          )}
         </>
       ) : (
         <CheckInBody post={post} />

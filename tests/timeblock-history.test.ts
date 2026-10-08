@@ -95,9 +95,9 @@ test("undo preserves fresh proof status and newly received proof", () => {
   const oldProof = {
     ...row,
     id: "proof-1",
-    status: "OPEN" as const,
+    status: "AWAITING_REVIEW" as const,
   };
-  const freshProof = { ...oldProof, status: "DONE" as const };
+  const freshProof = { ...oldProof, status: "VERIFIED" as const };
   const newProof = { ...freshProof, id: "proof-2" };
   const history = {
     past: [historyEntry([oldProof], EMPTY_ROUTINE, EMPTY_ROUTINE)],
@@ -135,7 +135,7 @@ test("new proofs cannot make undo exceed the report limit or consume history", (
   };
   expect(() =>
     restoreHistoryEntry(history, "past", [], EMPTY_ROUTINE, [
-      { ...row, id: "proof-new", status: "DONE" },
+      { ...row, id: "proof-new", status: "VERIFIED" },
     ]),
   ).toThrow("over 280 blocks");
   expect(history.past).toHaveLength(1);

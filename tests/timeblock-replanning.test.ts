@@ -43,7 +43,7 @@ const custom: TimeblockRoutine = {
 const row: TimeblockDraftRow = {
   id: "proof-1",
   title: "Physics",
-  status: "DONE",
+  status: "VERIFIED",
   included: true,
   startedAt: "2026-09-07T16:00",
   completedAt: "2026-09-07T17:00",
@@ -67,7 +67,7 @@ describe("whole-week replanning", () => {
       due,
     );
     expect(moved.routine).toEqual(custom);
-    expect(moved.rows[0].status).toBe("DONE");
+    expect(moved.rows[0].status).toBe("VERIFIED");
     const next = applyReportEdit(
       moved.rows,
       custom,
@@ -183,7 +183,7 @@ describe("whole-week replanning", () => {
       due,
     );
     expect(next.rows).toHaveLength(101);
-    expect(next.rows[0].status).toBe("DONE");
+    expect(next.rows[0].status).toBe("VERIFIED");
     expect(next.routine.schedule).toEqual(custom.schedule);
     const restored = parseTimeblockDraft(
       JSON.stringify({ version: 1, rows: next.rows }),

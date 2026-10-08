@@ -728,8 +728,8 @@ export function TimeblockBuilder({
                                 ? "Excluded"
                                 : isRoutineBlock(row.id)
                                   ? "Routine"
-                                  : row.status === "DONE"
-                                    ? "Done"
+                                  : row.status === "VERIFIED"
+                                    ? "Verified proof"
                                     : row.status
                                       ? "From proof"
                                       : "Manual"}

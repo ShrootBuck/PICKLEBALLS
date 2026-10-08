@@ -9,7 +9,10 @@ import { getPrisma } from "@/lib/prisma";
 import { getPageSession, requirePageMembership } from "@/lib/request";
 import { socialTaskInclude, toSocialTask } from "@/lib/social-data";
 import { isSuperAdmin } from "@/lib/super-admin";
-import { currentTaskFilter } from "@/lib/task-policy";
+import {
+  currentTaskFilter,
+  reviewableCommitmentFilter,
+} from "@/lib/task-policy";
 import { phoenixDateKey } from "@/lib/time";
 
 export default async function DashboardLayout({
@@ -22,20 +25,31 @@ export default async function DashboardLayout({
     return <div className="min-h-full bg-background">{children}</div>;
   const { membership } = await requirePageMembership();
   const day = phoenixDateKey();
-  const [memberships, tasks, bucketVotes, superAdmin] = await Promise.all([
-    listMyCircles(session.user.id),
-    getPrisma().commitment.findMany({
-      where: {
-        userId: session.user.id,
-        circleId: membership.circleId,
-        ...currentTaskFilter(),
-      },
-      orderBy: { createdAt: "asc" },
-      include: socialTaskInclude,
-    }),
-    countBucketVotesAwaiting(membership.circleId, session.user.id),
-    isSuperAdmin(session.user.id),
-  ]);
+  const [memberships, tasks, pendingVerdicts, bucketVotes, superAdmin] =
+    await Promise.all([
+      listMyCircles(session.user.id),
+      getPrisma().commitment.findMany({
+        where: {
+          userId: session.user.id,
+          circleId: membership.circleId,
+          ...currentTaskFilter(),
+        },
+        orderBy: { createdAt: "asc" },
+        include: socialTaskInclude,
+      }),
+      getPrisma().taskProof.count({
+        where: {
+          circleId: membership.circleId,
+          reviewStatus: "PENDING",
+          commitment: reviewableCommitmentFilter(),
+          replacedById: null,
+          ownerId: { not: session.user.id },
+          reviews: { none: { reviewerId: session.user.id } },
+        },
+      }),
+      countBucketVotesAwaiting(membership.circleId, session.user.id),
+      isSuperAdmin(session.user.id),
+    ]);
   const { id, name, image, initials } = membership.user;
   return (
     <SocialProvider
@@ -51,6 +65,7 @@ export default async function DashboardLayout({
           name: circle.name,
           role,
         }))}
+        pendingVerdicts={pendingVerdicts}
         bucketVotes={bucketVotes}
         superAdmin={superAdmin}
         bell={

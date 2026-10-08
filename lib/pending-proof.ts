@@ -31,20 +31,17 @@ export async function queueProof(
       throw new DomainError("This task already has proof processing.", 409);
     const task = await tx.commitment.findFirst({
       where: { id: taskId, userId: ownerId, circleId },
-      include: {
-        proofs: {
-          where: { replacedById: null },
-          take: 1,
-          include: { challenge: { select: { id: true } } },
-        },
-      },
+      include: { proofs: { where: { replacedById: null }, take: 1 } },
     });
     if (!task) throw new DomainError("Task not found.", 404);
-    if (task.status === "DONE" || (task.proofs[0] && !task.proofs[0].challenge))
-      throw new DomainError("This task already has proof.", 409);
     if (!canSubmitProof(task, now))
       throw new DomainError(
         "The submission window is closed. Missed tasks cannot receive new or replacement proof.",
+        409,
+      );
+    if (task.proofs[0] && task.proofs[0].reviewStatus !== "CHALLENGED")
+      throw new DomainError(
+        "This task already has proof waiting on a verdict.",
         409,
       );
     const pending = await tx.pendingProof.create({
