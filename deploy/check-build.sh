@@ -21,7 +21,6 @@ trap 'runuser -u postgres -- pg_ctl -D /tmp/pb-check-db -m immediate stop >/dev/
 runuser -u postgres -- pg_ctl -D /tmp/pb-check-db -l /tmp/pb-check-postgres.log -o '-h 127.0.0.1 -p 5432' -w start
 createdb -h 127.0.0.1 -U postgres pickleballs_test
 bun run db:validate
-bun run lint
 bunx --no-install next typegen
 bun run typecheck
 bun run test

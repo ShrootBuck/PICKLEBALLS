@@ -42,18 +42,29 @@ Playback tickets, errors, and unversioned video responses remain uncached.
 Push to GitHub `main` to deploy directly through Coolify. No GitHub Actions,
 release branches, API token, or manual migration command is required.
 
-Both Docker targets depend on the same checks and Next.js build stages. Checks
-run lint, generated Next types, typechecking, isolated unit tests, and populated
-migration/integration tests against disposable Postgres 18.6 inside the build.
-The migration suite verifies that committed SQL matches the Prisma schema.
-Build tests run with a clean environment, test-only credentials, and an isolated
-network namespace (`RUN --network=none` still permits their own loopback).
-This overrides Coolify's host-network build default, preventing concurrent builds
-from sharing a test database or conflicting over test ports. The temporary
-database is stopped and removed, and is never part of either runtime image.
-A failed check or compilation prevents that image from deploying. Docker can
-reuse successful stages when their inputs match; web and worker have separate
-Coolify build configurations, so shared caching is not guaranteed.
+Both Docker targets depend on one shared validation stage: generated Next types,
+typechecking, isolated unit tests, and populated migration/integration tests
+against disposable Postgres 18.6. The migration suite checks SQL/schema agreement.
+Lint runs locally (`bun run lint`), outside deployment.
+
+The first build runs validation; the second reuses its successful Docker layer.
+Shared RUN steps declare the same optional SHA secret mount, preventing Coolify
+from injecting different per-app mount lists. They do not consume the SHA or app
+secrets. The shared source copy excludes Coolify's generated `docker-compose.yaml`
+and `docker-compose.yml`, which differ between apps and releases. Cache eviction,
+manual no-cache builds, or changed source inputs can require validation again.
+
+Only web compiles Next.js. Docker sets `PB_BUILD_TYPECHECKED=true` after the shared
+checks pass to skip Next's duplicate typecheck. Ordinary local Next builds keep
+typechecking. Worker packages the checked source directly, without a web compile.
+Web compilation failure does not gate an independent worker deployment; this is
+not an atomic two-service release. Keep the existing forward-fix policy.
+
+Tests run with a clean environment, test-only credentials, and isolated loopback
+networking. Their temporary database never enters runtime images. The release
+stamp uses a separate read-only bind of the build context so Coolify's generated
+release configuration invalidates that cheap step even for docs-only commits,
+without invalidating the shared checks or copying generated config into images.
 
 At startup `deploy/migrate.mjs` holds a shared Postgres advisory lock while it
 checks the checksums of already-applied migrations and runs `prisma migrate deploy`.
@@ -112,7 +123,7 @@ so one service can become ready while the other is still deploying.
   on port 3001. That port must not be published on the host.
 - The GitHub Actions workflow and promotion scripts are removed from the repo.
   The old deployment variable and `codex/production-*` branches are deleted.
-- Commit and push the Dockerfile/check changes, then inspect both Coolify
+- Commit and push changes, then inspect both Coolify
   deployment logs and `/api/health?release=1`. Live configuration alone does not
   prove a release works; the first successful real push is the acceptance check.
 

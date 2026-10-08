@@ -17,6 +17,11 @@ const mediaOrigin =
 
 const nextConfig: NextConfig = {
   deploymentId: releaseCommit || undefined,
+  // Docker's shared checks already typechecked this exact source. Local builds
+  // keep Next's default typecheck, and bun run typecheck remains available.
+  typescript: {
+    ignoreBuildErrors: process.env.PB_BUILD_TYPECHECKED === "true",
+  },
   experimental: { cpus: availableParallelism() },
   output: process.env.PB_SELF_HOSTED === "true" ? "standalone" : undefined,
   devIndicators:

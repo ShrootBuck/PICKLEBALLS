@@ -36,10 +36,16 @@ Treat `lib/changelog.ts` as a curated list of product updates, not a development
   `migrate deploy --config prisma.deploy.config.ts` before startup. Never
   `db push` or `migrate dev` against production. See `docs/self-hosting.md`
   for deployment and rollback.
-- Pushes to `main` deploy directly through Coolify. Both Docker targets require
-  lint, typechecking, isolated unit tests, a populated disposable Postgres 18.6
-  migration/integration suite, schema/SQL agreement, and a successful Next build.
+- Pushes to `main` deploy directly through Coolify. Both Docker targets share one
+  cached validation stage: typechecking, isolated unit tests, populated Postgres
+  migration/integration tests, and schema/SQL agreement. Only web compiles Next;
+  it skips Next's second typecheck after the shared stage passes. Worker packages
+  the checked source without compiling web. Lint runs locally with `bun run lint`.
   Use `bun run test` so module mocks stay isolated between test files.
+- Keep shared Docker stages independent of per-app Coolify settings. Explicit
+  optional SOURCE_COMMIT mounts suppress Coolify's per-app secret injection;
+  shared commands do not consume that value. Exclude generated docker-compose
+  files from source copies. A cold/cleared build cache may rerun the checks.
 - Both containers use `deploy/migrate.mjs` before startup. It serializes migration
   attempts with a database lock and rejects modified or missing deployed SQL.
   Include migration SQL with schema changes; never edit deployed migrations.
