@@ -103,6 +103,7 @@ so one service can become ready while the other is still deploying.
 
 ### Coolify setup
 
+- Server **Advanced > Concurrent builds**: `1`; serialize builds to avoid swapping on the 7.1 GiB laptop while allowing each build to use all CPU cores.
 - Web and worker source branch: `main`, commit: `HEAD`, auto-deploy enabled.
 - Keep **Advanced > Source commit availability > Available during build** enabled
   on both. The Dockerfile stamps the commit in a RUN step, supporting either
