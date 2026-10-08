@@ -11,7 +11,7 @@
     "lint": "biome check",
     "format": "biome format --write",
     "typecheck": "tsc --noEmit",
-    "test": "bun test",
+    "test": "bun scripts/test-unit.ts",
     "test:social": "bun scripts/test-social.ts",
     "test:social:ui": "bun scripts/test-social.ts --serve",
     "db:generate": "prisma generate",

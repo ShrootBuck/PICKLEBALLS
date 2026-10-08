@@ -13,6 +13,11 @@ import { encodeVideo, probeVideo, videoPoster } from "@/lib/video-encoding";
 const available =
   spawnSync("ffmpeg", ["-version"]).status === 0 &&
   spawnSync("ffprobe", ["-version"]).status === 0;
+// FFmpeg 5 (production Debian) uses rotation metadata; newer versions expose
+// an explicit input override and no longer honor that metadata assignment.
+const displayRotation = spawnSync("ffmpeg", ["-hide_banner", "-h", "full"])
+  .stdout?.toString()
+  .includes("-display_rotation");
 let directory: string;
 beforeAll(async () => {
   directory = await mkdtemp(join(tmpdir(), "pb-video-test-"));
@@ -113,12 +118,12 @@ for (const fixture of [
           spawnSync("ffmpeg", [
             "-v",
             "error",
-            "-display_rotation",
-            "90",
+            ...(displayRotation ? ["-display_rotation", "90"] : []),
             "-i",
             original,
             "-c",
             "copy",
+            ...(displayRotation ? [] : ["-metadata:s:v:0", "rotate=90"]),
             input,
           ]).status,
         ).toBe(0);

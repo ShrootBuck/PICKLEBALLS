@@ -36,15 +36,15 @@ Treat `lib/changelog.ts` as a curated list of product updates, not a development
   `migrate deploy --config prisma.deploy.config.ts` before startup. Never
   `db push` or `migrate dev` against production. See `docs/self-hosting.md`
   for deployment and rollback.
-- Pushes to `main` run `.github/workflows/ci.yml`. CI checks code, builds both
-  Docker targets, upgrades a populated disposable Postgres, and checks that SQL
-  matches the Prisma schema. Include the migration SQL with every schema change;
-  never edit an already-deployed migration. Add a new migration instead.
-- CI alone advances `codex/production-web` and `codex/production-worker`.
-  These are deployment pointers, not working branches. Do not push them manually.
-  Web applies migrations and becomes ready before CI promotes the worker. A green
-  deploy job means both services report the tested commit and old assets still
-  load. A passing local check or push alone does not establish deployment success.
+- Pushes to `main` deploy directly through Coolify. Both Docker targets require
+  lint, typechecking, isolated unit tests, a populated disposable Postgres 18.6
+  migration/integration suite, schema/SQL agreement, and a successful Next build.
+  Use `bun run test` so module mocks stay isolated between test files.
+- Both containers use `deploy/migrate.mjs` before startup. It serializes migration
+  attempts with a database lock and rejects modified or missing deployed SQL.
+  Include migration SQL with schema changes; never edit deployed migrations.
+  Verify both services report the intended commit at `/api/health?release=1`.
+  A local check or push alone does not establish deployment success.
 - Backward compatibility is not required. Rename, drop, or reshape schema in
   the same release as the code that needs it, and delete unused columns,
   tables, enum values, and compatibility shims instead of keeping them for

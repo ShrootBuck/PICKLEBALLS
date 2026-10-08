@@ -39,36 +39,36 @@ Playback tickets, errors, and unversioned video responses remain uncached.
 
 ## Deployments
 
-Push to GitHub `main` to deploy. The **Check and deploy** GitHub Actions workflow
-runs lint, generated Next.js types, typechecking, unit tests, populated-database
-migration/integration tests, and production Docker builds for web and worker.
-It rejects edits to previously deployed migration files and a Prisma schema that
-does not match the committed migration SQL. Checks use disposable Postgres 18.6
-and build-only placeholders, never production credentials.
+Push to GitHub `main` to deploy directly through Coolify. No GitHub Actions,
+release branches, API token, or manual migration command is required.
 
-Only after all checks pass, CI advances `codex/production-web` to the tested
-commit. Coolify builds it, runs `prisma migrate deploy`, and replaces web after
-readiness succeeds. CI verifies the built page, web commit, and old/new assets,
-then advances `codex/production-worker` to the same commit. It waits for the
-worker and web to report that commit, then samples both for one minute. GitHub's
-deploy job is green only after verification finishes. No manual migration or
-Coolify click is needed for an ordinary release.
+Both Docker targets depend on the same checks and Next.js build stages. Checks
+run lint, generated Next types, typechecking, isolated unit tests, and populated
+migration/integration tests against disposable Postgres 18.6 inside the build.
+The migration suite verifies that committed SQL matches the Prisma schema.
+Build tests run with a clean environment, test-only credentials, and an isolated
+network namespace (`RUN --network=none` still permits their own loopback).
+This overrides Coolify's host-network build default, preventing concurrent builds
+from sharing a test database or conflicting over test ports. The temporary
+database is stopped and removed, and is never part of either runtime image.
+A failed check or compilation prevents that image from deploying. Docker can
+reuse successful stages when their inputs match; web and worker have separate
+Coolify build configurations, so shared caching is not guaranteed.
 
-The deployment branches are automated fast-forward-only pointers. Do not work
-on them or push them manually. Deployment jobs are serialized and never canceled
-mid-release; a queued job skips itself if a newer `main` commit already exists.
-Checks failing before promotion leave production alone. A failure after migration
-requires investigation and usually a forward fix; no automatic schema rollback
-is attempted. Re-running a job can verify an already-running release, but if
-Coolify's build failed, redeploy its existing branch in Coolify or push a fix to
-`main` to trigger a new release.
+At startup `deploy/migrate.mjs` holds a shared Postgres advisory lock while it
+checks the checksums of already-applied migrations and runs `prisma migrate deploy`.
+Missing or edited deployed SQL refuses startup. Web and worker may build and
+roll out independently; their migrations are serialized, not their entire
+releases. There is no guaranteed web-first order or atomic two-service switch.
+This follows the project's policy allowing brief incompatibility during rollout.
+If a migration or readiness check fails, inspect Coolify's deployment logs and
+ship a forward fix. Never automatically reverse a production schema migration.
 
 A signed GitHub webhook reaches only
 `https://deploy.pickle-balls.com/webhooks/source/github/events/manual`.
 Other paths on that hostname return 404; the dashboard remains private.
 Coolify builds the repository's Dockerfile with separate `web`, `worker`, and
-`assets` targets. Web watches `codex/production-web`; worker watches
-`codex/production-worker`. Neither may auto-deploy directly from `main`.
+`assets` targets. Web and worker both watch `main` with **Deploy on push (webhooks)**.
 The static asset service only needs redeployment when its Nginx configuration
 changes. All three are managed in Coolify.
 
@@ -86,9 +86,8 @@ stop the old worker before starting its replacement. Jobs remain in Postgres
 and resume/retry after restart. Video concurrency is one per process.
 
 `SOURCE_COMMIT` is baked into each image as `/app/.release-commit` and becomes
-Next.js's deployment ID for version-skew detection. CI builds both Docker targets
-from the tested source; Coolify builds that same commit with the production build
-configuration. Images are not transferred from GitHub to the server.
+Next.js's deployment ID for version-skew detection. Coolify builds and runs
+the checked images on the home server.
 A persistent `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` is supplied through Coolify
 BuildKit secrets. The static service routes `/_next/static` before the web
 router and reads `/data/pickleballs/next-static`. New web containers copy their
@@ -100,25 +99,21 @@ Older assets are deliberately retained; monitor its disk use before any cleanup.
 `/api/health?release=1` also returns the worker's readiness and baked commit,
 using web's server-only `WORKER_HEALTH_URL`. It returns no internal URL, secrets,
 or detailed errors. Ordinary container readiness does not depend on the worker,
-so the web-first release order cannot deadlock.
+so one service can become ready while the other is still deploying.
 
-### One-time CI setup
+### Coolify setup
 
-1. Seed `codex/production-web` and `codex/production-worker` from their current
-   deployed commits. Keep them as ancestors of `main`.
-2. In Coolify, change each application's Git branch to its deployment branch.
-   Keep auto-deploy and the signed GitHub push webhook enabled. Ensure
-   **Advanced > Source commit availability > Available during build** is enabled
-   on both apps. Web receives it through BuildKit secrets and worker through build
-   arguments. The Dockerfile stamps it during a `RUN` instruction in either case.
-3. Set web's runtime `WORKER_HEALTH_URL` to the worker's stable private Docker
-   hostname on port 3001. Do not publish this port on the host.
-4. Set repository Actions variable `PB_CI_DEPLOY_ENABLED=true`. The workflow's
-   deploy job receives `contents: write` only to advance these refs. CI does not
-   need Coolify tokens, SSH keys, production database URLs, or a public API.
-5. Commit and push the pipeline changes to `main`, then verify its first Actions
-   run and the Coolify webhook delivery. Settings alone do not prove the pipeline
-   works; the first successful real release is the end-to-end acceptance check.
+- Web and worker source branch: `main`, commit: `HEAD`, auto-deploy enabled.
+- Keep **Advanced > Source commit availability > Available during build** enabled
+  on both. The Dockerfile stamps the commit in a RUN step, supporting either
+  BuildKit secret injection or regular build arguments.
+- Web runtime `WORKER_HEALTH_URL` uses the worker's stable private Docker hostname
+  on port 3001. That port must not be published on the host.
+- The GitHub Actions workflow and promotion scripts are removed from the repo.
+  The old deployment variable and `codex/production-*` branches are deleted.
+- Commit and push the Dockerfile/check changes, then inspect both Coolify
+  deployment logs and `/api/health?release=1`. Live configuration alone does not
+  prove a release works; the first successful real push is the acceptance check.
 
 Builds may use all CPUs available to their host. Next.js uses
 `availableParallelism()` for its worker count, and the Docker build allows Node's

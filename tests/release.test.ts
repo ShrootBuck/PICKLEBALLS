@@ -1,39 +1,5 @@
 import { expect, test } from "bun:test";
 import { workerRelease } from "../lib/release-status";
-import { matchesRelease, pageAssets } from "../scripts/ci/release";
-
-test("web can become ready before worker, but completion requires both exact commits", () => {
-  const release = {
-    status: "ok",
-    deployment: "new",
-    worker: { status: "ok", deployment: "old" },
-  };
-  expect(matchesRelease(release, "new", false)).toBe(true);
-  expect(matchesRelease(release, "new", true)).toBe(false);
-  expect(
-    matchesRelease(
-      { ...release, worker: { status: "ok", deployment: "new" } },
-      "new",
-      true,
-    ),
-  ).toBe(true);
-  expect(
-    matchesRelease({ ...release, status: "unavailable" }, "new", false),
-  ).toBe(false);
-  expect(matchesRelease({ status: "ok" }, "new", false)).toBe(false);
-});
-
-test("asset snapshot rejects wrong pages and preserves deployment query parameters", () => {
-  expect(() => pageAssets("<html>Login failed</html>")).toThrow();
-  expect(
-    pageAssets(
-      '<html data-dpl-id="abc"><script src="/_next/static/chunk.js?dpl=abc&amp;x=1"></script></html>',
-    ),
-  ).toEqual({
-    deployment: "abc",
-    assets: ["/_next/static/chunk.js?dpl=abc&x=1"],
-  });
-});
 
 test("worker status exposes only validated readiness and commit, never internal errors", async () => {
   let body: unknown = {

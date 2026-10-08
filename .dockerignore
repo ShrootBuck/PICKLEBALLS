@@ -16,4 +16,3 @@ tmp
 *.sql.gz
 Dockerfile*
 docs
-tests

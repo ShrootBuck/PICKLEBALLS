@@ -32,44 +32,54 @@ async function run(command: string[], env = process.env) {
     );
   return (command[1] === "test" ? `${stdout}\n${stderr}` : stdout).trim();
 }
+const buildDatabase = process.env.PB_BUILD_TEST_DATABASE_URL;
+if (
+  buildDatabase &&
+  buildDatabase !==
+    "postgresql://postgres:disposable@127.0.0.1:5432/pickleballs_test"
+)
+  throw new Error("Build tests require the disposable loopback database.");
 try {
-  await run([
-    "docker",
-    "run",
-    "--rm",
-    "-d",
-    "--name",
-    name,
-    "-e",
-    "POSTGRES_PASSWORD=disposable",
-    "-e",
-    "POSTGRES_DB=pickleballs_test",
-    "-p",
-    "127.0.0.1::5432",
-    "postgres:18.6-alpine",
-  ]);
-  containerStarted = true;
-  const mapped = await run(["docker", "port", name, "5432/tcp"]);
-  const port = mapped.split(":").at(-1);
-  const databaseUrl = `postgresql://postgres:disposable@127.0.0.1:${port}/pickleballs_test`;
-  for (let attempt = 0; ; attempt++) {
-    try {
-      // The image briefly starts a socket-only bootstrap server. Wait for TCP
-      // so Prisma cannot race that server's shutdown.
-      await run([
-        "docker",
-        "exec",
-        name,
-        "pg_isready",
-        "-h",
-        "127.0.0.1",
-        "-U",
-        "postgres",
-      ]);
-      break;
-    } catch (error) {
-      if (attempt > 60) throw error;
-      await Bun.sleep(250);
+  let databaseUrl = buildDatabase;
+  if (!databaseUrl) {
+    await run([
+      "docker",
+      "run",
+      "--rm",
+      "-d",
+      "--name",
+      name,
+      "-e",
+      "POSTGRES_PASSWORD=disposable",
+      "-e",
+      "POSTGRES_DB=pickleballs_test",
+      "-p",
+      "127.0.0.1::5432",
+      "postgres:18.6-alpine",
+    ]);
+    containerStarted = true;
+    const mapped = await run(["docker", "port", name, "5432/tcp"]);
+    const port = mapped.split(":").at(-1);
+    databaseUrl = `postgresql://postgres:disposable@127.0.0.1:${port}/pickleballs_test`;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        // The image briefly starts a socket-only bootstrap server. Wait for TCP
+        // so Prisma cannot race that server's shutdown.
+        await run([
+          "docker",
+          "exec",
+          name,
+          "pg_isready",
+          "-h",
+          "127.0.0.1",
+          "-U",
+          "postgres",
+        ]);
+        break;
+      } catch (error) {
+        if (attempt > 60) throw error;
+        await Bun.sleep(250);
+      }
     }
   }
   const env = {
@@ -150,6 +160,9 @@ try {
   );
   console.log(
     "Migrated a populated disposable database, including legacy check-ins.",
+  );
+  console.log(
+    await run(["bun", "test", "./tests/migration-runner.integration.ts"], env),
   );
   if (!process.argv.includes("--media-only"))
     console.log(
