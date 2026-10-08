@@ -69,18 +69,10 @@ export const notificationPreferencesSchema = z.object({
   streakMorningHour: reminderHour,
   streakEveningHour: reminderHour,
 });
-export const proofReviewSchema = z
-  .object({
-    decision: z.enum(["APPROVED", "CHALLENGED"]),
-    note: z.string().trim().max(500).optional().default(""),
-  })
-  .refine(
-    (review) => review.decision === "APPROVED" || review.note.length > 0,
-    {
-      message: "Explain what is missing before challenging proof.",
-      path: ["note"],
-    },
-  );
+export const proofReviewSchema = z.object({
+  decision: z.enum(["APPROVED", "CHALLENGED"]),
+  note: z.string().trim().min(1).max(500),
+});
 
 const localDateTimeSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 

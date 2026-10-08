@@ -11,7 +11,7 @@ export const changelogEntries: ChangelogEntry[] = [
     timestamp: 1791433201771,
     title: "Approvals are back",
     description:
-      "Proof needs approvals from half your circle, rounded down, before a task is verified, and one challenge still sends it back. Proof posted while approvals were off stays verified, and earlier approvals and their comments are restored.",
+      "Proof needs approvals from half your circle, rounded down, before a task is verified, and one challenge still sends it back. Approving and challenging both need a comment. Proof posted while approvals were off stays verified, and earlier approvals and their comments are restored.",
   },
   {
     timestamp: 1791250263404,

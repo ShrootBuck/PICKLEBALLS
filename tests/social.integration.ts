@@ -463,7 +463,19 @@ test("challenge, deliberate replacement restrictions, and old URLs preserve proo
       { decision: "CHALLENGED", note: "" },
       now,
     ),
-  ).rejects.toThrow("reason");
+  ).rejects.toThrow("Add a comment");
+  await expect(
+    reviewProof(
+      posted.id,
+      ids.peer,
+      ids.circle,
+      { decision: "APPROVED", note: "   " },
+      now,
+    ),
+  ).rejects.toThrow("Add a comment");
+  await expect(
+    reviewProof(posted.id, ids.peer, ids.circle, { decision: "APPROVED" }, now),
+  ).rejects.toThrow("Add a comment");
   await expect(
     reviewProof(
       posted.id,
@@ -1202,10 +1214,10 @@ test("proof discussion includes verdict conversations, paginates replies, and is
     posted.id,
     ids.peer,
     ids.circle,
-    { decision: "APPROVED" },
+    { decision: "APPROVED", note: "Looks good." },
     now,
   );
-  expect(review.note).toBeNull();
+  expect(review.note).toBe("Looks good.");
   const later = new Date(now.getTime() + 1000);
   await prisma.socialReply.createMany({
     data: Array.from({ length: 55 }, (_, index) => ({
@@ -1221,7 +1233,10 @@ test("proof discussion includes verdict conversations, paginates replies, and is
   expect(first.replies).toHaveLength(50);
   expect(first.hasMore).toBe(true);
   expect(first.verdicts).toHaveLength(1);
-  expect(first.verdicts[0]).toMatchObject({ body: "", verdict: "APPROVED" });
+  expect(first.verdicts[0]).toMatchObject({
+    body: "Looks good.",
+    verdict: "APPROVED",
+  });
   expect(first.replies.some((reply) => reply.replyContext)).toBe(true);
   const second = await getProofDiscussion(
     ids.circle,
@@ -1246,20 +1261,8 @@ test("proof discussion includes verdict conversations, paginates replies, and is
     proofIds: [posted.id],
     checkInIds: [],
   });
-  expect(feed.items[0].commentCount).toBe(55);
-  await prisma.taskProofReview.update({
-    where: { id: review.id },
-    data: { note: "Nice work" },
-  });
-  const withNote = await getProofDiscussion(ids.circle, posted.id);
-  expect(withNote.verdicts[0].body).toBe("Nice work");
-  const updated = await getFeedPage({
-    viewerId: ids.owner,
-    circleId: ids.circle,
-    proofIds: [posted.id],
-    checkInIds: [],
-  });
-  expect(updated.items[0].commentCount).toBe(56);
+  // The approval's comment counts alongside the 55 replies.
+  expect(feed.items[0].commentCount).toBe(56);
   expect(await resolveLegacyFocus(ids.circle, review.id)).toContain(
     "#comments",
   );
@@ -1423,7 +1426,7 @@ test("hourly reconciliation misses only tasks without an accepted submission", a
     approved.id,
     ids.peer,
     circle.id,
-    { decision: "APPROVED" },
+    { decision: "APPROVED", note: "Looks good." },
     postedAt,
   );
   const encoding = await task(ids.owner, circle.id, createdAt);
@@ -1478,7 +1481,7 @@ test("hourly reconciliation misses only tasks without an accepted submission", a
         pending.id,
         ids.peer,
         circle.id,
-        { decision: "APPROVED" },
+        { decision: "APPROVED", note: "Looks good." },
         muchLater,
       )
     ).proofStatus,
@@ -1504,7 +1507,7 @@ test("hourly reconciliation misses only tasks without an accepted submission", a
         published.id,
         ids.peer,
         circle.id,
-        { decision: "APPROVED" },
+        { decision: "APPROVED", note: "Looks good." },
         muchLater,
       )
     ).proofStatus,
@@ -1571,7 +1574,7 @@ test("inbox rows commit with mutations and roll back with a failed transaction",
     posted.id,
     ids.peer,
     ids.circle,
-    { decision: "APPROVED" },
+    { decision: "APPROVED", note: "Looks good." },
     now,
   );
   expect(
@@ -1651,7 +1654,7 @@ test("tasks freeze half-circle approvals and preserve departed reviewers' approv
     posted.id,
     users[1],
     circleId,
-    { decision: "APPROVED" },
+    { decision: "APPROVED", note: "Looks good." },
     now,
   );
   const { removeCircleMember } = await import("@/lib/circles");
@@ -1678,7 +1681,7 @@ test("tasks freeze half-circle approvals and preserve departed reviewers' approv
         posted.id,
         users[2],
         circleId,
-        { decision: "APPROVED" },
+        { decision: "APPROVED", note: "Looks good." },
         now,
       )
     ).proofStatus,
@@ -1744,7 +1747,7 @@ test("a late challenge reopens an on-time task and permits replacement proof", a
         replacement.id,
         ids.peer,
         ids.circle,
-        { decision: "APPROVED" },
+        { decision: "APPROVED", note: "Looks good." },
         later,
       )
     ).proofStatus,

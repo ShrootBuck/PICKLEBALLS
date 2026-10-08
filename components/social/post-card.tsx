@@ -91,7 +91,7 @@ export function PostCard({
                 reviewStatus: result.proofStatus,
                 approvalCount: result.approvalCount,
                 requiredApprovals: result.requiredApprovals,
-                commentCount: post.commentCount + (result.hasComment ? 1 : 0),
+                commentCount: post.commentCount + 1,
               };
               patchPost(post, patch);
               onChange?.(patch);

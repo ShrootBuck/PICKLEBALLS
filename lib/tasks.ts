@@ -402,7 +402,7 @@ export async function reviewProof(
   const parsed = proofReviewSchema.safeParse(input);
   if (!parsed.success)
     throw new DomainError(
-      "Challenges need a reason. Comments must be 500 characters or fewer.",
+      "Add a comment to approve or challenge proof. Comments must be 500 characters or fewer.",
     );
 
   try {

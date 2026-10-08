@@ -49,7 +49,6 @@ export function ReviewProof({
     decision: "APPROVED" | "CHALLENGED",
     result: {
       proofStatus: "PENDING" | "APPROVED" | "CHALLENGED";
-      hasComment: boolean;
       approvalCount: number;
       requiredApprovals: number;
     },
@@ -74,9 +73,13 @@ export function ReviewProof({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
-    if (decision === "CHALLENGED" && !note.trim()) {
+    if (!note.trim()) {
       setNoteInvalid(true);
-      setError("Explain what is missing before challenging proof.");
+      setError(
+        decision === "CHALLENGED"
+          ? "Explain what is missing before challenging proof."
+          : "Say why it counts before approving proof.",
+      );
       noteRef.current?.focus();
       return;
     }
@@ -119,10 +122,7 @@ export function ReviewProof({
       setConfirmChallenge(false);
       // Remove the reviewed card immediately, then reconcile the board,
       // history, and counts with the committed server state.
-      onReviewed?.(proofId, decision, {
-        ...review,
-        hasComment: Boolean(note.trim()),
-      });
+      onReviewed?.(proofId, decision, review);
     } catch {
       setError("Could not reach the server. Check your wifi and try again.");
       setPending(false);
@@ -208,7 +208,7 @@ export function ReviewProof({
                 <FieldLabel htmlFor={`review-note-${id}`}>
                   {decision === "CHALLENGED"
                     ? "Reason (required)"
-                    : "Comment (optional)"}
+                    : "Comment (required)"}
                 </FieldLabel>
                 <Textarea
                   ref={noteRef}
@@ -223,11 +223,11 @@ export function ReviewProof({
                   }}
                   disabled={pending}
                   maxLength={500}
-                  required={decision === "CHALLENGED"}
+                  required
                   placeholder={
                     decision === "CHALLENGED"
                       ? "What is missing? Be specific, not just mean"
-                      : "Add a comment if you want…"
+                      : "What makes this count?"
                   }
                   className="min-h-24"
                   aria-invalid={noteInvalid}
@@ -240,7 +240,7 @@ export function ReviewProof({
                 <FieldDescription id={`review-note-help-${id}`}>
                   {decision === "CHALLENGED"
                     ? "Say what is missing so they know what to fix. Your reason appears in the post’s comments."
-                    : "Your comment appears in the post’s discussion. You can also approve without one."}
+                    : "Say why it counts. Your comment appears in the post’s discussion."}
                 </FieldDescription>
               </Field>
             </FieldGroup>
