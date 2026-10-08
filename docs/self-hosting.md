@@ -47,12 +47,22 @@ typechecking, isolated unit tests, and populated migration/integration tests
 against disposable Postgres 18.6. The migration suite checks SQL/schema agreement.
 Lint runs locally (`bun run lint`), outside deployment.
 
-The first build runs validation; the second reuses its successful Docker layer.
+The first build runs validation; the second reuses its successful result.
 Shared RUN steps declare the same optional SHA secret mount, preventing Coolify
 from injecting different per-app mount lists. They do not consume the SHA or app
 secrets. The shared source copy excludes Coolify's generated `docker-compose.yaml`
-and `docker-compose.yml`, which differ between apps and releases. Cache eviction,
-manual no-cache builds, or changed source inputs can require validation again.
+and `docker-compose.yml`, which differ between apps and releases.
+
+Coolify 4.3.23 also adds temporary container host mappings to Docker builds.
+Changing those mappings invalidates RUN layers, including dependency installs.
+`deploy/cached-checks.mjs` therefore keeps successful validation receipts in a
+locked BuildKit cache mount. Each receipt requires identical source contents and
+permissions (including generated Prisma code), frozen dependency lockfile, CPU
+architecture, Node/Bun versions, and installed OS package versions. Failures do
+not publish receipts. A cleared cache or changed inputs runs checks again.
+To force fresh checks, increment `PB_CHECK_CACHE_EPOCH` in the Dockerfile;
+`--no-cache` alone does not clear cache mounts. This avoids duplicated tests even
+when Coolify misses ordinary layer caching. Dependency installs may still repeat.
 
 Only web compiles Next.js. Docker sets `PB_BUILD_TYPECHECKED=true` after the shared
 checks pass to skip Next's duplicate typecheck. Ordinary local Next builds keep

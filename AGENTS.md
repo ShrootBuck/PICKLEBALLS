@@ -45,7 +45,10 @@ Treat `lib/changelog.ts` as a curated list of product updates, not a development
 - Keep shared Docker stages independent of per-app Coolify settings. Explicit
   optional SOURCE_COMMIT mounts suppress Coolify's per-app secret injection;
   shared commands do not consume that value. Exclude generated docker-compose
-  files from source copies. A cold/cleared build cache may rerun the checks.
+  files from source copies. Coolify's changing host mappings can invalidate RUN
+  layers; a locked cache mount also stores validation receipts keyed by source
+  and toolchain. Increment Dockerfile PB_CHECK_CACHE_EPOCH to force fresh checks.
+  A cold/cleared build cache reruns checks. See deploy/cached-checks.mjs.
 - Both containers use `deploy/migrate.mjs` before startup. It serializes migration
   attempts with a database lock and rejects modified or missing deployed SQL.
   Include migration SQL with schema changes; never edit deployed migrations.

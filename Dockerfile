@@ -23,7 +23,10 @@ COPY --from=dependencies /usr/local/bin/node /usr/local/bin/node
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=source /app ./
 # Override Coolify's host-network build default: test databases must be isolated.
-RUN --mount=type=secret,id=SOURCE_COMMIT --network=none ln -s /usr/local/bin/bun /usr/local/bin/bunx && sh deploy/check-build.sh
+# Coolify's changing --add-host entries can invalidate even identical RUN layers.
+# The locked cache stores only successful checks for exact source/toolchain hashes.
+ARG PB_CHECK_CACHE_EPOCH=1
+RUN --mount=type=secret,id=SOURCE_COMMIT --mount=type=cache,id=pickleballs-checks-v1,target=/var/cache/pickleballs-checks,sharing=locked --network=none ln -s /usr/local/bin/bun /usr/local/bin/bunx && node deploy/cached-checks.mjs
 
 # Coolify's generated Compose file changes per release/app. Bind the context only
 # here to invalidate the commit stamp even for docs-only commits. Do not copy
@@ -70,7 +73,9 @@ RUN --mount=type=secret,id=SOURCE_COMMIT apt-get update && apt-get install -y --
 FROM worker-dependencies AS worker
 # Reuse the successful shared checks; the worker never compiles Next.js.
 COPY --from=checks /app/.checks-passed /app/.checks-passed
-COPY --from=source --chown=node:node /app ./
+# Dependencies and generated Prisma client are already inherited. Copying /app
+# from source would duplicate the entire node_modules tree just to change owner.
+COPY --exclude=docker-compose.yaml --exclude=docker-compose.yml --chown=node:node . .
 COPY --from=release --chown=node:node /app/.release-commit ./
 ENV NODE_ENV=production PB_SELF_HOSTED=true BACKGROUND_BACKEND=postgres
 USER node
