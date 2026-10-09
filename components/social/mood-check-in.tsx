@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Check, ImagePlus, Shuffle } from "lucide-react";
+import { ArrowLeft, ArrowRight, ImagePlus, Shuffle, X } from "lucide-react";
 import {
   type CSSProperties,
   useEffect,
@@ -13,6 +13,11 @@ import {
   UploadStatus,
   useUploadStatus,
 } from "@/components/media/upload-status";
+import {
+  FeelingPicker,
+  type FeelingPickerState,
+  newFeelingPickerState,
+} from "@/components/mood/feeling-picker";
 import { ImpactIcon, ImpactList } from "@/components/mood/mood-display";
 import { MoodShape } from "@/components/mood/mood-shape";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -31,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { Toggle } from "@/components/ui/toggle";
 import { appFetch } from "@/lib/app-refresh";
+import { browseFeelings } from "@/lib/feelings";
 import { uploadMedia } from "@/lib/media-upload";
 import {
   formatFeelings,
@@ -40,8 +46,6 @@ import {
   moodLevel,
   moodLevelLabel,
   moodStyle,
-  nearestFeelings,
-  relatedFeelings,
   suggestedImpacts,
 } from "@/lib/mood";
 
@@ -51,7 +55,7 @@ type Draft = {
   valence: number;
   feelings: string[];
   impacts: string[];
-  moreWords: boolean;
+  wordPicker: FeelingPickerState;
   journal: string;
   promptIndex: number;
   files: File[];
@@ -63,8 +67,6 @@ let savedDraft: Draft | null = null;
 
 const steps: Step[] = [0, 1, 2, 3];
 const stepCount = steps.length;
-const fewWords = 20;
-const manyWords = 40;
 
 export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
   const [initial] = useState(() => savedDraft);
@@ -75,7 +77,9 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
   const [chosenImpacts, setChosenImpacts] = useState<string[]>(
     initial?.impacts ?? [],
   );
-  const [moreWords, setMoreWords] = useState(initial?.moreWords ?? false);
+  const [wordPicker, setWordPicker] = useState(
+    initial?.wordPicker ?? newFeelingPickerState(),
+  );
   const [journal, setJournal] = useState(initial?.journal ?? "");
   const [promptIndex, setPromptIndex] = useState(initial?.promptIndex ?? 0);
   const [files, setFiles] = useState<File[]>(initial?.files ?? []);
@@ -97,7 +101,7 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
             valence,
             feelings: chosen,
             impacts: chosenImpacts,
-            moreWords,
+            wordPicker,
             journal,
             promptIndex,
             files,
@@ -110,35 +114,23 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
     valence,
     chosen,
     chosenImpacts,
-    moreWords,
+    wordPicker,
     journal,
     promptIndex,
     files,
   ]);
 
   const label = moodLevelLabel(valence);
-  const words = useMemo(() => {
-    const base = nearestFeelings(valence, moreWords ? manyWords : fewWords);
-    const baseWords = new Set(base.map((item) => item.word));
-    const shown = new Set<string>();
-    const out: { word: string; suggested: boolean }[] = [];
-    // Choosing a word opens up its relatives right beside it. Words already
-    // in the base list stay put so nothing jumps around under your finger.
-    const add = (word: string, suggested: boolean) => {
-      if (shown.has(word)) return;
-      shown.add(word);
-      out.push({ word, suggested });
-      if (!chosen.includes(word)) return;
-      for (const related of relatedFeelings(
-        word,
-        new Set([...baseWords, ...shown]),
-      ))
-        add(related.word, true);
-    };
-    for (const item of base) add(item.word, false);
-    for (const word of chosen) add(word, false);
-    return out;
-  }, [valence, moreWords, chosen]);
+  const browsing = useMemo(
+    () => (step === 1 ? browseFeelings(valence) : []),
+    [step, valence],
+  );
+  const baseWords = new Set(
+    browsing.slice(0, wordPicker.browseCount).map((item) => item.word),
+  );
+  const hasRelatedWords =
+    !wordPicker.query.trim() &&
+    wordPicker.discovered.some((word) => !baseWords.has(word));
   const suggested = useMemo(() => suggestedImpacts(chosen), [chosen]);
   const prompts = journalPrompts({
     valence,
@@ -203,7 +195,8 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
     { title: "How are you feeling?", description: null },
     {
       title: "What describes this feeling?",
-      description: "Pick any that fit. Choosing one suggests related words.",
+      description:
+        "Pick any that fit, even mixed feelings. Tap a word to discover more.",
     },
     { title: "What’s having the biggest impact?", description: null },
     { title: prompt, description: "Optional. Your circle will see it." },
@@ -293,36 +286,13 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
           )}
 
           {step === 1 && (
-            <>
-              <fieldset className="mood-chips">
-                <legend className="sr-only">Feelings</legend>
-                {words.map(({ word, suggested: isSuggested }) => {
-                  const selected = chosen.includes(word);
-                  return (
-                    <Toggle
-                      key={word}
-                      className="mood-chip"
-                      pressed={selected}
-                      data-suggested={isSuggested || undefined}
-                      onPressedChange={() =>
-                        setChosen((list) => toggle(list, word))
-                      }
-                    >
-                      {selected && <Check />}
-                      {word}
-                    </Toggle>
-                  );
-                })}
-              </fieldset>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-4 text-muted-foreground"
-                onClick={() => setMoreWords(!moreWords)}
-              >
-                {moreWords ? "Show fewer words" : "Show more words"}
-              </Button>
-            </>
+            <FeelingPicker
+              browsing={browsing}
+              chosen={chosen}
+              onToggle={(word) => setChosen((list) => toggle(list, word))}
+              state={wordPicker}
+              onStateChange={setWordPicker}
+            />
           )}
 
           {step === 2 && (
@@ -425,6 +395,42 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
+        {step === 1 && chosen.length > 0 && (
+          <section className="mood-selected" aria-label="Selected feelings">
+            <div className="flex items-center justify-between gap-2">
+              <p className="mood-selected-count">{chosen.length} selected</p>
+              {hasRelatedWords && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const related = document.getElementById(
+                      "mood-related-feelings",
+                    );
+                    related?.scrollIntoView({ block: "nearest" });
+                  }}
+                >
+                  See related words
+                </Button>
+              )}
+            </div>
+            <div className="mood-selected-words">
+              {chosen.map((word) => (
+                <Button
+                  key={word}
+                  variant="outline"
+                  size="sm"
+                  className="mood-selected-word"
+                  aria-label={`Remove ${word}`}
+                  onClick={() => setChosen((list) => toggle(list, word))}
+                >
+                  {word}
+                  <X data-icon="inline-end" aria-hidden="true" />
+                </Button>
+              ))}
+            </div>
+          </section>
+        )}
         <SheetFooter className="flex-row">
           {step > 0 && (
             <Button

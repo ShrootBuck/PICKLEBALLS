@@ -1941,13 +1941,46 @@
   background: color-mix(in oklch, var(--mood) 26%, transparent);
   color: color-mix(in oklch, var(--mood), white 72%);
 }
-.mood-chip[data-suggested] {
-  border-style: dashed;
-  border-color: color-mix(in oklch, var(--mood) 55%, transparent);
-  animation: mood-chip-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+/* Reserve the checkmark's space so selecting a word never reflows its row. */
+.mood-word-chip {
+  position: relative;
+  padding: 0 28px 0 12px;
 }
-.mood-chip[data-suggested][aria-pressed="true"] {
-  border-style: solid;
+.mood-word-chip svg {
+  position: absolute;
+  right: 8px;
+  opacity: 0;
+}
+.mood-word-chip[aria-pressed="true"] svg {
+  opacity: 1;
+}
+.mood-selected {
+  padding: 10px 20px 0;
+  border-top: 1px solid var(--border);
+}
+.mood-selected-count {
+  margin-bottom: 6px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.mood-selected-words {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 3px 2px 6px;
+  scrollbar-width: thin;
+}
+.mood-selected-word[data-slot="button"] {
+  flex-shrink: 0;
+  min-height: 40px;
+  border-radius: 999px;
+  border-color: color-mix(in oklch, var(--mood) 55%, var(--border));
+  background: color-mix(in oklch, var(--mood) 14%, transparent);
+}
+@media (max-width: 47.99rem) {
+  .mood-selected-word[data-slot="button"] {
+    min-height: 44px;
+  }
 }
 .mood-chip:active {
   scale: 0.94;
@@ -1969,12 +2002,6 @@
 @media (max-width: 47.99rem) {
   .mood-chip {
     min-height: 44px;
-  }
-}
-@keyframes mood-chip-in {
-  from {
-    opacity: 0;
-    scale: 0.85;
   }
 }
 .mood-group-label {
@@ -2081,7 +2108,6 @@ section:first-child > .mood-group-label {
   .mood-shape[data-animate] .mood-shape-spin,
   .mood-launcher[data-cycle],
   .mood-sheet-body,
-  .mood-chip[data-suggested],
   .mood-level {
     animation: none;
   }

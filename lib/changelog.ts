@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1791519176343,
+    title: "Find the words for your check-in",
+    description:
+      "Choose from over 600 feelings, starting with a small set of suggestions. Explore related words across feelings, search the full bank, and keep your picks in view as you find what fits.",
+  },
+  {
     timestamp: 1791434877131,
     title: "Your account, your exit",
     description:
