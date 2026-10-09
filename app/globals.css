@@ -1941,14 +1941,19 @@
   background: color-mix(in oklch, var(--mood) 26%, transparent);
   color: color-mix(in oklch, var(--mood), white 72%);
 }
-/* Reserve the checkmark's space so selecting a word never reflows its row. */
+/* Reserve the checkmark's space on both sides so the word stays centered and
+   selecting it never reflows its row. */
 .mood-word-chip {
   position: relative;
-  padding: 0 28px 0 12px;
+  justify-content: center;
+  padding: 0 24px;
+  line-height: 1;
 }
 .mood-word-chip svg {
   position: absolute;
-  right: 8px;
+  top: 50%;
+  right: 6px;
+  translate: 0 -50%;
   opacity: 0;
 }
 .mood-word-chip[aria-pressed="true"] svg {

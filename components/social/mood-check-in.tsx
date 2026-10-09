@@ -128,9 +128,9 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
   const baseWords = new Set(
     browsing.slice(0, wordPicker.browseCount).map((item) => item.word),
   );
-  const hasRelatedWords =
-    !wordPicker.query.trim() &&
-    wordPicker.discovered.some((word) => !baseWords.has(word));
+  const hasRelatedWords = wordPicker.discovered.some(
+    (word) => !baseWords.has(word),
+  );
   const suggested = useMemo(() => suggestedImpacts(chosen), [chosen]);
   const prompts = journalPrompts({
     valence,

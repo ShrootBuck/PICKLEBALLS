@@ -1,10 +1,6 @@
 import { expect, test } from "bun:test";
 import { starterWords } from "@/lib/feeling-vocabulary";
-import {
-  browseFeelings,
-  feelingPageSize,
-  searchFeelings,
-} from "@/lib/feelings";
+import { browseFeelings, feelingPageSize } from "@/lib/feelings";
 import {
   feelings,
   formatFeelings,
@@ -121,8 +117,13 @@ test("every feeling has reciprocal connections with no duplicates or self links"
   ).not.toContain("Rested");
 });
 
-test("the large bank starts with a small, diverse set of familiar words", () => {
-  expect(feelings.length).toBeGreaterThanOrEqual(600);
+test("the bank holds short emotion words, not phrases", () => {
+  expect(feelings.length).toBeLessThanOrEqual(400);
+  for (const { word } of feelings)
+    expect(word.split(" ").length).toBeLessThanOrEqual(2);
+});
+
+test("the bank starts with a small, diverse set of familiar words", () => {
   const familiar = new Set<string>(starterWords);
   for (const valence of [-100, -60, 0, 60, 100]) {
     const all = browseFeelings(valence);
@@ -140,9 +141,8 @@ test("the large bank starts with a small, diverse set of familiar words", () => 
   }
 });
 
-test("whole-bank search finds every canonical feeling and every word can save", () => {
+test("every word can save", () => {
   for (const item of feelings) {
-    expect(searchFeelings(item.word).feelings[0]?.word).toBe(item.word);
     expect(
       moodCheckInSchema.safeParse({ valence: -100, feelings: [item.word] })
         .success,
@@ -156,30 +156,6 @@ test("whole-bank search finds every canonical feeling and every word can save", 
       feelings: ["Grieving", "Grateful", "Bittersweet"],
     }).success,
   ).toBe(true);
-});
-
-test("search understands common terms, spacing, case, and spelling mistakes", () => {
-  for (const [query, word] of [
-    ["  DEVASTATED  ", "Devastated"],
-    ["burnout", "Burnt out"],
-    ["anxiety", "Anxious"],
-    ["happy and sad", "Bittersweet"],
-    ["self conscious", "Self-conscious"],
-    ["caredfor", "Cared for"],
-    ["energised", "Energized"],
-  ]) {
-    const result = searchFeelings(query);
-    expect(result.feelings[0]?.word).toBe(word);
-    expect(result.approximate).toBe(false);
-  }
-  expect(searchFeelings("devestated").feelings[0]?.word).toBe("Devastated");
-  expect(searchFeelings("devestated").approximate).toBe(true);
-  expect(searchFeelings("zzzzzzzz").feelings).toEqual([]);
-  expect(searchFeelings(" ").feelings).toEqual([]);
-  expect(searchFeelings("---").feelings).toEqual([]);
-  expect(
-    searchFeelings("love").feelings.some((item) => item.word === "Unlovable"),
-  ).toBe(false);
 });
 
 test("chosen words suggest likely impacts", () => {

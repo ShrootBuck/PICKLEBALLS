@@ -1,6 +1,5 @@
 import {
   type FeelingFamily,
-  feelingAliases,
   feelingBridges,
   feelingFamilies,
   feelingNeighborhoods,
@@ -121,98 +120,4 @@ export function relatedFeelings(
     )
     .slice(0, Math.max(0, count))
     .map(({ feeling }) => feeling);
-}
-
-export function normalizeFeelingQuery(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/['’]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-const searchIndex = feelings.map((feeling) => ({
-  feeling,
-  name: normalizeFeelingQuery(feeling.word),
-  aliases: (
-    (feelingAliases as Partial<Record<string, readonly string[]>>)[
-      feeling.word
-    ] ?? []
-  ).map(normalizeFeelingQuery),
-}));
-
-function matchScore(text: string, query: string) {
-  if (text === query) return 0;
-  if (text.startsWith(query)) return 2;
-  if (text.replaceAll(" ", "").startsWith(query.replaceAll(" ", ""))) return 3;
-  if (
-    query
-      .split(" ")
-      .every((part) => text.split(" ").some((token) => token.startsWith(part)))
-  )
-    return 4;
-  return Infinity;
-}
-
-function editDistance(a: string, b: string) {
-  let row = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 0; i < a.length; i++) {
-    const next = [i + 1];
-    for (let j = 0; j < b.length; j++)
-      next.push(
-        Math.min(next[j] + 1, row[j + 1] + 1, row[j] + (a[i] === b[j] ? 0 : 1)),
-      );
-    row = next;
-  }
-  return row[b.length];
-}
-
-/** Whole-bank search, independent of slider position; exact names always win. */
-export function searchFeelings(value: string) {
-  const query = normalizeFeelingQuery(value).slice(0, 80);
-  if (!query) return { feelings: [] as Feeling[], approximate: false };
-  const matches = searchIndex
-    .map(({ feeling, name, aliases }) => ({
-      feeling,
-      score: Math.min(
-        matchScore(name, query),
-        ...aliases.map((alias) => matchScore(alias, query) + 1),
-      ),
-    }))
-    .filter(({ score }) => Number.isFinite(score));
-  if (matches.length)
-    return {
-      feelings: matches
-        .sort(
-          (a, b) =>
-            a.score - b.score || a.feeling.word.localeCompare(b.feeling.word),
-        )
-        .map(({ feeling }) => feeling),
-      approximate: false,
-    };
-  // Only offer spelling suggestions when literal matches fail. Short queries
-  // must not produce an arbitrary list of vaguely similar words.
-  const tolerance = query.length >= 8 ? 2 : query.length >= 4 ? 1 : 0;
-  const similar = tolerance
-    ? searchIndex
-        .map(({ feeling, name, aliases }) => ({
-          feeling,
-          distance: Math.min(
-            ...[name, ...aliases].map((name) =>
-              Math.abs(name.length - query.length) > tolerance
-                ? Infinity
-                : editDistance(name, query),
-            ),
-          ),
-        }))
-        .filter(({ distance }) => distance <= tolerance)
-        .sort(
-          (a, b) =>
-            a.distance - b.distance ||
-            a.feeling.word.localeCompare(b.feeling.word),
-        )
-        .map(({ feeling }) => feeling)
-    : [];
-  return { feelings: similar, approximate: similar.length > 0 };
 }
