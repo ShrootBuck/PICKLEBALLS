@@ -207,7 +207,7 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
       onOpenChange={(next) => {
         if (!next && !pending) setOpen(false);
       }}
-      // Unmount only after the sheet has slid away.
+      // Unmount only after the exit transition completes.
       onOpenChangeComplete={(next) => {
         if (!next) onClose();
       }}
@@ -215,6 +215,7 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
       <SheetContent
         side="bottom"
         className="social-composer mood-sheet"
+        overlayClassName="social-composer-overlay"
         showCloseButton={!pending}
         style={moodStyle(valence)}
       >

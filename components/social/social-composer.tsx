@@ -110,7 +110,7 @@ export function SocialComposer(props: ComposerProps) {
       onOpenChange={(next) => {
         if (!next && !pending) setOpen(false);
       }}
-      // Unmount only after the sheet has slid away.
+      // Unmount only after the exit transition completes.
       onOpenChangeComplete={(next) => {
         if (!next) props.onClose();
       }}
@@ -118,6 +118,8 @@ export function SocialComposer(props: ComposerProps) {
       <SheetContent
         side="bottom"
         className="social-composer"
+        overlayClassName="social-composer-overlay"
+        data-mode={mode}
         showCloseButton={!pending}
       >
         <SheetHeader>
@@ -336,7 +338,7 @@ function ComposerForm({
         className="min-h-0 overflow-y-auto px-5 pb-4 outline-none"
       >
         {mode === "choose" && (
-          <div className="flex flex-col gap-3">
+          <div className="composer-action-list flex flex-col gap-1">
             {(
               [
                 {
@@ -361,7 +363,7 @@ function ComposerForm({
             ).map((item) => (
               <Button
                 key={item.mode}
-                variant="outline"
+                variant="ghost"
                 className="composer-choice"
                 onClick={() => onRequestChange({ mode: item.mode })}
               >
@@ -376,7 +378,7 @@ function ComposerForm({
               </Button>
             ))}
             <Button
-              variant="outline"
+              variant="ghost"
               className="composer-choice"
               onClick={() => {
                 onClose();
