@@ -1959,6 +1959,21 @@
 .mood-word-chip[aria-pressed="true"] svg {
   opacity: 1;
 }
+.mood-word-chip[data-suggested] {
+  border-style: dashed;
+  border-color: color-mix(in oklch, var(--mood) 55%, transparent);
+  animation: mood-chip-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.mood-word-chip[data-suggested][aria-pressed="true"] {
+  border-style: solid;
+  border-color: color-mix(in oklch, var(--mood) 75%, transparent);
+}
+@keyframes mood-chip-in {
+  from {
+    opacity: 0;
+    scale: 0.9;
+  }
+}
 .mood-selected {
   padding: 10px 20px 0;
   border-top: 1px solid var(--border);
@@ -2113,7 +2128,8 @@ section:first-child > .mood-group-label {
   .mood-shape[data-animate] .mood-shape-spin,
   .mood-launcher[data-cycle],
   .mood-sheet-body,
-  .mood-level {
+  .mood-level,
+  .mood-word-chip[data-suggested] {
     animation: none;
   }
 }

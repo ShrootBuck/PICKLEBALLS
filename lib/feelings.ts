@@ -17,7 +17,7 @@ export const feelings: Feeling[] = Object.entries(feelingFamilies).flatMap(
 );
 export const feelingByWord = new Map(feelings.map((item) => [item.word, item]));
 const starters = new Set<string>(starterWords);
-export const feelingPageSize = 12;
+export const feelingPageSize = 16;
 
 function byCloseness(valence: number) {
   return (a: Feeling, b: Feeling) =>
@@ -120,4 +120,75 @@ export function relatedFeelings(
     )
     .slice(0, Math.max(0, count))
     .map(({ feeling }) => feeling);
+}
+
+/** Words a chosen feeling reveals, fixed when revealed so chips never reshuffle. */
+export type FeelingExpansions = Readonly<Record<string, readonly string[]>>;
+export type VisibleFeeling = { word: string; suggested: boolean };
+export const revealedPerWord = 3;
+
+// A group is open when its word is chosen or it revealed a chosen word, so walk
+// upward from every chosen word through whatever revealed it.
+function openFeelings(
+  chosen: readonly string[],
+  expansions: FeelingExpansions,
+) {
+  const revealedBy = new Map<string, string[]>();
+  for (const [word, next] of Object.entries(expansions))
+    for (const child of next)
+      revealedBy.set(child, [...(revealedBy.get(child) ?? []), word]);
+  const open = new Set<string>();
+  const pending = [...chosen];
+  for (let word = pending.pop(); word !== undefined; word = pending.pop()) {
+    if (open.has(word)) continue;
+    open.add(word);
+    pending.push(...(revealedBy.get(word) ?? []));
+  }
+  return open;
+}
+
+/**
+ * Lays out the starting words with each chosen word's direct neighbors right
+ * after it. A revealed group stays open while its word or anything revealed
+ * beneath it is chosen, so deselecting never hides a chosen word.
+ */
+export function visibleFeelings(
+  base: readonly string[],
+  chosen: readonly string[],
+  expansions: FeelingExpansions,
+) {
+  const open = openFeelings(chosen, expansions);
+  const shown = new Set<string>();
+  const out: VisibleFeeling[] = [];
+  const add = (word: string, suggested: boolean) => {
+    if (shown.has(word) || !feelingByWord.has(word)) return;
+    shown.add(word);
+    out.push({ word, suggested });
+    if (open.has(word))
+      for (const next of expansions[word] ?? []) add(next, true);
+  };
+  for (const word of base) add(word, false);
+  // Chosen words the current starting set no longer includes keep their place.
+  for (const word of chosen) add(word, false);
+  return out;
+}
+
+/** Reveals neighbors for a newly chosen word unless its group is already open. */
+export function expandFeeling(
+  word: string,
+  base: readonly string[],
+  chosen: readonly string[],
+  expansions: FeelingExpansions,
+): FeelingExpansions {
+  // Still open because something it revealed is chosen: keep it as is.
+  if (openFeelings(chosen, expansions).has(word)) return expansions;
+  const shown = new Set(
+    visibleFeelings(base, chosen, expansions).map((item) => item.word),
+  );
+  for (const item of chosen) shown.add(item);
+  shown.add(word);
+  const next = relatedFeelings(word, shown, revealedPerWord).map(
+    (item) => item.word,
+  );
+  return { ...expansions, [word]: next };
 }

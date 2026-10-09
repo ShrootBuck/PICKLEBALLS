@@ -36,7 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { Toggle } from "@/components/ui/toggle";
 import { appFetch } from "@/lib/app-refresh";
-import { browseFeelings } from "@/lib/feelings";
+import { browseFeelings, feelingPageSize } from "@/lib/feelings";
 import { uploadMedia } from "@/lib/media-upload";
 import {
   formatFeelings,
@@ -121,15 +121,14 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
   ]);
 
   const label = moodLevelLabel(valence);
-  const browsing = useMemo(
-    () => (step === 1 ? browseFeelings(valence) : []),
+  const baseWords = useMemo(
+    () =>
+      step === 1
+        ? browseFeelings(valence)
+            .slice(0, feelingPageSize)
+            .map((item) => item.word)
+        : [],
     [step, valence],
-  );
-  const baseWords = new Set(
-    browsing.slice(0, wordPicker.browseCount).map((item) => item.word),
-  );
-  const hasRelatedWords = wordPicker.discovered.some(
-    (word) => !baseWords.has(word),
   );
   const suggested = useMemo(() => suggestedImpacts(chosen), [chosen]);
   const prompts = journalPrompts({
@@ -287,7 +286,7 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
 
           {step === 1 && (
             <FeelingPicker
-              browsing={browsing}
+              base={baseWords}
               chosen={chosen}
               onToggle={(word) => setChosen((list) => toggle(list, word))}
               state={wordPicker}
@@ -397,23 +396,7 @@ export function MoodCheckInSheet({ onClose }: { onClose: () => void }) {
 
         {step === 1 && chosen.length > 0 && (
           <section className="mood-selected" aria-label="Selected feelings">
-            <div className="flex items-center justify-between gap-2">
-              <p className="mood-selected-count">{chosen.length} selected</p>
-              {hasRelatedWords && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    const related = document.getElementById(
-                      "mood-related-feelings",
-                    );
-                    related?.scrollIntoView({ block: "nearest" });
-                  }}
-                >
-                  See related words
-                </Button>
-              )}
-            </div>
+            <p className="mood-selected-count">{chosen.length} selected</p>
             <div className="mood-selected-words">
               {chosen.map((word) => (
                 <Button

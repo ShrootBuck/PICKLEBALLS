@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
 import { starterWords } from "@/lib/feeling-vocabulary";
-import { browseFeelings, feelingPageSize } from "@/lib/feelings";
+import {
+  browseFeelings,
+  expandFeeling,
+  feelingPageSize,
+  revealedPerWord,
+  visibleFeelings,
+} from "@/lib/feelings";
 import {
   feelings,
   formatFeelings,
@@ -128,7 +134,7 @@ test("the bank starts with a small, diverse set of familiar words", () => {
   for (const valence of [-100, -60, 0, 60, 100]) {
     const all = browseFeelings(valence);
     const first = all.slice(0, feelingPageSize);
-    expect(first).toHaveLength(12);
+    expect(first).toHaveLength(feelingPageSize);
     expect(first.every((item) => familiar.has(item.word))).toBe(true);
     expect(
       new Set(first.map((item) => item.family)).size,
@@ -156,6 +162,65 @@ test("every word can save", () => {
       feelings: ["Grieving", "Grateful", "Bittersweet"],
     }).success,
   ).toBe(true);
+});
+
+test("choosing a word reveals its direct neighbors right after it", () => {
+  const base = ["Motivated", "Calm", "Sad"];
+  const words = (
+    chosen: string[],
+    expansions: Record<string, readonly string[]>,
+  ) => visibleFeelings(base, chosen, expansions).map((item) => item.word);
+
+  let chosen = ["Motivated"];
+  let expansions = expandFeeling("Motivated", base, [], {});
+  const revealed = expansions.Motivated;
+  expect(revealed).toHaveLength(revealedPerWord);
+  const motivated = relatedFeelings("Motivated", new Set(), 50).map(
+    (item) => item.word,
+  );
+  for (const word of revealed) expect(motivated).toContain(word);
+  expect(words(chosen, expansions)).toEqual([
+    "Motivated",
+    ...revealed,
+    "Calm",
+    "Sad",
+  ]);
+  expect(
+    visibleFeelings(base, chosen, expansions)
+      .filter((item) => item.suggested)
+      .map((item) => item.word),
+  ).toEqual([...revealed]);
+
+  // A revealed word opens its own neighbors directly after itself.
+  const child = revealed[1];
+  expansions = expandFeeling(child, base, chosen, expansions);
+  chosen = [...chosen, child];
+  const grandchildren = expansions[child];
+  expect(grandchildren.length).toBeGreaterThan(0);
+  for (const word of grandchildren) expect(revealed).not.toContain(word);
+  const layout = words(chosen, expansions);
+  expect(
+    layout.slice(
+      layout.indexOf(child) + 1,
+      layout.indexOf(child) + 1 + grandchildren.length,
+    ),
+  ).toEqual([...grandchildren]);
+  expect(new Set(layout).size).toBe(layout.length);
+
+  // Deselecting the parent keeps a chosen child and everything around it in place.
+  expect(words([child], expansions)).toEqual(layout);
+  // Deselecting everything collapses back to the starting words.
+  expect(words([], expansions)).toEqual(base);
+  // Choosing a word again while its group is open does not reshuffle it.
+  expect(expandFeeling("Motivated", base, [child], expansions)).toBe(
+    expansions,
+  );
+});
+
+test("chosen words outside the starting set stay visible", () => {
+  expect(
+    visibleFeelings(["Calm"], ["Furious"], {}).map((item) => item.word),
+  ).toEqual(["Calm", "Furious"]);
 });
 
 test("chosen words suggest likely impacts", () => {
