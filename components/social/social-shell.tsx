@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/components/ui/toast";
+import { StopwatchBar } from "@/components/work-sessions/stopwatch-bar";
 import { appFetch } from "@/lib/app-refresh";
 import { formatDayShort } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -410,6 +411,7 @@ export function SocialShell({
             {bell}
           </div>
         </header>
+        <StopwatchBar />
         <div
           ref={scrollRef}
           data-slot="social-scroll"

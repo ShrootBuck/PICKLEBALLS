@@ -5,6 +5,7 @@ import { getPrisma } from "@/lib/prisma";
 import { canSubmitProof } from "@/lib/task-policy";
 import { validateProofTimes } from "@/lib/tasks";
 import { serializable } from "@/lib/transaction";
+import { resolveWorkSessionTimes } from "@/lib/work-sessions";
 
 export async function queueProof(
   taskId: string,
@@ -16,7 +17,6 @@ export async function queueProof(
   completedAt: Date,
   now = new Date(),
 ) {
-  validateProofTimes(note, startedAt, completedAt, now);
   if (!mediaIds.length || !mediaIdsSchema.safeParse(mediaIds).success)
     throw new DomainError("Attach a photo or video.");
   return serializable(async (tx) => {
@@ -34,6 +34,17 @@ export async function queueProof(
       include: { proofs: { where: { replacedById: null }, take: 1 } },
     });
     if (!task) throw new DomainError("Task not found.", 404);
+    const timing = await resolveWorkSessionTimes(tx, taskId, {
+      startedAt,
+      completedAt,
+    });
+    validateProofTimes(
+      note,
+      timing.startedAt,
+      timing.completedAt,
+      now,
+      timing.tracked,
+    );
     if (!canSubmitProof(task, now))
       throw new DomainError(
         "The submission window is closed. Missed tasks cannot receive new or replacement proof.",
@@ -51,8 +62,8 @@ export async function queueProof(
         commitmentId: taskId,
         mediaIds,
         note,
-        startedAt,
-        completedAt,
+        startedAt: timing.startedAt,
+        completedAt: timing.completedAt,
         createdAt: now,
       },
     });

@@ -24,6 +24,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { TaskStopwatch } from "@/components/work-sessions/task-stopwatch";
 import { postHref } from "@/lib/navigation";
 import type { SocialTask } from "@/lib/social-types";
 
@@ -137,6 +138,11 @@ export function TaskList({
               </div>
             </div>
             <div className="mt-3 flex flex-wrap justify-end gap-2">
+              {mine && (
+                <div className="mr-auto">
+                  <TaskStopwatch task={task} historical={historical} />
+                </div>
+              )}
               {editable && !task.proof && !task.proofSubmittedAt && (
                 <Button
                   variant="ghost"

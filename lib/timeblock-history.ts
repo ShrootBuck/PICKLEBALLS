@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   MAX_TIMEBLOCKS,
+  reconcileTimeblockRows,
   type TimeblockDraftRow,
   timeblockDraftSchema,
 } from "@/lib/timeblock-draft";
@@ -49,6 +50,7 @@ export function restoreHistoryEntry(
   rows: TimeblockDraftRow[],
   routine: TimeblockRoutine,
   proofs: TimeblockDraftRow[],
+  replacedProofIds: string[] = [],
 ) {
   const entry = history[direction].at(-1);
   if (!entry) return null;
@@ -57,14 +59,7 @@ export function restoreHistoryEntry(
     JSON.stringify(entry.routine.expected) !== JSON.stringify(routine);
   const nextRoutine =
     entry.routine && !routineConflict ? entry.routine.restore : routine;
-  const known = new Set(entry.rows.map((row) => row.id));
-  const nextRows = [
-    ...entry.rows.map((row) => {
-      const proof = proofs.find((proof) => proof.id === row.id);
-      return proof ? { ...row, status: proof.status } : row;
-    }),
-    ...proofs.filter((proof) => !known.has(proof.id)),
-  ];
+  const nextRows = reconcileTimeblockRows(entry.rows, proofs, replacedProofIds);
   if (nextRows.length > MAX_TIMEBLOCKS)
     throw new Error(
       "This edit cannot be restored because newly received proof would put the report over 280 blocks. Remove a manual block first.",

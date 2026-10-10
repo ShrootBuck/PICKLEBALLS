@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1791672244167,
+    title: "Track your work as you do it",
+    description:
+      "Start a stopwatch on a task, stop for a break, and resume when you return. Each session goes straight into Timeblock, and proof uses your recorded times. Your stopwatch stays available across the app and after reopening it. Correct a session if you forgot to stop.",
+  },
+  {
     timestamp: 1791519176343,
     title: "Find the words for your check-in",
     description:

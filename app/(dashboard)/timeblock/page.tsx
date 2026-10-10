@@ -21,6 +21,7 @@ import {
   nextOrSameMonday,
   timeblockWeek,
 } from "@/lib/timeblocks";
+import { workSessionTimeblocks } from "@/lib/work-session-timeblocks";
 
 export const metadata: Metadata = { title: "Timeblock" };
 
@@ -52,22 +53,45 @@ export default async function TimeblockPage({
       replacedById: null,
       startedAt: { lt: week.endAtExclusive },
       completedAt: { gt: week.startAt },
+      commitment: { workSessions: { none: { endedAt: { not: null } } } },
     },
     orderBy: { completedAt: "asc" },
-    take: 56,
     include: {
       commitment: { select: { title: true, status: true } },
     },
   });
+  const [sessions, trackedTasks] = await Promise.all([
+    getPrisma().workSession.findMany({
+      where: {
+        userId: session.user.id,
+        circleId: membership.circleId,
+        startedAt: { lt: week.endAtExclusive },
+        endedAt: { gt: week.startAt },
+      },
+      include: { commitment: { select: { title: true, status: true } } },
+      orderBy: [{ startedAt: "asc" }, { id: "asc" }],
+    }),
+    getPrisma().commitment.findMany({
+      where: {
+        userId: session.user.id,
+        circleId: membership.circleId,
+        workSessions: { some: { endedAt: { not: null } } },
+      },
+      select: { id: true },
+    }),
+  ]);
 
-  const rows: TimeblockBuilderRow[] = proofs.map((proof) => ({
-    id: proof.commitmentId,
-    title: proof.commitment.title,
-    startedAt: phoenixLocalDateTimeValue(proof.startedAt),
-    completedAt: phoenixLocalDateTimeValue(proof.completedAt),
-    status: proof.commitment.status,
-    included: true,
-  }));
+  const rows: TimeblockBuilderRow[] = [
+    ...proofs.map((proof) => ({
+      id: proof.commitmentId,
+      title: proof.commitment.title,
+      startedAt: phoenixLocalDateTimeValue(proof.startedAt),
+      completedAt: phoenixLocalDateTimeValue(proof.completedAt),
+      status: proof.commitment.status,
+      included: true,
+    })),
+    ...workSessionTimeblocks(sessions, dueMonday),
+  ];
 
   return (
     <>
@@ -90,6 +114,7 @@ export default async function TimeblockPage({
         draftKey={`pb-timeblock:${session.user.id}:${membership.circleId}:${dueMonday}`}
         weekEnd={week.endKey}
         initialRows={rows}
+        replacedProofIds={trackedTasks.map((task) => task.id)}
         initialRoutine={parseTimeblockRoutine(user.timeblockRoutine)}
       />
     </>

@@ -74,7 +74,9 @@ export const proofReviewSchema = z.object({
   note: z.string().trim().min(1).max(500),
 });
 
-const localDateTimeSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+const localDateTimeSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/);
 
 export const timeblockPdfSchema = z.object({
   routine: timeblockRoutineSchema,

@@ -26,6 +26,7 @@ import {
 } from "@/lib/task-policy";
 import { phoenixDateKey, requireDateKey } from "@/lib/time";
 import { serializable } from "@/lib/transaction";
+import { resolveWorkSessionTimes } from "@/lib/work-sessions";
 
 export { DomainError };
 
@@ -211,6 +212,7 @@ export function validateProofTimes(
   startedAt: Date,
   completedAt: Date,
   now: Date,
+  tracked = false,
 ) {
   if (ownerNote && ownerNote.length > 500)
     throw new DomainError("Keep the proof note under 500 characters.");
@@ -224,7 +226,10 @@ export function validateProofTimes(
   if (completedAt.getTime() > now.getTime() + 5 * 60 * 1000) {
     throw new DomainError("The finish time cannot be in the future.");
   }
-  if (completedAt.getTime() - startedAt.getTime() > 24 * 60 * 60 * 1000) {
+  if (
+    !tracked &&
+    completedAt.getTime() - startedAt.getTime() > 24 * 60 * 60 * 1000
+  ) {
     throw new DomainError("Keep one task block under 24 hours.");
   }
 }
@@ -240,7 +245,6 @@ export async function submitProof(
   now = new Date(),
   pendingProofId?: string,
 ) {
-  validateProofTimes(ownerNote, startedAt, completedAt, now);
   const mediaIds = Array.isArray(file) ? file : [];
   if (
     Array.isArray(file) &&
@@ -302,6 +306,15 @@ export async function submitProof(
       },
     });
     if (!task) throw new DomainError("Task not found.", 404);
+    const timing = await resolveWorkSessionTimes(transaction, taskId, {
+      startedAt,
+      completedAt,
+    });
+    // Queued uploads retain the times captured at submission, even if a
+    // session is corrected while its video is processing.
+    const proofStart = pendingProofId ? startedAt : timing.startedAt;
+    const proofEnd = pendingProofId ? completedAt : timing.completedAt;
+    validateProofTimes(ownerNote, proofStart, proofEnd, now, timing.tracked);
     if (!canSubmitProof(task, now)) {
       throw new DomainError(
         "The submission window is closed. Missed tasks cannot receive new or replacement proof.",
@@ -323,8 +336,8 @@ export async function submitProof(
         circleId,
         ownerNote: ownerNote || null,
         submittedAt: pendingProofId ? new Date() : now,
-        startedAt,
-        completedAt,
+        startedAt: proofStart,
+        completedAt: proofEnd,
         isLate: !task.proofSubmittedAt && isLateProof(task.dueAt, now),
         mediaIds,
         ...(image && objectKey

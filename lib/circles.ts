@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { DomainError } from "@/lib/errors";
 import { getPrisma } from "@/lib/prisma";
 import { serializable } from "@/lib/transaction";
+import { closeWorkSessions } from "@/lib/work-sessions";
 
 export { ACTIVE_CIRCLE_COOKIE, parseActiveCircleId } from "@/lib/circle-cookie";
 export const MAX_CIRCLE_NAME_LENGTH = 40;
@@ -73,6 +74,7 @@ export async function removeCircleMember(
     const result = await tx.membership.deleteMany({
       where: { userId, circleId, role: "MEMBER" },
     });
+    if (result.count) await closeWorkSessions(tx, { userId, circleId });
     if (result.count)
       await tx.notification.deleteMany({
         where: { circleId, recipientId: userId },

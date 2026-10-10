@@ -7,6 +7,7 @@ export function blockDuration(startedAt: string, completedAt: string) {
   const end = parsePhoenixLocalDateTime(completedAt);
   if (!start || !end || end <= start) return null;
   const minutes = Math.round((end.getTime() - start.getTime()) / 60_000);
+  if (minutes === 0) return "<1m";
   const hours = Math.floor(minutes / 60);
   return [hours ? `${hours}h` : "", minutes % 60 ? `${minutes % 60}m` : ""]
     .filter(Boolean)
@@ -15,27 +16,34 @@ export function blockDuration(startedAt: string, completedAt: string) {
 
 /** Split overnight blocks and share width only within each overlapping group. */
 export function calendarDaySegments(rows: TimeblockDraftRow[], day: string) {
-  const start = `${day}T00:00`;
-  const end = `${shiftDateKey(day, 1)}T00:00`;
-  const minute = (value: string) =>
-    Number(value.slice(11, 13)) * 60 + Number(value.slice(14, 16));
+  const start = parsePhoenixLocalDateTime(`${day}T00:00`)?.getTime();
+  const end = parsePhoenixLocalDateTime(
+    `${shiftDateKey(day, 1)}T00:00`,
+  )?.getTime();
+  if (start == null || end == null) return [];
   const segments = rows
-    .filter(
-      (row) =>
-        row.included &&
-        parsePhoenixLocalDateTime(row.startedAt) &&
-        parsePhoenixLocalDateTime(row.completedAt) &&
-        row.startedAt < row.completedAt &&
-        row.startedAt < end &&
-        row.completedAt > start,
-    )
-    .map((row) => ({
-      row,
-      start: row.startedAt < start ? 0 : minute(row.startedAt),
-      end: row.completedAt >= end ? 1440 : minute(row.completedAt),
-      lane: 0,
-      lanes: 1,
-    }))
+    .flatMap((row) => {
+      const from = parsePhoenixLocalDateTime(row.startedAt)?.getTime();
+      const to = parsePhoenixLocalDateTime(row.completedAt)?.getTime();
+      if (
+        !row.included ||
+        from == null ||
+        to == null ||
+        to <= from ||
+        from >= end ||
+        to <= start
+      )
+        return [];
+      return [
+        {
+          row,
+          start: (Math.max(start, from) - start) / 60_000,
+          end: (Math.min(end, to) - start) / 60_000,
+          lane: 0,
+          lanes: 1,
+        },
+      ];
+    })
     .sort((a, b) => a.start - b.start || b.end - a.end);
 
   let groupStart = 0;

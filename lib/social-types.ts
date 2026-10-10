@@ -1,3 +1,5 @@
+import type { WorkSessionView } from "@/lib/work-session-policy";
+
 export type SocialAuthor = {
   id: string;
   name: string;
@@ -93,6 +95,7 @@ export type SocialTask = {
   status: TaskStatus;
   proof: { id: string; reviewStatus: ProofStatus } | null;
   goal?: { id: string; title: string } | null;
+  workSessions?: WorkSessionView[];
 };
 
 export type SocialMember = SocialAuthor & {

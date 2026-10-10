@@ -56,6 +56,7 @@ import {
   compareTimeblockRows,
   MAX_TIMEBLOCKS,
   parseTimeblockDraft,
+  reconcileTimeblockRows,
   type TimeblockDraftRow,
 } from "@/lib/timeblock-draft";
 import {
@@ -150,6 +151,7 @@ function BlockEditor({
                 id="block-start"
                 name="startedAt"
                 type="datetime-local"
+                step="any"
                 value={draft.startedAt}
                 onChange={(event) =>
                   setDraft({ ...draft, startedAt: event.target.value })
@@ -164,6 +166,7 @@ function BlockEditor({
                 id="block-end"
                 name="completedAt"
                 type="datetime-local"
+                step="any"
                 value={draft.completedAt}
                 onChange={(event) =>
                   setDraft({ ...draft, completedAt: event.target.value })
@@ -224,12 +227,14 @@ export function TimeblockBuilder({
   weekEnd,
   initialRows,
   initialRoutine,
+  replacedProofIds,
 }: {
   dueMonday: string;
   draftKey: string;
   weekEnd: string;
   initialRows: TimeblockBuilderRow[];
   initialRoutine: TimeblockRoutine;
+  replacedProofIds: string[];
 }) {
   const [routineFocus, setRoutineFocus] = useState<{ id: string } | null>(null);
   const [rows, setRows] = useState(initialRows);
@@ -352,21 +357,12 @@ export function TimeblockBuilder({
         setSavedLocally(false);
       }
     }
-    const known = new Set(current.map((row) => row.id));
-    const next = [
-      ...current.map((row) => ({
-        ...row,
-        status:
-          initialRows.find((fresh) => fresh.id === row.id)?.status ??
-          row.status,
-      })),
-      ...initialRows.filter((row) => !known.has(row.id)),
-    ].slice(0, MAX_TIMEBLOCKS);
+    const next = reconcileTimeblockRows(current, initialRows, replacedProofIds);
     rowsRef.current = next;
     setRows(next);
     saveDraft();
     setReady(true);
-  }, [draftKey, initialRows, saveDraft]);
+  }, [draftKey, initialRows, replacedProofIds, saveDraft]);
 
   const included = useMemo(() => rows.filter((row) => row.included), [rows]);
   const includedCount = included.length;
@@ -399,6 +395,7 @@ export function TimeblockBuilder({
         rowsRef.current,
         routineRef.current,
         initialRows,
+        replacedProofIds,
       );
     } catch (error) {
       toast.add({

@@ -38,6 +38,22 @@ export const socialTaskInclude = {
   },
 } as const;
 
+// Work-in-progress timing belongs to the account owner. Peer profile and
+// circle queries use socialTaskInclude and never serialize these intervals.
+export const ownTaskInclude = {
+  ...socialTaskInclude,
+  workSessions: {
+    orderBy: { startedAt: "asc" },
+    select: {
+      id: true,
+      circleId: true,
+      startedAt: true,
+      endedAt: true,
+      updatedAt: true,
+    },
+  },
+} as const;
+
 export async function assertCircleMember(userId: string, circleId: string) {
   const member = await getPrisma().membership.findUnique({
     where: { userId_circleId: { userId, circleId } },
@@ -55,6 +71,13 @@ export function toSocialTask(task: {
   status: SocialTask["status"];
   proofs: NonNullable<SocialTask["proof"]>[];
   goal?: SocialTask["goal"];
+  workSessions?: {
+    id: string;
+    circleId: string;
+    startedAt: Date;
+    endedAt: Date | null;
+    updatedAt: Date;
+  }[];
 }): SocialTask {
   return {
     id: task.id,
@@ -72,6 +95,15 @@ export function toSocialTask(task: {
       : task.status,
     proof: task.proofs[0] ?? null,
     goal: task.goal ?? null,
+    workSessions: task.workSessions?.map((session) => ({
+      id: session.id,
+      taskId: task.id,
+      circleId: session.circleId,
+      title: task.title,
+      startedAt: session.startedAt.toISOString(),
+      endedAt: session.endedAt?.toISOString() ?? null,
+      updatedAt: session.updatedAt.toISOString(),
+    })),
   };
 }
 

@@ -7,6 +7,7 @@ import {
 } from "@/lib/deletion-storage";
 import { DomainError } from "@/lib/errors";
 import { serializable } from "@/lib/transaction";
+import { closeWorkSessions } from "@/lib/work-sessions";
 
 export async function deletionMembership(
   tx: Prisma.TransactionClient,
@@ -125,6 +126,7 @@ export async function deleteContent(
           where: { id },
           data: { status: "CANCELLED" },
         });
+        await closeWorkSessions(tx, { commitmentId: id });
       } else if (kind === "check-in") {
         const update = await tx.checkInUpdate.findFirst({ where: own });
         if (!update) throw new DomainError("Check-in not found.", 404);
@@ -204,6 +206,7 @@ export async function changeCircleLifecycle(
         await tx.membership.delete({
           where: { userId_circleId: { userId, circleId } },
         });
+        await closeWorkSessions(tx, { userId, circleId });
         await tx.notification.deleteMany({
           where: { recipientId: userId, circleId },
         });

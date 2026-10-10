@@ -134,18 +134,18 @@ export function applyBlockEdit(
 }
 
 export function overlappingIds(rows: TimeblockDraftRow[]) {
-  const included = rows.filter(
-    (r) =>
-      r.included &&
-      parsePhoenixLocalDateTime(r.startedAt) &&
-      parsePhoenixLocalDateTime(r.completedAt),
-  );
+  const included = rows.flatMap((row) => {
+    if (!row.included) return [];
+    const start = parsePhoenixLocalDateTime(row.startedAt)?.getTime();
+    const end = parsePhoenixLocalDateTime(row.completedAt)?.getTime();
+    return start == null || end == null ? [] : [{ id: row.id, start, end }];
+  });
   const ids = new Set<string>();
   for (let i = 0; i < included.length; i++) {
     for (let j = i + 1; j < included.length; j++) {
       if (
-        included[i].startedAt < included[j].completedAt &&
-        included[j].startedAt < included[i].completedAt
+        included[i].start < included[j].end &&
+        included[j].start < included[i].end
       ) {
         ids.add(included[i].id);
         ids.add(included[j].id);

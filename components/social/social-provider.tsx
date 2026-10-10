@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { StopwatchProvider } from "@/components/work-sessions/stopwatch-provider";
 import type {
   FeedPage,
   FeedPost,
@@ -29,6 +30,7 @@ import type {
   SocialTask,
 } from "@/lib/social-types";
 import { postKey } from "@/lib/social-types";
+import type { WorkSessionView } from "@/lib/work-session-policy";
 
 const SocialComposer = lazy(() =>
   import("@/components/social/social-composer").then((module) => ({
@@ -78,12 +80,14 @@ export function SocialProvider({
   circleId,
   day,
   tasks,
+  initialActiveWorkSession,
   children,
 }: {
   viewer: SocialAuthor;
   circleId: string;
   day: string;
   tasks: SocialTask[];
+  initialActiveWorkSession: WorkSessionView | null;
   children: ReactNode;
 }) {
   const [composer, setComposer] = useState<ComposerRequest | null>(null);
@@ -153,26 +157,28 @@ export function SocialProvider({
         openComposer: (request = { mode: "choose" }) => setComposer(request),
       }}
     >
-      <PendingMediaPosts key={circleId} circleId={circleId} />
-      {children}
-      {composer && (
-        <Suspense
-          fallback={<OverlayLoading onClose={() => setComposer(null)} />}
-        >
-          <SocialComposer
-            draftKey={draftKey}
-            request={composer}
-            draft={drafts.current.get(draftKey)}
-            onSaveDraft={(draft) => drafts.current.set(draftKey, draft)}
-            onDiscardDraft={() => drafts.current.delete(draftKey)}
-            onRequestChange={setComposer}
-            tasks={tasks}
-            circleId={circleId}
-            day={day}
-            onClose={() => setComposer(null)}
-          />
-        </Suspense>
-      )}
+      <StopwatchProvider initialActive={initialActiveWorkSession}>
+        <PendingMediaPosts key={circleId} circleId={circleId} />
+        {children}
+        {composer && (
+          <Suspense
+            fallback={<OverlayLoading onClose={() => setComposer(null)} />}
+          >
+            <SocialComposer
+              draftKey={draftKey}
+              request={composer}
+              draft={drafts.current.get(draftKey)}
+              onSaveDraft={(draft) => drafts.current.set(draftKey, draft)}
+              onDiscardDraft={() => drafts.current.delete(draftKey)}
+              onRequestChange={setComposer}
+              tasks={tasks}
+              circleId={circleId}
+              day={day}
+              onClose={() => setComposer(null)}
+            />
+          </Suspense>
+        )}
+      </StopwatchProvider>
     </Context>
   );
 }

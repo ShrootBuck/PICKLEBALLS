@@ -51,6 +51,10 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
+import {
+  useStopwatch,
+  useTaskWorkSessions,
+} from "@/components/work-sessions/stopwatch-provider";
 import { appFetch, holdAppRefresh } from "@/lib/app-refresh";
 import { uploadMedia } from "@/lib/media-upload";
 import { newStreakHref } from "@/lib/navigation";
@@ -61,6 +65,10 @@ import {
   parsePhoenixLocalDateTime,
   phoenixLocalDateTimeValue,
 } from "@/lib/time";
+import {
+  formatStopwatch,
+  summarizeWorkSessions,
+} from "@/lib/work-session-policy";
 
 type Mode = "choose" | "task" | "proof" | "check-in";
 export type ComposerRequest = {
@@ -165,6 +173,10 @@ function ComposerForm({
   const onRequestChange = (next: ComposerRequest) => changeRequest(next);
   const mode = request.mode;
   const task = request.task ?? null;
+  const stopwatch = useStopwatch();
+  const recorded = useTaskWorkSessions(mode === "proof" ? task : null);
+  const tracked = summarizeWorkSessions(recorded.sessions);
+  const isTracking = mode === "proof" && task?.id === stopwatch.active?.taskId;
   const [title, setTitle] = useState(
     draft?.title ??
       (request.mode === "task" ? (request.task?.title ?? "") : ""),
@@ -239,6 +251,12 @@ function ComposerForm({
     mode === "task" || (mode === "proof" && task && step === "details");
   const start = parsePhoenixLocalDateTime(startedAt);
   const finish = parsePhoenixLocalDateTime(completedAt);
+  const proofStart = tracked.startedAt
+    ? phoenixLocalDateTimeValue(new Date(tracked.startedAt), true)
+    : startedAt;
+  const proofEnd = tracked.endedAt
+    ? phoenixLocalDateTimeValue(new Date(tracked.endedAt), true)
+    : completedAt;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -268,6 +286,16 @@ function ComposerForm({
       } else {
         if (!task || !files.length)
           throw new Error("Choose a task and attach your proof first.");
+        if (recorded.loading)
+          throw new Error(
+            "Recorded times are still loading. Try again in a moment.",
+          );
+        if (recorded.error)
+          throw new Error(
+            "Could not load recorded time. Reopen the proof form to try again.",
+          );
+        if (isTracking)
+          throw new Error("Stop your stopwatch before posting proof.");
         const mediaIds =
           uploadedIds.current ??
           (await uploadMedia(files, setUploadStatus, {
@@ -277,7 +305,12 @@ function ComposerForm({
         response = await appFetch(`/api/commitments/${task.id}/proof`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ mediaIds, note, startedAt, completedAt }),
+          body: JSON.stringify({
+            mediaIds,
+            note,
+            startedAt: proofStart,
+            completedAt: proofEnd,
+          }),
         });
       }
       const data = await response.json();
@@ -484,36 +517,82 @@ function ComposerForm({
                 placeholder="A little context for your friends…"
               />
             </Field>
-            <Field>
-              <FieldLabel>Time spent</FieldLabel>
-              <Button
-                variant="outline"
-                className="h-auto justify-start py-3 whitespace-normal"
-                disabled={pending}
-                aria-expanded={editTimes}
-                aria-controls="social-proof-times"
-                onClick={() => setEditTimes(!editTimes)}
-              >
-                <Clock3 data-icon="inline-start" />
-                <span className="flex min-w-0 flex-1 flex-col gap-1 text-left">
-                  <span>
-                    {start ? formatHistoryTime(start) : "Start time"} to{" "}
-                    {finish ? formatHistoryTime(finish) : "finish time"}
+            {recorded.error && (
+              <Alert variant="destructive">
+                <AlertTitle>Could not load recorded time</AlertTitle>
+                <AlertDescription className="flex flex-col gap-2">
+                  {recorded.error}
+                  <Button
+                    variant="outline"
+                    disabled={recorded.loading}
+                    onClick={stopwatch.changed}
+                  >
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+            {isTracking && stopwatch.active && (
+              <Alert>
+                <AlertTitle>Your stopwatch is still running</AlertTitle>
+                <AlertDescription className="flex flex-col gap-2">
+                  Stop to save this session before posting proof.
+                  <Button
+                    disabled={stopwatch.pending}
+                    onClick={() =>
+                      stopwatch.active &&
+                      void stopwatch.stop(stopwatch.active.id)
+                    }
+                  >
+                    Stop stopwatch
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+            {tracked.count > 0 ? (
+              <Field>
+                <FieldLabel>Recorded work</FieldLabel>
+                <p className="font-mono tabular-nums">
+                  {formatStopwatch(tracked.milliseconds)}
+                </p>
+                <FieldDescription>
+                  {tracked.count} {tracked.count === 1 ? "session" : "sessions"}
+                  , with breaks excluded. Already saved to Timeblock. Select the
+                  recorded time on the task to correct it.
+                </FieldDescription>
+              </Field>
+            ) : (
+              <Field>
+                <FieldLabel>Time spent</FieldLabel>
+                <Button
+                  variant="outline"
+                  className="h-auto justify-start py-3 whitespace-normal"
+                  disabled={pending}
+                  aria-expanded={editTimes}
+                  aria-controls="social-proof-times"
+                  onClick={() => setEditTimes(!editTimes)}
+                >
+                  <Clock3 data-icon="inline-start" />
+                  <span className="flex min-w-0 flex-1 flex-col gap-1 text-left">
+                    <span>
+                      {start ? formatHistoryTime(start) : "Start time"} to{" "}
+                      {finish ? formatHistoryTime(finish) : "finish time"}
+                    </span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {start && finish
+                        ? `${formatDayShort(startedAt.slice(0, 10))}${startedAt.slice(0, 10) !== completedAt.slice(0, 10) ? ` to ${formatDayShort(completedAt.slice(0, 10))}` : ""} · `
+                        : ""}
+                      Phoenix time
+                    </span>
                   </span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {start && finish
-                      ? `${formatDayShort(startedAt.slice(0, 10))}${startedAt.slice(0, 10) !== completedAt.slice(0, 10) ? ` to ${formatDayShort(completedAt.slice(0, 10))}` : ""} · `
-                      : ""}
-                    Phoenix time
-                  </span>
-                </span>
-                <span>{editTimes ? "Done" : "Edit"}</span>
-              </Button>
-              <FieldDescription>
-                These times appear on your timeblock.
-              </FieldDescription>
-            </Field>
-            {editTimes && (
+                  <span>{editTimes ? "Done" : "Edit"}</span>
+                </Button>
+                <FieldDescription>
+                  These times appear on your timeblock.
+                </FieldDescription>
+              </Field>
+            )}
+            {editTimes && !tracked.count && (
               <FieldGroup id="social-proof-times">
                 <Field>
                   <FieldLabel htmlFor="social-start">Started</FieldLabel>
@@ -593,7 +672,11 @@ function ComposerForm({
               className="flex-1"
               form="social-composer-form"
               type="submit"
-              disabled={pending}
+              disabled={
+                pending ||
+                (mode === "proof" &&
+                  (recorded.loading || !!recorded.error || isTracking))
+              }
             >
               {pending && <Spinner data-icon="inline-start" />}
               {mode === "task"

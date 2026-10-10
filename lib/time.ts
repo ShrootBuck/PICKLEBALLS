@@ -85,7 +85,7 @@ export function phoenixWallToDate(
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export function phoenixLocalDateTimeValue(date = new Date()) {
+export function phoenixLocalDateTimeValue(date = new Date(), seconds = false) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: appTimeZone,
     year: "numeric",
@@ -97,17 +97,26 @@ export function phoenixLocalDateTimeValue(date = new Date()) {
   }).formatToParts(date);
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((value) => value.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}T${part("hour") === "24" ? "00" : part("hour")}:${part("minute")}`;
+  const value = `${part("year")}-${part("month")}-${part("day")}T${part("hour") === "24" ? "00" : part("hour")}:${part("minute")}`;
+  return seconds
+    ? `${value}:${String(date.getUTCSeconds()).padStart(2, "0")}.${String(date.getUTCMilliseconds()).padStart(3, "0")}`
+    : value;
 }
 
 export function parsePhoenixLocalDateTime(value: string) {
-  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})$/.exec(value.trim());
+  const match =
+    /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/.exec(
+      value.trim(),
+    );
   if (!match) return null;
   const hour = Number(match[2]);
   const minute = Number(match[3]);
-  if (hour > 23 || minute > 59) return null;
-  const date = phoenixWallToDate(match[1], hour, minute, 0, 0);
-  if (!date || phoenixLocalDateTimeValue(date) !== value.trim()) return null;
+  const second = Number(match[4] ?? 0);
+  const ms = Number((match[5] ?? "0").padEnd(3, "0"));
+  if (hour > 23 || minute > 59 || second > 59) return null;
+  const date = phoenixWallToDate(match[1], hour, minute, second, ms);
+  if (!date || phoenixLocalDateTimeValue(date) !== value.trim().slice(0, 16))
+    return null;
   return date;
 }
 

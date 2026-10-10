@@ -27,6 +27,7 @@ import {
 } from "@/lib/screen-time";
 import {
   getFeedPage,
+  ownTaskInclude,
   socialTaskInclude,
   toSocialTask,
 } from "@/lib/social-data";
@@ -113,7 +114,7 @@ export async function MemberProfile({
               : { day: requireDateKey(day) }),
           },
           orderBy: { createdAt: "asc" },
-          include: socialTaskInclude,
+          include: mine ? ownTaskInclude : socialTaskInclude,
         })
       : [],
     getPrisma().commitment.findMany({

@@ -172,6 +172,9 @@ try {
   console.log(
     await run(["bun", "test", "./tests/deletions.integration.ts"], env),
   );
+  console.log(
+    await run(["bun", "test", "./tests/work-sessions.integration.ts"], env),
+  );
   if (!process.argv.includes("--media-only"))
     console.log(
       await run(["bun", "test", "./tests/goals.integration.ts"], env),
