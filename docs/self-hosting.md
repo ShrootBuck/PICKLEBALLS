@@ -173,6 +173,20 @@ local development. Never run `migrate dev` or `db push` against production.
 
 ## Verify a rolling deployment
 
+The production worker automatically enqueues a `verify-deployment` job at startup.
+Set `DEPLOYMENT_DISCORD_WEBHOOK` on the worker at runtime only, using the existing
+Coolify Discord destination. It waits up to 20 minutes for both public release
+health stamps to match its baked commit, then requires the sign-in page and all
+its referenced static assets to pass for 60 seconds. It sends one combined success
+or failure result. This runs on the server through the existing Postgres job queue,
+without blocking worker readiness or Coolify's serial deployment queue.
+Completed jobs suppress duplicate announcements for the same commit for 90 days.
+Delivery errors retry three times; an ambiguous network failure can still cause a
+duplicate Discord message. A replacement worker skips older release jobs.
+Coolify's deployment-failure alerts cover builds that fail before this job starts.
+These checks cannot alert during a complete host or Internet outage because the
+monitor runs on that same host.
+
 Run `bun scripts/verify-production-deploy.ts --watch` before pushing to main.
 It records the current built deployment ID and asset URLs, polls public health,
 the sign-in page, and old assets throughout the release, then checks all captured
@@ -236,5 +250,19 @@ in Coolify only works while the older code still matches the current schema.
 After a breaking migration, roll forward with a fix instead. Cloudflare DNS and
 the Tunnel remain required.
 
-Off-machine backups are intentionally omitted at the owner's request. Docker
-volumes survive container redeployment but do not protect against disk failure.
+Coolify maintenance uses UTC schedules, converted from Tucson time:
+
+| Task | Tucson time | UTC cron |
+| --- | --- | --- |
+| Existing local Coolify database backup | 02:00 daily | `0 9 * * *` |
+| Automatic Coolify update | 03:00 daily | `0 10 * * *` |
+| Docker cleanup check | 04:00 daily | `0 11 * * *` |
+
+Docker cleanup runs only above 80% disk usage. Unused-volume/network deletion
+stays disabled; retained application images are preserved. Resource status-change
+and restart-limit alerts are enabled in the existing Discord channel. Maintenance
+times are staggered, not transactionally gated on the previous task's success.
+
+Comprehensive off-laptop backups are requested and pending a storage destination.
+The current local Coolify database backup does not back up app Postgres or Garage.
+Docker volumes survive container redeployment but do not protect against disk failure.

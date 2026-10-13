@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { registerDeploymentVerification } from "@/lib/deployment-verification-worker";
 import { getPrisma } from "@/lib/prisma";
 import { createQueueClient, type JobName, type JobPayloads } from "@/lib/queue";
 import { releaseCommit } from "@/lib/release-id";
@@ -136,3 +137,4 @@ for (const signal of ["SIGTERM", "SIGINT"] as const)
     await getPrisma().$disconnect();
     process.exit(0);
   });
+await registerDeploymentVerification(boss, shutdown.signal);
