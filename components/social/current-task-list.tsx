@@ -1,7 +1,6 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import Link from "next/link";
 import { TaskList } from "@/components/social/task-list";
 import { Button } from "@/components/ui/button";
 import {
@@ -71,12 +70,6 @@ export function CurrentTaskList({
           </CollapsibleContent>
         </Collapsible>
       )}
-      <Link
-        href="/history"
-        className="self-start text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
-      >
-        View task history
-      </Link>
     </div>
   );
 }
