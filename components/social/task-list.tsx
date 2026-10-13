@@ -27,6 +27,16 @@ import {
 import { TaskStopwatch } from "@/components/work-sessions/task-stopwatch";
 import { postHref } from "@/lib/navigation";
 import type { SocialTask } from "@/lib/social-types";
+import { formatReplyTime } from "@/lib/time";
+
+export function AddTaskButton() {
+  const { openComposer } = useSocial();
+  return (
+    <Button size="sm" onClick={() => openComposer({ mode: "task" })}>
+      <Plus data-icon="inline-start" /> Add task
+    </Button>
+  );
+}
 
 export function TaskList({
   tasks,
@@ -113,15 +123,7 @@ export function TaskList({
                   </Link>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Proof due{" "}
-                  {new Date(task.dueAt).toLocaleString("en-US", {
-                    timeZone: "America/Phoenix",
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}{" "}
-                  · Phoenix time
+                  Proof due {formatReplyTime(task.dueAt)} · Phoenix time
                 </p>
                 <Badge
                   variant={

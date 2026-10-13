@@ -1080,7 +1080,7 @@ test("half the circle must approve; partial approvals stay queued and concurrent
     ).status,
   ).toBe("VERIFIED");
   expect(
-    (await getFeedPage({ viewerId: ids.owner, circleId, awaitingOnly: true }))
+    (await getFeedPage({ viewerId: ids.owner, circleId, pendingOnly: true }))
       .items,
   ).toHaveLength(0);
   expect(
@@ -1097,8 +1097,7 @@ test("half the circle must approve; partial approvals stay queued and concurrent
   });
   await prisma.membership.create({ data: { userId: extra, circleId } });
   expect(
-    (await getFeedPage({ viewerId: extra, circleId, awaitingOnly: true }))
-      .items,
+    (await getFeedPage({ viewerId: extra, circleId, pendingOnly: true })).items,
   ).toHaveLength(0);
 });
 
@@ -1177,18 +1176,18 @@ test("pending queue pagination is newest first and cannot reuse timeline cursors
     })),
   });
   expect(
-    (await getFeedPage({ viewerId: ids.owner, circleId, awaitingOnly: true }))
+    (await getFeedPage({ viewerId: ids.owner, circleId, pendingOnly: true }))
       .items,
   ).toHaveLength(0);
   const first = await getFeedPage({
     viewerId: ids.peer,
     circleId,
-    awaitingOnly: true,
+    pendingOnly: true,
   });
   const next = await getFeedPage({
     viewerId: ids.peer,
     circleId,
-    awaitingOnly: true,
+    pendingOnly: true,
     cursor: first.nextCursor ?? undefined,
   });
   expect([...first.items, ...next.items].map((p) => p.id)).toEqual(
@@ -1450,7 +1449,7 @@ test("hourly reconciliation misses only tasks without an accepted submission", a
   const reviewQueue = await getFeedPage({
     viewerId: ids.peer,
     circleId: circle.id,
-    awaitingOnly: true,
+    pendingOnly: true,
   });
   expect(
     reviewQueue.items.find((post) => post.id === pending.id),

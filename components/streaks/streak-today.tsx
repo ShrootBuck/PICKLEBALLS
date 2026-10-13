@@ -18,14 +18,11 @@ function hint(view: StreakView) {
 export function StreakToday({ streaks }: { streaks: StreakView[] }) {
   if (!streaks.length) return null;
   return (
-    <section
-      aria-labelledby="streak-today-title"
-      className="flex flex-col gap-1 rounded-xl border bg-card p-3"
-    >
-      <div className="flex items-center justify-between gap-3 px-1">
+    <section aria-labelledby="streak-today-title" className="today-card">
+      <div className="today-card-header">
         <h2
           id="streak-today-title"
-          className="flex items-center gap-2 text-sm font-semibold"
+          className="today-card-title flex items-center gap-2"
         >
           <Flame className="size-4 text-primary" />
           Keep your streaks going
@@ -38,9 +35,9 @@ export function StreakToday({ streaks }: { streaks: StreakView[] }) {
           <ArrowRight className="size-3.5" />
         </Link>
       </div>
-      <ul className="flex flex-col">
+      <ul className="flex flex-col px-4 pb-2 md:px-5">
         {streaks.map((view) => (
-          <li key={view.id} className="flex items-center gap-3 px-1 py-2">
+          <li key={view.id} className="flex items-center gap-3 py-2">
             <StreakEmber
               count={view.summary.current}
               size={30}

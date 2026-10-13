@@ -22,6 +22,19 @@ import {
 } from "@/lib/task-policy";
 import { phoenixDateKey, requireDateKey } from "@/lib/time";
 
+export function countProofsAwaitingVerdict(circleId: string, userId: string) {
+  return getPrisma().taskProof.count({
+    where: {
+      circleId,
+      reviewStatus: "PENDING",
+      commitment: reviewableCommitmentFilter(),
+      replacedById: null,
+      ownerId: { not: userId },
+      reviews: { none: { reviewerId: userId } },
+    },
+  });
+}
+
 export const socialAuthorSelect = {
   id: true,
   name: true,
@@ -173,7 +186,6 @@ export async function getFeedPage({
   screenTimeIds,
   includeReplaced = false,
   pendingOnly = false,
-  awaitingOnly = false,
   timelineOnly = false,
 }: {
   viewerId: string;
@@ -187,7 +199,6 @@ export async function getFeedPage({
   screenTimeIds?: string[];
   includeReplaced?: boolean;
   pendingOnly?: boolean;
-  awaitingOnly?: boolean;
   timelineOnly?: boolean;
 }): Promise<FeedPage> {
   await assertCircleMember(viewerId, circleId);
@@ -197,13 +208,7 @@ export async function getFeedPage({
     ? parseFeedCursor(
         rawCursor,
         circleId,
-        pendingOnly
-          ? "!review"
-          : awaitingOnly
-            ? "!pending"
-            : timelineOnly
-              ? "!timeline"
-              : memberId,
+        pendingOnly ? "!review" : timelineOnly ? "!timeline" : memberId,
       )
     : null;
   if (rawCursor && !cursor) throw new DomainError("Invalid feed cursor.");
@@ -220,7 +225,6 @@ export async function getFeedPage({
     screenTimeIds,
     includeReplaced,
     pendingOnly,
-    awaitingOnly,
     timelineOnly,
   });
   const page = items.slice(0, size);
@@ -231,13 +235,7 @@ export async function getFeedPage({
         ? encodeFeedCursor(
             page[page.length - 1],
             circleId,
-            pendingOnly
-              ? "!review"
-              : awaitingOnly
-                ? "!pending"
-                : timelineOnly
-                  ? "!timeline"
-                  : memberId,
+            pendingOnly ? "!review" : timelineOnly ? "!timeline" : memberId,
           )
         : null,
   };
@@ -255,7 +253,6 @@ async function readPosts({
   screenTimeIds,
   includeReplaced = false,
   pendingOnly = false,
-  awaitingOnly = false,
   timelineOnly = false,
   since,
   until,
@@ -271,7 +268,6 @@ async function readPosts({
   screenTimeIds?: string[];
   includeReplaced?: boolean;
   pendingOnly?: boolean;
-  awaitingOnly?: boolean;
   timelineOnly?: boolean;
   since?: Date;
   until?: Date;
@@ -292,7 +288,7 @@ async function readPosts({
               },
             }
           : {}),
-        ...(pendingOnly || awaitingOnly
+        ...(pendingOnly
           ? {
               reviewStatus: "PENDING" as const,
               commitment: reviewableCommitmentFilter(),
@@ -345,7 +341,7 @@ async function readPosts({
       where: {
         circleId,
         ...(memberId ? { userId: memberId } : {}),
-        ...(pendingOnly || awaitingOnly
+        ...(pendingOnly
           ? { id: { in: [] } }
           : checkInIds
             ? { id: { in: checkInIds } }
@@ -366,7 +362,7 @@ async function readPosts({
       where: {
         circleId,
         ...(memberId ? { userId: memberId } : {}),
-        ...(pendingOnly || awaitingOnly
+        ...(pendingOnly
           ? { id: { in: [] } }
           : screenTimeIds
             ? { id: { in: screenTimeIds } }
@@ -390,7 +386,7 @@ async function readPosts({
         // Private streaks never post, but the feed must not depend on that.
         streak: { visibility: "CIRCLE" },
         ...(memberId ? { userId: memberId } : {}),
-        ...(pendingOnly || awaitingOnly
+        ...(pendingOnly
           ? { id: { in: [] } }
           : streakEventIds
             ? { id: { in: streakEventIds } }

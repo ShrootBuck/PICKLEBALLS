@@ -113,8 +113,6 @@ export function SocialProvider({
               (item) =>
                 (key !== "!review" ||
                   (item.kind === "proof" && item.canReview)) &&
-                (key !== "!pending" ||
-                  (item.kind === "proof" && item.canReview)) &&
                 (key !== "!timeline" ||
                   item.kind !== "proof" ||
                   !item.canReview),

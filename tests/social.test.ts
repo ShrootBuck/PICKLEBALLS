@@ -8,7 +8,7 @@ import {
 import { reconcileFeed, refreshFeedPages } from "@/lib/feed-state";
 import { latestScreenTimeWeek, rankScreenTime } from "@/lib/screen-time";
 import type { FeedPost } from "@/lib/social-types";
-import { phoenixDateKey, phoenixDayDueAt } from "@/lib/time";
+import { formatReplyTime, phoenixDateKey, phoenixDayDueAt } from "@/lib/time";
 import { createTimeblockPdf } from "@/lib/timeblock-pdf";
 import { timeblockWeek } from "@/lib/timeblocks";
 
@@ -117,6 +117,13 @@ test("Phoenix midnight and reporting weeks stay distinct", () => {
     "2026-08-30",
   );
   expect(timeblockWeek("2026-09-14").startKey).toBe("2026-09-07");
+});
+test("hydrated timestamps use consistent Phoenix dates and separators", () => {
+  expect(formatReplyTime("2026-10-13T06:59:00Z")).toBe("Oct 12, 11:59 PM");
+  expect(formatReplyTime("2026-10-13T07:00:00Z")).toBe("Oct 13, 12:00 AM");
+  expect(formatReplyTime(new Date("2026-10-13T19:05:00Z"))).toBe(
+    "Oct 13, 12:05 PM",
+  );
 });
 test("screen-time ties and missing submissions retain honest ranks", () => {
   const rows = [50, null, 50, 70].map((minutes, i) => ({

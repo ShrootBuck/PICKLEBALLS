@@ -164,10 +164,9 @@ try {
     false,
   );
   await page
-    .getByRole("button", { name: "Circle menu: After school", exact: true })
-    .click();
-  await page.getByRole("menuitem", { name: "Goals", exact: true }).waitFor();
-  await page.keyboard.press("Escape");
+    .getByRole("navigation", { name: "Section pages" })
+    .getByRole("link", { name: "Goals", exact: true })
+    .waitFor();
   await page.setViewportSize({ width: 320, height: 740 });
   assert.equal(
     await page.evaluate(

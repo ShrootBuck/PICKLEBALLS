@@ -11,9 +11,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CircleDestination } from "@/components/circles/circle-destination";
 import { Feed } from "@/components/social/feed";
-import { AddTaskButton } from "@/components/social/home-actions";
 import { ProfileDayPicker } from "@/components/social/profile-day-picker";
-import { TaskList } from "@/components/social/task-list";
+import { AddTaskButton, TaskList } from "@/components/social/task-list";
 import { StreakCard } from "@/components/streaks/streak-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
@@ -160,31 +159,30 @@ export async function MemberProfile({
   const streakQuery = new URLSearchParams({ circle: circleId, tab: "streaks" });
   return (
     <>
-      <header className="flex items-start gap-4">
-        <Avatar className="size-20">
+      <header className="flex items-center gap-4 md:gap-5">
+        <Avatar className="size-20 md:size-24">
           <AvatarImage src={subject.user.image ?? undefined} alt="" />
           <AvatarFallback>{subject.user.initials}</AvatarFallback>
         </Avatar>
-        <div className="min-w-0 flex-1 pt-1">
-          <div className="flex items-start justify-between gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {subject.user.name}
-            </h1>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {membership.circle.name}
-          </p>
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <CalendarDays className="size-3.5" />
-            Joined {formatDayShort(phoenixDateKey(subject.createdAt))}
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <h1 className="page-title">{subject.user.name}</h1>
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            <span>{membership.circle.name}</span>
+            <span aria-hidden="true">·</span>
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarDays className="size-3.5" />
+              Joined {formatDayShort(phoenixDateKey(subject.createdAt))}
+            </span>
           </p>
         </div>
       </header>
-      <section aria-label="This week’s statistics">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-medium">This week</h2>
+      <section aria-labelledby="profile-week" className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 id="profile-week" className="text-sm font-semibold">
+            This week
+          </h2>
           <span className="text-xs text-muted-foreground">
-            {formatDayShort(monday)} · Phoenix
+            Since {formatDayShort(monday)} · Phoenix
           </span>
         </div>
         <div className="profile-stats">
@@ -201,26 +199,27 @@ export async function MemberProfile({
           ].map((stat) => (
             <div key={stat.label}>
               <p className="profile-stat-number">{stat.value}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{stat.label}</p>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {stat.label}
+              </p>
             </div>
           ))}
-        </div>
-        <Link
-          href={`/screen-time?week=${screenWeek}`}
-          className="mt-4 flex items-start gap-3 text-sm"
-        >
-          <Smartphone className="mt-0.5 size-4 text-muted-foreground" />
-          <span>
-            <span className="font-medium">
+          <Link href={`/screen-time?week=${screenWeek}`}>
+            <p className="profile-stat-number">
               {screenTime
-                ? `${formatScreenTime(screenTime.reading.dailyAverageMinutes)} / day`
-                : "Screen time not submitted"}
-            </span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              {screenTimeWeekLabel(screenWeek)} · latest completed week
-            </span>
-          </span>
-        </Link>
+                ? formatScreenTime(screenTime.reading.dailyAverageMinutes)
+                : "None"}
+            </p>
+            <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <Smartphone className="size-3" />
+              {screenTime ? "Screen time / day" : "No screen time"}
+            </p>
+          </Link>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Screen time covers {screenTimeWeekLabel(screenWeek)}, the latest
+          completed week.
+        </p>
       </section>
       <nav className="line-tabs" aria-label="Profile sections">
         <Link

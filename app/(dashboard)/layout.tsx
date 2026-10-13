@@ -1,18 +1,19 @@
 import { Suspense } from "react";
+import { AppShell } from "@/components/layout/app-shell";
 import { BellSlot } from "@/components/layout/bell-slot";
 import { SocialProvider } from "@/components/social/social-provider";
-import { SocialShell } from "@/components/social/social-shell";
 import { StreakCelebrationHost } from "@/components/streaks/streak-celebration";
 import { countBucketVotesAwaiting } from "@/lib/bucket-list-data";
 import { listMyCircles } from "@/lib/circles";
 import { getPrisma } from "@/lib/prisma";
 import { getPageSession, requirePageMembership } from "@/lib/request";
-import { ownTaskInclude, toSocialTask } from "@/lib/social-data";
-import { isSuperAdmin } from "@/lib/super-admin";
 import {
-  currentTaskFilter,
-  reviewableCommitmentFilter,
-} from "@/lib/task-policy";
+  countProofsAwaitingVerdict,
+  ownTaskInclude,
+  toSocialTask,
+} from "@/lib/social-data";
+import { isSuperAdmin } from "@/lib/super-admin";
+import { currentTaskFilter } from "@/lib/task-policy";
 import { phoenixDateKey } from "@/lib/time";
 import { getActiveWorkSession } from "@/lib/work-sessions";
 
@@ -44,16 +45,7 @@ export default async function DashboardLayout({
       orderBy: { createdAt: "asc" },
       include: ownTaskInclude,
     }),
-    getPrisma().taskProof.count({
-      where: {
-        circleId: membership.circleId,
-        reviewStatus: "PENDING",
-        commitment: reviewableCommitmentFilter(),
-        replacedById: null,
-        ownerId: { not: session.user.id },
-        reviews: { none: { reviewerId: session.user.id } },
-      },
-    }),
+    countProofsAwaitingVerdict(membership.circleId, session.user.id),
     countBucketVotesAwaiting(membership.circleId, session.user.id),
     isSuperAdmin(session.user.id),
     getActiveWorkSession(session.user.id),
@@ -68,7 +60,7 @@ export default async function DashboardLayout({
       tasks={tasks.map(toSocialTask)}
       initialActiveWorkSession={activeWorkSession}
     >
-      <SocialShell
+      <AppShell
         circles={memberships.map(({ circle, role }) => ({
           id: circle.id,
           name: circle.name,
@@ -84,7 +76,7 @@ export default async function DashboardLayout({
         }
       >
         {children}
-      </SocialShell>
+      </AppShell>
       <StreakCelebrationHost />
     </SocialProvider>
   );

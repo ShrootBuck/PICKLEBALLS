@@ -17,7 +17,7 @@ export function ProfileSkeleton() {
       </div>
       <Skeleton className="h-4 w-24" />
       <div className="profile-stats">
-        {[1, 2, 3].map((id) => (
+        {[1, 2, 3, 4].map((id) => (
           <div key={id} className="flex flex-col gap-3">
             <Skeleton className="h-8 w-10" />
             <Skeleton className="h-3 w-20 max-w-full" />

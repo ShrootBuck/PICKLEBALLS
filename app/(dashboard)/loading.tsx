@@ -1,2 +1,2 @@
-import { FeedSkeleton } from "@/components/social/feed-skeleton";
-export default FeedSkeleton;
+import { PageSkeleton } from "@/components/layout/page-skeleton";
+export default PageSkeleton;

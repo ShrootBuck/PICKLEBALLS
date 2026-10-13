@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { chromium, webkit } from "playwright";
+import { mediaVersion } from "@/lib/media-playback";
+
+const videoVersion = (index: number) => mediaVersion(`fixture-video-${index}`);
 
 // Start `bun scripts/test-social.ts --media-only --serve --video` first.
 // Uses only the disposable fixture, never a real account or production URL.
@@ -13,23 +16,20 @@ try {
   const page = await context.newPage();
   const errors: string[] = [];
   page.on("pageerror", (error) => {
-    // Existing timestamp formatting differs between Node and WebKit Intl data.
-    // Keep that unrelated diagnostic visible without masking media errors.
+    // Keep WebKit development-overlay diagnostics visible without masking
+    // hydration failures or media errors.
     if (
       safari &&
-      ((error.message.includes("Hydration failed") &&
-        error.message.includes("PostTimestamp")) ||
-        error.message.includes("webpack.hot-update.json") ||
+      (error.message.includes("webpack.hot-update.json") ||
         error.message.includes(
           "Router action dispatched before initialization",
         ))
     ) {
-      console.warn(
-        "Known unrelated WebKit timestamp/development-overlay error.",
-      );
+      console.warn("Known unrelated WebKit development-overlay error.");
     } else errors.push(error.message);
   });
   await page.goto("http://localhost:3318/login");
+  await page.goto("http://localhost:3317/squad");
   await page.waitForFunction(
     () => !!document.querySelector("video")?.currentSrc,
   );
@@ -39,7 +39,7 @@ try {
     loop: video.loop,
   }));
   assert(
-    initial.src.includes("fixture-video-0"),
+    initial.src.includes(videoVersion(0)),
     "The player must load the MP4.",
   );
   assert(initial.loop, "Videos must loop.");
@@ -118,10 +118,9 @@ try {
   await page
     .getByRole("button", { name: "Next attachment", exact: true })
     .click();
-  await page.waitForFunction(() =>
-    document
-      .querySelectorAll("video")[1]
-      ?.currentSrc.includes("fixture-video-1"),
+  await page.waitForFunction(
+    (key) => document.querySelectorAll("video")[1]?.currentSrc.includes(key),
+    videoVersion(1),
   );
   const second = page.locator("video").nth(1);
   await second.evaluate((video: HTMLVideoElement) => video.play());
@@ -150,16 +149,18 @@ try {
         response,
         json: {
           ...ticket,
-          url: new URL("/media/expired-fixture", ticket.url).toString(),
+          url: new URL(
+            "/media/expired-fixture",
+            route.request().url(),
+          ).toString(),
         },
       });
     },
   );
-  await broken.goto("http://localhost:3317/");
+  await broken.goto("http://localhost:3317/squad");
   await broken.waitForFunction(
-    () =>
-      document.querySelector("video")?.currentSrc.includes("fixture-video-0"),
-    {},
+    (key) => document.querySelector("video")?.currentSrc.includes(key),
+    videoVersion(0),
     { timeout: 45_000 },
   );
   assert(rejected, "The first ticket must have been rejected.");

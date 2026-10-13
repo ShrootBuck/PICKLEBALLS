@@ -1,4 +1,4 @@
-import { ArrowUpRight, CheckCheck, List, Users } from "lucide-react";
+import { ArrowUpRight, History } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -66,39 +66,34 @@ export default async function SquadPage({
   return (
     <>
       <PageHeader
-        title="Squad"
-        description={`${memberCount} ${memberCount === 1 ? "member" : "members"} in this circle. Review each other’s proof and see who showed up.`}
+        title={
+          view === "members"
+            ? "Members"
+            : view === "log"
+              ? "Activity log"
+              : "Review"
+        }
+        description={
+          view === "members"
+            ? `${memberCount} ${memberCount === 1 ? "member" : "members"} in this circle. See who showed up today.`
+            : view === "log"
+              ? "The latest 100 things that happened in this circle."
+              : "Proof waiting for your verdict. Approving or challenging needs a comment."
+        }
         actions={
-          <Button
-            nativeButton={false}
-            variant="outline"
-            size="sm"
-            render={<Link href="/squad?view=log" />}
-            aria-current={view === "log" ? "page" : undefined}
-          >
-            <List data-icon="inline-start" />
-            Activity log
-          </Button>
+          view === "log" ? (
+            <Button
+              nativeButton={false}
+              variant="outline"
+              size="sm"
+              render={<Link href="/history" />}
+            >
+              <History data-icon="inline-start" />
+              Daily history
+            </Button>
+          ) : undefined
         }
       />
-      <nav className="line-tabs" aria-label="Squad sections">
-        <Link
-          href="/squad"
-          className="line-tab"
-          aria-current={view === "review" ? "page" : undefined}
-        >
-          <CheckCheck className="size-4" />
-          Review
-        </Link>
-        <Link
-          href="/squad?view=members"
-          className="line-tab"
-          aria-current={view === "members" ? "page" : undefined}
-        >
-          <Users className="size-4" />
-          Members
-        </Link>
-      </nav>
       {view === "review" && pending && <Feed initial={pending} reviewOnly />}
       {view === "members" && (
         <div className="flex flex-col">
@@ -148,8 +143,7 @@ export default async function SquadPage({
         </div>
       )}
       {view === "log" && (
-        <section>
-          <h2 className="mb-4 font-semibold">Activity log</h2>
+        <section aria-label="Activity log">
           {events.length ? (
             events.map((event) => (
               <div key={event.id} className="border-b py-4">

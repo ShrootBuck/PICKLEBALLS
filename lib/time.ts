@@ -158,6 +158,7 @@ const replyTimeFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   hour: "numeric",
   minute: "2-digit",
+  hourCycle: "h12",
 });
 
 const historyTimeFormatter = new Intl.DateTimeFormat("en-US", {
@@ -173,7 +174,12 @@ const proofTimeFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 export function formatReplyTime(date: Date | string) {
-  return replyTimeFormatter.format(new Date(date));
+  // Node and Safari use different date/time separators. Build the shared
+  // display from parts so client components hydrate with the server's text.
+  const parts = replyTimeFormatter.formatToParts(new Date(date));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((value) => value.type === type)?.value ?? "";
+  return `${part("month")} ${part("day")}, ${part("hour")}:${part("minute")} ${part("dayPeriod")}`;
 }
 
 export function formatHistoryTime(date: Date | string) {

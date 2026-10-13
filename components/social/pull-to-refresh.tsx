@@ -27,9 +27,7 @@ export function PullToRefresh({
       className="relative"
       onTouchStart={(event) => {
         reset();
-        const scroll = event.currentTarget.closest(
-          '[data-slot="social-scroll"]',
-        );
+        const scroll = event.currentTarget.closest('[data-slot="app-scroll"]');
         if (
           disabled ||
           event.touches.length !== 1 ||

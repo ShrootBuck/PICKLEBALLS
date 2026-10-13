@@ -1,4 +1,4 @@
-import { History } from "lucide-react";
+import { History, List } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { HistoryNav } from "@/components/history/history-nav";
@@ -12,6 +12,7 @@ import {
 } from "@/components/squad/proof-helpers";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -186,13 +187,24 @@ export default async function HistoryPage({
   return (
     <>
       <PageHeader
-        title={dayKey === todayKey ? "Today" : formatDayLong(dayKey)}
+        title={dayKey === todayKey ? "Today so far" : formatDayLong(dayKey)}
         description={
           tasks.length === 0
             ? "Nothing happened on this day."
             : `${verified} of ${tasks.length} tasks verified across the squad.`
         }
-        actions={<HistoryNav day={dayKey} today={todayKey} />}
+        actions={
+          <>
+            <HistoryNav day={dayKey} today={todayKey} />
+            <Link
+              href="/squad?view=log"
+              className={buttonVariants({ variant: "ghost", size: "sm" })}
+            >
+              <List data-icon="inline-start" />
+              Activity log
+            </Link>
+          </>
+        }
       >
         History
       </PageHeader>

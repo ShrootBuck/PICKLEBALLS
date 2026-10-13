@@ -342,11 +342,7 @@ function ComposerForm({
         type: "success",
       });
       router.push(
-        mode === "task"
-          ? !task && goalId
-            ? `/goals/${goalId}`
-            : "/profile?tab=tasks"
-          : "/",
+        mode === "task" ? (!task && goalId ? `/goals/${goalId}` : "/") : "/",
       );
     } catch (cause) {
       setError(

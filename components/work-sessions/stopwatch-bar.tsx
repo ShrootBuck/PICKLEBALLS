@@ -9,11 +9,11 @@ import {
   StopwatchElapsed,
   useStopwatch,
 } from "@/components/work-sessions/stopwatch-provider";
-import { memberHref } from "@/lib/navigation";
+import { memberHref, todayTaskHref } from "@/lib/navigation";
 
 export function StopwatchBar() {
   const { active, pending, stop } = useStopwatch();
-  const { viewer } = useSocial();
+  const { viewer, circleId } = useSocial();
   if (!active) return null;
   return (
     <section
@@ -22,7 +22,11 @@ export function StopwatchBar() {
     >
       <Clock3 className="hidden size-5 shrink-0 text-primary min-[380px]:block" />
       <Link
-        href={`${memberHref(active.circleId, viewer.id, "tasks")}&focus=${encodeURIComponent(active.taskId)}`}
+        href={
+          active.circleId === circleId
+            ? todayTaskHref(active.taskId)
+            : `${memberHref(active.circleId, viewer.id, "tasks")}&focus=${encodeURIComponent(active.taskId)}`
+        }
         className="min-w-0 flex-1"
       >
         <span className="block text-xs text-muted-foreground">Working on</span>

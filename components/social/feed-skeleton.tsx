@@ -7,13 +7,9 @@ export function FeedSkeleton() {
       aria-label="Loading posts"
       aria-busy="true"
     >
-      <div className="flex gap-5 border-b pb-6">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="flex flex-col items-center gap-3">
-            <Skeleton className="size-14 rounded-full" />
-            <Skeleton className="h-3 w-12" />
-          </div>
-        ))}
+      <div className="flex items-center gap-3 rounded-2xl border p-3">
+        <Skeleton className="size-10 rounded-full" />
+        <Skeleton className="h-10 flex-1 rounded-full" />
       </div>
       {[1, 2].map((i) => (
         <div key={i} className="flex flex-col gap-4 border-b pb-6">

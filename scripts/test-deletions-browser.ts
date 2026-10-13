@@ -172,7 +172,7 @@ try {
     (await db.commitment.findUniqueOrThrow({ where: { id: task.id } })).goalId,
     null,
   );
-  await page.goto(`${origin}/profile?tab=tasks`);
+  await page.goto(origin);
   const article = page.locator(`#task-${task.id}`);
   await article
     .getByRole("button", { name: "Cancel task", exact: true })
@@ -207,7 +207,7 @@ try {
       journal: "Remove this private check-in",
     },
   });
-  await page.goto(origin);
+  await page.goto(`${origin}/feed`);
   const post = page.getByRole("article", {
     name: "Deletion Owner’s check-in",
     exact: true,

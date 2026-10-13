@@ -24,6 +24,10 @@ export function postHref(
   return `/posts/${kind}/${encodeURIComponent(id)}?${new URLSearchParams({ circle: circleId })}`;
 }
 
+export function todayTaskHref(taskId: string) {
+  return `/?${new URLSearchParams({ focus: taskId })}`;
+}
+
 export function bucketItemHref(circleId: string, id: string) {
   return `/bucket-list/${encodeURIComponent(id)}?${new URLSearchParams({ circle: circleId })}`;
 }

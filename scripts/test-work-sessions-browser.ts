@@ -69,7 +69,7 @@ try {
     circleId: "demo-circle",
   });
   assert.equal(other.status, 201);
-  await page.goto(`${origin}/profile?tab=tasks`);
+  await page.goto(origin);
   const task = () => page.locator(`#task-${taskId}`);
   await task().getByRole("button", { name: "Start", exact: true }).click();
   await bar().waitFor();
@@ -87,8 +87,8 @@ try {
   await bar().waitFor();
   await page.waitForTimeout(500);
   await page
+    .getByRole("navigation", { name: "Main navigation" })
     .getByRole("link", { name: "Timeblock", exact: true })
-    .first()
     .click();
   await page.waitForURL("**/timeblock");
   await bar().waitFor();
@@ -117,7 +117,7 @@ try {
   });
   const phone = await device.newPage();
   phone.on("pageerror", (error) => errors.push(error.message));
-  await phone.goto(`${origin}/profile?tab=tasks`);
+  await phone.goto(origin);
   const phoneBar = phone.getByRole("region", { name: "Running stopwatch" });
   await phoneBar.waitFor();
   await phone.screenshot({
@@ -127,7 +127,7 @@ try {
   await phoneBar.waitFor({ state: "hidden" });
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await bar().waitFor({ state: "hidden" });
-  await page.goto(`${origin}/profile?tab=tasks`);
+  await page.goto(origin);
   await task().getByRole("button", { name: "Resume", exact: true }).click();
   await bar().waitFor();
   await page.waitForTimeout(1200);
@@ -217,7 +217,7 @@ try {
     "Manual corrections and two Timeblock intervals totaling 55 minutes passed.",
   );
 
-  await page.goto(`${origin}/profile?tab=tasks`);
+  await page.goto(origin);
   await task().getByRole("button", { name: "Post proof", exact: true }).click();
   const proofDialog = page.locator(
     '[data-slot="sheet-content"][data-mode="proof"]',
@@ -276,7 +276,7 @@ try {
     "Proof autofill, no duplicate blocks and two-page PDF export passed.",
   );
 
-  await phone.goto(`${origin}/profile?tab=tasks`);
+  await phone.goto(origin);
   await phone
     .locator(`#task-${other.data.task.id}`)
     .getByRole("button", { name: "Start", exact: true })
