@@ -25,6 +25,11 @@ export type TimeblockPdfTask = {
 const PAGE_WIDTH = 612;
 const PAGE_HEIGHT = 792;
 const MARGIN = 28;
+// An extra quarter inch clears a standard three-hole punch on the task side.
+// In landscape the same physical edge is horizontal. Inset both long edges
+// because print drivers can auto-rotate the back in either direction.
+const PUNCH_INSET = 18;
+const TASK_LEFT = MARGIN + PUNCH_INSET;
 const INK = grayscale(0.12);
 const MUTED = grayscale(0.4);
 
@@ -195,7 +200,7 @@ export async function createTimeblockPdf(input: {
   const weekLabel = `${dateFormatter.format(week.startAt)} - ${dateFormatter.format(new Date(week.endAtExclusive.getTime() - 1))}`;
   const nameLines = wrapPdfText(
     input.studentName,
-    PAGE_WIDTH - 2 * MARGIN,
+    PAGE_WIDTH - TASK_LEFT - MARGIN,
     bold,
     11,
   );
@@ -205,26 +210,28 @@ export async function createTimeblockPdf(input: {
 
   const header = (title: string, landscape = false) => {
     const height = landscape ? PAGE_WIDTH : PAGE_HEIGHT;
+    const left = landscape ? MARGIN : TASK_LEFT;
+    const topInset = landscape ? PUNCH_INSET : 0;
     const page = document.addPage(
       landscape ? [PAGE_HEIGHT, PAGE_WIDTH] : [PAGE_WIDTH, PAGE_HEIGHT],
     );
     page.drawText(title, {
-      x: MARGIN,
-      y: height - 44,
+      x: left,
+      y: height - 44 - topInset,
       size: 20,
       font: bold,
       color: INK,
     });
     page.drawText(headerName, {
-      x: MARGIN,
-      y: height - 64,
+      x: left,
+      y: height - 64 - topInset,
       size: 11,
       font: bold,
       color: INK,
     });
     page.drawText(weekLabel, {
-      x: MARGIN,
-      y: height - 80,
+      x: left,
+      y: height - 80 - topInset,
       size: 9,
       font: regular,
       color: MUTED,
@@ -264,7 +271,7 @@ export async function createTimeblockPdf(input: {
     | undefined;
   for (const size of [10, 9, 8]) {
     const columns = 2;
-    const width = (PAGE_WIDTH - MARGIN * 2 - gap) / columns;
+    const width = (PAGE_WIDTH - TASK_LEFT - MARGIN - gap) / columns;
     const rows = entries.map((entry) => {
       const title = wrapPdfText(entry.title, width - 8, bold, size);
       const time = entry.times.flatMap((time) =>
@@ -297,7 +304,7 @@ export async function createTimeblockPdf(input: {
     );
   if (!groups.length)
     front.drawText("No tasks included for this week.", {
-      x: MARGIN,
+      x: TASK_LEFT,
       y: listTop - 12,
       size: 10,
       font: regular,
@@ -305,7 +312,7 @@ export async function createTimeblockPdf(input: {
     });
   const tops = Array.from({ length: layout.columns }, () => listTop);
   for (const row of layout.rows) {
-    const x = MARGIN + row.column * (layout.width + gap);
+    const x = TASK_LEFT + row.column * (layout.width + gap);
     let y = tops[row.column] - layout.size;
     for (const line of row.title) {
       front.drawText(line, { x, y, size: layout.size, font: bold, color: INK });
@@ -333,8 +340,8 @@ export async function createTimeblockPdf(input: {
   const back = header("WEEKLY CALENDAR", true);
   const gridLeft = MARGIN + 38;
   const gridRight = PAGE_HEIGHT - MARGIN;
-  const gridTop = 498;
-  const gridBottom = 32;
+  const gridTop = 498 - PUNCH_INSET;
+  const gridBottom = 32 + PUNCH_INSET;
   const gridHeight = gridTop - gridBottom;
   const dayWidth = (gridRight - gridLeft) / 7;
   const minuteY = (minute: number) => gridTop - (minute / 1440) * gridHeight;
@@ -356,7 +363,7 @@ export async function createTimeblockPdf(input: {
     ][index];
     back.drawText(label, {
       x: x + (dayWidth - bold.widthOfTextAtSize(label, 8)) / 2,
-      y: 518,
+      y: gridTop + 20,
       size: 8,
       font: bold,
       color: INK,
@@ -364,7 +371,7 @@ export async function createTimeblockPdf(input: {
     const date = shortDate.format(day.date);
     back.drawText(date, {
       x: x + (dayWidth - regular.widthOfTextAtSize(date, 7)) / 2,
-      y: 507,
+      y: gridTop + 9,
       size: 7,
       font: regular,
       color: MUTED,
