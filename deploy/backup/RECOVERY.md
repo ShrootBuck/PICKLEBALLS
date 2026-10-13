@@ -157,8 +157,8 @@ python3 /usr/local/lib/pickleballs-backup/backup.py backup
 python3 /usr/local/lib/pickleballs-backup/backup.py verify-remote --month YYYY-MM
 ```
 
-When started with `--notify`, failures alert the existing deployment Discord webhook.
-Enable that option only with the channel owner's approval.
+Both scheduled services use the owner's authorized `--notify` option to alert
+the existing deployment Discord webhook on failure. Successful runs stay quiet.
 Manual test invocations do not send alerts unless `--notify` is supplied.
 No secret or private object name is included in the alert. A dead server cannot
 send its own failure alert; independent dead-man monitoring remains a separate

@@ -290,8 +290,8 @@ are independent; review growth before configuring expiration or deleting old
 local repositories. Jobs reserve disk headroom and the restore drill checks its
 working-space requirement before downloading. Old restore-test working copies and
 stale test containers are cleaned automatically. Failure details stay in root-only
-logs; Discord notification support is opt-in with `--notify`, not enabled by the
-default units. A dead server needs a separate external monitor to report silence.
+logs; failures also alert the existing Discord deployment channel through the
+explicitly authorized `--notify` option in both service units. Successful runs are quiet. A dead server needs a separate external monitor to report silence.
 
 See [the recovery and operations guide](../deploy/backup/RECOVERY.md) for coverage,
 limitations, commands, and the replacement-host restoration order. The original
