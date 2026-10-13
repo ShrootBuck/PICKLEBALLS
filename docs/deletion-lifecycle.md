@@ -25,6 +25,6 @@ Cookie session caching is disabled so deleted accounts and revoked sessions stop
 
 ## Verification
 
-- `bun test` includes a populated migration test for anonymous shared attribution.
-- `bun run test:social` includes deletion permission, cascade, session, ownership, and storage-retry integration tests in disposable Postgres.
-- Start `bun run test:social --serve`, then run `bun scripts/test-deletions-browser.ts` for mobile UI and HTTP checks against disposable accounts. The script checks origin rejection, stale circle rejection, ownership transfer, leave/delete circle, account deletion, and invalidation of a second session.
+- `bun run test:migrations` includes a populated migration test for anonymous shared attribution.
+- `bun run test:integration` includes deletion permission, cascade, session, ownership, and storage-retry integration tests in disposable Postgres.
+- Start `bun run test:fixture`, then run `bun run test:browser deletions` for mobile UI and HTTP checks against disposable accounts. The script checks origin rejection, stale circle rejection, ownership transfer, leave/delete circle, account deletion, and invalidation of a second session.

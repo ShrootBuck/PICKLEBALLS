@@ -9,7 +9,37 @@ if (
   process.env.PB_TEST_DATABASE !== "disposable-docker" ||
   new URL(process.env.DATABASE_URL || "").hostname !== "127.0.0.1"
 )
-  throw new Error("Run against the disposable test:social:ui database.");
+  throw new Error(
+    "Use bun run test:integration. Disposable Postgres is required.",
+  );
+// File uploads need a local object store even when no browser fixture is running.
+const objects = new Map<string, { bytes: Uint8Array; type: string }>();
+const storage = Bun.serve({
+  hostname: "127.0.0.1",
+  port: 0,
+  async fetch(request) {
+    const key = new URL(request.url).pathname;
+    if (request.method === "PUT") {
+      objects.set(key, {
+        bytes: new Uint8Array(await request.arrayBuffer()),
+        type: request.headers.get("content-type") || "application/octet-stream",
+      });
+      return new Response(null, { headers: { etag: '"test-object"' } });
+    }
+    const object = objects.get(key);
+    if (!object) return new Response(null, { status: 404 });
+    return new Response(
+      request.method === "HEAD" ? null : new Uint8Array(object.bytes),
+      {
+        headers: {
+          "content-type": object.type,
+          "content-length": String(object.bytes.length),
+        },
+      },
+    );
+  },
+});
+process.env.PB_TEST_R2_ENDPOINT = `http://127.0.0.1:${storage.port}`;
 mock.module("server-only", () => ({}));
 const background: Promise<unknown>[] = [];
 mock.module("next/server", () => ({
@@ -118,11 +148,15 @@ beforeAll(async () => {
   });
 });
 afterAll(async () => {
-  await settled();
-  await db.user.deleteMany({
-    where: { id: { in: [owner, other, firstLoadUser] } },
-  });
-  await db.$disconnect();
+  try {
+    await settled();
+    await db.user.deleteMany({
+      where: { id: { in: [owner, other, firstLoadUser] } },
+    });
+  } finally {
+    storage.stop(true);
+    await db.$disconnect();
+  }
 });
 
 test("concurrent first loads share one conversation and preserve saved state", async () => {

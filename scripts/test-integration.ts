@@ -1,4 +1,4 @@
-/** Disposable Postgres regression suite. --serve also starts an isolated UI fixture. */
+/** Disposable database checks, or an isolated UI fixture with --serve. */
 import { createHmac, randomUUID } from "node:crypto";
 import { cp, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -101,6 +101,10 @@ try {
     BOOTSTRAP_DISCORD_USER_ID: "",
     VAPID_PRIVATE_KEY: "",
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: "",
+    S3_ENDPOINT: "",
+    S3_PUBLIC_ENDPOINT: "",
+    S3_ACCESS_KEY_ID: "",
+    S3_SECRET_ACCESS_KEY: "",
     R2_ACCOUNT_ID: "disposable",
     R2_ACCESS_KEY_ID: "disposable",
     R2_SECRET_ACCESS_KEY: "disposable",
@@ -161,28 +165,23 @@ try {
   console.log(
     "Migrated a populated disposable database, including legacy check-ins.",
   );
-  console.log(
-    await run(["bun", "test", "./tests/migration-runner.integration.ts"], env),
-  );
-  if (!process.argv.includes("--media-only"))
+  if (!process.argv.includes("--serve")) {
+    // Discover every integration file so new coverage cannot silently go unused.
+    // Keep processes isolated and sequential: suites share a disposable database.
+    const files = [...new Bun.Glob("tests/**/*.integration.ts").scanSync()]
+      .filter(
+        (file) =>
+          !process.argv.includes("--media-only") ||
+          file === "tests/media.integration.ts",
+      )
+      .sort();
+    if (!files.length) throw new Error("No integration tests found.");
+    for (const file of files)
+      console.log(await run([process.execPath, "test", `./${file}`], env));
     console.log(
-      await run(["bun", "test", "./tests/social.integration.ts"], env),
+      `${files.length}/${files.length} integration test files passed.`,
     );
-  console.log(await run(["bun", "test", "./tests/media.integration.ts"], env));
-  console.log(
-    await run(["bun", "test", "./tests/deletions.integration.ts"], env),
-  );
-  console.log(
-    await run(["bun", "test", "./tests/work-sessions.integration.ts"], env),
-  );
-  if (!process.argv.includes("--media-only"))
-    console.log(
-      await run(["bun", "test", "./tests/goals.integration.ts"], env),
-    );
-  if (!process.argv.includes("--media-only"))
-    console.log(
-      await run(["bun", "test", "./tests/streaks.integration.ts"], env),
-    );
+  }
   if (process.argv.includes("--serve")) {
     console.log(await run(["bun", "scripts/social-fixtures.ts"], env));
     console.log(await run(["bun", "scripts/goals-fixtures.ts"], env));

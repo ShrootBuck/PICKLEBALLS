@@ -86,7 +86,7 @@ data that is still wanted:
 - Wrap destructive migrations in a single transaction so a failure leaves the
   database untouched.
 - Check the migration against a populated database (see
-  `tests/challenge-migration.test.ts` for a PGlite example that replays every
+  `tests/challenge.migration.ts` for a PGlite example that replays every
   migration).
 - Prisma does not track hand-written `CHECK` constraints. Dropping a column
   silently drops constraints that mention it, so recreate them.
@@ -170,38 +170,44 @@ The deepmerge v8 Map-merging change does not affect this plain-object Prisma con
 this app uses PostgreSQL and does not use the MySQL driver. Remove the overrides
 when Prisma ships patched pins. Lodash was updated within its supported range.
 
-## Social redesign validation
+## Tests
 
-See [the social redesign check record](docs/social-redesign-2026-09-08.md) for
-completed checks and remaining device coverage.
+Use `bun run test`, not bare `bun test`: each file runs in its own process so
+module mocks cannot leak between suites. Tests are grouped by runtime needs:
+
+| Command | Coverage | Requirements |
+| --- | --- | --- |
+| `bun run test` | Fast logic, validation, route contracts, mocked AI | Bun |
+| `bun run test:integration` | Real database workflows, private chat uploads, populated migrations and SQL/schema agreement | Docker, FFmpeg |
+| `bun run test:migrations` | Historical data-conversion regressions (`*.migration.ts`) | Bun, embedded PGlite |
+| `bun run test:media` | Real video encoding, rotation, frame preservation, seeking, posters and cancellation (`*.media.ts`) | FFmpeg and ffprobe |
+
+The shared deployment validation stage runs all four plus schema validation and
+typechecking. Browser checks are explicit. Integration files (`*.integration.ts`)
+are discovered automatically and run sequentially against one disposable database.
+AI responses and object storage stay local. Use `bun run test:integration --media-only`
+for only the media database workflow.
+
+For browser work, use two terminals:
 
 ```bash
-bun test                 # pure feed/time/PDF checks and notification regression tests
-bun run test:social      # populated old schema -> additive migration -> real database checks
-bun run test:social:ui   # the same suite, plus an isolated UI fixture
+bun run test:fixture                  # migrate, seed and serve, without rerunning tests
+bun run test:browser                  # default: app-layout
+bun run test:browser work-sessions    # select one workflow
+bun run test:browser --help           # list workflows; --webkit selects Safari's engine
 ```
 
-The UI runner prints a local login URL with four local test profiles. It
-uses a local media server and disables external AI and push delivery. Use
+Start the fixture with `--video` for the media browser workflow. Install browser
+runtimes with `bunx playwright install chromium webkit` if needed. Every browser
+script uses the same fixture validation and browser launcher.
+
+The fixture prints a login URL with four disposable profiles. Use
 `http://localhost:3318/login` for the owner or append `?user=eddie` for a peer.
-The fixture image is `/private/tmp/pb-proof-fixture.png`. Stop the runner to
-remove its disposable database. Webpack with polling is used for this fixture
-so restricted macOS file watchers do not prevent updates.
+It disables external AI and push delivery, serves local media, and writes its
+environment overrides to `/private/tmp/pb-social-test-env.json`. Stop it to remove
+the database and environment file. Its separate `.next-browser` output and Webpack
+polling avoid interfering with the regular dev server.
 
-While the fixture is running, run its HTTP checks with the environment overrides
-written to `/private/tmp/pb-social-test-env.json`:
-
-```bash
-bun -e 'const env = await Bun.file("/private/tmp/pb-social-test-env.json").json(); const child = Bun.spawn(["bun", "scripts/social-http.ts"], { env: { ...process.env, ...env }, stdout: "inherit", stderr: "inherit" }); process.exit(await child.exited);'
-```
-
-These checks exercise private profile/post/media access, old URLs, duplicate
-likes, CSRF protection, and independent comment pagination. The database suite
-also covers equal feed timestamps, proof replacement, solo verification,
-24-hour verification deadlines, media retry, and screen-time submission.
-
-The social migration is additive. Deploy it before application traffic switches
-using the existing `vercel-build` command. It backfills one update only for daily
-check-ins without any updates, preserving their original timestamp. Existing
-daily discussions remain on their original records. If application rollback is
-needed, leave the additive schema in place and restore the previous app release.
+The original [social redesign check record](docs/social-redesign-2026-09-08.md)
+remains available as historical verification. Current deployment instructions are
+in [self-hosting](docs/self-hosting.md).

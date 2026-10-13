@@ -1,29 +1,25 @@
-// Run while bun run test:social:ui serves its disposable fixture.
+// Run while bun run test:fixture serves its disposable fixture.
 import assert from "node:assert/strict";
 import { PDFDocument } from "pdf-lib";
 import { Client } from "pg";
-import { chromium, type Page } from "playwright";
+import type { Page } from "playwright";
 import { phoenixDateKey, phoenixLocalDateTimeValue } from "@/lib/time";
 import type { TimeblockDraftRow } from "@/lib/timeblock-draft";
 import { nextOrSameMonday, timeblockWeek } from "@/lib/timeblocks";
 import type { WorkSessionView } from "@/lib/work-session-policy";
+import {
+  fixtureEnvironment as environment,
+  launchFixtureBrowser,
+} from "./browser-fixture";
 
 const origin = "http://localhost:3317";
-const environment = await Bun.file(
-  "/private/tmp/pb-social-test-env.json",
-).json();
-if (
-  environment.PB_TEST_DATABASE !== "disposable-docker" ||
-  new URL(environment.DATABASE_URL).hostname !== "127.0.0.1"
-)
-  throw new Error("Use the disposable UI fixture.");
 const fixtureDb = new Client({ connectionString: environment.DATABASE_URL });
 await fixtureDb.connect();
 await fixtureDb.query(
   `DELETE FROM "Commitment" WHERE "userId" = 'demo-you' AND (title LIKE 'Physics stopwatch %' OR title = 'Second stopwatch task')`,
 );
 await fixtureDb.end();
-const browser = await chromium.launch({ headless: true });
+const browser = await launchFixtureBrowser();
 const page = await browser.newPage({
   viewport: { width: 1440, height: 1000 },
   serviceWorkers: "block",

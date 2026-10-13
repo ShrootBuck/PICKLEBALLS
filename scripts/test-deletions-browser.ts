@@ -1,18 +1,9 @@
 import assert from "node:assert/strict";
 import { createHmac, randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { chromium } from "playwright";
 import { phoenixDateKey, requireDateKey } from "../lib/time";
+import { fixtureEnvironment, launchFixtureBrowser } from "./browser-fixture";
 
-Object.assign(
-  process.env,
-  JSON.parse(readFileSync("/private/tmp/pb-social-test-env.json", "utf8")),
-);
-if (
-  process.env.PB_TEST_DATABASE !== "disposable-docker" ||
-  new URL(process.env.DATABASE_URL || "http://invalid").hostname !== "127.0.0.1"
-)
-  throw new Error("Start bun run test:social --serve first.");
+Object.assign(process.env, fixtureEnvironment);
 const { getPrisma } = await import("../lib/prisma");
 const db = getPrisma();
 const prefix = `delete-ui-${randomUUID()}`;
@@ -70,7 +61,7 @@ async function session(userId: string, old = false) {
     sameSite: "Lax" as const,
   };
 }
-const browser = await chromium.launch();
+const browser = await launchFixtureBrowser();
 const context = await browser.newContext({
   viewport: { width: 390, height: 844 },
 });

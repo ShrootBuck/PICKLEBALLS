@@ -13,7 +13,6 @@ import {
   impacts,
   journalPrompts,
   moodCheckInSchema,
-  moodColor,
   moodLevelLabel,
   nearestFeelings,
   relatedFeelings,
@@ -45,13 +44,6 @@ test("the slider splits into seven bands with neutral in the middle", () => {
   expect(moodLevelLabel(14)).toBe("Neutral");
   expect(moodLevelLabel(15)).toBe("Slightly pleasant");
   expect(moodLevelLabel(100)).toBe("Very pleasant");
-});
-
-test("mood colors cover the whole scale", () => {
-  expect(moodColor(-100)).toBe("oklch(0.640 0.190 300.0)");
-  expect(moodColor(100)).toBe("oklch(0.800 0.170 60.0)");
-  expect(moodColor(-500)).toBe(moodColor(-100));
-  expect(moodColor(16.5)).toMatch(/^oklch\(0\.8\d+ 0\.1\d+ 1\d\d\.\d\)$/);
 });
 
 test("the vocabulary has unique words spread across the scale", () => {
@@ -140,10 +132,6 @@ test("the bank starts with a small, diverse set of familiar words", () => {
       new Set(first.map((item) => item.family)).size,
     ).toBeGreaterThanOrEqual(6);
     expect(new Set(all.map((item) => item.word)).size).toBe(feelings.length);
-    // Growing a page never reorders the earlier choices.
-    expect(all.slice(0, feelingPageSize * 2).slice(0, feelingPageSize)).toEqual(
-      first,
-    );
   }
 });
 

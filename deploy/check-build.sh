@@ -23,6 +23,7 @@ createdb -h 127.0.0.1 -U postgres pickleballs_test
 bun run db:validate
 bunx --no-install next typegen
 bun run typecheck
-bun run test
-bun run test:social
+# Keep independent files parallel, even though local commands separate the suites.
+bun scripts/test.ts all
+bun run test:integration
 printf 'passed\n' > /app/.checks-passed

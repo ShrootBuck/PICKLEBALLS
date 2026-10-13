@@ -1,25 +1,14 @@
-// Run against bun scripts/test-social.ts --serve. Add --webkit for Safari coverage.
+// Run against bun run test:fixture. Add --webkit for Safari coverage.
 // Writes stay in its disposable database.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { chromium, webkit } from "playwright";
+import { launchFixtureBrowser } from "./browser-fixture";
 
 const origin = "http://localhost:3317";
 const output = "/private/tmp/pb-refinement/verified";
-const environment = await Bun.file(
-  "/private/tmp/pb-social-test-env.json",
-).json();
-if (
-  environment.PB_TEST_DATABASE !== "disposable-docker" ||
-  new URL(environment.DATABASE_URL).hostname !== "127.0.0.1"
-)
-  throw new Error("Use the disposable UI fixture.");
 
 await mkdir(output, { recursive: true });
-const browser = await (process.argv.includes("--webkit")
-  ? webkit
-  : chromium
-).launch({ headless: true });
+const browser = await launchFixtureBrowser();
 const context = await browser.newContext({
   viewport: { width: 1440, height: 1000 },
   serviceWorkers: "block",

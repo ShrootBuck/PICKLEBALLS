@@ -42,6 +42,10 @@ Treat `lib/changelog.ts` as a curated list of product updates, not a development
   it skips Next's second typecheck after the shared stage passes. Worker packages
   the checked source without compiling web. Lint runs locally with `bun run lint`.
   Use `bun run test` so module mocks stay isolated between test files.
+  This is the fast suite. Use `bun run test:integration` for disposable Postgres,
+  `bun run test:migrations` for historical data conversions, and `bun run test:media`
+  for FFmpeg checks. Deployment runs all four. `bun run test:fixture` starts only
+  the browser fixture; `bun run test:browser [suite]` runs a selected browser check.
 - Keep shared Docker stages independent of per-app Coolify settings. Explicit
   optional SOURCE_COMMIT mounts suppress Coolify's per-app secret injection;
   shared commands do not consume that value. Exclude generated docker-compose

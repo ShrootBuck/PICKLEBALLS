@@ -1,12 +1,12 @@
-// Run against bun run test:social:ui. All writes use disposable test accounts.
+// Run against bun run test:fixture. All writes use disposable test accounts.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { chromium } from "playwright";
+import { launchFixtureBrowser } from "./browser-fixture";
 
 const origin = "http://localhost:3317";
 const output = "/private/tmp/pb-goals";
 await mkdir(output, { recursive: true });
-const browser = await chromium.launch({ headless: true });
+const browser = await launchFixtureBrowser();
 try {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 960 },

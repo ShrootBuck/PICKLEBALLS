@@ -4,7 +4,9 @@ if (
   process.env.PB_TEST_DATABASE !== "disposable-docker" ||
   new URL(process.env.DATABASE_URL || "http://invalid").hostname !== "127.0.0.1"
 )
-  throw new Error("Use bun run test:social. Disposable Postgres is required.");
+  throw new Error(
+    "Use bun run test:integration. Disposable Postgres is required.",
+  );
 mock.module("server-only", () => ({}));
 const { getPrisma } = await import("@/lib/prisma");
 const { createGoal, changeGoal, getGoal, getGoals } = await import(

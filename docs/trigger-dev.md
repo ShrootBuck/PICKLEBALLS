@@ -28,7 +28,7 @@ R2 browser CORS must allow the app origin, `PUT`, `GET` and `HEAD`, and the uplo
 
 Apply the migration before deploying the new app and worker together. It expands media byte counts to BIGINT and adds processing metadata and private pending submissions. Existing media remains readable; existing videos can be upgraded with the bounded backfill in [video encoding and delivery](media-delivery.md).
 
-Validation: `bun test`, `bun run test:social` (Docker and FFmpeg required), `bun run typecheck`, `bun run lint`, `bun run build`, and `npx trigger.dev@4.5.16 deploy --dry-run`. `bun scripts/test-social.ts --serve --video` adds two encoded video attachments to Eddie's disposable timeline for browser checks.
+Validation: `bun run test`, `bun run test:migrations`, `bun run test:media`, `bun run test:integration` (Docker and FFmpeg required), `bun run typecheck`, `bun run lint`, `bun run build`, and `npx trigger.dev@4.5.16 deploy --dry-run`. `bun run test:fixture --video` adds two encoded video attachments to Eddie's disposable timeline for browser checks.
 
 Screen-time AI reads and video processing require `TRIGGER_SECRET_KEY`. Push delivery uses Trigger.dev when configured and retains direct local delivery without a worker. Authorization remains in the API routes. Task payloads contain IDs, not image bytes or credentials.
 

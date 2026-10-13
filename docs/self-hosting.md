@@ -43,7 +43,7 @@ Push to GitHub `main` to deploy directly through Coolify. No GitHub Actions,
 release branches, API token, or manual migration command is required.
 
 Both Docker targets depend on one shared validation stage: generated Next types,
-typechecking, isolated unit tests, and populated migration/integration tests
+typechecking, isolated unit tests, historical migration tests, FFmpeg tests, and populated migration/integration tests
 against disposable Postgres 18.6. The migration suite checks SQL/schema agreement.
 Lint runs locally (`bun run lint`), outside deployment.
 

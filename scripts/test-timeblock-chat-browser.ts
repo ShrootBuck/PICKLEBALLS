@@ -1,10 +1,10 @@
-// Run against PB_TEST_BUILD=1 bun scripts/test-social.ts --serve --media-only.
+// Run against PB_TEST_BUILD=1 bun run test:fixture.
 import assert from "node:assert/strict";
-import { chromium } from "playwright";
 import type { TimeblockChatSnapshot } from "@/lib/timeblock-chat";
 import { reportFingerprint } from "@/lib/timeblock-editor";
+import { launchFixtureBrowser } from "./browser-fixture";
 
-const browser = await chromium.launch({ headless: true });
+const browser = await launchFixtureBrowser();
 try {
   const page = await browser.newPage({
     viewport: { width: 1560, height: 1100 },

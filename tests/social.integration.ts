@@ -13,7 +13,7 @@ if (
   new URL(process.env.DATABASE_URL || "http://invalid").hostname !== "127.0.0.1"
 )
   throw new Error(
-    "Run this suite with bun run test:social. It requires disposable Postgres.",
+    "Run this suite with bun run test:integration. It requires disposable Postgres.",
   );
 mock.module("server-only", () => ({}));
 const { getPrisma } = await import("@/lib/prisma");

@@ -13,7 +13,7 @@ if (
   process.env.PB_TEST_DATABASE !== "disposable-docker" ||
   new URL(process.env.DATABASE_URL || "").hostname !== "127.0.0.1"
 )
-  throw new Error("Use bun run test:social.");
+  throw new Error("Use bun run test:integration.");
 mock.module("server-only", () => ({}));
 const { getPrisma } = await import("@/lib/prisma");
 const { r2 } = await import("@/lib/r2");

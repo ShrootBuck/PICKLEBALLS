@@ -1,4 +1,9 @@
 import { expect, test } from "bun:test";
+import {
+  maxVideoBytes,
+  mediaMimeType,
+  uploadTicketSchema,
+} from "@/lib/media-policy";
 import { uploadMedia } from "@/lib/media-upload";
 
 test("processing video checks once and a manual retry reuses the uploaded file", async () => {
@@ -59,4 +64,28 @@ test("processing video checks once and a manual retry reuses the uploaded file",
     if (savedXhr) Object.defineProperty(globalThis, "XMLHttpRequest", savedXhr);
     else Reflect.deleteProperty(globalThis, "XMLHttpRequest");
   }
+});
+
+test("video limits accept 5 GB exactly and normalize common camera/container extensions", () => {
+  expect(
+    uploadTicketSchema.safeParse({
+      mimeType: "video/mp4",
+      sizeBytes: maxVideoBytes,
+    }).success,
+  ).toBe(true);
+  expect(
+    uploadTicketSchema.safeParse({
+      mimeType: "video/mp4",
+      sizeBytes: maxVideoBytes + 1,
+    }).success,
+  ).toBe(false);
+  expect(
+    uploadTicketSchema.safeParse({
+      mimeType: "image/jpeg",
+      sizeBytes: maxVideoBytes,
+    }).success,
+  ).toBe(false);
+  expect(
+    mediaMimeType({ name: "Eddie.MKV", type: "application/octet-stream" }),
+  ).toBe("video/x-matroska");
 });

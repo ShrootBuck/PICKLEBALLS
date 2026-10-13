@@ -1,8 +1,8 @@
-// Run against the disposable fixture from bun run test:social:ui.
+// Run against the disposable fixture from bun run test:fixture.
 import assert from "node:assert/strict";
-import { chromium } from "playwright";
+import { launchFixtureBrowser } from "./browser-fixture";
 
-const browser = await chromium.launch({ headless: true });
+const browser = await launchFixtureBrowser();
 try {
   const context = await browser.newContext({
     viewport: { width: 1280, height: 900 },

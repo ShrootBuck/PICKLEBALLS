@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
-import { chromium, webkit } from "playwright";
 import { mediaVersion } from "@/lib/media-playback";
+import { launchFixtureBrowser } from "./browser-fixture";
 
 const videoVersion = (index: number) => mediaVersion(`fixture-video-${index}`);
 
-// Start `bun scripts/test-social.ts --media-only --serve --video` first.
+// Start `bun run test:fixture --video` first.
 // Uses only the disposable fixture, never a real account or production URL.
 const safari = process.argv.includes("--webkit");
-const browser = await (safari ? webkit : chromium).launch({ headless: true });
+const browser = await launchFixtureBrowser();
 try {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
