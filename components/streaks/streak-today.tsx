@@ -37,7 +37,7 @@ export function StreakToday({ streaks }: { streaks: StreakView[] }) {
       </div>
       <ul className="flex flex-col px-4 pb-2 md:px-5">
         {streaks.map((view) => (
-          <li key={view.id} className="flex items-center gap-3 py-2">
+          <li key={view.id} className="streak-today-row">
             <StreakEmber
               count={view.summary.current}
               size={30}
@@ -47,7 +47,9 @@ export function StreakToday({ streaks }: { streaks: StreakView[] }) {
               <p className="truncate text-sm font-medium">{view.title}</p>
               <p className="text-xs text-muted-foreground">{hint(view)}</p>
             </div>
-            <StreakLogButton streak={view} />
+            <div className="streak-today-action">
+              <StreakLogButton streak={view} />
+            </div>
           </li>
         ))}
       </ul>

@@ -4,6 +4,7 @@ import {
   Flame,
   Image,
   Plus,
+  Settings,
   Smartphone,
   Trophy,
 } from "lucide-react";
@@ -159,7 +160,7 @@ export async function MemberProfile({
   const streakQuery = new URLSearchParams({ circle: circleId, tab: "streaks" });
   return (
     <>
-      <header className="flex items-center gap-4 md:gap-5">
+      <header className="profile-heading">
         <Avatar className="size-20 md:size-24">
           <AvatarImage src={subject.user.image ?? undefined} alt="" />
           <AvatarFallback>{subject.user.initials}</AvatarFallback>
@@ -175,6 +176,15 @@ export async function MemberProfile({
             </span>
           </p>
         </div>
+        {mine && (
+          <Link
+            href="/settings"
+            aria-label="Profile settings"
+            className={buttonVariants({ variant: "outline", size: "icon" })}
+          >
+            <Settings />
+          </Link>
+        )}
       </header>
       <section aria-labelledby="profile-week" className="flex flex-col gap-3">
         <div className="flex items-center justify-between">

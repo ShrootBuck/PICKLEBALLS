@@ -19,7 +19,9 @@ export function AppearanceSettings() {
   return (
     <Card className="max-w-2xl">
       <CardHeader>
-        <CardTitle>Appearance</CardTitle>
+        <CardTitle>
+          <h2>Appearance</h2>
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <FieldSet disabled={saving}>

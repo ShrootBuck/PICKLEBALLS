@@ -154,189 +154,206 @@ export default async function ScreenTimePage({
           )
         }
       />
-      <nav
-        aria-label="Screen time weeks"
-        className="flex items-center justify-between gap-3 border-b pb-3"
-      >
-        <Link
-          href={href(previous)}
-          className={buttonVariants({ variant: "outline", size: "icon-sm" })}
-          aria-label="Previous week"
-        >
-          <ChevronLeft />
-        </Link>
-        <div className="text-center">
-          <h2 className="text-sm font-semibold">{screenTimeWeekLabel(week)}</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {submitted} of {members.length} submitted
-          </p>
-        </div>
-        {week < latest ? (
-          <Link
-            href={href(shiftDateKey(week, 7))}
-            className={buttonVariants({ variant: "outline", size: "icon-sm" })}
-            aria-label="Next week"
+      <div className="screen-time-layout">
+        <div className="screen-time-leaderboard">
+          <nav
+            aria-label="Screen time weeks"
+            className="flex items-center justify-between gap-3 border-b pb-3"
           >
-            <ChevronRight />
-          </Link>
-        ) : (
-          <span className="size-8" />
-        )}
-      </nav>
-      <section aria-label="Weekly leaderboard" className="flex flex-col">
-        {standings.map((row) => {
-          const person = members.find(
-            (member) => member.userId === row.userId,
-          )?.user;
-          const topAppsLabel = row.topApps
-            .map((app) => `${app.name} ${formatScreenTime(app.minutes)}`)
-            .join(" · ");
-          return (
-            <article
-              key={row.userId}
-              className="screen-time-row"
-              data-mine={row.userId === session.user.id || undefined}
+            <Link
+              href={href(previous)}
+              className={buttonVariants({
+                variant: "outline",
+                size: "icon-sm",
+              })}
+              aria-label="Previous week"
             >
-              <span className="w-6 shrink-0 text-center text-sm tabular-nums text-muted-foreground">
-                {row.rank === 1 ? (
-                  <Trophy
-                    className="size-5 text-primary"
-                    aria-label="First place"
-                  />
-                ) : (
-                  (row.rank ?? "·")
-                )}
-              </span>
+              <ChevronLeft />
+            </Link>
+            <div className="text-center">
+              <h2 className="text-sm font-semibold">
+                {screenTimeWeekLabel(week)}
+              </h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {submitted} of {members.length} submitted
+              </p>
+            </div>
+            {week < latest ? (
               <Link
-                href={memberHref(circleId, row.userId)}
-                aria-label={`${row.name}’s profile`}
+                href={href(shiftDateKey(week, 7))}
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "icon-sm",
+                })}
+                aria-label="Next week"
               >
-                <Avatar className="size-11">
-                  <AvatarImage src={person?.image ?? undefined} alt="" />
-                  <AvatarFallback>{person?.initials ?? "PB"}</AvatarFallback>
-                </Avatar>
+                <ChevronRight />
               </Link>
-              <div className="min-w-0 flex-1">
-                <Link
-                  href={memberHref(circleId, row.userId)}
-                  className="text-sm font-semibold"
+            ) : (
+              <span className="size-8" />
+            )}
+          </nav>
+          <section aria-label="Weekly leaderboard" className="flex flex-col">
+            {standings.map((row) => {
+              const person = members.find(
+                (member) => member.userId === row.userId,
+              )?.user;
+              const topAppsLabel = row.topApps
+                .map((app) => `${app.name} ${formatScreenTime(app.minutes)}`)
+                .join(" · ");
+              return (
+                <article
+                  key={row.userId}
+                  className="screen-time-row"
+                  data-mine={row.userId === session.user.id || undefined}
                 >
-                  {row.name}
-                  {row.userId === session.user.id ? " (you)" : ""}
-                </Link>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {row.improvement === null
-                    ? "No previous week to compare"
-                    : row.improvement === 0
-                      ? "Same as last week"
-                      : `${formatScreenTime(Math.abs(row.improvement))} ${row.improvement > 0 ? "less" : "more"} / day`}
-                </p>
-                {topAppsLabel && (
-                  <p
-                    className="mt-1 truncate text-xs text-muted-foreground"
-                    title={topAppsLabel}
+                  <span className="w-6 shrink-0 text-center text-sm tabular-nums text-muted-foreground">
+                    {row.rank === 1 ? (
+                      <Trophy
+                        className="size-5 text-primary"
+                        aria-label="First place"
+                      />
+                    ) : (
+                      (row.rank ?? "·")
+                    )}
+                  </span>
+                  <Link
+                    href={memberHref(circleId, row.userId)}
+                    aria-label={`${row.name}’s profile`}
                   >
-                    {topAppsLabel}
-                  </p>
-                )}
-                {bestImprovement > 0 && row.improvement === bestImprovement && (
-                  <Badge variant="secondary" className="mt-2">
-                    Most improved
-                  </Badge>
-                )}
-              </div>
-              <div className="flex shrink-0 flex-col items-end gap-1">
-                <p className="text-sm font-semibold tabular-nums">
-                  {row.dailyAverageMinutes === null
-                    ? "Not submitted"
-                    : formatScreenTime(row.dailyAverageMinutes)}
-                </p>
-                {row.mediaId ? (
-                  <a
-                    href={`/api/media/${row.mediaId}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-muted-foreground underline underline-offset-4"
-                    aria-label={`View ${row.name}’s screenshot`}
-                  >
-                    Screenshot
-                  </a>
-                ) : (
-                  row.userId === session.user.id &&
-                  week === latest && (
+                    <Avatar className="size-11">
+                      <AvatarImage src={person?.image ?? undefined} alt="" />
+                      <AvatarFallback>
+                        {person?.initials ?? "PB"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Link>
+                  <div className="min-w-0 flex-1">
                     <Link
-                      href="#upload"
-                      className="text-xs text-primary underline"
+                      href={memberHref(circleId, row.userId)}
+                      className="text-sm font-semibold"
                     >
-                      Add yours
+                      {row.name}
+                      {row.userId === session.user.id ? " (you)" : ""}
                     </Link>
-                  )
-                )}
-              </div>
-            </article>
-          );
-        })}
-        <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-          Equal times share a rank. Missing submissions stay unranked.
-        </p>
-      </section>
-      <div className="grid min-w-0 items-start gap-8 lg:grid-cols-2">
-        {week === latest ? (
-          <ScreenTimeUpload
-            key={`${circleId}:${week}`}
-            userId={session.user.id}
-            weekStart={week}
-            circleId={circleId}
-            submittedAverage={ownAverage}
-          />
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>This week is archived</CardTitle>
-              <CardDescription>
-                Submissions open each Sunday for the week that just ended.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Link
-                href={href(latest)}
-                className={buttonVariants({ variant: "outline" })}
-              >
-                <Smartphone data-icon="inline-start" />
-                {latestSubmission ? "View latest week" : "Upload latest week"}
-              </Link>
-            </CardContent>
-          </Card>
-        )}
-        <PageSection title="Your last 12 weeks">
-          {Array.from({ length: 12 }, (_, index) => {
-            const start = shiftDateKey(latest, -7 * index);
-            const entry = history.find(
-              (row) => row.weekStart.toISOString().slice(0, 10) === start,
-            );
-            return (
-              <Link
-                key={start}
-                href={href(start)}
-                aria-current={start === week ? "page" : undefined}
-                className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2.5 text-sm hover:bg-muted/60 aria-[current]:bg-muted/60"
-              >
-                <span className="text-muted-foreground">
-                  {screenTimeWeekLabel(start)}
-                </span>
-                <span
-                  className={
-                    entry ? "font-medium tabular-nums" : "text-muted-foreground"
-                  }
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {row.improvement === null
+                        ? "No previous week to compare"
+                        : row.improvement === 0
+                          ? "Same as last week"
+                          : `${formatScreenTime(Math.abs(row.improvement))} ${row.improvement > 0 ? "less" : "more"} / day`}
+                    </p>
+                    {topAppsLabel && (
+                      <p
+                        className="mt-1 truncate text-xs text-muted-foreground"
+                        title={topAppsLabel}
+                      >
+                        {topAppsLabel}
+                      </p>
+                    )}
+                    {bestImprovement > 0 &&
+                      row.improvement === bestImprovement && (
+                        <Badge variant="secondary" className="mt-2">
+                          Most improved
+                        </Badge>
+                      )}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <p className="text-sm font-semibold tabular-nums">
+                      {row.dailyAverageMinutes === null
+                        ? "Not submitted"
+                        : formatScreenTime(row.dailyAverageMinutes)}
+                    </p>
+                    {row.mediaId ? (
+                      <a
+                        href={`/api/media/${row.mediaId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-muted-foreground underline underline-offset-4"
+                        aria-label={`View ${row.name}’s screenshot`}
+                      >
+                        Screenshot
+                      </a>
+                    ) : (
+                      row.userId === session.user.id &&
+                      week === latest && (
+                        <Link
+                          href="#upload"
+                          className="text-xs text-primary underline"
+                        >
+                          Add yours
+                        </Link>
+                      )
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+              Equal times share a rank. Missing submissions stay unranked.
+            </p>
+          </section>
+        </div>
+        <div className="screen-time-sidebar">
+          {week === latest ? (
+            <ScreenTimeUpload
+              key={`${circleId}:${week}`}
+              userId={session.user.id}
+              weekStart={week}
+              circleId={circleId}
+              submittedAverage={ownAverage}
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>This week is archived</CardTitle>
+                <CardDescription>
+                  Submissions open each Sunday for the week that just ended.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link
+                  href={href(latest)}
+                  className={buttonVariants({ variant: "outline" })}
                 >
-                  {entry
-                    ? formatScreenTime(entry.reading.dailyAverageMinutes)
-                    : "Not submitted"}
-                </span>
-              </Link>
-            );
-          })}
-        </PageSection>
+                  <Smartphone data-icon="inline-start" />
+                  {latestSubmission ? "View latest week" : "Upload latest week"}
+                </Link>
+              </CardContent>
+            </Card>
+          )}
+          <PageSection title="Your last 12 weeks">
+            {Array.from({ length: 12 }, (_, index) => {
+              const start = shiftDateKey(latest, -7 * index);
+              const entry = history.find(
+                (row) => row.weekStart.toISOString().slice(0, 10) === start,
+              );
+              return (
+                <Link
+                  key={start}
+                  href={href(start)}
+                  aria-current={start === week ? "page" : undefined}
+                  className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2.5 text-sm hover:bg-muted/60 aria-[current]:bg-muted/60"
+                >
+                  <span className="text-muted-foreground">
+                    {screenTimeWeekLabel(start)}
+                  </span>
+                  <span
+                    className={
+                      entry
+                        ? "font-medium tabular-nums"
+                        : "text-muted-foreground"
+                    }
+                  >
+                    {entry
+                      ? formatScreenTime(entry.reading.dailyAverageMinutes)
+                      : "Not submitted"}
+                  </span>
+                </Link>
+              );
+            })}
+          </PageSection>
+        </div>
       </div>
     </>
   );

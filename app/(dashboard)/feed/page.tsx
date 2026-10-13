@@ -1,8 +1,9 @@
-import { ArrowRight, CheckCheck } from "lucide-react";
+import { ArrowRight, CheckCheck, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Feed } from "@/components/social/feed";
 import { FeedPrompt } from "@/components/social/feed-prompt";
+import { buttonVariants } from "@/components/ui/button";
 import { requirePageMembership } from "@/lib/request";
 import { countProofsAwaitingVerdict, getFeedPage } from "@/lib/social-data";
 
@@ -17,7 +18,22 @@ export default async function FeedPage() {
   ]);
   return (
     <>
-      <h1 className="sr-only">Feed</h1>
+      <header className="feed-page-header">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <h1 className="page-title">Feed</h1>
+          <p className="text-sm text-muted-foreground">
+            {membership.circle.name}
+          </p>
+        </div>
+        <Link
+          href="/squad?view=members"
+          className={buttonVariants({ variant: "ghost", size: "sm" })}
+        >
+          <Users data-icon="inline-start" />
+          <span className="hidden sm:inline">Your circle</span>
+          <span className="sr-only sm:hidden">View circle members</span>
+        </Link>
+      </header>
       <FeedPrompt />
       {verdicts > 0 && (
         <Link href="/squad" className="feed-review-banner">

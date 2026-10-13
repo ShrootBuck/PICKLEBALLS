@@ -58,7 +58,11 @@ describe("app navigation", () => {
     expect(pageLayout("profile")).toBe("panel");
     expect(pageLayout("today")).toBe("wide");
     expect(pageLayout("timeblock")).toBe("wide");
-    expect(pageLayout("settings")).toBe("narrow");
+    expect(pageLayout("settings")).toBe("wide");
+    expect(pageLayout("members")).toBe("wide");
+    expect(pageLayout("bucket-list")).toBe("wide");
+    expect(pageLayout("members", "/members/someone")).toBe("panel");
+    expect(pageLayout("bucket-list", "/bucket-list/idea")).toBe("narrow");
     expect(pageLayout(null)).toBe("narrow");
   });
 });

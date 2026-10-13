@@ -3,9 +3,12 @@
 import {
   CalendarRange,
   CheckCheck,
+  ChevronDown,
+  ChevronsUpDown,
   Flame,
   Gauge,
   History,
+  LayoutGrid,
   type LucideIcon,
   Mountain,
   Newspaper,
@@ -20,7 +23,7 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import type { MouseEvent, ReactNode } from "react";
+import { type MouseEvent, type ReactNode, useState } from "react";
 import {
   CircleSwitcher,
   type ShellCircle,
@@ -29,6 +32,23 @@ import { useSocial } from "@/components/social/social-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import {
   type NavItem,
   type NavItemId,
@@ -56,6 +76,17 @@ export const navIcons: Record<NavItemId, LucideIcon> = {
 };
 
 export type NavCounts = { verdicts: number; votes: number };
+type NavigationProps = {
+  items: NavItem[];
+  active: NavItemId | null;
+  counts: NavCounts;
+  onReselect: () => void;
+};
+
+const groups: { label: string; sections: NavSectionId[] }[] = [
+  { label: "Your day", sections: ["today"] },
+  { label: "Your circle", sections: ["feed", "squad"] },
+];
 
 function countLabel(item: NavItem, count: number) {
   return item.badge === "verdicts"
@@ -63,13 +94,13 @@ function countLabel(item: NavItem, count: number) {
     : `${count} bucket list ${count === 1 ? "vote" : "votes"} waiting on you`;
 }
 
-function CountBadge({ count, label }: { count: number; label: string }) {
-  if (count <= 0) return null;
-  return (
-    <Badge className="nav-count" aria-label={label}>
+function ItemBadge({ item, counts }: { item: NavItem; counts: NavCounts }) {
+  const count = item.badge ? counts[item.badge] : 0;
+  return count > 0 ? (
+    <Badge className="app-nav-count" aria-label={countLabel(item, count)}>
       {count > 99 ? "99+" : count}
     </Badge>
-  );
+  ) : null;
 }
 
 function isCurrentUrl(href: string) {
@@ -80,12 +111,13 @@ function isCurrentUrl(href: string) {
   );
 }
 
-// Tapping the destination you are already on returns to the top, like native tabs.
+// Reselecting a destination returns to the top without losing feed state.
 export function NavLink({
   href,
   active,
   className,
   onReselect,
+  onNavigate,
   children,
   ...props
 }: {
@@ -93,8 +125,10 @@ export function NavLink({
   active: boolean;
   className: string;
   onReselect: () => void;
+  onNavigate?: () => void;
   children: ReactNode;
   "aria-label"?: string;
+  title?: string;
 }) {
   return (
     <Link
@@ -102,6 +136,7 @@ export function NavLink({
       className={cn(className, active && "is-active")}
       aria-current={active ? "page" : undefined}
       onClick={(event: MouseEvent) => {
+        onNavigate?.();
         if (
           event.metaKey ||
           event.ctrlKey ||
@@ -120,116 +155,206 @@ export function NavLink({
   );
 }
 
-export function AppSidebar({
+function NavigationGroups({
   items,
   active,
   counts,
-  circles,
-  superAdmin,
   onReselect,
-}: {
-  items: NavItem[];
-  active: NavItemId | null;
-  counts: NavCounts;
-  circles: ShellCircle[];
-  superAdmin: boolean;
-  onReselect: () => void;
-}) {
-  const { viewer, circleId, openComposer } = useSocial();
-  const link = (item: NavItem) => {
-    const Icon = navIcons[item.id];
-    const count = item.badge ? counts[item.badge] : 0;
-    return (
-      <NavLink
-        key={item.id}
-        href={item.href}
-        active={active === item.id}
-        className="app-nav-link"
-        onReselect={onReselect}
-      >
-        <Icon className="size-[18px] shrink-0" />
-        <span className="min-w-0 flex-1 truncate">{item.label}</span>
-        {count > 0 && item.badge && (
-          <Badge
-            className="ml-auto h-5 min-w-5 px-1.5 tabular-nums"
-            aria-label={countLabel(item, count)}
-          >
-            {count > 99 ? "99+" : count}
-          </Badge>
-        )}
-      </NavLink>
-    );
-  };
-  const group = (title: string, ids: NavItemId[]) => {
-    const entries = items.filter((item) => ids.includes(item.id));
-    if (!entries.length) return null;
-    return (
-      <div className="flex flex-col gap-0.5">
-        <p className="app-nav-heading">{title}</p>
-        {entries.map(link)}
+  account = false,
+  onNavigate,
+}: NavigationProps & { account?: boolean; onNavigate?: () => void }) {
+  return [
+    ...groups,
+    ...(account
+      ? [{ label: "You & settings", sections: ["you" as const] }]
+      : []),
+  ].map(({ label, sections }) => (
+    <div className="app-nav-group" key={label}>
+      <p className="app-nav-heading">{label}</p>
+      <div className="app-nav-items">
+        {items
+          .filter((item) => sections.includes(item.section))
+          .map((item) => {
+            const Icon = navIcons[item.id];
+            return (
+              <NavLink
+                key={item.id}
+                href={item.href}
+                active={active === item.id}
+                className="app-nav-link"
+                onReselect={onReselect}
+                onNavigate={onNavigate}
+                title={item.label}
+              >
+                <Icon className="app-nav-icon" aria-hidden="true" />
+                <span className="app-nav-label">{item.label}</span>
+                <ItemBadge item={item} counts={counts} />
+              </NavLink>
+            );
+          })}
       </div>
+    </div>
+  ));
+}
+
+function AccountMenu({
+  items,
+  active,
+}: Pick<NavigationProps, "items" | "active">) {
+  const { viewer } = useSocial();
+  const personal = items.filter(
+    (item) => item.section === "you" && !item.access,
+  );
+  const management = items.filter((item) => item.access);
+  const entry = (item: NavItem) => {
+    const Icon = navIcons[item.id];
+    return (
+      <DropdownMenuItem
+        key={item.id}
+        render={
+          <Link
+            href={item.href}
+            aria-current={active === item.id ? "page" : undefined}
+          />
+        }
+      >
+        <Icon /> {item.label}
+      </DropdownMenuItem>
     );
   };
   return (
-    <aside className="app-sidebar" aria-label="Sidebar">
-      <Link href="/" className="social-wordmark px-2">
-        <span className="brand-symbol" aria-hidden="true">
-          p.
-        </span>
-        <span>pickle balls</span>
-      </Link>
-      <CircleSwitcher
-        circles={circles}
-        circleId={circleId}
-        superAdmin={superAdmin}
-        variant="sidebar"
-      />
-      <Button className="w-full" onClick={() => openComposer()}>
-        <Plus data-icon="inline-start" /> Create
-      </Button>
-      <nav
-        aria-label="Main navigation"
-        className="-mx-1 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-1"
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            className={cn(
+              "app-account",
+              items.some(
+                (item) => item.id === active && item.section === "you",
+              ) && "is-active",
+            )}
+            aria-label="Your account menu"
+          />
+        }
       >
-        <div className="flex flex-col gap-0.5">
-          {items
-            .filter((item) => item.id === "today" || item.id === "feed")
-            .map(link)}
-        </div>
-        {group("Your day", ["timeblock", "goals", "streaks"])}
-        {group("Squad", [
-          "review",
-          "members",
-          "bucket-list",
-          "screen-time",
-          "history",
-        ])}
-        <div className="mt-auto flex flex-col gap-0.5">
-          {items
-            .filter((item) =>
-              ["changelog", "settings", "owner", "superadmin"].includes(
-                item.id,
-              ),
-            )
-            .map(link)}
-        </div>
-      </nav>
-      <NavLink
-        href="/profile"
-        active={active === "profile"}
-        className="app-sidebar-profile"
-        onReselect={onReselect}
-      >
-        <Avatar className="size-8">
+        <Avatar className="size-9 shrink-0">
           <AvatarImage src={viewer.image ?? undefined} alt="" />
           <AvatarFallback>{viewer.initials}</AvatarFallback>
         </Avatar>
-        <span className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-medium">{viewer.name}</span>
-          <span className="text-xs text-muted-foreground">Your profile</span>
+        <span className="app-account-label">
+          <span className="truncate font-semibold">{viewer.name}</span>
+          <span className="text-xs font-normal text-muted-foreground">
+            Profile & settings
+          </span>
         </span>
-      </NavLink>
+        <ChevronsUpDown
+          data-icon="inline-end"
+          className="app-account-chevron"
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        side="top"
+        align="start"
+        sideOffset={10}
+        className="w-60"
+      >
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{viewer.name}</DropdownMenuLabel>
+          {personal.map(entry)}
+        </DropdownMenuGroup>
+        {management.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Manage</DropdownMenuLabel>
+              {management.map(entry)}
+            </DropdownMenuGroup>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export function AppSidebar({
+  circles,
+  superAdmin,
+  ...navigation
+}: NavigationProps & {
+  circles: ShellCircle[];
+  superAdmin: boolean;
+}) {
+  const { circleId, openComposer } = useSocial();
+  return (
+    <aside className="app-sidebar" aria-label="Sidebar">
+      <Link
+        href="/"
+        className="social-wordmark app-brand"
+        aria-label="Pickle Balls, Today"
+      >
+        <span className="brand-symbol" aria-hidden="true">
+          p.
+        </span>
+        <span className="app-brand-name">pickle balls</span>
+      </Link>
+      <div className="app-sidebar-circle">
+        <CircleSwitcher
+          circles={circles}
+          circleId={circleId}
+          superAdmin={superAdmin}
+          variant="sidebar"
+        />
+      </div>
+      <Button
+        className="app-sidebar-create"
+        onClick={() => openComposer()}
+        aria-label="Create a task, proof, check-in, or streak"
+      >
+        <Plus data-icon="inline-start" /> <span>Create</span>
+      </Button>
+      <nav aria-label="Main navigation" className="app-sidebar-nav">
+        <NavigationGroups {...navigation} />
+      </nav>
+      <div className="app-sidebar-footer">
+        <AccountMenu items={navigation.items} active={navigation.active} />
+      </div>
     </aside>
+  );
+}
+
+export function MobileMenu(props: NavigationProps) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            className="app-menu-trigger"
+            aria-label="Browse all pages"
+          />
+        }
+      >
+        <LayoutGrid />
+      </SheetTrigger>
+      <SheetContent side="left" className="app-navigation-sheet">
+        <SheetHeader>
+          <SheetTitle>Explore Pickle Balls</SheetTitle>
+          <SheetDescription>
+            Your day, your circle, and your account.
+          </SheetDescription>
+        </SheetHeader>
+        <nav aria-label="All pages" className="app-menu-nav">
+          <NavigationGroups
+            {...props}
+            account
+            onNavigate={() => setOpen(false)}
+          />
+        </nav>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -263,20 +388,22 @@ export function MobileTabBar({
         className="app-tab"
         onReselect={onReselect}
       >
-        <span className="relative grid size-6 place-items-center">
+        <span className="app-tab-symbol">
           {Icon ? (
-            <Icon className="size-6" strokeWidth={activeTab ? 2.3 : 1.7} />
+            <Icon className="size-[22px]" strokeWidth={activeTab ? 2.2 : 1.8} />
           ) : (
             <Avatar className="app-tab-avatar size-6">
               <AvatarImage src={viewer.image ?? undefined} alt="" />
               <AvatarFallback>{viewer.initials}</AvatarFallback>
             </Avatar>
           )}
-          {id === "squad" && (
-            <CountBadge
-              count={squadCount}
-              label={`${squadCount} ${squadCount === 1 ? "thing needs" : "things need"} you in Squad`}
-            />
+          {id === "squad" && squadCount > 0 && (
+            <Badge
+              className="nav-count"
+              aria-label={`${squadCount} ${squadCount === 1 ? "thing needs" : "things need"} you in Squad`}
+            >
+              {squadCount > 99 ? "99+" : squadCount}
+            </Badge>
           )}
         </span>
         <span>{entry.label}</span>
@@ -293,7 +420,7 @@ export function MobileTabBar({
           aria-label="Create a task, proof, check-in, or streak"
           onClick={() => openComposer()}
         >
-          <Plus className="size-6" strokeWidth={2.4} />
+          <Plus strokeWidth={2.2} />
         </Button>
       </div>
       {tab("squad")}
@@ -307,37 +434,76 @@ export function SectionTabs({
   active,
   counts,
   onReselect,
-}: {
-  items: NavItem[];
-  active: NavItemId | null;
-  counts: NavCounts;
-  onReselect: () => void;
-}) {
-  if (items.length < 2) return null;
+}: NavigationProps) {
+  // Account destinations live in the account menu and the all-pages drawer.
+  if (items.length < 2 || items[0]?.section === "you") return null;
+  const overflow = items.length > 4 ? items.slice(2) : [];
+  const primary = overflow.length ? items.slice(0, 2) : items;
+  const selected = overflow.find((item) => item.id === active);
+  const overflowCount = overflow.reduce(
+    (total, item) => total + (item.badge ? counts[item.badge] : 0),
+    0,
+  );
   return (
     <nav className="section-tabs" aria-label="Section pages">
-      {items.map((item) => {
-        const count = item.badge ? counts[item.badge] : 0;
-        return (
-          <NavLink
-            key={item.id}
-            href={item.href}
-            active={active === item.id}
-            className="section-tab"
-            onReselect={onReselect}
+      {primary.map((item) => (
+        <NavLink
+          key={item.id}
+          href={item.href}
+          active={active === item.id}
+          className="section-tab"
+          onReselect={onReselect}
+        >
+          {item.label}
+          <ItemBadge item={item} counts={counts} />
+        </NavLink>
+      ))}
+      {overflow.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="plain"
+                className={cn(
+                  "section-tab section-tab-more",
+                  selected && "is-active",
+                )}
+                aria-label="More circle pages"
+              />
+            }
           >
-            {item.label}
-            {count > 0 && item.badge && (
-              <>
-                <span className="section-tab-count" aria-hidden="true">
-                  {count > 99 ? "99+" : count}
-                </span>
-                <span className="sr-only">, {countLabel(item, count)}</span>
-              </>
+            {selected?.label ?? "More"}
+            {!selected && overflowCount > 0 && (
+              <Badge className="app-nav-count">
+                {overflowCount > 99 ? "99+" : overflowCount}
+              </Badge>
             )}
-          </NavLink>
-        );
-      })}
+            <ChevronDown data-icon="inline-end" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Your circle</DropdownMenuLabel>
+              {overflow.map((item) => {
+                const Icon = navIcons[item.id];
+                return (
+                  <DropdownMenuItem
+                    key={item.id}
+                    render={
+                      <Link
+                        href={item.href}
+                        aria-current={active === item.id ? "page" : undefined}
+                      />
+                    }
+                  >
+                    <Icon /> {item.label}
+                    <ItemBadge item={item} counts={counts} />
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </nav>
   );
 }

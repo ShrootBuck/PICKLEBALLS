@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   AppSidebar,
+  MobileMenu,
   MobileTabBar,
   type NavCounts,
   SectionTabs,
@@ -60,7 +61,7 @@ export function AppShell({
   );
   const active = activeNavItem(pathname, searchParams);
   const section = navSectionOf(active);
-  const layout = pageLayout(active);
+  const layout = pageLayout(active, pathname);
   const counts: NavCounts = { verdicts: pendingVerdicts, votes: bucketVotes };
   const activeItem = navItems.find((item) => item.id === active);
   const sectionLabel = navSections.find((item) => item.id === section)?.label;
@@ -117,6 +118,7 @@ export function AppShell({
   return (
     <div
       className="app-shell"
+      data-page={active ?? undefined}
       onClickCapture={(event) => {
         const link = (event.target as Element).closest("a[href]");
         if (
@@ -158,7 +160,7 @@ export function AppShell({
       />
       <div className="app-workspace">
         <header className="app-header">
-          <div className="min-w-0 flex-1 md:hidden">
+          <div className="app-header-circle">
             <CircleSwitcher
               circles={circles}
               circleId={circleId}
@@ -179,9 +181,23 @@ export function AppShell({
               <span>{activeItem?.label ?? sectionLabel ?? ""}</span>
             )}
           </p>
-          <div className="ml-auto flex items-center gap-1">{bell}</div>
+          <div className="ml-auto flex items-center gap-1">
+            <MobileMenu
+              items={items}
+              active={active}
+              counts={counts}
+              onReselect={scrollToTop}
+            />
+            {bell}
+          </div>
         </header>
         <StopwatchBar />
+        <SectionTabs
+          items={items.filter((item) => item.section === section)}
+          active={active}
+          counts={counts}
+          onReselect={scrollToTop}
+        />
         <div
           ref={scrollRef}
           data-slot="app-scroll"
@@ -191,12 +207,6 @@ export function AppShell({
               scrolls.set(routeKey, event.currentTarget.scrollTop);
           }}
         >
-          <SectionTabs
-            items={items.filter((item) => item.section === section)}
-            active={active}
-            counts={counts}
-            onReselect={scrollToTop}
-          />
           <div className={cn("app-columns", layout === "wide" && "is-wide")}>
             <main
               id="main"

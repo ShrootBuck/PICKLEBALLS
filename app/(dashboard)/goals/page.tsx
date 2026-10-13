@@ -5,7 +5,6 @@ import { GoalEditor } from "@/components/goals/goal-editor";
 import { PageHeader } from "@/components/layout/page-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -51,14 +50,14 @@ export default async function GoalsPage({
   return (
     <>
       <PageHeader
-        title="Small steps. Bigger things."
+        title="Goals"
         description="Give your daily work somewhere to go. Set a goal, mark the milestones, and keep the receipts."
         actions={<GoalEditor circleId={membership.circleId} />}
       >
         <Target className="size-4" />
-        Long-term goals
+        The bigger picture
       </PageHeader>
-      <nav aria-label="Goal views" className="flex flex-wrap gap-2">
+      <nav aria-label="Goal views" className="page-view-tabs">
         {[
           ["mine", "My goals"],
           ["circle", "Circle goals"],
@@ -69,17 +68,14 @@ export default async function GoalsPage({
             key={key}
             href={`/goals?view=${key}`}
             aria-current={view === key ? "page" : undefined}
-            className={buttonVariants({
-              variant: view === key ? "secondary" : "ghost",
-              size: "sm",
-            })}
+            className="page-view-tab"
           >
             {label}
           </Link>
         ))}
       </nav>
       {goals.length ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="collection-grid">
           {goals.map((goal) => {
             const progress = milestoneProgress(goal.milestones);
             const target = goal.targetDate?.toISOString().slice(0, 10);

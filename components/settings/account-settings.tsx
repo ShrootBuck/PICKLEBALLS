@@ -43,7 +43,9 @@ export function AccountSettings({
   return (
     <Card className="max-w-2xl">
       <CardHeader>
-        <CardTitle>Account and circles</CardTitle>
+        <CardTitle>
+          <h2>Account and circles</h2>
+        </CardTitle>
         <CardDescription>
           Leave circles, transfer ownership, or permanently delete your account.
         </CardDescription>

@@ -5,7 +5,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium, webkit } from "playwright";
 
 const origin = "http://localhost:3317";
-const output = "/private/tmp/pb-v2";
+const output = "/private/tmp/pb-refinement/verified";
 const environment = await Bun.file(
   "/private/tmp/pb-social-test-env.json",
 ).json();
@@ -23,6 +23,7 @@ const browser = await (process.argv.includes("--webkit")
 const context = await browser.newContext({
   viewport: { width: 1440, height: 1000 },
   serviceWorkers: "block",
+  reducedMotion: "reduce",
 });
 const page = await context.newPage();
 page.setDefaultTimeout(30_000);
@@ -48,7 +49,12 @@ async function fits(target = page) {
 }
 async function navigate(href: string) {
   const nav = page.getByRole("navigation", { name: "Main navigation" });
-  await nav.locator(`a[href="${href}"]`).click();
+  const link = nav.locator(`a[href="${href}"]`);
+  if (await link.count()) await link.click();
+  else {
+    await page.getByRole("button", { name: "Your account menu" }).click();
+    await page.getByRole("menu").locator(`a[href="${href}"]`).click();
+  }
   await page.waitForURL(`${origin}${href}`);
   await ready();
   await fits();
@@ -115,7 +121,10 @@ try {
   const article = page.locator(`#task-${task.id}`);
   await article.getByRole("heading", { name: title, exact: true }).waitFor();
   assert.equal(Number(await needProof().innerText()), before + 1);
-  await article.getByRole("button", { name: "Edit", exact: true }).click();
+  await article
+    .getByRole("button", { name: `Options for ${title}`, exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Edit task", exact: true }).click();
   await page
     .getByLabel("What will you do?", { exact: true })
     .fill(`${title} edited`);
@@ -178,13 +187,39 @@ try {
 
   for (const width of [1440, 1024, 768, 390, 320]) {
     await page.setViewportSize({ width, height: width >= 768 ? 1000 : 844 });
-    for (const path of ["/", "/feed", "/squad", "/profile", "/timeblock"]) {
+    for (const path of [
+      "/",
+      "/feed",
+      "/squad",
+      "/squad?view=members",
+      "/profile",
+      "/timeblock",
+      "/goals",
+      "/streaks",
+      "/bucket-list",
+      "/screen-time",
+      "/settings",
+      "/admin",
+      "/history",
+    ]) {
       await page.goto(`${origin}${path}`);
       await ready();
       await fits();
-      if (["/", "/feed", "/profile"].includes(path))
+      if (
+        [
+          "/",
+          "/feed",
+          "/profile",
+          "/squad?view=members",
+          "/bucket-list",
+          "/settings",
+          "/timeblock",
+          "/screen-time",
+          "/goals",
+        ].includes(path)
+      )
         await page.screenshot({
-          path: `${output}/${width}-${path === "/" ? "today" : path.slice(1)}-final.png`,
+          path: `${output}/${width}-${path === "/" ? "today" : path.slice(1).replace("?view=", "-")}-final.png`,
         });
     }
   }
@@ -209,6 +244,24 @@ try {
   await page.screenshot({ path: `${output}/320-create-final.png` });
   await sheet.getByRole("button", { name: "Close", exact: true }).click();
   await sheet.waitFor({ state: "hidden" });
+  await tabs.locator('a[href="/squad"]').click();
+  await ready();
+  await page.getByRole("button", { name: "More circle pages" }).click();
+  await page.getByRole("menuitem", { name: /Screen time/ }).click();
+  await page.waitForURL(`${origin}/screen-time`);
+  await ready();
+  await page.getByRole("button", { name: "Browse all pages" }).click();
+  const allPages = page.getByRole("navigation", { name: "All pages" });
+  await allPages.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.waitForURL(`${origin}/settings`);
+  await page.locator(".app-navigation-sheet").waitFor({ state: "hidden" });
+  await ready();
+  await page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("link", { name: "Account & circles" })
+    .click();
+  await page.getByRole("heading", { name: "Account and circles" }).waitFor();
+  await fits();
   console.log(
     "320px through 1440px layouts, mobile tabs, section links and Create work.",
   );
@@ -251,13 +304,16 @@ try {
   peer.on("pageerror", (error) => errors.push(error.message));
   await peer.goto("http://localhost:3318/login?user=eddie");
   await ready(peer);
+  await peer.getByRole("button", { name: "Your account menu" }).click();
   assert.equal(
-    await peer.getByRole("link", { name: "Owner tools", exact: true }).count(),
+    await peer
+      .getByRole("menuitem", { name: "Owner tools", exact: true })
+      .count(),
     0,
   );
   assert.equal(
     await peer
-      .getByRole("link", { name: "Admin console", exact: true })
+      .getByRole("menuitem", { name: "Admin console", exact: true })
       .count(),
     0,
   );

@@ -4,11 +4,13 @@ import {
   Camera,
   Check,
   Circle,
+  Ellipsis,
   Pencil,
   Plus,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { DeleteAction } from "@/components/settings/delete-action";
 import { useSocial } from "@/components/social/social-provider";
 import { TaskDiscussion } from "@/components/social/task-discussion";
@@ -18,6 +20,13 @@ import {
 } from "@/components/squad/proof-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyDescription,
@@ -35,6 +44,55 @@ export function AddTaskButton() {
     <Button size="sm" onClick={() => openComposer({ mode: "task" })}>
       <Plus data-icon="inline-start" /> Add task
     </Button>
+  );
+}
+
+function TaskMenu({ task, editable }: { task: SocialTask; editable: boolean }) {
+  const { circleId, openComposer } = useSocial();
+  const [cancelOpen, setCancelOpen] = useState(false);
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Options for ${task.title}`}
+            />
+          }
+        >
+          <Ellipsis />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuGroup>
+            {editable && !task.proof && !task.proofSubmittedAt && (
+              <DropdownMenuItem
+                onClick={() => openComposer({ mode: "task", task })}
+              >
+                <Pencil /> Edit task
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setCancelOpen(true)}
+            >
+              <Trash2 /> Cancel task
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <DeleteAction
+        label="Cancel task"
+        title="Cancel this commitment?"
+        description="The task stays in your history as Cancelled. Its proof, earlier proof versions, and proof discussions are permanently removed. Cancellation does not count as completing the task."
+        endpoint={`/api/content/task/${task.id}`}
+        body={{ circleId }}
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        hideTrigger
+      />
+    </>
   );
 }
 
@@ -138,21 +196,16 @@ export function TaskList({
                     : taskStatusLabel(task.status)}
                 </Badge>
               </div>
+              {mine &&
+                !["VERIFIED", "MISSED", "CANCELLED"].includes(task.status) && (
+                  <TaskMenu task={task} editable={editable} />
+                )}
             </div>
-            <div className="mt-3 flex flex-wrap justify-end gap-2">
+            <div className="task-actions">
               {mine && (
                 <div className="mr-auto">
                   <TaskStopwatch task={task} historical={historical} />
                 </div>
-              )}
-              {editable && !task.proof && !task.proofSubmittedAt && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => openComposer({ mode: "task", task })}
-                >
-                  <Pencil data-icon="inline-start" /> Edit
-                </Button>
               )}
               {task.proof && (
                 <Button
@@ -181,16 +234,6 @@ export function TaskList({
                   </Button>
                 )}
             </div>
-            {mine &&
-              !["VERIFIED", "MISSED", "CANCELLED"].includes(task.status) && (
-                <DeleteAction
-                  label="Cancel task"
-                  title="Cancel this commitment?"
-                  description="The task stays in your history as Cancelled. Its proof, earlier proof versions, and proof discussions are permanently removed. Cancellation does not count as completing the task."
-                  endpoint={`/api/content/task/${task.id}`}
-                  body={{ circleId }}
-                />
-              )}
             <TaskDiscussion
               taskId={task.id}
               title={task.title}

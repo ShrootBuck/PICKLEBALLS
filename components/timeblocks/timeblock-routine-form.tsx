@@ -51,9 +51,7 @@ export function TimeblockRoutineForm({
   onDirtyChange: (dirty: boolean) => void;
   focusRequest: { id: string } | null;
 }) {
-  const [open, setOpen] = useState(
-    !routine.sleep || Object.values(routine.classes).some((name) => !name),
-  );
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     if (focusRequest) setOpen(true);
   }, [focusRequest]);
@@ -91,7 +89,11 @@ export function TimeblockRoutineForm({
               </CardDescription>
             </div>
             <CollapsibleTrigger render={<Button variant="outline" size="sm" />}>
-              {open ? "Hide settings" : "Edit routine"}
+              {open
+                ? "Hide settings"
+                : !routine.sleep
+                  ? "Set up routine"
+                  : "Edit routine"}
               <ChevronDown
                 data-icon="inline-end"
                 className={cn(open && "rotate-180")}

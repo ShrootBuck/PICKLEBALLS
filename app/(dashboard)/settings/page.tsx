@@ -1,4 +1,4 @@
-import { ArrowRight, ScrollText } from "lucide-react";
+import { ArrowRight, Bell, Palette, ScrollText, UserRound } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
@@ -26,27 +26,65 @@ export default async function SettingsPage() {
         title="Settings"
         description="Your appearance, notifications, and account."
       />
-      <AppearanceSettings />
-      <AccountSettings userId={session.user.id} chatId={chat?.id} />
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>Notifications</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">
-          <PushToggle />
-          <NotificationPreferences />
-        </CardContent>
-      </Card>
-      <div className="flex max-w-2xl flex-wrap items-center justify-between gap-4">
-        <Link
-          href="/changelog"
-          className={buttonVariants({ variant: "ghost" })}
-        >
-          <ScrollText data-icon="inline-start" />
-          What's new
-          <ArrowRight data-icon="inline-end" />
-        </Link>
-        <SignOutButton />
+      <div className="settings-layout">
+        <nav className="settings-nav" aria-label="Settings sections">
+          <a href="#appearance">
+            <Palette className="size-4" />
+            Appearance
+          </a>
+          <a href="#notifications">
+            <Bell className="size-4" />
+            Notifications
+          </a>
+          <a href="#account">
+            <UserRound className="size-4" />
+            Account & circles
+          </a>
+        </nav>
+        <div className="settings-content">
+          <section
+            id="appearance"
+            aria-label="Appearance"
+            className="settings-section"
+          >
+            <AppearanceSettings />
+          </section>
+          <section
+            id="notifications"
+            aria-label="Notifications"
+            className="settings-section"
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  <h2>Notifications</h2>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-6">
+                <PushToggle />
+                <NotificationPreferences />
+              </CardContent>
+            </Card>
+          </section>
+          <section
+            id="account"
+            aria-label="Account and circles"
+            className="settings-section"
+          >
+            <AccountSettings userId={session.user.id} chatId={chat?.id} />
+          </section>
+          <div className="flex max-w-2xl flex-wrap items-center justify-between gap-4">
+            <Link
+              href="/changelog"
+              className={buttonVariants({ variant: "ghost" })}
+            >
+              <ScrollText data-icon="inline-start" />
+              What's new
+              <ArrowRight data-icon="inline-end" />
+            </Link>
+            <SignOutButton />
+          </div>
+        </div>
       </div>
     </>
   );

@@ -79,7 +79,7 @@ export const navItems: NavItem[] = [
     section: "you",
     access: "owner",
   },
-  { id: "changelog", label: "What’s new", href: "/changelog", section: "you" },
+  { id: "changelog", label: "What's new", href: "/changelog", section: "you" },
   {
     id: "superadmin",
     label: "Admin console",
@@ -145,15 +145,22 @@ const widePages = new Set<NavItemId>([
   "timeblock",
   "goals",
   "streaks",
+  "members",
+  "bucket-list",
   "screen-time",
   "history",
   "owner",
+  "settings",
   "changelog",
   "superadmin",
 ]);
-const panelPages = new Set<NavItemId>(["feed", "review", "members", "profile"]);
+const panelPages = new Set<NavItemId>(["feed", "review", "profile"]);
 
-export function pageLayout(item: NavItemId | null) {
+export function pageLayout(item: NavItemId | null, pathname = "") {
+  if (item === "members" && pathname.startsWith("/members/"))
+    return "panel" as const;
+  if (item === "bucket-list" && pathname.startsWith("/bucket-list/"))
+    return "narrow" as const;
   if (item && widePages.has(item)) return "wide" as const;
   if (item && panelPages.has(item)) return "panel" as const;
   return "narrow" as const;

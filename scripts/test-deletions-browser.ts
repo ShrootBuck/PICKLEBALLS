@@ -175,7 +175,10 @@ try {
   await page.goto(origin);
   const article = page.locator(`#task-${task.id}`);
   await article
-    .getByRole("button", { name: "Cancel task", exact: true })
+    .getByRole("button", { name: `Options for ${task.title}`, exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Cancel task", exact: true })
     .click();
   await page
     .locator('[data-slot="dialog-content"]')

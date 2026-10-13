@@ -1,6 +1,9 @@
 "use client";
 
+import { ArrowUpRight, CalendarRange } from "lucide-react";
+import Link from "next/link";
 import { useSocial } from "@/components/social/social-provider";
+import { buttonVariants } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
 export function TodaySummary({
@@ -20,12 +23,22 @@ export function TodaySummary({
   ).length;
   const firstName = viewer.name.trim().split(/\s+/)[0] || viewer.name;
   return (
-    <header className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-muted-foreground">{date}</p>
-        <h1 className="page-title">
-          {greeting}, {firstName}
-        </h1>
+    <header className="today-overview">
+      <div className="today-heading">
+        <div className="flex min-w-0 flex-col gap-2">
+          <p className="page-eyebrow">{date}</p>
+          <h1 className="page-title">
+            {greeting}, {firstName}
+          </h1>
+        </div>
+        <Link
+          href="/timeblock"
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+        >
+          <CalendarRange data-icon="inline-start" />
+          Weekly timeblock
+          <ArrowUpRight data-icon="inline-end" />
+        </Link>
       </div>
       <section aria-label="Today at a glance" className="today-stats">
         <div>

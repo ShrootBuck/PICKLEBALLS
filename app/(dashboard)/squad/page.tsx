@@ -96,7 +96,7 @@ export default async function SquadPage({
       />
       {view === "review" && pending && <Feed initial={pending} reviewOnly />}
       {view === "members" && (
-        <div className="flex flex-col">
+        <div className="member-grid">
           {members.map((member) => {
             const verified = member.tasks.filter(
               (task) => task.status === "VERIFIED",
@@ -106,7 +106,7 @@ export default async function SquadPage({
               <Link
                 key={member.id}
                 href={memberHref(circleId, member.id, "tasks")}
-                className="flex items-start gap-3 border-b py-5"
+                className="member-card"
               >
                 <Avatar className="size-12">
                   <AvatarImage src={member.image ?? undefined} alt="" />
@@ -117,7 +117,7 @@ export default async function SquadPage({
                     {member.name}
                     {member.id === session.user.id ? " (you)" : ""}
                   </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {member.tasks.length
                       ? `${verified}/${member.tasks.length} tasks verified`
                       : "No tasks today"}

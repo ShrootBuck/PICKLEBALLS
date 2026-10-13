@@ -2,10 +2,12 @@
 
 import {
   CircleCheckBig,
+  Ellipsis,
   Flag,
   Hourglass,
   ThumbsDown,
   ThumbsUp,
+  Trash2,
   Undo2,
   X,
 } from "lucide-react";
@@ -26,6 +28,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
@@ -68,6 +77,9 @@ function ConfirmAction({
   destructive = false,
   onConfirm,
   children,
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger = false,
 }: {
   children?: ReactNode;
   trigger: ReactNode;
@@ -76,8 +88,13 @@ function ConfirmAction({
   confirmLabel: string;
   destructive?: boolean;
   onConfirm: () => Promise<void>;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function confirm() {
@@ -101,13 +118,15 @@ function ConfirmAction({
         setError(null);
       }}
     >
-      <DialogTrigger
-        render={
-          <Button size="sm" variant={destructive ? "ghost" : "outline"} />
-        }
-      >
-        {trigger}
-      </DialogTrigger>
+      {!hideTrigger && (
+        <DialogTrigger
+          render={
+            <Button size="sm" variant={destructive ? "ghost" : "outline"} />
+          }
+        >
+          {trigger}
+        </DialogTrigger>
+      )}
       <DialogContent showCloseButton={!pending}>
         <DialogHeader>
           <DialogTitle className="leading-snug">{title}</DialogTitle>
@@ -144,6 +163,8 @@ function ConfirmAction({
 export function BucketItemActions({ item }: { item: ActionItem }) {
   const { circleId } = useSocial();
   const [excluded, setExcluded] = useState<string[]>([]);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const [pendingVote, setPendingVote] = useState<boolean | null>(null);
@@ -310,6 +331,40 @@ export function BucketItemActions({ item }: { item: ActionItem }) {
           }}
         />
       )}
+      {(item.canDelete || item.canWithdraw) && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Options for ${item.title}`}
+              />
+            }
+          >
+            <Ellipsis />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuGroup>
+              {item.canWithdraw && (
+                <DropdownMenuItem onClick={() => setWithdrawOpen(true)}>
+                  <Undo2 />
+                  Withdraw
+                </DropdownMenuItem>
+              )}
+              {item.canDelete && (
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 />
+                  Delete idea
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
       {item.canDelete && (
         <DeleteAction
           label="Delete idea"
@@ -318,11 +373,17 @@ export function BucketItemActions({ item }: { item: ActionItem }) {
           endpoint={`/api/content/bucket-item/${item.id}`}
           body={{ circleId }}
           redirectTo={pathname.includes(item.id) ? "/bucket-list" : undefined}
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          hideTrigger
         />
       )}
       {item.canWithdraw && (
         <ConfirmAction
           destructive
+          open={withdrawOpen}
+          onOpenChange={setWithdrawOpen}
+          hideTrigger
           trigger={
             <>
               <Undo2 data-icon="inline-start" />

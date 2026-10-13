@@ -12,10 +12,18 @@ export type AttentionItem = {
 export function AttentionList({ items }: { items: AttentionItem[] }) {
   if (!items.length) return null;
   return (
-    <section aria-labelledby="today-attention" className="today-card">
-      <h2 id="today-attention" className="sr-only">
-        Needs you
-      </h2>
+    <section
+      aria-labelledby="today-attention"
+      className="today-card today-attention"
+    >
+      <div className="today-card-header">
+        <h2 id="today-attention" className="today-card-title">
+          Needs your attention
+        </h2>
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {items.length}
+        </span>
+      </div>
       <ul className="flex flex-col">
         {items.map((item) => (
           <li key={item.key}>

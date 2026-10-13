@@ -154,7 +154,7 @@ export function Feed({
       onRefresh={() => void load("refresh")}
     >
       <section
-        className="flex flex-col"
+        className="feed-stream"
         aria-label={
           reviewOnly
             ? "Proofs needing your verdict"
@@ -163,7 +163,7 @@ export function Feed({
               : "Circle timeline"
         }
       >
-        <div className="flex min-h-9 items-center justify-between gap-3">
+        <div className="feed-toolbar">
           <h2 className="text-xs font-medium text-muted-foreground">
             {reviewOnly
               ? "Waiting for your verdict"

@@ -74,13 +74,13 @@ export default async function BucketListPage({
           </EmptyHeader>
         </Empty>
       ) : (
-        <>
+        <div className="bucket-board">
           {voting.length > 0 && (
             <PageSection
               title="Ideas and upcoming plans"
               description="Show interest, then RSVP when there is a date."
             >
-              {voting.map(card)}
+              <div className="bucket-cards">{voting.map(card)}</div>
             </PageSection>
           )}
           <PageSection
@@ -88,7 +88,7 @@ export default async function BucketListPage({
             description="These plans have enough people going."
           >
             {list.length ? (
-              list.map(card)
+              <div className="bucket-cards">{list.map(card)}</div>
             ) : (
               <p className="text-sm text-muted-foreground">
                 No plans have reached their attendance requirement yet.
@@ -96,14 +96,16 @@ export default async function BucketListPage({
             )}
           </PageSection>
           {done.length > 0 && (
-            <PageSection
-              title="Done"
-              description="Checked off by the people who participated."
-            >
-              {done.map(card)}
-            </PageSection>
+            <div className="bucket-completed">
+              <PageSection
+                title="Done"
+                description="Checked off by the people who participated."
+              >
+                <div className="collection-grid">{done.map(card)}</div>
+              </PageSection>
+            </div>
           )}
-        </>
+        </div>
       )}
     </>
   );

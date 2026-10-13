@@ -9,33 +9,35 @@ export function FeedPrompt() {
   const { viewer, openComposer } = useSocial();
   return (
     <section aria-label="Share with your circle" className="feed-prompt">
-      <Avatar className="size-10">
-        <AvatarImage src={viewer.image ?? undefined} alt="" />
-        <AvatarFallback>{viewer.initials}</AvatarFallback>
-      </Avatar>
-      <Button
-        variant="plain"
-        className="feed-prompt-input"
-        onClick={() => openComposer()}
-      >
-        <span className="truncate">What did you get done?</span>
-      </Button>
-      <div className="flex shrink-0 gap-1">
+      <div className="feed-prompt-top">
+        <Avatar className="size-9">
+          <AvatarImage src={viewer.image ?? undefined} alt="" />
+          <AvatarFallback>{viewer.initials}</AvatarFallback>
+        </Avatar>
+        <Button
+          variant="plain"
+          className="feed-prompt-input"
+          onClick={() => openComposer()}
+        >
+          <span className="truncate">What did you get done?</span>
+        </Button>
+      </div>
+      <div className="feed-prompt-actions">
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
           aria-label="Post proof"
           onClick={() => openComposer({ mode: "proof" })}
         >
-          <Camera />
+          <Camera data-icon="inline-start" /> Post proof
         </Button>
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
           aria-label="Check in"
           onClick={() => openComposer({ mode: "check-in" })}
         >
-          <MessageCircle />
+          <MessageCircle data-icon="inline-start" /> Check in
         </Button>
       </div>
     </section>

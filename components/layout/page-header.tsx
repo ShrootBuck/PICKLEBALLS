@@ -12,8 +12,8 @@ export function PageHeader({
   children?: ReactNode;
 }) {
   return (
-    <header className="flex min-w-0 flex-wrap items-end justify-between gap-x-6 gap-y-4">
-      <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1.5">
+    <header className="page-header">
+      <div className="page-heading">
         {children ? (
           <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-muted-foreground [&_svg]:text-primary">
             {children}
@@ -26,11 +26,7 @@ export function PageHeader({
           </p>
         ) : null}
       </div>
-      {actions ? (
-        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-          {actions}
-        </div>
-      ) : null}
+      {actions ? <div className="page-actions">{actions}</div> : null}
     </header>
   );
 }

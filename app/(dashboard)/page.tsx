@@ -125,12 +125,7 @@ export default async function TodayPage({
       />
       <div className="today-grid">
         <div className="today-column">
-          {attention.length > 0 && (
-            <div className="today-slot order-1">
-              <AttentionList items={attention} />
-            </div>
-          )}
-          <div className="today-slot order-3">
+          <div className="today-slot">
             <TodayTasks
               focusId={
                 typeof focus === "string" && focus.length <= 100
@@ -141,12 +136,13 @@ export default async function TodayPage({
           </div>
         </div>
         <div className="today-column today-column-side">
+          {attention.length > 0 && <AttentionList items={attention} />}
           {streaks.length > 0 && (
-            <div className="today-slot order-2">
+            <div className="today-slot">
               <StreakToday streaks={streaks} />
             </div>
           )}
-          <div className="today-slot order-4">
+          <div className="today-slot">
             <MoodLauncher
               latest={
                 latest?.valence != null
@@ -158,7 +154,7 @@ export default async function TodayPage({
               }
             />
           </div>
-          <div className="today-slot order-5">
+          <div className="today-slot">
             <GoalGlance
               goals={goals.map((goal) => ({
                 id: goal.id,

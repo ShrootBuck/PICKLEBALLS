@@ -47,19 +47,19 @@ export default async function StreaksPage({
   return (
     <>
       <PageHeader
-        title="One honest day at a time."
+        title="Streaks"
         description="Quit something or build something. Log it every day, and let your circle cheer you on."
         actions={<StreakForm circleId={circleId} openFromLink />}
       >
         <Flame className="size-4" />
-        Streaks
+        One honest day at a time
       </PageHeader>
       <PageSection
         title="Your streaks"
         description="Each day counts once it’s logged. Miss a day’s window and the count starts over."
       >
         {board.mine.length ? (
-          <div className="grid items-start gap-4 sm:grid-cols-2">
+          <div className="collection-grid">
             {board.mine.map((view) => (
               <StreakCard key={view.id} view={view} />
             ))}
@@ -98,7 +98,7 @@ export default async function StreaksPage({
                   </Avatar>
                   {member.name}
                 </Link>
-                <div className="grid items-start gap-4 sm:grid-cols-2">
+                <div className="collection-grid">
                   {streaks.map((view) => (
                     <StreakCard key={view.id} view={view} />
                   ))}
