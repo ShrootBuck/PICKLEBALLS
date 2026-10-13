@@ -98,7 +98,7 @@ export default async function TodayPage({
       href: "/squad",
       icon: CheckCheck,
       title: `${verdicts} ${verdicts === 1 ? "proof needs" : "proofs need"} your verdict`,
-      description: "Your friends showed up. Approve or challenge their proof.",
+      description: "Approve or challenge their proof.",
     });
   if (votes > 0)
     attention.push({

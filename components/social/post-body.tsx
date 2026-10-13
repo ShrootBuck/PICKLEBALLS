@@ -54,12 +54,12 @@ function CheckInBody({ post }: { post: CheckInPost }) {
       {post.body && post.prompt && (
         <p className="mood-post-prompt">{post.prompt}</p>
       )}
-      {(post.body || valence == null) && (
+      {post.body && (
         <p
           className="social-check-in whitespace-pre-wrap break-words"
           data-prompted={post.body && post.prompt ? true : undefined}
         >
-          {post.body || "Taking a moment to check in."}
+          {post.body}
         </p>
       )}
     </div>
@@ -85,9 +85,6 @@ function StreakBody({ post }: { post: StreakPost }) {
           Started a {quit ? "quit" : "build"} streak
         </p>
         {name}
-        <p className="text-sm text-muted-foreground">
-          Day one starts now. A little encouragement goes a long way.
-        </p>
       </div>
     );
   return (

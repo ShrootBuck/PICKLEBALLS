@@ -59,13 +59,10 @@ function streakStatus(view: StreakView) {
   const actions = streakActions(view, summary);
   const today = summary.week.at(-1);
   if (view.kind === "QUIT") {
-    if (summary.todayState === "slipped")
-      return view.mine
-        ? "Slipped today. Your next clean day starts now."
-        : "Slipped today. A little encouragement goes a long way.";
+    if (summary.todayState === "slipped") return "Slipped today.";
     if (actions.confirmDay)
       return view.mine
-        ? "Yesterday is waiting for your answer."
+        ? "Confirm yesterday."
         : "Hasn’t confirmed yesterday yet.";
     return view.mine
       ? "Today counts once it’s over. Confirm it tomorrow."

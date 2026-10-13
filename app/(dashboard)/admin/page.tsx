@@ -22,10 +22,7 @@ export default async function AdminPage() {
   });
   return (
     <>
-      <PageHeader
-        title="Owner tools"
-        description="Invite friends to this circle and manage its members."
-      />
+      <PageHeader title="Owner tools" />
       <InvitePanel />
       <Card>
         <CardHeader>

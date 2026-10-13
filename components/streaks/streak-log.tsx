@@ -245,7 +245,7 @@ function StreakLogSheet({
               {mode === "confirm" && actions.confirmDay
                 ? `${streak.title}, ${formatDayLong(actions.confirmDay)}`
                 : mode === "slip"
-                  ? "It happens. Logging it honestly keeps this streak real."
+                  ? "Resets your current count. History and all-time totals are kept."
                   : loggedUnits && streak.unitLabel
                     ? `${day === summary.today ? "Today" : "Yesterday"} so far: ${formatStreakUnits(loggedUnits, streak.unitLabel)}.`
                     : summary.week.find((item) => item.day === day)?.state ===

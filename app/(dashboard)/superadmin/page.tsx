@@ -56,10 +56,7 @@ export default async function SuperAdminOverviewPage() {
 
   return (
     <>
-      <PageHeader
-        title="Admin console"
-        description="Everything happening across every circle on Pickle Balls."
-      />
+      <PageHeader title="Admin console" />
 
       <section aria-label="Users" className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold">People</h2>

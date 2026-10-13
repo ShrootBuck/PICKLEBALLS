@@ -63,9 +63,6 @@ export function GoalGlance({ goals }: { goals: GlanceGoal[] }) {
           <span className="flex items-center gap-2 text-sm font-medium">
             <Plus className="size-4" /> Set a long-term goal
           </span>
-          <span className="text-xs text-muted-foreground">
-            Link daily tasks to something bigger and keep the receipts.
-          </span>
         </Link>
       )}
     </section>

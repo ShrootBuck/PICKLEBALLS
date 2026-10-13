@@ -220,20 +220,18 @@ export function Feed({
                 <Camera />
               </EmptyMedia>
               <EmptyTitle>
-                {reviewOnly ? "You’re all caught up" : "Good things start here"}
+                {reviewOnly ? "No proof to review" : "No posts yet"}
               </EmptyTitle>
               <EmptyDescription>
                 {reviewOnly
-                  ? "No proof needs your verdict. Check the feed for your circle’s latest posts."
+                  ? "Check the feed for other posts."
                   : memberId
                     ? "Their proof and check-ins will appear here."
                     : "Post some proof or check in."}
               </EmptyDescription>
             </EmptyHeader>
             {!memberId && !reviewOnly && (
-              <Button onClick={() => openComposer()}>
-                Make the first move
-              </Button>
+              <Button onClick={() => openComposer()}>Create a post</Button>
             )}
           </Empty>
         )}

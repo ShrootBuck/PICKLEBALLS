@@ -51,12 +51,8 @@ export default async function GoalsPage({
     <>
       <PageHeader
         title="Goals"
-        description="Give your daily work somewhere to go. Set a goal, mark the milestones, and keep the receipts."
         actions={<GoalEditor circleId={membership.circleId} />}
-      >
-        <Target className="size-4" />
-        The bigger picture
-      </PageHeader>
+      />
       <nav aria-label="Goal views" className="page-view-tabs">
         {[
           ["mine", "My goals"],
@@ -165,18 +161,16 @@ export default async function GoalsPage({
             </EmptyMedia>
             <EmptyTitle>
               {view === "completed"
-                ? "The finish lines are waiting"
+                ? "No completed goals"
                 : view === "archived"
                   ? "No archived goals"
-                  : "What would you love to finish?"}
+                  : "No goals yet"}
             </EmptyTitle>
-            <EmptyDescription>
-              {view === "completed"
-                ? "Completed goals stay here with their milestones and proof."
-                : view === "archived"
-                  ? "Goals you put aside stay here. Reopen them whenever you're ready."
-                  : "A film, a fitness goal, a project you've been putting off. Start with something that matters to you."}
-            </EmptyDescription>
+            {view === "archived" && (
+              <EmptyDescription>
+                Archived goals can be reopened.
+              </EmptyDescription>
+            )}
           </EmptyHeader>
           {(view === "mine" || view === "circle") && (
             <GoalEditor circleId={membership.circleId} />

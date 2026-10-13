@@ -57,7 +57,7 @@ export default async function BucketListPage({
     <>
       <PageHeader
         title="Bucket list"
-        description="Share ideas, make plans, and go with whoever can make it. Only participants confirm completion."
+        description="Only participants confirm completion."
         actions={<ProposeIdea circleId={circleId} memberCount={memberCount} />}
       />
       {items.length === 0 ? (
@@ -66,10 +66,9 @@ export default async function BucketListPage({
             <EmptyMedia variant="icon">
               <Mountain />
             </EmptyMedia>
-            <EmptyTitle>No big ideas yet</EmptyTitle>
+            <EmptyTitle>No ideas yet</EmptyTitle>
             <EmptyDescription>
-              Skydiving, a road trip, a concert you’d never go to alone. Propose
-              one and see who’s in.
+              Propose an idea for your circle.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

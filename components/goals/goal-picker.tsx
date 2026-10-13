@@ -89,13 +89,9 @@ export function GoalPicker({
             Try again
           </Button>
         </FieldDescription>
-      ) : (
-        <FieldDescription>
-          {loading
-            ? "Loading your goals..."
-            : "Connect today's task to something bigger."}
-        </FieldDescription>
-      )}
+      ) : loading ? (
+        <FieldDescription>Loading your goals...</FieldDescription>
+      ) : null}
     </Field>
   );
 }

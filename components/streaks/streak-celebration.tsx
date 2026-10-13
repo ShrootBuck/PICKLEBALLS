@@ -92,12 +92,12 @@ export function StreakCelebrationHost() {
             <p className="text-xs text-muted-foreground">
               {detail.visibility === "CIRCLE"
                 ? "Your circle will see this milestone in the feed."
-                : "A private streak. This one is just for you."}
+                : "Private streak."}
             </p>
             <DialogPrimitive.Close
               render={<Button size="lg" className="mt-4 min-w-44" />}
             >
-              Keep going
+              Done
             </DialogPrimitive.Close>
           </div>
         </DialogPrimitive.Popup>

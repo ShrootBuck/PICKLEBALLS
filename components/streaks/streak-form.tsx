@@ -194,11 +194,12 @@ export function StreakForm({
             <DialogTitle>
               {streak ? "Edit your streak" : "Start a streak"}
             </DialogTitle>
-            <DialogDescription>
-              {streak
-                ? "Amount changes only apply going forward. Past days keep what they were worth."
-                : "One honest check-in a day. Your circle has your back."}
-            </DialogDescription>
+            {streak && (
+              <DialogDescription>
+                Amount changes only apply going forward. Past days keep what
+                they were worth.
+              </DialogDescription>
+            )}
           </DialogHeader>
           <form id={`streak-${id}`} onSubmit={submit} aria-busy={pending}>
             <FieldGroup>

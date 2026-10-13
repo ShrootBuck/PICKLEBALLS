@@ -142,19 +142,13 @@ export function TaskList({
         <Empty>
           <EmptyHeader>
             <EmptyTitle>
-              {historical
-                ? "No tasks for this day"
-                : mine
-                  ? "A fresh start"
-                  : "Nothing planned yet"}
+              {historical ? "No tasks for this day" : "No tasks yet"}
             </EmptyTitle>
-            <EmptyDescription>
-              {historical
-                ? "Choose another date or return to today."
-                : mine
-                  ? "Give today a finish line. Start with one task."
-                  : "Their tasks will show up here when they add them."}
-            </EmptyDescription>
+            {historical && (
+              <EmptyDescription>
+                Choose another date or return to today.
+              </EmptyDescription>
+            )}
           </EmptyHeader>
           {mine && !historical && (
             <Button onClick={() => openComposer({ mode: "task" })}>

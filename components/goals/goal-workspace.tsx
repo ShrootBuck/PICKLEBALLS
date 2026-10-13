@@ -374,10 +374,10 @@ export function GoalWorkspace({
           ) : (
             <Empty>
               <EmptyHeader>
-                <EmptyTitle>The first step starts here</EmptyTitle>
+                <EmptyTitle>No linked tasks</EmptyTitle>
                 <EmptyDescription>
                   {mine
-                    ? "Add a task or link something you already worked on. Your proof will appear here as you go."
+                    ? "Add a task or link an existing one."
                     : "Their tasks and proof will collect here as they work toward this goal."}
                 </EmptyDescription>
               </EmptyHeader>

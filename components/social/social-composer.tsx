@@ -335,7 +335,7 @@ function ComposerForm({
       toast.add({
         title:
           mode === "task"
-            ? "Task saved. Make it happen."
+            ? "Task saved."
             : mode === "proof"
               ? "Proof posted. Your friends can review it."
               : "Check-in posted.",

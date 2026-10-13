@@ -22,10 +22,7 @@ export default async function SettingsPage() {
   });
   return (
     <>
-      <PageHeader
-        title="Settings"
-        description="Your appearance, notifications, and account."
-      />
+      <PageHeader title="Settings" />
       <div className="settings-layout">
         <nav className="settings-nav" aria-label="Settings sections">
           <a href="#appearance">

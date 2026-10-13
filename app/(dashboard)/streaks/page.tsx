@@ -9,7 +9,6 @@ import { StreakForm } from "@/components/streaks/streak-form";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Empty,
-  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
@@ -48,12 +47,8 @@ export default async function StreaksPage({
     <>
       <PageHeader
         title="Streaks"
-        description="Quit something or build something. Log it every day, and let your circle cheer you on."
         actions={<StreakForm circleId={circleId} openFromLink />}
-      >
-        <Flame className="size-4" />
-        One honest day at a time
-      </PageHeader>
+      />
       <PageSection
         title="Your streaks"
         description="Each day counts once it’s logged. Miss a day’s window and the count starts over."
@@ -70,20 +65,13 @@ export default async function StreaksPage({
               <EmptyMedia variant="icon">
                 <Flame />
               </EmptyMedia>
-              <EmptyTitle>What do you want to quit or build?</EmptyTitle>
-              <EmptyDescription>
-                Quit caffeine, read every day, or anything in between. Start a
-                streak and give it one honest check-in a day.
-              </EmptyDescription>
+              <EmptyTitle>No streaks yet</EmptyTitle>
             </EmptyHeader>
             <StreakForm circleId={circleId} />
           </Empty>
         )}
       </PageSection>
-      <PageSection
-        title="Your circle"
-        description="Not a leaderboard. Just the people in your corner."
-      >
+      <PageSection title="Your circle">
         {board.circle.length ? (
           <div className="flex flex-col gap-6">
             {board.circle.map(({ member, streaks }) => (
