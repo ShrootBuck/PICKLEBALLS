@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly independent cloud restore drill
+
+[Timer]
+OnCalendar=Sun *-*-* 03:40:00 America/Phoenix
+RandomizedDelaySec=120
+Persistent=true
+Unit=pickleballs-backup-verify.service
+
+[Install]
+WantedBy=timers.target

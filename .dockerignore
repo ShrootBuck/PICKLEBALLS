@@ -16,3 +16,6 @@ tmp
 *.sql.gz
 Dockerfile*
 docs
+
+# Host-only backup tooling is not application runtime code.
+deploy/backup

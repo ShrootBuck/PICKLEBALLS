@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly full incremental server backup
+
+[Timer]
+OnCalendar=*-*-* *:20:00
+RandomizedDelaySec=120
+Persistent=true
+Unit=pickleballs-backup.service
+
+[Install]
+WantedBy=timers.target

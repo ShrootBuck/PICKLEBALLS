@@ -263,6 +263,37 @@ stays disabled; retained application images are preserved. Resource status-chang
 and restart-limit alerts are enabled in the existing Discord channel. Maintenance
 times are staggered, not transactionally gated on the previous task's success.
 
-Comprehensive off-laptop backups are requested and pending a storage destination.
-The current local Coolify database backup does not back up app Postgres or Garage.
-Docker volumes survive container redeployment but do not protect against disk failure.
+Full off-site recovery uses the single **Coolify Backups** folder in Proton Drive.
+The host-side workflow is in `deploy/backup/backup.py`; it does not modify Coolify.
+It combines consistent PostgreSQL exports, Garage metadata/data and portable S3
+object exports, Redis/SQLite backups, host configuration and secrets, and exact
+container images. Restic encrypts and deduplicates the snapshots, and Proton's
+official CLI transfers them. A recovery kit, including the repository password,
+is stored in the same encrypted Proton folder so the failed host is not needed.
+
+`pickleballs-backup.timer` schedules an incremental full backup each hour at
+minute 20, with up to two minutes of jitter. `pickleballs-backup-verify.timer`
+schedules an independent Proton download and restore drill on Sundays at 03:40
+America/Phoenix. One lock prevents overlapping backup/verification jobs. A long
+restore drill may skip an hourly backup; use the last successful timestamp as
+the recovery point, rather than assuming every hourly run succeeded.
+
+The drill checks all encrypted repository data, restores both PostgreSQL clusters,
+checks archived media against DB references, reads every current object through
+an isolated restored Garage instance, checks Redis, and boots the saved web image
+against a restored DB to verify health and sign-in. Test containers have no public
+ports or external network access; no cloned worker or public tunnel is started.
+This is a tested data/application restore, not an automated replacement-OS install.
+
+Cloud history is currently retained without automatic expiry. Monthly repositories
+are independent; review growth before configuring expiration or deleting old
+local repositories. Jobs reserve disk headroom and the restore drill checks its
+working-space requirement before downloading. Old restore-test working copies and
+stale test containers are cleaned automatically. Failure details stay in root-only
+logs; Discord notification support is opt-in with `--notify`, not enabled by the
+default units. A dead server needs a separate external monitor to report silence.
+
+See [the recovery and operations guide](../deploy/backup/RECOVERY.md) for coverage,
+limitations, commands, and the replacement-host restoration order. The original
+local Coolify database backup remains as an additional copy; Docker volumes alone
+do not protect against disk failure.
