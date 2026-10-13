@@ -1,9 +1,13 @@
+import type { Prisma } from "@/generated/prisma/client";
+
 export function taskDeadline(createdAt: Date) {
   return new Date(createdAt.getTime() + 24 * 60 * 60 * 1000);
 }
 
-// Keep unfinished, timely submissions visible until their review is resolved.
+// Visibility only: inactive challenges stay resolvable in history.
 export function currentTaskFilter(now = new Date()) {
+  const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const recent = { createdAt: { gt: cutoff } };
   return {
     status: { notIn: ["MISSED" as const, "CANCELLED" as const] },
     OR: [
@@ -17,9 +21,46 @@ export function currentTaskFilter(now = new Date()) {
             "AWAITING_REVIEW" as const,
           ],
         },
+        OR: [
+          {
+            proofs: {
+              none: { replacedById: null, reviewStatus: "CHALLENGED" },
+            },
+          },
+          { replies: { some: recent } },
+          {
+            proofs: {
+              some: {
+                replacedById: null,
+                OR: [
+                  { replies: { some: recent } },
+                  {
+                    reviews: {
+                      some: {
+                        OR: [
+                          { decision: "CHALLENGED", ...recent },
+                          { replies: { some: recent } },
+                        ],
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        ],
       },
     ],
-  };
+  } satisfies Prisma.CommitmentWhereInput;
+}
+
+// Yesterday's unfinished work keeps its full submission window across midnight.
+export function isCurrentDayTask(
+  task: { day: string; dueAt: string },
+  day: string,
+  now = new Date(),
+) {
+  return task.day === day || new Date(task.dueAt) > now;
 }
 
 export function reviewableCommitmentFilter() {

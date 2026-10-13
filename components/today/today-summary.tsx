@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSocial } from "@/components/social/social-provider";
 import { buttonVariants } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { isCurrentDayTask } from "@/lib/task-policy";
 
 export function TodaySummary({
   greeting,
@@ -13,7 +14,8 @@ export function TodaySummary({
   greeting: string;
   date: string;
 }) {
-  const { viewer, tasks } = useSocial();
+  const { viewer, day, tasks: allTasks } = useSocial();
+  const tasks = allTasks.filter((task) => isCurrentDayTask(task, day));
   const verified = tasks.filter((task) => task.status === "VERIFIED").length;
   const reviewing = tasks.filter(
     (task) => task.status === "AWAITING_REVIEW",

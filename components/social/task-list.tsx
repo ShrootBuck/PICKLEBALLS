@@ -36,6 +36,7 @@ import {
 import { TaskStopwatch } from "@/components/work-sessions/task-stopwatch";
 import { postHref } from "@/lib/navigation";
 import type { SocialTask } from "@/lib/social-types";
+import { canSubmitProof } from "@/lib/task-policy";
 import { formatReplyTime } from "@/lib/time";
 
 export function AddTaskButton() {
@@ -43,6 +44,27 @@ export function AddTaskButton() {
   return (
     <Button size="sm" onClick={() => openComposer({ mode: "task" })}>
       <Plus data-icon="inline-start" /> Add task
+    </Button>
+  );
+}
+
+export function TaskProofButton({ task }: { task: SocialTask }) {
+  const { openComposer } = useSocial();
+  if (
+    !canSubmitProof({
+      ...task,
+      dueAt: new Date(task.dueAt),
+      proofSubmittedAt: task.proofSubmittedAt
+        ? new Date(task.proofSubmittedAt)
+        : null,
+    }) ||
+    (task.proof && task.proof.reviewStatus !== "CHALLENGED")
+  )
+    return null;
+  return (
+    <Button size="sm" onClick={() => openComposer({ mode: "proof", task })}>
+      <Camera data-icon="inline-start" />
+      {task.proof ? "Replace proof" : "Post proof"}
     </Button>
   );
 }
@@ -134,7 +156,7 @@ export function TaskList({
                   : "Their tasks will show up here when they add them."}
             </EmptyDescription>
           </EmptyHeader>
-          {mine && (
+          {mine && !historical && (
             <Button onClick={() => openComposer({ mode: "task" })}>
               <Plus data-icon="inline-start" /> Add a task
             </Button>
@@ -219,20 +241,7 @@ export function TaskList({
                   <ArrowUpRight data-icon="inline-start" /> View proof
                 </Button>
               )}
-              {mine &&
-                task.status !== "MISSED" &&
-                task.status !== "CANCELLED" &&
-                task.status !== "VERIFIED" &&
-                (editable || !!task.proofSubmittedAt) &&
-                (!task.proof || task.proof.reviewStatus === "CHALLENGED") && (
-                  <Button
-                    size="sm"
-                    onClick={() => openComposer({ mode: "proof", task })}
-                  >
-                    <Camera data-icon="inline-start" />
-                    {task.proof ? "Replace proof" : "Post proof"}
-                  </Button>
-                )}
+              {mine && <TaskProofButton task={task} />}
             </div>
             <TaskDiscussion
               taskId={task.id}

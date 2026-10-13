@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CircleDestination } from "@/components/circles/circle-destination";
+import { CurrentTaskList } from "@/components/social/current-task-list";
 import { Feed } from "@/components/social/feed";
 import { ProfileDayPicker } from "@/components/social/profile-day-picker";
 import { AddTaskButton, TaskList } from "@/components/social/task-list";
@@ -317,15 +318,27 @@ export async function MemberProfile({
               deadline.
             </p>
           )}
-          <TaskList
-            key={`${id}:${day}`}
-            tasks={tasks.map(toSocialTask)}
-            mine={mine && day === today}
-            historical={day !== today}
-            focusId={
-              typeof params.focus === "string" ? params.focus : undefined
-            }
-          />
+          {day === today ? (
+            <CurrentTaskList
+              key={`${id}:${day}`}
+              tasks={tasks.map(toSocialTask)}
+              day={day}
+              mine={mine}
+              focusId={
+                typeof params.focus === "string" ? params.focus : undefined
+              }
+            />
+          ) : (
+            <TaskList
+              key={`${id}:${day}`}
+              tasks={tasks.map(toSocialTask)}
+              mine={mine}
+              historical={day !== today}
+              focusId={
+                typeof params.focus === "string" ? params.focus : undefined
+              }
+            />
+          )}
         </>
       )}
     </>

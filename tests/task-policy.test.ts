@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   canEditTask,
   currentTaskFilter,
+  isCurrentDayTask,
   proofApprovalProgress,
   requiredApprovalsForCircle,
   shouldMarkMissed,
@@ -12,6 +13,31 @@ test("circles require half their members rounded down", () => {
   expect([0, 1, 2, 3, 4, 5, 6, 7, 12].map(requiredApprovalsForCircle)).toEqual([
     0, 0, 1, 1, 2, 2, 3, 3, 6,
   ]);
+});
+
+test("today separates old unresolved work while retaining overnight submission windows", () => {
+  const now = new Date("2026-10-13T18:00:00Z");
+  const day = "2026-10-13";
+  expect(isCurrentDayTask({ day, dueAt: now.toISOString() }, day, now)).toBe(
+    true,
+  );
+  expect(
+    isCurrentDayTask(
+      { day: "2026-09-22", dueAt: "2026-09-23T18:00:00Z" },
+      day,
+      now,
+    ),
+  ).toBe(false);
+  expect(
+    isCurrentDayTask(
+      { day: "2026-10-12", dueAt: "2026-10-13T19:00:00Z" },
+      day,
+      now,
+    ),
+  ).toBe(true);
+  expect(
+    isCurrentDayTask({ day: "2026-10-12", dueAt: now.toISOString() }, day, now),
+  ).toBe(false);
 });
 
 test("only distinct approvals from current peers count", () => {

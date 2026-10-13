@@ -1335,6 +1335,117 @@ test("check-in media is claimed atomically and included in the feed", async () =
   }
 });
 
+test("inactive challenges leave current tasks after seven days, retaining history and recovery", async () => {
+  const { currentTaskFilter, canSubmitProof } = await import(
+    "@/lib/task-policy"
+  );
+  const { getSocialMembers } = await import("@/lib/social-data");
+  const created = new Date(now.getTime() - 30 * 86400000);
+  const challenged = new Date(now.getTime() - 7 * 86400000);
+  const commitment = await task(ids.owner, ids.circle, created);
+  const posted = await submitProof(
+    commitment.id,
+    ids.owner,
+    ids.circle,
+    [await media()],
+    null,
+    new Date(created.getTime() - 60000),
+    created,
+    created,
+  );
+  const visible = async (at = now) =>
+    !!(await prisma.commitment.findFirst({
+      where: { id: commitment.id, ...currentTaskFilter(at) },
+    }));
+  // Pending review never expires, even after the original submission deadline.
+  expect(await visible()).toBe(true);
+  const review = await reviewProof(
+    posted.id,
+    ids.peer,
+    ids.circle,
+    {
+      decision: "CHALLENGED",
+      note: "The final answer is missing.",
+    },
+    challenged,
+  );
+  expect(await visible(new Date(now.getTime() - 1))).toBe(true);
+  expect(await visible()).toBe(false);
+  expect(
+    (await getSocialMembers(ids.circle))
+      .find((m) => m.id === ids.owner)
+      ?.tasks.some((t) => t.id === commitment.id),
+  ).toBe(false);
+  const historical = (
+    await getSocialMembers(
+      ids.circle,
+      commitment.day.toISOString().slice(0, 10),
+    )
+  )
+    .find((m) => m.id === ids.owner)
+    ?.tasks.find((t) => t.id === commitment.id);
+  expect(historical?.proof?.reviewStatus).toBe("CHALLENGED");
+  const stored = await prisma.commitment.findUniqueOrThrow({
+    where: { id: commitment.id },
+  });
+  expect(stored.status).toBe("OPEN");
+  expect(canSubmitProof(stored, now)).toBe(true);
+
+  // All three discussion entry points bring a challenge back to Unresolved.
+  for (const [targetType, targetId] of [
+    ["COMMITMENT", commitment.id],
+    ["PROOF", posted.id],
+    ["REVIEW", review.id],
+  ] as const) {
+    const reply = await createSocialReply(ids.owner, ids.circle, {
+      targetType,
+      targetId,
+      body: "Here is some follow-up context.",
+      mediaIds: [],
+    });
+    // Prisma's database default uses the real clock, not Bun's mocked clock.
+    await prisma.socialReply.update({
+      where: { id: reply.id },
+      data: { createdAt: now },
+    });
+    expect(await visible()).toBe(true);
+    expect(await visible(new Date(now.getTime() + 7 * 86400000))).toBe(false);
+    await prisma.socialReply.delete({ where: { id: reply.id } });
+    expect(await visible()).toBe(false);
+  }
+  const replacement = await submitProof(
+    commitment.id,
+    ids.owner,
+    ids.circle,
+    [await media()],
+    null,
+    new Date(created.getTime() - 60000),
+    created,
+    now,
+  );
+  expect(replacement.reviewStatus).toBe("PENDING");
+  expect(await visible()).toBe(true);
+  expect(await visible(new Date(now.getTime() + 30 * 86400000))).toBe(true);
+  expect(
+    (await prisma.taskProof.findUniqueOrThrow({ where: { id: posted.id } }))
+      .reviewStatus,
+  ).toBe("CHALLENGED");
+  expect(
+    await prisma.taskProofReview.count({ where: { proofId: posted.id } }),
+  ).toBe(1);
+  await reviewProof(
+    replacement.id,
+    ids.peer,
+    ids.circle,
+    {
+      decision: "APPROVED",
+      note: "The final answer is now included.",
+    },
+    now,
+  );
+  expect(await visible()).toBe(false);
+});
+
 test("overnight tasks remain visible and accept queued proof after midnight", async () => {
   const { getSocialMembers } = await import("@/lib/social-data");
   const { queueProof } = await import("@/lib/pending-proof");

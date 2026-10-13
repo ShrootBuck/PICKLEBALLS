@@ -14,11 +14,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { todayTaskHref } from "@/lib/navigation";
+import { isCurrentDayTask } from "@/lib/task-policy";
 import { formatDayShort } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 export function TodayPanel({ pendingVerdicts }: { pendingVerdicts: number }) {
-  const { viewer, day, tasks } = useSocial();
+  const { viewer, day, tasks: allTasks } = useSocial();
+  const tasks = allTasks.filter((task) => isCurrentDayTask(task, day));
   const verified = tasks.filter((task) => task.status === "VERIFIED").length;
   return (
     <aside className="app-panel" aria-label="Your day">

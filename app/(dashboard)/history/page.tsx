@@ -4,6 +4,7 @@ import Link from "next/link";
 import { HistoryNav } from "@/components/history/history-nav";
 import { PageHeader } from "@/components/layout/page-header";
 import { ImpactList, MoodBadge } from "@/components/mood/mood-display";
+import { TaskProofButton } from "@/components/social/task-list";
 import { ProofCard } from "@/components/squad/proof-card";
 import {
   taskStatusLabel,
@@ -25,6 +26,7 @@ import { formatFeelings, moodStyle } from "@/lib/mood";
 import { postHref, squadHref } from "@/lib/navigation";
 import { getPrisma } from "@/lib/prisma";
 import { requirePageMembership } from "@/lib/request";
+import { toSocialTask } from "@/lib/social-data";
 import { requiredApprovalsForCircle } from "@/lib/task-policy";
 import {
   formatDayLong,
@@ -283,12 +285,25 @@ export default async function HistoryPage({
                     if (proof) {
                       // The proof card already carries the title and status.
                       return (
-                        <ProofCard
+                        <div
                           key={task.id}
-                          proof={toProofCard(proof, session.user.id, needed)}
-                          viewerId={session.user.id}
-                          mode="history"
-                        />
+                          className="flex flex-col items-start gap-2"
+                        >
+                          <div className="w-full">
+                            <ProofCard
+                              proof={toProofCard(
+                                proof,
+                                session.user.id,
+                                needed,
+                              )}
+                              viewerId={session.user.id}
+                              mode="history"
+                            />
+                          </div>
+                          {userId === session.user.id && (
+                            <TaskProofButton task={toSocialTask(task)} />
+                          )}
+                        </div>
                       );
                     }
                     return (
