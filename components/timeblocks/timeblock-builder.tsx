@@ -544,10 +544,7 @@ export function TimeblockBuilder({
         </div>
         <div>
           <dt>Blocks included</dt>
-          <dd>
-            {includedCount}
-            <span>/ {MAX_TIMEBLOCKS}</span>
-          </dd>
+          <dd>{includedCount}</dd>
         </div>
       </dl>
       <TimeblockRoutineForm
