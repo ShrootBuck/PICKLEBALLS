@@ -10,7 +10,11 @@ import {
   inspectReport,
   reportFingerprint,
 } from "@/lib/timeblock-editor";
-import { orderedPrintTasks, timeblockPrintDays } from "@/lib/timeblock-pdf";
+import {
+  groupedPrintTasks,
+  orderedPrintTasks,
+  timeblockPrintDays,
+} from "@/lib/timeblock-pdf";
 import {
   EMPTY_ROUTINE,
   parseTimeblockRoutine,
@@ -255,5 +259,65 @@ describe("whole-week replanning", () => {
     });
     expect(parsed.routine).toEqual(custom);
     expect(parsed.tasks[0]).not.toHaveProperty("category");
+  });
+
+  test("exact titles share one number across separate sessions and days", () => {
+    const tasks = [
+      ["session-later", "Math homework", "09T16:00", "09T17:00"],
+      ["manual-essay", "Essay", "07T17:00", "07T18:00"],
+      ["session-first", "Math homework", "07T16:00", "07T16:30"],
+      ["proof-case", "math homework", "08T16:00", "08T17:00"],
+      ["session-resume", "Math homework", "07T18:00", "07T19:00"],
+      ["session-night", "Math homework", "09T23:30", "10T00:30"],
+    ].map(([id, title, start, end]) => ({
+      id,
+      title,
+      startedAt: new Date(`2026-09-${start}:00-07:00`),
+      completedAt: new Date(`2026-09-${end}:00-07:00`),
+    }));
+    const groups = groupedPrintTasks(tasks);
+    expect(groups.map((group) => [group.number, group.title])).toEqual([
+      [1, "Math homework"],
+      [2, "Essay"],
+      [3, "math homework"],
+    ]);
+    expect(groups[0].sessions.map((session) => session.id)).toEqual([
+      "session-first",
+      "session-resume",
+      "session-later",
+      "session-night",
+    ]);
+    const days = timeblockPrintDays({
+      dueMonday: due,
+      routine: { ...EMPTY_ROUTINE, schedule: [] },
+      tasks,
+    });
+    expect(
+      days.slice(0, 4).map((day) => day.blocks.map((b) => b.label)),
+    ).toEqual([
+      ["#1 - Math homework", "#2 - Essay", "#1 - Math homework"],
+      ["#3 - math homework"],
+      ["#1 - Math homework", "#1 - Math homework"],
+      ["#1 - Math homework"],
+    ]);
+    expect(days[0].blocks.map((b) => [b.startMinute, b.endMinute])).toEqual([
+      [960, 990],
+      [1020, 1080],
+      [1080, 1140],
+    ]);
+    expect(tasks[0].id).toBe("session-later");
+  });
+
+  test("title matching happens before PDF character normalization", () => {
+    const task = {
+      startedAt: new Date("2026-09-07T16:00:00-07:00"),
+      completedAt: new Date("2026-09-07T17:00:00-07:00"),
+    };
+    const titles = ["Résumé", "Resume", "Resume ", "Résumé"];
+    const groups = groupedPrintTasks(
+      titles.map((title, i) => ({ ...task, id: String(i), title })),
+    );
+    expect(groups.map((group) => group.sessions.length)).toEqual([2, 1, 1]);
+    expect(groups.map((group) => group.title)).toEqual(titles.slice(0, 3));
   });
 });

@@ -94,19 +94,38 @@ export function orderedPrintTasks(tasks: TimeblockPdfTask[]) {
   );
 }
 
+// Group only the printed presentation. Every recorded interval stays separate.
+export function groupedPrintTasks(tasks: TimeblockPdfTask[]) {
+  const groups = new Map<
+    string,
+    { title: string; number: number; sessions: TimeblockPdfTask[] }
+  >();
+  for (const task of orderedPrintTasks(tasks)) {
+    let group = groups.get(task.title);
+    if (!group) {
+      group = { title: task.title, number: groups.size + 1, sessions: [] };
+      groups.set(task.title, group);
+    }
+    group.sessions.push(task);
+  }
+  return [...groups.values()];
+}
+
 export function timeblockPrintDays(input: {
   dueMonday: string;
   tasks: TimeblockPdfTask[];
   routine?: TimeblockRoutine;
 }) {
   const week = timeblockWeek(input.dueMonday);
-  const tasks = orderedPrintTasks(input.tasks);
+  const groups = groupedPrintTasks(input.tasks);
   const blocks = [
-    ...tasks.map((task, index) => ({
-      ...task,
-      label: `#${index + 1} - ${task.title}`,
-      routine: false,
-    })),
+    ...groups.flatMap((group) =>
+      group.sessions.map((task) => ({
+        ...task,
+        label: `#${group.number} - ${group.title}`,
+        routine: false,
+      })),
+    ),
     ...routineBlocks(input.dueMonday, input.routine ?? EMPTY_ROUTINE).map(
       (row) => {
         const startedAt = parsePhoenixLocalDateTime(row.startedAt);
@@ -212,7 +231,7 @@ export async function createTimeblockPdf(input: {
     });
     return page;
   };
-  const tasks = orderedPrintTasks(input.tasks);
+  const groups = groupedPrintTasks(input.tasks);
   const front = header("WEEKLY TASKS");
   const listTop = 688;
   const listBottom = 32;
@@ -221,9 +240,12 @@ export async function createTimeblockPdf(input: {
     timeZone: appTimeZone,
     weekday: "short",
   });
-  const entries = tasks.map((task, index) => ({
-    title: `#${index + 1}  ${task.title}`,
-    time: `${taskDay.format(task.startedAt)} | ${timeFormatter.format(task.startedAt)} - ${dateFormatter.format(task.startedAt) === dateFormatter.format(task.completedAt) ? "" : `${taskDay.format(task.completedAt)} `}${timeFormatter.format(task.completedAt)}`,
+  const entries = groups.map((group) => ({
+    title: `#${group.number}  ${group.title}`,
+    times: group.sessions.map(
+      (task) =>
+        `${taskDay.format(task.startedAt)} | ${timeFormatter.format(task.startedAt)} - ${dateFormatter.format(task.startedAt) === dateFormatter.format(task.completedAt) ? "" : `${taskDay.format(task.completedAt)} `}${timeFormatter.format(task.completedAt)}`,
+    ),
   }));
   // Keep full titles, and never create overflow pages or silently omit work.
   // Try readable layouts before rejecting an overfull sheet.
@@ -245,7 +267,9 @@ export async function createTimeblockPdf(input: {
     const width = (PAGE_WIDTH - MARGIN * 2 - gap) / columns;
     const rows = entries.map((entry) => {
       const title = wrapPdfText(entry.title, width - 8, bold, size);
-      const time = wrapPdfText(entry.time, width - 8, regular, size - 1);
+      const time = entry.times.flatMap((time) =>
+        wrapPdfText(time, width - 8, regular, size - 1),
+      );
       const height = title.length * (size + 2) + time.length * (size + 1) + 3;
       return { title, time, height, column: 0 };
     });
@@ -271,7 +295,7 @@ export async function createTimeblockPdf(input: {
     throw new DomainError(
       "This task list is too long to fit legibly on one sheet. Shorten task titles or exclude some tasks, then export again.",
     );
-  if (!tasks.length)
+  if (!groups.length)
     front.drawText("No tasks included for this week.", {
       x: MARGIN,
       y: listTop - 12,
