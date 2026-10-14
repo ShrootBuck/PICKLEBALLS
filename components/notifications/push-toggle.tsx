@@ -7,6 +7,7 @@ import {
   devicePushRegistration,
   disconnectDevicePush,
 } from "@/lib/device-push";
+import { cn } from "@/lib/utils";
 
 type PushState =
   | "install"
@@ -32,7 +33,9 @@ async function postJson(url: string, body: unknown) {
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
 }
 
-export function PushToggle() {
+export function PushToggle({ inset = true }: { inset?: boolean }) {
+  // The inset matches the inbox popover's list rows. Padded panels opt out.
+  const pad = inset ? "px-2 py-1.5" : undefined;
   const [state, setState] = useState<PushState>("loading");
   const [error, setError] = useState<string | null>(null);
 
@@ -124,7 +127,7 @@ export function PushToggle() {
 
   if (state === "install") {
     return (
-      <p className="px-2 py-1.5 text-xs text-muted-foreground">
+      <p className={cn("text-xs text-muted-foreground", pad)}>
         To receive alerts on iPhone or iPad, open this site in Safari, tap
         Share, then Add to Home Screen. Open the installed app and turn on push
         here.
@@ -133,7 +136,7 @@ export function PushToggle() {
   }
   if (state === "unsupported") {
     return (
-      <p className="px-2 py-1.5 text-xs text-muted-foreground">
+      <p className={cn("text-xs text-muted-foreground", pad)}>
         Push isn't supported in this browser. Notifications still appear in your
         inbox.
       </p>
@@ -141,7 +144,7 @@ export function PushToggle() {
   }
   if (state === "denied") {
     return (
-      <p className="px-2 py-1.5 text-xs text-muted-foreground">
+      <p className={cn("text-xs text-muted-foreground", pad)}>
         Push notifications are blocked in your browser or device settings.
         Notifications still appear in your inbox.
       </p>
@@ -149,7 +152,7 @@ export function PushToggle() {
   }
 
   return (
-    <div className="flex flex-col gap-1 px-2 py-1.5">
+    <div className={cn("flex flex-col gap-1", pad)}>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[13px] font-semibold">Push on this device</p>

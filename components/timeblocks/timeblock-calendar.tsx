@@ -110,7 +110,8 @@ export function TimeblockCalendar({
                   type="button"
                   className="timeblock-calendar-block"
                   disabled={disabled}
-                  data-compact={end - start < 40 || undefined}
+                  data-compact={end - start < 45 || undefined}
+                  data-short={end - start < 60 || undefined}
                   data-routine={isRoutineBlock(row.id) || undefined}
                   data-proof={row.status !== null || undefined}
                   data-overlap={overlaps.has(row.id) || undefined}

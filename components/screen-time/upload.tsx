@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, Upload } from "lucide-react";
+import { Check, ChevronDown, ImageUp, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   UploadStatus,
@@ -179,10 +179,26 @@ export function ScreenTimeUpload({
               <FieldLabel htmlFor="screen-time-image">
                 Weekly screenshot
               </FieldLabel>
+              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => inputRef.current?.click()}
+                >
+                  <ImageUp data-icon="inline-start" />
+                  {file ? "Choose another" : "Choose screenshot"}
+                </Button>
+                <span className="min-w-0 truncate text-sm text-muted-foreground">
+                  {file ? file.name : "No screenshot chosen"}
+                </span>
+              </div>
               <Input
                 ref={inputRef}
                 id="screen-time-image"
                 type="file"
+                className="sr-only"
+                tabIndex={-1}
                 accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
                 disabled={busy}
                 aria-invalid={Boolean(error)}

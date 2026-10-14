@@ -45,10 +45,11 @@ export function TaskDiscussion({
     return () => controller.abort();
   }, [taskId, open, version, attempt]);
   return (
-    <div className="mt-3">
+    <div className="mt-2">
       <Button
         variant="ghost"
         size="sm"
+        className="-ml-2"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
       >

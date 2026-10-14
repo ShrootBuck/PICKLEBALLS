@@ -2019,7 +2019,8 @@ li:last-child > .attention-row {
 .timeblock-calendar-block[data-compact] strong {
   -webkit-line-clamp: 1;
 }
-.timeblock-calendar-block[data-compact] > span {
+/* Short blocks keep the title. Their position already shows the time. */
+.timeblock-calendar-block:is([data-compact], [data-short]) > span {
   display: none;
 }
 .timeblock-calendar-block[data-overlap] {
@@ -3331,6 +3332,11 @@ section:first-child > .mood-group-label {
     border-inline: 0;
     border-radius: 0;
     background: var(--background);
+  }
+  /* Full-bleed posts share one divider instead of two lines and a gap. */
+  .feed-stream .social-post + .social-post {
+    margin-top: -16px;
+    border-top: 0;
   }
   .feed-prompt-actions {
     padding-left: 0;

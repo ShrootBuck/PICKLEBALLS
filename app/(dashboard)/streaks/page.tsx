@@ -73,9 +73,9 @@ export default async function StreaksPage({
       </PageSection>
       <PageSection title="Your circle">
         {board.circle.length ? (
-          <div className="flex flex-col gap-6">
+          <div className="collection-grid gap-y-6">
             {board.circle.map(({ member, streaks }) => (
-              <div key={member.id} className="flex flex-col gap-3">
+              <div key={member.id} className="flex min-w-0 flex-col gap-3">
                 <Link
                   href={memberHref(circleId, member.id, "streaks")}
                   className="flex w-fit items-center gap-2 text-sm font-medium underline-offset-4 hover:underline"
@@ -86,7 +86,7 @@ export default async function StreaksPage({
                   </Avatar>
                   {member.name}
                 </Link>
-                <div className="collection-grid">
+                <div className="flex flex-col gap-[18px]">
                   {streaks.map((view) => (
                     <StreakCard key={view.id} view={view} />
                   ))}

@@ -58,7 +58,7 @@ export default async function SettingsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-6">
-                <PushToggle />
+                <PushToggle inset={false} />
                 <NotificationPreferences />
               </CardContent>
             </Card>

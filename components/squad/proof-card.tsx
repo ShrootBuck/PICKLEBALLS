@@ -68,13 +68,14 @@ export function ProofCard({
   focusId?: string;
 }) {
   const compact = mode === "history";
+  // History groups proof under its owner, so the name would repeat there.
   const meta = [
-    proof.ownerName,
-    proof.isLate ? "late" : "on time",
+    ...(compact ? [] : [proof.ownerName]),
+    proof.isLate ? "Late" : "On time",
     proof.requiredApprovals === 0
       ? "Solo circle"
       : `${proof.approvals}/${proof.requiredApprovals} approvals`,
-  ].join("; ");
+  ].join(" · ");
 
   return (
     <Card size="sm" className="gap-0 py-0">

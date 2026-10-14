@@ -39,6 +39,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import { appFetch } from "@/lib/app-refresh";
 import { memberHref, postHref } from "@/lib/navigation";
+import { screenTimeWeekLabel } from "@/lib/screen-time";
 import type { InteractivePost } from "@/lib/social-types";
 
 function likeTarget(post: InteractivePost) {
@@ -336,7 +337,7 @@ function PostComments({
               : post.kind === "streak"
                 ? post.streakTitle
                 : post.kind === "screen-time"
-                  ? `Week of ${post.weekStart}`
+                  ? screenTimeWeekLabel(post.weekStart)
                   : "Check-in"}
           </DialogDescription>
         </DialogHeader>

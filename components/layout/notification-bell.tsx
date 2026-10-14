@@ -183,7 +183,7 @@ export function NotificationBell({
         </div>
         {settingsOpen ? (
           <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-4 pb-4">
-            <PushToggle />
+            <PushToggle inset={false} />
             <Separator />
             <NotificationPreferences />
           </div>

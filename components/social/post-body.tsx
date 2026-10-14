@@ -1,6 +1,6 @@
 "use client";
 
-import { BadgeCheck, Trophy } from "lucide-react";
+import { BadgeCheck, ChevronRight, Trophy } from "lucide-react";
 import Link from "next/link";
 import { MediaGallery } from "@/components/media/media-gallery";
 import { ImpactList } from "@/components/mood/mood-display";
@@ -14,7 +14,7 @@ import { StreakEmber } from "@/components/streaks/streak-visuals";
 import { Badge } from "@/components/ui/badge";
 import { formatFeelings, moodLevelLabel, moodStyle } from "@/lib/mood";
 import { postHref, streakHref } from "@/lib/navigation";
-import { formatScreenTime } from "@/lib/screen-time";
+import { formatScreenTime, screenTimeWeekLabel } from "@/lib/screen-time";
 import type {
   CheckInPost,
   InteractivePost,
@@ -30,11 +30,7 @@ function CheckInBody({ post }: { post: CheckInPost }) {
       className="flex flex-col"
       style={valence == null ? undefined : moodStyle(valence)}
     >
-      {valence == null ? (
-        <Badge className="w-fit" variant="secondary">
-          Check-in
-        </Badge>
-      ) : (
+      {valence != null && (
         <div className="mood-post-head">
           <MoodShape valence={valence} size={46} />
           <div className="min-w-0">
@@ -129,20 +125,21 @@ function StreakBody({ post }: { post: StreakPost }) {
 function ScreenTimeBody({ post }: { post: ScreenTimePost }) {
   return (
     <>
-      <p className="mb-2 text-lg font-semibold">
+      <p className="text-[17px] font-semibold tracking-tight">
         {formatScreenTime(post.dailyAverageMinutes)} daily average
       </p>
-      <p className="mb-3 text-sm text-muted-foreground">
-        Week of {post.weekStart}
+      <p className="mt-0.5 mb-3 text-sm text-muted-foreground">
+        {screenTimeWeekLabel(post.weekStart)}
       </p>
       <div className="feed-media">
         <MediaGallery ids={[post.mediaId]} />
       </div>
       <Link
         href={`/screen-time?${new URLSearchParams({ circle: post.circleId, week: post.weekStart })}`}
-        className="mt-3 inline-block text-sm underline"
+        className="mt-3 inline-flex w-fit items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
-        View screen-time leaderboard
+        View leaderboard
+        <ChevronRight className="size-4" />
       </Link>
     </>
   );

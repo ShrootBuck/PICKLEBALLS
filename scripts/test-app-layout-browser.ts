@@ -262,7 +262,7 @@ try {
   });
   assert.equal(circle.status(), 201);
   await page.goto(origin);
-  await page.getByText("A fresh start", { exact: true }).waitFor();
+  await page.getByText("No tasks yet", { exact: true }).waitFor();
   await page
     .getByRole("button", { name: `Circle menu: ${name}`, exact: true })
     .click();
@@ -280,7 +280,7 @@ try {
     .click();
   await page.getByRole("menuitem", { name, exact: true }).click();
   await page.waitForURL(`${origin}/`);
-  await page.getByText("A fresh start", { exact: true }).waitFor();
+  await page.getByText("No tasks yet", { exact: true }).waitFor();
   assert.equal(await page.locator(".social-task").count(), 0);
   console.log(
     "Circle switching refreshes Today on the same route and clears the old circle's content.",
