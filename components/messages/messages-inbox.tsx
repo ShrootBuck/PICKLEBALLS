@@ -115,7 +115,9 @@ export function MessagesInbox({
       (message) =>
         message.conversationId === item.id && message.state !== "sent",
     );
-    const draft = drafts[item.id];
+    const saved = drafts[item.id];
+    // Choosing Reply alone isn't a draft until something is written or attached.
+    const draft = saved?.body || saved?.files.length ? saved : undefined;
     if (pending.some((message) => message.state === "failed"))
       return (
         <span className="dm-preview-alert">

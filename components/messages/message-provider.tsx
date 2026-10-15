@@ -17,7 +17,13 @@ import { MessageOutbox, type MessageSnapshot } from "@/lib/message-outbox";
 
 const Context = createContext<MessageOutbox | null>(null);
 const savedSchema = z.object({
-  drafts: z.record(z.string(), z.object({ body: z.string().max(4000) })),
+  drafts: z.record(
+    z.string(),
+    z.object({
+      body: z.string().max(4000),
+      replyToId: z.string().max(64).optional(),
+    }),
+  ),
   outbox: z.array(
     z.object({
       clientId: z.string().uuid(),
@@ -25,6 +31,7 @@ const savedSchema = z.object({
       body: z.string().max(4000),
       createdAt: z.string(),
       mediaIds: mediaIdsSchema.optional(),
+      replyToId: z.string().max(64).optional(),
     }),
   ),
 });
@@ -50,7 +57,7 @@ export function MessageProvider({
             drafts: Object.fromEntries(
               Object.entries(snapshot.drafts).map(([id, draft]) => [
                 id,
-                { body: draft.body },
+                { body: draft.body, replyToId: draft.replyToId },
               ]),
             ),
             outbox: snapshot.outbox
@@ -60,12 +67,20 @@ export function MessageProvider({
                   (!item.files.length || item.mediaIds),
               )
               .map(
-                ({ clientId, conversationId, body, createdAt, mediaIds }) => ({
+                ({
                   clientId,
                   conversationId,
                   body,
                   createdAt,
                   mediaIds,
+                  replyToId,
+                }) => ({
+                  clientId,
+                  conversationId,
+                  body,
+                  createdAt,
+                  mediaIds,
+                  replyToId,
                 }),
               ),
           }),
@@ -141,6 +156,7 @@ export function MessageProvider({
               clientId: item.clientId,
               body: item.body,
               mediaIds,
+              replyToId: item.replyToId ?? null,
             },
             signal,
           );

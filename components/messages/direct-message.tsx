@@ -1,10 +1,11 @@
 "use client";
 
-import { Copy, SmilePlus } from "lucide-react";
+import { Reply, SmilePlus } from "lucide-react";
 import { useRef, useState } from "react";
 import { MediaGallery } from "@/components/media/media-gallery";
 import { MessageSenderAvatar } from "@/components/messages/message-sender-avatar";
 import { DeleteAction } from "@/components/settings/delete-action";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,11 +24,15 @@ import { toast } from "@/components/ui/toast";
 import { messageRequest, messagesChanged } from "@/lib/direct-message-client";
 import {
   type DirectMessageItem,
+  type DirectReplyPreview,
   directEmojis,
   isEmojiOnly,
+  messagePreview,
   type ThreadPlacement,
 } from "@/lib/direct-message-types";
 import { formatMessageClock, formatMessageTimestamp } from "@/lib/message-time";
+
+const nameList = new Intl.ListFormat("en", { type: "conjunction" });
 
 // Touch screens have no hover, so a press and hold opens the message menu.
 function useLongPress(open: () => void) {
@@ -90,6 +95,9 @@ export function DirectMessage({
   onUpdate,
   refresh,
   receipt,
+  replyTo,
+  onReply,
+  onJump,
 }: {
   message: DirectMessageItem;
   conversationId: string;
@@ -101,6 +109,10 @@ export function DirectMessage({
   onUpdate: (message: DirectMessageItem) => void;
   refresh: () => void;
   receipt?: "Sent" | "Seen";
+  /** The quoted message, preferring the thread's freshest copy. */
+  replyTo: DirectReplyPreview | null;
+  onReply: () => void;
+  onJump: (messageId: string) => void;
 }) {
   const mine = message.senderId === viewerId;
   const align = mine ? "end" : "start";
@@ -115,6 +127,14 @@ export function DirectMessage({
   const reactions = [
     ...new Set(message.reactions.map((reaction) => reaction.emoji)),
   ];
+  const reactorName = (reaction: DirectMessageItem["reactions"][number]) =>
+    reaction.userId === viewerId ? "You" : reaction.user.name;
+  // The viewer first, then everyone else alphabetically.
+  const reactors = message.reactions.toSorted(
+    (a, b) =>
+      Number(b.userId === viewerId) - Number(a.userId === viewerId) ||
+      a.user.name.localeCompare(b.user.name),
+  );
   const emoji =
     !deleted && !message.mediaIds.length && isEmojiOnly(message.body);
   const senderName = mine ? "You" : (message.sender?.name ?? "Deleted member");
@@ -141,15 +161,11 @@ export function DirectMessage({
       setBusy(false);
     }
   }
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(message.body);
-      toast.add({ title: "Copied.", type: "success" });
-    } catch {
-      toast.add({ title: "Couldn't copy that message.", type: "error" });
-    }
-    setOpen(false);
-  }
+  const replyName = replyTo
+    ? replyTo.senderId === viewerId
+      ? "You"
+      : (replyTo.sender?.name ?? "Deleted member")
+    : "";
   return (
     <Message
       align={align}
@@ -172,6 +188,18 @@ export function DirectMessage({
         >
           {senderName}
         </MessageHeader>
+        {replyTo && !deleted && (
+          <button
+            type="button"
+            className="dm-reply-quote"
+            aria-label={`Replying to ${replyName}: ${messagePreview(replyTo)}. Show original message`}
+            onClick={() => onJump(replyTo.id)}
+          >
+            <span className="dm-reply-spine" aria-hidden="true" />
+            <span className="dm-reply-name">{replyName}</span>
+            <span className="dm-reply-text">{messagePreview(replyTo)}</span>
+          </button>
+        )}
         <div className="dm-bubble-row">
           <Bubble
             ref={bubble}
@@ -236,38 +264,70 @@ export function DirectMessage({
                       </Button>
                     ))}
                   </div>
-                  <p className="dm-menu-time">
-                    {formatMessageTimestamp(message.createdAt, timeZone)}
-                  </p>
-                  {(message.body || mine) && (
-                    <div className="dm-menu-actions">
-                      {message.body && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => void copy()}
-                        >
-                          <Copy data-icon="inline-start" />
-                          Copy text
-                        </Button>
-                      )}
-                      {mine && (
-                        <DeleteAction
-                          label="Delete message"
-                          title="Delete this message?"
-                          description="This removes the message and its attachments for everyone in this conversation."
-                          endpoint={endpoint}
-                          onDeleted={() => {
-                            setOpen(false);
-                            refresh();
-                            messagesChanged();
-                          }}
-                        />
-                      )}
-                    </div>
+                  {reactors.length > 0 && (
+                    <ul className="dm-menu-reactors" aria-label="Reactions">
+                      {reactors.map((reaction) => (
+                        <li key={reaction.userId} className="dm-menu-reactor">
+                          <Avatar size="sm" aria-hidden="true">
+                            <AvatarImage
+                              userId={reaction.user.id}
+                              src={reaction.user.image ?? undefined}
+                              alt=""
+                            />
+                            <AvatarFallback>
+                              {reaction.user.initials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="dm-menu-reactor-name">
+                            {reactorName(reaction)}
+                          </span>
+                          <span className="dm-menu-reactor-emoji">
+                            {reaction.emoji}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   )}
+                  <div className="dm-menu-actions">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setOpen(false);
+                        onReply();
+                      }}
+                    >
+                      <Reply data-icon="inline-start" />
+                      Reply
+                    </Button>
+                    {mine && (
+                      <DeleteAction
+                        label="Delete message"
+                        title="Delete this message?"
+                        description="This removes the message and its attachments for everyone in this conversation."
+                        endpoint={endpoint}
+                        onDeleted={() => {
+                          setOpen(false);
+                          refresh();
+                          messagesChanged();
+                        }}
+                      />
+                    )}
+                  </div>
                 </PopoverContent>
               </Popover>
+            )}
+            {!deleted && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="dm-action"
+                aria-label="Reply to message"
+                title="Reply"
+                onClick={onReply}
+              >
+                <Reply />
+              </Button>
             )}
             <time
               className="dm-time"
@@ -281,16 +341,19 @@ export function DirectMessage({
         {!deleted && reactions.length > 0 && (
           <div className="dm-reactions">
             {reactions.map((emoji) => {
-              const count = message.reactions.filter(
-                (reaction) => reaction.emoji === emoji,
-              ).length;
+              const names = reactors
+                .filter((reaction) => reaction.emoji === emoji)
+                .map(reactorName);
+              const count = names.length;
               const yours = myReaction === emoji;
               return (
                 <button
                   key={emoji}
                   type="button"
                   className="dm-reaction pressable"
+                  title={`${nameList.format(names)} reacted ${emoji}`}
                   aria-label={`${emoji} reaction${yours ? ", remove yours" : ", react"}`}
+                  aria-description={`${nameList.format(names)} reacted`}
                   aria-pressed={yours}
                   disabled={busy}
                   onClick={() => void react(emoji)}

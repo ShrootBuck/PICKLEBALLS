@@ -154,6 +154,18 @@ try {
     .locator(`[data-message-id="${message.id}"]`)
     .getByRole("button", { name: "🔥 reaction, remove yours", exact: true })
     .waitFor();
+  // The message menu names who reacted.
+  const reacted = peer.locator(`[data-message-id="${message.id}"]`);
+  await reacted.getByRole("button", { name: "React to message" }).click();
+  await peer
+    .getByRole("list", { name: "Reactions" })
+    .getByText("You", { exact: true })
+    .waitFor();
+  await peer.keyboard.press("Escape");
+  // Reply to that message; both sides see the quote.
+  await reacted.hover();
+  await reacted.getByRole("button", { name: "Reply to message" }).click();
+  await peer.getByText("Replying to", { exact: false }).waitFor();
   const replyBody = `Finally. A place for the important nonsense. ${randomUUID().slice(0, 8)}`;
   await peer.getByRole("textbox", { name: /Message / }).fill(replyBody);
   await peer.getByRole("button", { name: "Send message", exact: true }).click();
@@ -161,6 +173,11 @@ try {
     .locator('[data-slot="bubble-content"]')
     .filter({ hasText: replyBody })
     .waitFor({ timeout: 15_000 });
+  await page
+    .locator('[data-slot="message"]')
+    .filter({ hasText: replyBody })
+    .getByRole("button", { name: /^Replying to You: / })
+    .waitFor();
 
   // A server success with a lost response must not duplicate the message on retry.
   await page.bringToFront();

@@ -24,6 +24,7 @@ function delivered(item: OutgoingMessage, sequence = 1): DirectMessageItem {
     createdAt: item.createdAt,
     deletedAt: null,
     reactions: [],
+    replyTo: null,
   };
 }
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));

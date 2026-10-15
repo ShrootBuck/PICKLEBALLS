@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUp, Film, ImageIcon, ImagePlus, X } from "lucide-react";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useMessages } from "@/components/messages/message-provider";
 import { useObjectUrls } from "@/components/messages/use-object-urls";
 import { useTypingSender } from "@/components/messages/use-typing";
@@ -29,11 +29,14 @@ export function MessageComposer({
   id,
   name,
   group,
+  reply,
   onSend,
 }: {
   id: string;
   name: string;
   group: boolean;
+  /** The message the draft replies to, when it is loaded in the thread. */
+  reply: { name: string; preview: string } | null;
   onSend: () => void;
 }) {
   const fieldId = useId();
@@ -45,6 +48,10 @@ export function MessageComposer({
   const input = useRef<HTMLInputElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const canSend = ready && Boolean(draft.body.trim() || draft.files.length);
+  // Choosing Reply moves straight to typing.
+  useEffect(() => {
+    if (draft.replyToId) textarea.current?.focus({ preventScroll: true });
+  }, [draft.replyToId]);
 
   function change(next: Partial<MessageDraft>) {
     store.setDraft(id, { ...draft, ...next });
@@ -109,6 +116,31 @@ export function MessageComposer({
           Message {name}
         </FieldLabel>
         <div className="dm-compose-box">
+          {draft.replyToId && (
+            <div className="dm-compose-reply">
+              <p className="dm-compose-reply-text">
+                Replying to{" "}
+                <span className="dm-compose-reply-name">
+                  {reply?.name ?? "a message"}
+                </span>
+                {reply && (
+                  <span className="dm-compose-reply-preview">
+                    {reply.preview}
+                  </span>
+                )}
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Cancel reply"
+                title="Cancel reply (Esc)"
+                onClick={() => change({ replyToId: undefined })}
+              >
+                <X />
+              </Button>
+            </div>
+          )}
           {draft.files.length > 0 && (
             <AttachmentGroup
               aria-label="Selected attachments"
@@ -191,6 +223,11 @@ export function MessageComposer({
               }}
               onBlur={() => typing.current.stop()}
               onKeyDown={(event) => {
+                if (event.key === "Escape" && draft.replyToId) {
+                  event.preventDefault();
+                  change({ replyToId: undefined });
+                  return;
+                }
                 if (
                   event.key === "Enter" &&
                   !event.shiftKey &&

@@ -43,6 +43,7 @@ test("an older fetch cannot resurrect a deleted message or undo a reaction; new 
     createdAt: "2026-10-14T20:00:00Z",
     deletedAt: null,
     reactions: [],
+    replyTo: null,
   };
   const deleted = {
     ...original,
@@ -80,6 +81,7 @@ test("read receipts keep the last seen boundary alongside newer unread sends", (
     body: id,
     mediaIds: [],
     reactions: [],
+    replyTo: null,
     createdAt: new Date().toISOString(),
   });
   const messages = [

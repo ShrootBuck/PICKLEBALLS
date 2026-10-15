@@ -33,8 +33,18 @@ const messageSelect = {
   createdAt: true,
   deletedAt: true,
   reactions: {
-    select: { userId: true, emoji: true },
+    select: { userId: true, emoji: true, user: { select: personSelect } },
     orderBy: { userId: "asc" },
+  },
+  replyTo: {
+    select: {
+      id: true,
+      senderId: true,
+      sender: { select: personSelect },
+      body: true,
+      mediaIds: true,
+      deletedAt: true,
+    },
   },
 } satisfies Prisma.DirectMessageSelect;
 type MessageRow = Prisma.DirectMessageGetPayload<{
@@ -44,7 +54,36 @@ const toMessage = (row: MessageRow): DirectMessageItem => ({
   ...row,
   createdAt: row.createdAt.toISOString(),
   deletedAt: row.deletedAt?.toISOString() ?? null,
+  replyTo: row.replyTo && {
+    ...row.replyTo,
+    // The quote shows one line; the full text lives on the original message.
+    body: row.replyTo.body.slice(0, 280),
+    deletedAt: row.replyTo.deletedAt?.toISOString() ?? null,
+  },
 });
+
+/** Give each reply quoting a changed message its own revision so clients refetch it. */
+export async function touchReplies(
+  tx: Prisma.TransactionClient,
+  conversationId: string,
+  messageId: string,
+) {
+  const replies = await tx.directMessage.findMany({
+    where: { conversationId, replyToId: messageId },
+    select: { id: true },
+    orderBy: { sequence: "asc" },
+  });
+  for (const reply of replies) {
+    const next = await tx.directConversation.update({
+      where: { id: conversationId },
+      data: { revision: { increment: 1 } },
+    });
+    await tx.directMessage.update({
+      where: { id: reply.id },
+      data: { revision: next.revision },
+    });
+  }
+}
 export const directParticipant = (userId: string) => ({
   OR: [
     { userAId: userId },
@@ -263,7 +302,7 @@ export async function sendDirectMessage(
     throw new DomainError(
       "Write up to 4,000 characters or attach up to six photos or videos.",
     );
-  const { body, clientId, mediaIds } = parsed.data;
+  const { body, clientId, mediaIds, replyToId } = parsed.data;
   const message = await serializable(async (tx) => {
     const conversation = await requireDirectConversation(tx, id, userId);
     const existing = await tx.directMessage.findUnique({
@@ -277,6 +316,18 @@ export async function sendDirectMessage(
       select: messageSelect,
     });
     if (existing) return toMessage(existing);
+    // Only quote a live message from this same conversation.
+    if (
+      replyToId &&
+      !(await tx.directMessage.findFirst({
+        where: { id: replyToId, conversationId: id, deletedAt: null },
+        select: { id: true },
+      }))
+    )
+      throw new DomainError(
+        "The message you're replying to is no longer available.",
+        409,
+      );
     if (mediaIds.length) {
       const claimed = await tx.mediaUpload.updateMany({
         where: {
@@ -315,6 +366,7 @@ export async function sendDirectMessage(
         clientId,
         body,
         mediaIds,
+        replyToId: replyToId ?? null,
         sequence: next.sequence,
         revision: next.revision,
       },
@@ -446,6 +498,7 @@ export async function deleteDirectMessage(
           revision: next.revision,
         },
       });
+      await touchReplies(tx, id, messageId);
     }
     return toMessage(
       await tx.directMessage.findUniqueOrThrow({

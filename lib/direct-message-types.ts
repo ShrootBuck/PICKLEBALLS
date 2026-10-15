@@ -8,6 +8,7 @@ export const directMessageSchema = z
     clientId: z.string().uuid(),
     body: z.string().trim().max(4000).default(""),
     mediaIds: mediaIdsSchema.default([]),
+    replyToId: z.string().min(1).max(64).nullish(),
   })
   .refine(
     (input) => input.body.length > 0 || input.mediaIds.length > 0,
@@ -34,8 +35,14 @@ export type DirectMessageItem = {
   mediaIds: string[];
   createdAt: string;
   deletedAt: string | null;
-  reactions: { userId: string; emoji: string }[];
+  reactions: { userId: string; emoji: string; user: DirectPerson }[];
+  replyTo: DirectReplyPreview | null;
 };
+/** The quoted message a reply points at, trimmed for a one-line preview. */
+export type DirectReplyPreview = Pick<
+  DirectMessageItem,
+  "id" | "senderId" | "sender" | "body" | "mediaIds" | "deletedAt"
+>;
 export type ConversationDetails =
   | { kind: "direct"; person: DirectPerson; group: null }
   | { kind: "group"; person: null; group: { id: string; name: string } };
@@ -56,7 +63,7 @@ export type DirectInboxItem = ConversationDetails & {
   unread: number;
 };
 
-export function messagePreview(message: DirectMessageItem | null) {
+export function messagePreview(message: DirectReplyPreview | null) {
   if (!message) return "No messages yet";
   if (message.deletedAt) return "Message deleted";
   if (message.body) return message.body;

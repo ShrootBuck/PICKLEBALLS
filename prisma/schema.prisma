@@ -838,6 +838,9 @@ model DirectMessage {
   createdAt DateTime @default(now())
   readAt DateTime?
   deletedAt DateTime?
+  replyToId String?
+  replyTo DirectMessage? @relation("DirectReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies DirectMessage[] @relation("DirectReplies")
   conversation DirectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender User? @relation("DirectSender", fields: [senderId], references: [id], onDelete: SetNull)
   recipient User? @relation("DirectRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
@@ -848,6 +851,7 @@ model DirectMessage {
   @@index([conversationId, revision])
   @@index([recipientId, readAt])
   @@index([senderId])
+  @@index([replyToId])
 }
 
 // Saved with the message so dispatch can recover after a process/queue failure.

@@ -28,6 +28,7 @@ import {
   useMessageScrollerVisibility,
 } from "@/components/ui/message-scroller";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/ui/toast";
 import {
   messageRequest,
   messagesChanged,
@@ -36,8 +37,10 @@ import {
 import {
   conversationName,
   type DirectMessageItem,
+  type DirectReplyPreview,
   type DirectThread,
   mergeDirectMessages,
+  messagePreview,
   messageReceipts,
   threadPlacements,
 } from "@/lib/direct-message-types";
@@ -95,6 +98,45 @@ function ReadMessages({
   return null;
 }
 
+// Discord-style: while you're at the bottom, new messages, reactions, media, and
+// a resizing viewport keep you there. Scrolling up releases it. The scroller's
+// own follow mode drops out on any wheel or touch, even when already at the end.
+function StickToLatest({
+  viewport,
+  content,
+  paused,
+}: {
+  viewport: React.RefObject<HTMLDivElement | null>;
+  content: React.RefObject<HTMLDivElement | null>;
+  paused: React.RefObject<unknown>;
+}) {
+  const { scrollToEnd } = useMessageScroller();
+  useEffect(() => {
+    const scrollport = viewport.current;
+    const list = content.current;
+    if (!scrollport || !list) return;
+    let pinned = true;
+    const measure = () => {
+      pinned =
+        scrollport.scrollHeight -
+          scrollport.scrollTop -
+          scrollport.clientHeight <=
+        64;
+    };
+    const observer = new ResizeObserver(() => {
+      if (pinned && !paused.current) scrollToEnd({ behavior: "instant" });
+    });
+    observer.observe(list);
+    observer.observe(scrollport);
+    scrollport.addEventListener("scroll", measure, { passive: true });
+    return () => {
+      observer.disconnect();
+      scrollport.removeEventListener("scroll", measure);
+    };
+  }, [viewport, content, paused, scrollToEnd]);
+  return null;
+}
+
 function ThreadContents({ id, viewerId, now, timeZone }: ThreadProps) {
   const [thread, setThread] = useState<DirectThread | null>(null);
   const [error, setError] = useState("");
@@ -103,7 +145,8 @@ function ThreadContents({ id, viewerId, now, timeZone }: ThreadProps) {
   const live = useRef<ReturnType<typeof watchRealtime> | null>(null);
   const mounted = useRef(true);
   const typing = usePeerTyping(id, viewerId);
-  const { store, outbox } = useMessages();
+  const { store, outbox, drafts } = useMessages();
+  const [highlight, setHighlight] = useState<string | null>(null);
   const outgoing = outbox.filter((item) => item.conversationId === id);
   const messages = mergeDirectMessages(
     thread?.messages ?? [],
@@ -273,6 +316,39 @@ function ThreadContents({ id, viewerId, now, timeZone }: ThreadProps) {
 
   const name = thread ? conversationName(thread) : "";
   const group = thread?.kind === "group";
+  const byId = new Map(messages.map((message) => [message.id, message]));
+  // A loaded original carries its latest edits and deletion; the embedded quote
+  // is a fallback for originals on unloaded pages.
+  const replyTarget = (message: DirectMessageItem) =>
+    message.replyTo ? (byId.get(message.replyTo.id) ?? message.replyTo) : null;
+  const personName = (target: DirectReplyPreview) =>
+    target.senderId === viewerId
+      ? "You"
+      : (target.sender?.name ?? "Deleted member");
+  const draft = drafts[id];
+  const draftTarget = draft?.replyToId ? byId.get(draft.replyToId) : undefined;
+  function reply(message: DirectMessageItem) {
+    store.setDraft(id, {
+      body: draft?.body ?? "",
+      files: draft?.files ?? [],
+      replyToId: message.id,
+    });
+  }
+  function jump(messageId: string) {
+    if (!byId.has(messageId)) {
+      toast.add({
+        title: "That message is further back. Load older messages to find it.",
+      });
+      return;
+    }
+    scrollToMessage(messageId, { align: "center", behavior: "smooth" });
+    setHighlight(messageId);
+  }
+  useEffect(() => {
+    if (!highlight) return;
+    const timer = setTimeout(() => setHighlight(null), 1600);
+    return () => clearTimeout(timer);
+  }, [highlight]);
   const rows = [
     ...messages.map((message) => ({
       key: message.id,
@@ -428,6 +504,9 @@ function ThreadContents({ id, viewerId, now, timeZone }: ThreadProps) {
                           "[content-visibility:visible]",
                           placement.first && "dm-run-start",
                         )}
+                        data-highlight={
+                          highlight === row.key ? "true" : undefined
+                        }
                       >
                         {divider && (
                           <p className="dm-divider">
@@ -449,6 +528,9 @@ function ThreadContents({ id, viewerId, now, timeZone }: ThreadProps) {
                             receipt={receipts.get(row.message.id)}
                             onUpdate={update}
                             refresh={() => void refresh()}
+                            replyTo={replyTarget(row.message)}
+                            onReply={() => row.message && reply(row.message)}
+                            onJump={jump}
                           />
                         ) : (
                           row.item && (
@@ -479,10 +561,23 @@ function ThreadContents({ id, viewerId, now, timeZone }: ThreadProps) {
             </MessageScroller>
           </div>
           <ReadMessages id={id} messages={messages} />
+          <StickToLatest
+            viewport={viewport}
+            content={content}
+            paused={historyAnchor}
+          />
           <MessageComposer
             id={id}
             name={name}
             group={group}
+            reply={
+              draftTarget
+                ? {
+                    name: personName(draftTarget),
+                    preview: messagePreview(draftTarget),
+                  }
+                : null
+            }
             onSend={() => {
               requestAnimationFrame(() => scrollToEnd({ behavior: "instant" }));
             }}

@@ -4116,6 +4116,76 @@ section:first-child > .mood-group-label {
 .dm-message[data-align="end"] .dm-bubble-row {
   flex-direction: row-reverse;
 }
+/* Reply quote: a spine curving into the bubble, then the quoted author and text. */
+.dm-reply-quote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(78%, 540px);
+  min-width: 0;
+  padding: 2px 12px 4px 30px;
+  position: relative;
+  font-size: 12.5px;
+  line-height: 1.3;
+  color: var(--muted-foreground);
+  text-align: start;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.dm-message[data-align="end"] .dm-reply-quote {
+  padding: 2px 30px 4px 12px;
+}
+.dm-reply-spine {
+  position: absolute;
+  top: 50%;
+  bottom: -2px;
+  inset-inline-start: 14px;
+  width: 14px;
+  border-block-start: 2px solid var(--border);
+  border-inline-start: 2px solid var(--border);
+  border-start-start-radius: 6px;
+}
+.dm-message[data-align="end"] .dm-reply-spine {
+  inset-inline-start: auto;
+  inset-inline-end: 14px;
+  border-inline-start: 0;
+  border-inline-end: 2px solid var(--border);
+  border-start-start-radius: 0;
+  border-start-end-radius: 6px;
+}
+.dm-reply-name {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.dm-reply-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (hover: hover) {
+  .dm-reply-quote:hover .dm-reply-text {
+    color: var(--foreground);
+  }
+}
+.dm-reply-quote:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+/* Flash the original after jumping to it from a reply. */
+[data-slot="message-scroller-item"][data-highlight] .dm-bubble {
+  animation: dm-highlight 1.6s ease-out;
+}
+@keyframes dm-highlight {
+  0%,
+  35% {
+    filter: drop-shadow(0 0 0 var(--ring)) drop-shadow(0 0 6px var(--ring));
+  }
+  100% {
+    filter: none;
+  }
+}
 .dm-bubble[data-slot="bubble"] {
   flex: 0 1 auto;
   max-width: min(78%, 540px);
@@ -4165,16 +4235,32 @@ section:first-child > .mood-group-label {
   color: var(--muted-foreground);
   font-style: italic;
 }
+/* A fixed width keeps a large photo's natural size from widening the bubble. */
 .dm-media {
-  width: min(300px, 100%);
+  width: 300px;
+  max-width: 100%;
   overflow: hidden;
   background: var(--secondary);
+}
+/* Sent media hugs the same edge as the text below it. */
+.dm-bubble[data-align="end"] .dm-media {
+  align-self: flex-end;
 }
 .dm-media .media-slide {
   aspect-ratio: 4 / 3;
 }
 .dm-media .media-slide img {
   object-fit: cover;
+}
+/* A lone photo keeps its own shape, so screenshots aren't cropped at the sides. */
+.dm-media:not(:has(.media-position)) .media-slide:has(.media-slide-trigger) {
+  aspect-ratio: auto;
+}
+.dm-media:not(:has(.media-position)) .media-slide-trigger img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 300px;
 }
 .dm-media .media-slide video {
   background: #000;
@@ -4392,7 +4478,7 @@ section:first-child > .mood-group-label {
   }
 }
 
-/* Message menu: reactions, the exact time, copy, and delete. */
+/* Message menu: reactions, who reacted, reply, and delete. */
 .dm-menu[data-slot="popover-content"] {
   width: auto;
   gap: 2px;
@@ -4413,16 +4499,41 @@ section:first-child > .mood-group-label {
 .dm-menu-emoji-button[aria-pressed="true"] {
   background: color-mix(in srgb, var(--primary) 22%, transparent);
 }
-.dm-menu-time {
+.dm-menu-reactors {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 180px;
   margin-top: 4px;
-  padding: 8px 8px 4px;
+  padding: 6px 2px 2px;
+  overflow-y: auto;
   border-top: 1px solid var(--border);
-  font-size: 11.5px;
-  color: var(--muted-foreground);
+}
+.dm-menu-reactor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px 6px;
+  font-size: 13px;
+}
+.dm-menu-reactor-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dm-menu-reactor-emoji {
+  font-size: 16px;
+  line-height: 1;
 }
 .dm-menu-actions {
   display: flex;
   flex-direction: column;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
 }
 .dm-menu-actions > button {
   justify-content: flex-start;
@@ -4465,6 +4576,34 @@ section:first-child > .mood-group-label {
 }
 .dm-compose-field[data-invalid="true"] .dm-compose-box {
   border-color: var(--destructive);
+}
+.dm-compose-reply {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 0 14px;
+}
+.dm-compose-reply-text {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.dm-compose-reply-name {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.dm-compose-reply-preview {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dm-compose-reply-preview::before {
+  content: "· ";
 }
 .dm-compose-files[data-slot="attachment-group"] {
   gap: 8px;
@@ -4605,6 +4744,9 @@ section:first-child > .mood-group-label {
   .dm-typing > span {
     animation: none;
     opacity: 0.7;
+  }
+  [data-slot="message-scroller-item"][data-highlight] .dm-bubble {
+    animation: none;
   }
   .dm-actions,
   .dm-conversation {

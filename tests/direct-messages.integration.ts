@@ -47,6 +47,7 @@ const headers = (user: string, activeCircle = circle) =>
     "x-test-user": user,
     cookie: `pb_active_circle=${activeCircle}`,
   });
+const person = (id: string) => ({ id, name: id, image: null, initials: "PB" });
 const input = (body = "hello", mediaIds: string[] = []) => ({
   body,
   mediaIds,
@@ -231,9 +232,13 @@ test("reactions can be changed and removed, and deletion propagates while queuin
   const media = await upload(a, id);
   const message = await sendDirectMessage(a, id, input("nice", [media.id]));
   let changed = await reactToDirectMessage(b, id, message.id, { emoji: "🔥" });
-  expect(changed.reactions).toEqual([{ userId: b, emoji: "🔥" }]);
+  expect(changed.reactions).toEqual([
+    { userId: b, emoji: "🔥", user: person(b) },
+  ]);
   changed = await reactToDirectMessage(b, id, message.id, { emoji: "❤️" });
-  expect(changed.reactions).toEqual([{ userId: b, emoji: "❤️" }]);
+  expect(changed.reactions).toEqual([
+    { userId: b, emoji: "❤️", user: person(b) },
+  ]);
   changed = await reactToDirectMessage(b, id, message.id, { emoji: null });
   expect(changed.reactions).toEqual([]);
   await expect(
@@ -301,8 +306,42 @@ test("pagination and change catch-up preserve equal timestamps, including reacti
   const oldReaction = await directThread(b, id, { sinceRevision: 111 });
   expect(oldReaction.messages[0].id).toBe(first.id);
   expect(oldReaction.messages[0].reactions).toEqual([
-    { userId: c, emoji: "😂" },
+    { userId: c, emoji: "😂", user: person(c) },
   ]);
+});
+
+test("replies quote a live message from the same conversation and resync when the original is deleted", async () => {
+  const { id } = await directPair(a, b);
+  const other = await directPair(a, c);
+  const original = await sendDirectMessage(a, id, input("the original"));
+  const elsewhere = await sendDirectMessage(a, other.id, input("private"));
+  const reply = await sendDirectMessage(b, id, {
+    ...input("replying"),
+    replyToId: original.id,
+  });
+  expect(reply.replyTo).toEqual({
+    id: original.id,
+    senderId: a,
+    sender: person(a),
+    body: "the original",
+    mediaIds: [],
+    deletedAt: null,
+  });
+  // Another conversation's message must never leak into a quote.
+  await expect(
+    sendDirectMessage(b, id, { ...input(), replyToId: elsewhere.id }),
+  ).rejects.toThrow("no longer available");
+  const deleted = await deleteDirectMessage(a, id, original.id);
+  const changes = await directThread(b, id, {
+    sinceRevision: reply.revision,
+  });
+  const resynced = changes.messages.find((row) => row.id === reply.id);
+  expect(resynced?.replyTo?.deletedAt).not.toBeNull();
+  expect(resynced?.replyTo?.body).toBe("");
+  expect(resynced?.revision).toBeGreaterThan(deleted.revision);
+  await expect(
+    sendDirectMessage(b, id, { ...input(), replyToId: original.id }),
+  ).rejects.toThrow("no longer available");
 });
 
 test("the directory includes empty DMs and one shared chat per current circle", async () => {

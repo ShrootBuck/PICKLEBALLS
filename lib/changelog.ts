@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1792107311664,
+    title: "Reply to messages and see who reacted",
+    description:
+      "Reply to a specific message in any chat, and tap the quote to jump back to the original. Open a message's menu to see who reacted and with what, or hover a reaction for names.",
+  },
+  {
     timestamp: 1792103580778,
     title: "Message notifications",
     description:

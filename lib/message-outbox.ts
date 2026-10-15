@@ -1,6 +1,6 @@
 import type { DirectMessageItem } from "@/lib/direct-message-types";
 
-export type MessageDraft = { body: string; files: File[] };
+export type MessageDraft = { body: string; files: File[]; replyToId?: string };
 export type OutgoingMessage = MessageDraft & {
   clientId: string;
   conversationId: string;
@@ -79,7 +79,7 @@ export class MessageOutbox {
   }
   setDraft(id: string, draft: MessageDraft) {
     const drafts = { ...this.snapshot.drafts };
-    if (draft.body || draft.files.length) drafts[id] = draft;
+    if (draft.body || draft.files.length || draft.replyToId) drafts[id] = draft;
     else delete drafts[id];
     this.snapshot = { ...this.snapshot, drafts };
     this.emit();

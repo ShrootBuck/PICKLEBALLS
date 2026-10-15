@@ -5,6 +5,7 @@ import {
   queueObjectDeletion,
   queueReplyMedia,
 } from "@/lib/deletion-storage";
+import { touchReplies } from "@/lib/direct-messages";
 import { DomainError } from "@/lib/errors";
 import { serializable } from "@/lib/transaction";
 import { closeWorkSessions } from "@/lib/work-sessions";
@@ -331,6 +332,8 @@ export async function deleteOwnAccount(
             revision: conversation.revision,
           },
         });
+        if (message.senderId === userId)
+          await touchReplies(tx, message.conversationId, message.id);
       }
       await tx.pendingProof.deleteMany({ where: { ownerId: userId } });
       const files = await tx.timeblockChatAttachment.findMany({
