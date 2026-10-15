@@ -192,7 +192,9 @@ export default async function HistoryPage({
         title={dayKey === todayKey ? "Today so far" : formatDayLong(dayKey)}
         description={
           tasks.length === 0
-            ? "Nothing happened on this day."
+            ? activeIds.length > 0
+              ? "Your circle's check-ins for this day."
+              : "No tasks or check-ins on this day."
             : `${verified} of ${tasks.length} tasks verified across the squad.`
         }
         actions={
@@ -219,7 +221,7 @@ export default async function HistoryPage({
             </EmptyMedia>
             <EmptyTitle>Quiet day</EmptyTitle>
             <EmptyDescription>
-              No tasks for this day. Choose another date.
+              No tasks or check-ins for this day. Choose another date.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

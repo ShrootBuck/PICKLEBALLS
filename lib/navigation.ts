@@ -35,6 +35,7 @@ export function bucketItemHref(circleId: string, id: string) {
 // A hash, not a search param, so opening the form never changes the page key.
 export const newStreakHash = "#new";
 export const newStreakHref = `/streaks${newStreakHash}`;
+export const newStreakEvent = "pb:new-streak";
 
 export function streakHref(circleId: string, id: string) {
   return `/streaks/${encodeURIComponent(id)}?${new URLSearchParams({ circle: circleId })}`;

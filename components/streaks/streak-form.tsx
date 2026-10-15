@@ -9,7 +9,13 @@ import {
   Sprout,
   Users,
 } from "lucide-react";
-import { type FormEvent, useEffect, useId, useState } from "react";
+import {
+  type FormEvent,
+  useEffect,
+  useEffectEvent,
+  useId,
+  useState,
+} from "react";
 import { StreakSchedulePicker } from "@/components/streaks/streak-schedule";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -32,7 +38,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { appFetch } from "@/lib/app-refresh";
-import { newStreakHash } from "@/lib/navigation";
+import { newStreakEvent, newStreakHash } from "@/lib/navigation";
 import {
   EVERY_DAY,
   hundredthsToInput,
@@ -78,20 +84,23 @@ export function StreakForm({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Links open the form with #new. A hash, unlike a search param, is not part
-  // of the page's key, so clearing it later cannot remount the page and close
-  // this dialog.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once on mount
+  const openLinkedForm = useEffectEvent(() => setOpen(true));
+  // Links from other pages use #new. Quick-create on the mounted page opens
+  // directly, preserving the router's history and the current scroll position.
   useEffect(() => {
-    if (!openFromLink || window.location.hash !== newStreakHash) return;
-    // Clear the hash first so a refresh doesn't open the form again.
-    window.history.replaceState(
-      null,
-      "",
-      `${window.location.pathname}${window.location.search}`,
-    );
-    setInternalOpen(true);
-  }, []);
+    if (!openFromLink) return;
+    if (window.location.hash === newStreakHash) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+      openLinkedForm();
+    }
+    const openFromComposer = () => openLinkedForm();
+    window.addEventListener(newStreakEvent, openFromComposer);
+    return () => window.removeEventListener(newStreakEvent, openFromComposer);
+  }, [openFromLink]);
 
   function reset() {
     setKind(streak?.kind ?? "QUIT");

@@ -57,7 +57,7 @@ import {
 } from "@/components/work-sessions/stopwatch-provider";
 import { appFetch, holdAppRefresh } from "@/lib/app-refresh";
 import { uploadMedia } from "@/lib/media-upload";
-import { newStreakHref } from "@/lib/navigation";
+import { newStreakEvent, newStreakHref } from "@/lib/navigation";
 import type { SocialTask } from "@/lib/social-types";
 import {
   formatDayShort,
@@ -411,7 +411,9 @@ function ComposerForm({
               className="composer-choice"
               onClick={() => {
                 onClose();
-                router.push(newStreakHref);
+                if (window.location.pathname === "/streaks")
+                  window.dispatchEvent(new Event(newStreakEvent));
+                else router.push(newStreakHref);
               }}
             >
               <Flame data-icon="inline-start" />

@@ -1,6 +1,13 @@
 "use client";
 
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -28,15 +35,16 @@ export function HoldButton({
   const [done, setDone] = useState(false);
   const hintId = useId();
 
-  const paint = (value: number) =>
+  const paint = useCallback((value: number) => {
     ref.current?.style.setProperty("--hold", String(value));
-  const cancel = () => {
+  }, []);
+  const cancel = useCallback(() => {
     if (started.current === null) return;
     cancelAnimationFrame(frame.current);
     started.current = null;
     setHolding(false);
     paint(0);
-  };
+  }, [paint]);
   const start = () => {
     if (disabled || done || started.current !== null) return;
     started.current = performance.now();
@@ -58,15 +66,26 @@ export function HoldButton({
     frame.current = requestAnimationFrame(tick);
   };
 
-  useEffect(() => () => cancelAnimationFrame(frame.current), []);
-  // A failed save re-enables the button; let it be held again.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset only when the disabled state changes
   useEffect(() => {
-    if (!disabled) {
+    const visibilityChanged = () => {
+      if (document.visibilityState === "hidden") cancel();
+    };
+    window.addEventListener("blur", cancel);
+    document.addEventListener("visibilitychange", visibilityChanged);
+    return () => {
+      cancelAnimationFrame(frame.current);
+      window.removeEventListener("blur", cancel);
+      document.removeEventListener("visibilitychange", visibilityChanged);
+    };
+  }, [cancel]);
+  // A failed save re-enables the button; let it be held again.
+  useEffect(() => {
+    if (disabled) cancel();
+    else {
       setDone(false);
       paint(0);
     }
-  }, [disabled]);
+  }, [disabled, cancel, paint]);
 
   return (
     <>
@@ -86,7 +105,22 @@ export function HoldButton({
           start();
         }}
         onPointerUp={cancel}
+        onPointerMove={(event) => {
+          if (started.current === null) return;
+          // Pointer capture keeps delivering moves after the finger or mouse
+          // leaves the button. Moving away should cancel the confirmation.
+          const bounds = event.currentTarget.getBoundingClientRect();
+          if (
+            event.clientX < bounds.left ||
+            event.clientX > bounds.right ||
+            event.clientY < bounds.top ||
+            event.clientY > bounds.bottom
+          )
+            cancel();
+        }}
         onPointerCancel={cancel}
+        onLostPointerCapture={cancel}
+        onBlur={cancel}
         onContextMenu={(event) => event.preventDefault()}
         onKeyDown={(event) => {
           if (!isActivationKey(event.key)) return;

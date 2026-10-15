@@ -164,11 +164,12 @@ export function CirclesManager({
               </h2>
               <div className="circles-list">
                 {circles.map((circle) => (
-                  <button
+                  <Button
                     key={circle.id}
                     type="button"
+                    variant="plain"
                     className={cn(
-                      "circles-list-item",
+                      "circles-list-item h-auto whitespace-normal",
                       selected.id === circle.id && "is-selected",
                     )}
                     aria-pressed={selected.id === circle.id}
@@ -198,7 +199,7 @@ export function CirclesManager({
                         <span className="sr-only">Current circle</span>
                       </span>
                     )}
-                  </button>
+                  </Button>
                 ))}
               </div>
               <p className="circles-directory-note">
