@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { mediaIdsSchema } from "@/lib/media-policy";
+import { calendarDay } from "@/lib/message-time";
 
 export const directEmojis = ["❤️", "😂", "🔥", "👍", "😮", "😢"] as const;
 export const directMessageSchema = z
@@ -86,6 +87,48 @@ export function mergeDirectMessages(
   }
   return [...rows.values()].sort((a, b) => a.sequence - b.sequence);
 }
+
+const clusterGapMs = 5 * 60_000;
+const dividerGapMs = 60 * 60_000;
+export type ThreadPlacement = {
+  /** A centered day/time label precedes this message. */
+  divider: boolean;
+  /** First bubble in a run from one sender: shows their name in groups. */
+  first: boolean;
+  /** Last bubble in a run: shows their avatar in groups. */
+  last: boolean;
+};
+
+/** Group consecutive messages the way phone messaging apps do. */
+export function threadPlacements(
+  rows: { senderId: string | null; createdAt: string }[],
+  timeZone: string,
+): ThreadPlacement[] {
+  const opens = rows.map((row, index) => {
+    const previous = rows[index - 1];
+    if (!previous) return { divider: true, first: true };
+    const at = new Date(row.createdAt);
+    const before = new Date(previous.createdAt);
+    const gap = at.getTime() - before.getTime();
+    const divider =
+      gap >= dividerGapMs ||
+      calendarDay(at, timeZone) !== calendarDay(before, timeZone);
+    return {
+      divider,
+      first:
+        divider || gap > clusterGapMs || row.senderId !== previous.senderId,
+    };
+  });
+  return opens.map((open, index) => ({
+    ...open,
+    last: index === opens.length - 1 || opens[index + 1].first,
+  }));
+}
+
+// Up to three emoji with no other text render large, without a bubble.
+const emojiOnly =
+  /^(?:\p{Extended_Pictographic}(?:\p{Emoji_Modifier}|\uFE0F|\u200D\p{Extended_Pictographic})*\s*){1,3}$/u;
+export const isEmojiOnly = (body: string) => emojiOnly.test(body.trim());
 
 // Keep the read boundary visible while newer outgoing messages are still unread.
 export function messageReceipts(

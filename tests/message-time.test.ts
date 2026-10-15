@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { formatConversationTime } from "@/lib/message-time";
+import {
+  formatConversationTime,
+  formatThreadDivider,
+} from "@/lib/message-time";
 
 const now = new Date("2026-10-15T01:30:00Z"); // Oct 14, 6:30 PM in Tucson.
 
@@ -51,4 +54,19 @@ test("inbox dates follow the viewer's zone, including daylight-saving transition
       "America/New_York",
     ),
   ).toBe("Yesterday");
+});
+
+test("thread dividers name the day and keep the time", () => {
+  expect(formatThreadDivider("2026-10-15T01:05:00Z", now)).toEqual({
+    day: "Today",
+    time: "6:05 PM",
+  });
+  expect(formatThreadDivider("2026-10-13T20:00:00Z", now)).toEqual({
+    day: "Yesterday",
+    time: "1:00 PM",
+  });
+  expect(formatThreadDivider("2026-10-07T20:00:00Z", now)).toEqual({
+    day: "Oct 7",
+    time: "1:00 PM",
+  });
 });

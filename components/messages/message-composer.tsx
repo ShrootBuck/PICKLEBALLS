@@ -1,18 +1,16 @@
 "use client";
 
-import { ImagePlus, Send, X } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { ArrowUp, Film, ImageIcon, ImagePlus, X } from "lucide-react";
+import { useId, useRef, useState } from "react";
 import { useMessages } from "@/components/messages/message-provider";
+import { useObjectUrls } from "@/components/messages/use-object-urls";
 import { useTypingSender } from "@/components/messages/use-typing";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Attachment,
   AttachmentAction,
   AttachmentActions,
-  AttachmentContent,
   AttachmentGroup,
   AttachmentMedia,
-  AttachmentTitle,
 } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -43,16 +41,10 @@ export function MessageComposer({
   const { store, drafts, ready } = useMessages();
   const draft = drafts[id] ?? emptyDraft;
   const [error, setError] = useState("");
-  const [previews, setPreviews] = useState<string[]>([]);
+  const previews = useObjectUrls(draft.files);
   const input = useRef<HTMLInputElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    const urls = draft.files.map((file) => URL.createObjectURL(file));
-    setPreviews(urls);
-    return () => {
-      for (const url of urls) URL.revokeObjectURL(url);
-    };
-  }, [draft.files]);
+  const canSend = ready && Boolean(draft.body.trim() || draft.files.length);
 
   function change(next: Partial<MessageDraft>) {
     store.setDraft(id, { ...draft, ...next });
@@ -108,119 +100,128 @@ export function MessageComposer({
       }}
     >
       {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <p role="alert" className="dm-compose-error">
+          {error}
+        </p>
       )}
-      {draft.files.length > 0 && (
-        <AttachmentGroup aria-label="Selected attachments">
-          {draft.files.map((file, index) => (
-            <Attachment key={`${index}-${file.name}`} size="sm" state="idle">
-              <AttachmentMedia variant="image">
-                {file.type.startsWith("image/") && previews[index] ? (
-                  // biome-ignore lint/performance/noImgElement: local attachment preview
-                  <img src={previews[index]} alt="" />
-                ) : (
-                  <ImagePlus />
-                )}
-              </AttachmentMedia>
-              <AttachmentContent>
-                <AttachmentTitle>{file.name}</AttachmentTitle>
-              </AttachmentContent>
-              <AttachmentActions>
-                <AttachmentAction
-                  aria-label={`Remove ${file.name}`}
-                  onClick={() =>
-                    change({ files: draft.files.filter((_, i) => i !== index) })
-                  }
-                >
-                  <X />
-                </AttachmentAction>
-              </AttachmentActions>
-            </Attachment>
-          ))}
-        </AttachmentGroup>
-      )}
-      <Field data-invalid={Boolean(error)}>
+      <Field data-invalid={Boolean(error)} className="dm-compose-field">
         <FieldLabel htmlFor={fieldId} className="sr-only">
           Message {name}
         </FieldLabel>
-        <div className="dm-compose-row">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            disabled={!ready || draft.files.length >= maxMediaCount}
-            aria-label="Attach photos or videos"
-            title="Attach photos or videos"
-            onClick={() => input.current?.click()}
-          >
-            <ImagePlus />
-          </Button>
-          <Input
-            ref={input}
-            className="sr-only"
-            tabIndex={-1}
-            type="file"
-            multiple
-            aria-label="Choose message attachments"
-            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,video/mp4,video/webm,video/quicktime,.mkv,.avi,.m4v,.mpg,.mpeg,.ts"
-            onChange={(event) => {
-              addFiles(Array.from(event.target.files ?? []));
-              event.target.value = "";
-            }}
-          />
-          <Textarea
-            id={fieldId}
-            ref={textarea}
-            rows={1}
-            enterKeyHint="send"
-            maxLength={4000}
-            className="dm-textarea"
-            value={draft.body}
-            disabled={!ready}
-            aria-invalid={Boolean(error)}
-            placeholder={`Message ${group ? name : name.split(" ")[0]}…`}
-            onChange={(event) => {
-              change({ body: event.target.value });
-              typing.current.change(event.target.value);
-            }}
-            onBlur={() => typing.current.stop()}
-            onKeyDown={(event) => {
-              if (
-                event.key === "Enter" &&
-                !event.shiftKey &&
-                !event.nativeEvent.isComposing &&
-                event.nativeEvent.keyCode !== 229
-              ) {
-                event.preventDefault();
-                void send();
-              }
-            }}
-          />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={!ready || (!draft.body.trim() && !draft.files.length)}
-            aria-label="Send message"
-            onPointerDown={(event) => event.preventDefault()}
-          >
-            <Send />
-          </Button>
+        <div className="dm-compose-box">
+          {draft.files.length > 0 && (
+            <AttachmentGroup
+              aria-label="Selected attachments"
+              className="dm-compose-files"
+            >
+              {draft.files.map((file, index) => (
+                <Attachment
+                  key={`${index}-${file.name}`}
+                  size="xs"
+                  state="idle"
+                  className="dm-compose-file"
+                  title={file.name}
+                >
+                  <AttachmentMedia variant="image">
+                    {previews[index] ? (
+                      // biome-ignore lint/performance/noImgElement: local attachment preview
+                      <img src={previews[index]} alt="" />
+                    ) : file.type.startsWith("video/") ? (
+                      <Film />
+                    ) : (
+                      <ImageIcon />
+                    )}
+                  </AttachmentMedia>
+                  <AttachmentActions>
+                    <AttachmentAction
+                      aria-label={`Remove ${file.name}`}
+                      onClick={() =>
+                        change({
+                          files: draft.files.filter((_, i) => i !== index),
+                        })
+                      }
+                    >
+                      <X />
+                    </AttachmentAction>
+                  </AttachmentActions>
+                </Attachment>
+              ))}
+            </AttachmentGroup>
+          )}
+          <div className="dm-compose-row">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="dm-attach"
+              disabled={!ready || draft.files.length >= maxMediaCount}
+              aria-label="Attach photos or videos"
+              title="Attach photos or videos"
+              onClick={() => input.current?.click()}
+            >
+              <ImagePlus />
+            </Button>
+            <Input
+              ref={input}
+              className="sr-only"
+              tabIndex={-1}
+              type="file"
+              multiple
+              aria-label="Choose message attachments"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,video/mp4,video/webm,video/quicktime,.mkv,.avi,.m4v,.mpg,.mpeg,.ts"
+              onChange={(event) => {
+                addFiles(Array.from(event.target.files ?? []));
+                event.target.value = "";
+              }}
+            />
+            <Textarea
+              id={fieldId}
+              ref={textarea}
+              rows={1}
+              enterKeyHint="send"
+              maxLength={4000}
+              className="dm-textarea"
+              value={draft.body}
+              disabled={!ready}
+              aria-invalid={Boolean(error)}
+              placeholder={`Message ${group ? name : name.split(" ")[0]}`}
+              onChange={(event) => {
+                change({ body: event.target.value });
+                typing.current.change(event.target.value);
+              }}
+              onBlur={() => typing.current.stop()}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  !event.shiftKey &&
+                  !event.nativeEvent.isComposing &&
+                  event.nativeEvent.keyCode !== 229
+                ) {
+                  event.preventDefault();
+                  void send();
+                }
+              }}
+            />
+            {draft.body.length > 3500 && (
+              <span className="dm-compose-count" aria-live="polite">
+                {4000 - draft.body.length}
+                <span className="sr-only"> characters left</span>
+              </span>
+            )}
+            <Button
+              type="submit"
+              size="icon-sm"
+              className="dm-send"
+              disabled={!canSend}
+              aria-label="Send message"
+              title="Send (Enter). Shift+Enter adds a new line."
+              onPointerDown={(event) => event.preventDefault()}
+            >
+              <ArrowUp />
+            </Button>
+          </div>
         </div>
       </Field>
-      <div className="dm-compose-hint">
-        <span>
-          {group
-            ? "Visible to everyone in this circle."
-            : "Just between you two."}
-        </span>
-        <span>
-          {draft.body.length > 3500
-            ? `${draft.body.length}/4000`
-            : "Enter to send, Shift+Enter for a new line"}
-        </span>
-      </div>
     </form>
   );
 }

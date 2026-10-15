@@ -3,8 +3,10 @@ import { randomUUID } from "node:crypto";
 import {
   type DirectMessageItem,
   directMessageSchema,
+  isEmojiOnly,
   mergeDirectMessages,
   messageReceipts,
+  threadPlacements,
 } from "@/lib/direct-message-types";
 
 test("blank messages, excessive text, duplicate files, and invalid attachment ids are rejected", () => {
@@ -99,4 +101,42 @@ test("read receipts keep the last seen boundary alongside newer unread sends", (
   expect([...messageReceipts(messages, "me", 4, false)]).toEqual([
     ["unread", "Sent"],
   ]);
+});
+
+test("messages group into runs by sender, with dividers after long pauses and at midnight", () => {
+  const at = (iso: string, senderId: string | null = "a") => ({
+    senderId,
+    createdAt: iso,
+  });
+  const placements = threadPlacements(
+    [
+      at("2026-10-14T20:00:00Z"),
+      at("2026-10-14T20:01:00Z"),
+      at("2026-10-14T20:02:00Z", "b"),
+      at("2026-10-14T20:09:00Z", "b"), // more than five minutes later
+      at("2026-10-14T21:30:00Z", "b"), // more than an hour later
+      at("2026-10-14T21:31:00Z", "b"),
+      at("2026-10-15T06:59:00Z", "b"),
+      at("2026-10-15T07:00:00Z", "b"), // one minute later, but midnight in Tucson
+    ],
+    "America/Phoenix",
+  );
+  expect(placements).toEqual([
+    { divider: true, first: true, last: false },
+    { divider: false, first: false, last: true },
+    { divider: false, first: true, last: true },
+    { divider: false, first: true, last: true },
+    { divider: true, first: true, last: false },
+    { divider: false, first: false, last: true },
+    { divider: true, first: true, last: true },
+    { divider: true, first: true, last: true },
+  ]);
+  expect(threadPlacements([], "America/Phoenix")).toEqual([]);
+});
+
+test("only short runs of emoji count as emoji-only messages", () => {
+  for (const body of ["🔥", " 😂😂 ", "👍🏽", "❤️", "👨‍👩‍👧", "🔥 🔥 🔥"])
+    expect(isEmojiOnly(body)).toBe(true);
+  for (const body of ["", "ok 👍", "1", "#", "🔥🔥🔥🔥", "yep 🔥"])
+    expect(isEmojiOnly(body)).toBe(false);
 });

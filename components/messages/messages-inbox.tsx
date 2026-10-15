@@ -1,20 +1,14 @@
 "use client";
 
-import { MessageCircle, Users } from "lucide-react";
+import { CircleAlert, MessagesSquare, Search, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ConversationAvatar } from "@/components/messages/conversation-avatar";
 import { useMessages } from "@/components/messages/message-provider";
 import { MessageThread } from "@/components/messages/message-thread";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   messageRequest,
@@ -114,39 +108,57 @@ export function MessagesInbox({
       item.person.name.toLowerCase().includes(query.trim().toLowerCase()),
   );
 
-  function conversation(item: DirectInboxItem) {
-    const name = conversationName(item);
+  const groupChat = inbox.find((item) => item.kind === "group");
+
+  function preview(item: DirectInboxItem) {
     const pending = outbox.filter(
       (message) =>
         message.conversationId === item.id && message.state !== "sent",
     );
-    const failed = pending.some((message) => message.state === "failed");
     const draft = drafts[item.id];
+    if (pending.some((message) => message.state === "failed"))
+      return (
+        <span className="dm-preview-alert">
+          <CircleAlert aria-hidden="true" />
+          Not sent. Open to retry.
+        </span>
+      );
+    if (pending.length)
+      return `Sending: ${pending.at(-1)?.body || "Attachment"}`;
+    if (draft)
+      return (
+        <>
+          <span className="dm-preview-draft">Draft:</span>{" "}
+          {draft.body || "Attachment"}
+        </>
+      );
+    const message = item.lastMessage;
+    const author =
+      message?.senderId === viewerId
+        ? "You: "
+        : item.kind === "group" && message?.sender
+          ? `${message.sender.name.split(" ")[0]}: `
+          : "";
+    return `${author}${messagePreview(message)}`;
+  }
+
+  function conversation(item: DirectInboxItem) {
+    const current = selected === item.id;
     return (
       <Link
         key={item.id}
         href={`/messages?chat=${encodeURIComponent(item.id)}`}
         scroll={false}
-        className={cn("dm-conversation", selected === item.id && "is-selected")}
-        aria-current={selected === item.id ? "page" : undefined}
+        className={cn("dm-conversation", current && "is-selected")}
+        data-unread={item.unread > 0 || undefined}
+        aria-current={current ? "page" : undefined}
       >
-        <Avatar className="size-11">
-          <AvatarImage
-            userId={item.person?.id}
-            src={item.person?.image ?? undefined}
-            alt=""
-          />
-          <AvatarFallback>
-            {item.kind === "group" ? (
-              <Users className="size-5" />
-            ) : (
-              item.person.initials
-            )}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <span className="truncate font-semibold">{name}</span>
+        <ConversationAvatar chat={item} className="dm-conversation-avatar" />
+        <div className="dm-conversation-body">
+          <div className="dm-conversation-line">
+            <span className="dm-conversation-name font-semibold">
+              {conversationName(item)}
+            </span>
             {item.lastMessage && (
               <time
                 className="dm-preview-time"
@@ -164,27 +176,13 @@ export function MessagesInbox({
               </time>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <p className={cn("dm-preview", item.unread > 0 && "is-unread")}>
-              {failed ? (
-                "Message not sent. Open to retry."
-              ) : pending.length ? (
-                `Sending: ${pending.at(-1)?.body || "Attachment"}`
-              ) : draft ? (
-                `Draft: ${draft.body || "Attachment"}`
-              ) : (
-                <>
-                  {item.lastMessage?.senderId === viewerId
-                    ? "You: "
-                    : item.kind === "group" && item.lastMessage?.sender
-                      ? `${item.lastMessage.sender.name.split(" ")[0]}: `
-                      : ""}
-                  {messagePreview(item.lastMessage)}
-                </>
-              )}
-            </p>
+          <div className="dm-conversation-line">
+            <p className="dm-preview">{preview(item)}</p>
             {item.unread > 0 && (
-              <Badge aria-label={`${item.unread} unread messages`}>
+              <Badge
+                className="dm-unread"
+                aria-label={`${item.unread} unread messages`}
+              >
                 {item.unread > 99 ? "99+" : item.unread}
               </Badge>
             )}
@@ -198,58 +196,69 @@ export function MessagesInbox({
     <div className="dm-workspace" data-conversation={Boolean(selected)}>
       <aside className="dm-inbox" aria-label="Conversations">
         <header className="dm-inbox-header">
-          <div className="min-w-0">
-            <h1 className="dm-title">
-              Messages<span className="text-primary">.</span>
-            </h1>
-          </div>
+          <h1 className="dm-title">
+            Messages<span className="text-primary">.</span>
+          </h1>
         </header>
         <div className="dm-search">
+          <Search aria-hidden="true" />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Find someone"
+            placeholder="Search people"
             aria-label="Search conversations"
+            autoComplete="off"
           />
         </div>
         {refreshError && (
-          <output className="px-4 text-xs text-muted-foreground">
+          <output className="dm-inbox-notice">
             Reconnecting to your inbox…
           </output>
         )}
         <nav className="dm-conversations" aria-label="Conversations">
           {conversations.map(conversation)}
           {!conversations.some((item) => item.kind === "direct") && (
-            <Empty className="dm-inbox-empty">
-              <EmptyHeader>
-                <EmptyTitle>
-                  {query ? "No one found" : "Your circle starts here"}
-                </EmptyTitle>
-                <EmptyDescription>
-                  {query
-                    ? "Try another name."
-                    : "Other members will appear here when they join."}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <div className="dm-inbox-empty">
+              <p className="font-medium text-foreground">
+                {query ? "No one by that name" : "No one else here yet"}
+              </p>
+              <p>
+                {query
+                  ? "Try a different name."
+                  : "Members show up here when they join your circle."}
+              </p>
+            </div>
           )}
         </nav>
       </aside>
       {selected ? (
-        <MessageThread key={selected} id={selected} viewerId={viewerId} />
+        <MessageThread
+          key={selected}
+          id={selected}
+          viewerId={viewerId}
+          now={clock.now}
+          timeZone={clock.timeZone}
+        />
       ) : (
         <div className="dm-idle">
-          <Empty className="dm-idle-empty">
-            <EmptyHeader>
-              <EmptyMedia className="dm-idle-icon">
-                <MessageCircle strokeWidth={1.2} />
-              </EmptyMedia>
-              <EmptyTitle>Your circle, all here.</EmptyTitle>
-              <EmptyDescription>
-                Choose a conversation, or open your circle's group chat.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          <div className="dm-idle-icon" aria-hidden="true">
+            <MessagesSquare />
+          </div>
+          <h2 className="dm-idle-title">Pick a conversation</h2>
+          <p className="dm-idle-text">
+            Message someone one-on-one, or catch up with everyone in the group
+            chat.
+          </p>
+          {groupChat && (
+            <Link
+              href={`/messages?chat=${encodeURIComponent(groupChat.id)}`}
+              scroll={false}
+              className={buttonVariants({ variant: "secondary" })}
+            >
+              <Users data-icon="inline-start" />
+              Open group chat
+            </Link>
+          )}
         </div>
       )}
     </div>

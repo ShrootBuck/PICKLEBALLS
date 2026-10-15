@@ -92,9 +92,22 @@ try {
             frame.y + frame.height <= viewport.top + viewport.height + 1,
           `${width}px ${path}: frame outside ${JSON.stringify(viewport)}: ${JSON.stringify(frame)}`,
         );
-        const controls = [".app-header"];
-        if (width < 768) controls.push(".app-tabbar");
-        if (path.startsWith("/messages")) controls.push(".dm-composer");
+        // On phones an open conversation replaces the app chrome with its own
+        // header and back button, like a native messaging app.
+        const fullScreenChat = path.startsWith("/messages") && width < 768;
+        const controls = fullScreenChat
+          ? [".dm-thread-header", ".dm-composer"]
+          : [".app-header"];
+        if (fullScreenChat)
+          for (const selector of [".app-header", ".app-tabbar"])
+            assert.equal(
+              await page.locator(selector).isVisible(),
+              false,
+              `${width}px ${path}: ${selector} should give way to the chat`,
+            );
+        else if (width < 768) controls.push(".app-tabbar");
+        if (path.startsWith("/messages") && !fullScreenChat)
+          controls.push(".dm-composer");
         for (const selector of controls) {
           const box = await page.locator(selector).boundingBox();
           assert(

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, MessageCircle, RefreshCw, Users } from "lucide-react";
+import { ChevronLeft, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import {
   useCallback,
@@ -10,22 +10,13 @@ import {
   useState,
 } from "react";
 import { RealtimeStatus } from "@/components/layout/realtime-provider";
+import { ConversationAvatar } from "@/components/messages/conversation-avatar";
 import { DirectMessage } from "@/components/messages/direct-message";
 import { MessageComposer } from "@/components/messages/message-composer";
 import { useMessages } from "@/components/messages/message-provider";
 import { PendingMessage } from "@/components/messages/pending-message";
 import { usePeerTyping } from "@/components/messages/use-typing";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
-import { Marker, MarkerContent } from "@/components/ui/marker";
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -48,9 +39,18 @@ import {
   type DirectThread,
   mergeDirectMessages,
   messageReceipts,
+  threadPlacements,
 } from "@/lib/direct-message-types";
+import { formatThreadDivider } from "@/lib/message-time";
 import { cn } from "@/lib/utils";
 import { watchRealtime } from "@/lib/watch-realtime";
+
+type ThreadProps = {
+  id: string;
+  viewerId: string;
+  now: Date;
+  timeZone: string;
+};
 
 function ReadMessages({
   id,
@@ -95,7 +95,7 @@ function ReadMessages({
   return null;
 }
 
-function ThreadContents({ id, viewerId }: { id: string; viewerId: string }) {
+function ThreadContents({ id, viewerId, now, timeZone }: ThreadProps) {
   const [thread, setThread] = useState<DirectThread | null>(null);
   const [error, setError] = useState("");
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -271,14 +271,31 @@ function ThreadContents({ id, viewerId }: { id: string; viewerId: string }) {
         : current,
     );
 
+  const name = thread ? conversationName(thread) : "";
+  const group = thread?.kind === "group";
+  const rows = [
+    ...messages.map((message) => ({
+      key: message.id,
+      senderId: message.senderId,
+      createdAt: message.createdAt,
+      message,
+      item: null,
+    })),
+    ...pending.map((item) => ({
+      key: `pending-${item.clientId}`,
+      senderId: viewerId,
+      createdAt: item.createdAt,
+      message: null,
+      item,
+    })),
+  ];
+  const placements = threadPlacements(rows, timeZone);
+
   return (
     <section
       className="dm-thread"
-      aria-label={
-        thread
-          ? `Conversation with ${conversationName(thread)}`
-          : "Conversation"
-      }
+      data-kind={thread?.kind}
+      aria-label={thread ? `Conversation with ${name}` : "Conversation"}
     >
       <header className="dm-thread-header">
         <Link
@@ -289,30 +306,28 @@ function ThreadContents({ id, viewerId }: { id: string; viewerId: string }) {
           )}
           aria-label="Back to messages"
         >
-          <ArrowLeft />
+          <ChevronLeft />
         </Link>
         {thread ? (
-          <>
-            <Avatar>
-              <AvatarImage
-                userId={thread.person?.id}
-                src={thread.person?.image ?? undefined}
-                alt=""
-              />
-              <AvatarFallback>
-                {thread.kind === "group" ? (
-                  <Users className="size-5" />
+          <div className="dm-thread-peer">
+            <ConversationAvatar chat={thread} className="dm-thread-avatar" />
+            <div className="dm-thread-title">
+              <h2 className="dm-thread-name">
+                {thread.kind === "direct" ? (
+                  <Link
+                    href={`/members/${encodeURIComponent(thread.person.id)}`}
+                    className="dm-thread-profile"
+                    title={`View ${thread.person.name}'s profile`}
+                  >
+                    {name}
+                  </Link>
                 ) : (
-                  thread.person.initials
+                  name
                 )}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <h2 className="truncate font-semibold">
-                {conversationName(thread)}
               </h2>
               <output
-                className="text-xs text-muted-foreground"
+                className="dm-thread-status"
+                data-typing={typing || undefined}
                 aria-live="polite"
               >
                 {typing
@@ -320,48 +335,51 @@ function ThreadContents({ id, viewerId }: { id: string; viewerId: string }) {
                     ? "Someone is typing…"
                     : `${thread.person.name.split(" ")[0]} is typing…`
                   : thread.kind === "group"
-                    ? "Circle group chat"
-                    : "Direct message"}
+                    ? "Group chat"
+                    : ""}
               </output>
             </div>
-            <div className="ml-auto">
-              <RealtimeStatus />
-            </div>
-          </>
+          </div>
         ) : (
-          <Skeleton className="h-10 w-44" />
+          <div className="dm-thread-peer" aria-hidden="true">
+            <Skeleton className="size-9 rounded-full" />
+            <Skeleton className="h-4 w-32" />
+          </div>
         )}
+        <div className="dm-connection">
+          <RealtimeStatus />
+        </div>
       </header>
       {error && (
-        <Alert variant="destructive">
-          <AlertDescription className="flex items-center justify-between gap-2">
-            {error}
-            <Button variant="ghost" size="sm" onClick={() => void refresh()}>
-              <RefreshCw data-icon="inline-start" />
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <div className="dm-thread-error" role="alert">
+          <span>{error}</span>
+          <Button variant="ghost" size="sm" onClick={() => void refresh()}>
+            <RefreshCw data-icon="inline-start" />
+            Retry
+          </Button>
+        </div>
       )}
       {!thread ? (
         <section
-          className="flex flex-col gap-6 p-6"
+          className="dm-thread-loading"
           aria-busy="true"
           aria-label="Loading conversation"
         >
-          <Skeleton className="h-14 w-2/3" />
-          <Skeleton className="ml-auto h-14 w-1/2" />
-          <Skeleton className="h-14 w-1/2" />
+          <Skeleton className="h-10 w-48 rounded-2xl" />
+          <Skeleton className="h-10 w-64 rounded-2xl" />
+          <Skeleton className="ml-auto h-10 w-40 rounded-2xl" />
+          <Skeleton className="h-10 w-56 rounded-2xl" />
+          <Skeleton className="ml-auto h-16 w-72 rounded-2xl" />
         </section>
       ) : (
         <>
           <div className="dm-thread-scroll">
             <MessageScroller>
               {thread.hasMore && (
-                <div className="flex shrink-0 justify-center py-1">
+                <div className="dm-older">
                   <Button
-                    variant="ghost"
-                    size="sm"
+                    variant="secondary"
+                    size="xs"
                     disabled={loadingOlder}
                     onClick={() => void older()}
                   >
@@ -378,75 +396,83 @@ function ThreadContents({ id, viewerId }: { id: string; viewerId: string }) {
                   ref={content}
                   className="dm-message-list"
                 >
-                  {!messages.length && !pending.length && (
-                    <MessageScrollerItem messageId="intro">
-                      <Empty className="dm-thread-empty">
-                        <EmptyHeader>
-                          <EmptyMedia variant="icon">
-                            <MessageCircle />
-                          </EmptyMedia>
-                          <EmptyTitle>
-                            {thread.kind === "group"
-                              ? "The whole circle is here"
-                              : `Say hey to ${thread.person.name.split(" ")[0]}`}
-                          </EmptyTitle>
-                          <EmptyDescription>
-                            {thread.kind === "group"
-                              ? "Share a message, photo, or video with everyone in your circle."
-                              : "Send a message, a photo, or something worth reacting to."}
-                          </EmptyDescription>
-                        </EmptyHeader>
-                      </Empty>
+                  {!thread.hasMore && (
+                    <MessageScrollerItem
+                      messageId="intro"
+                      className="dm-intro-row [content-visibility:visible]"
+                    >
+                      <div className="dm-intro">
+                        <ConversationAvatar
+                          chat={thread}
+                          className="dm-intro-avatar"
+                        />
+                        <p className="dm-intro-name">{name}</p>
+                        <p className="dm-intro-text">
+                          {thread.kind === "group"
+                            ? "Everyone in your circle can read and reply here."
+                            : `This is the start of your conversation with ${thread.person.name.split(" ")[0]}. Only you two can see it.`}
+                        </p>
+                      </div>
                     </MessageScrollerItem>
                   )}
-                  {messages.map((message, index) => {
-                    const date = new Date(message.createdAt).toLocaleDateString(
-                      [],
-                      {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      },
-                    );
-                    const previous = messages[index - 1];
-                    const newDay =
-                      !previous ||
-                      new Date(previous.createdAt).toDateString() !==
-                        new Date(message.createdAt).toDateString();
+                  {rows.map((row, index) => {
+                    const placement = placements[index];
+                    const divider =
+                      placement.divider &&
+                      formatThreadDivider(row.createdAt, now, timeZone);
                     return (
                       <MessageScrollerItem
-                        key={message.id}
-                        messageId={message.id}
-                        className="[content-visibility:visible]"
-                      >
-                        {newDay && (
-                          <Marker variant="separator" className="dm-date">
-                            <MarkerContent>{date}</MarkerContent>
-                          </Marker>
+                        key={row.key}
+                        messageId={row.key}
+                        className={cn(
+                          "[content-visibility:visible]",
+                          placement.first && "dm-run-start",
                         )}
-                        <DirectMessage
-                          message={message}
-                          conversationId={id}
-                          viewerId={viewerId}
-                          peerName={conversationName(thread)}
-                          group={thread.kind === "group"}
-                          receipt={receipts.get(message.id)}
-                          onUpdate={update}
-                          refresh={() => void refresh()}
-                        />
+                      >
+                        {divider && (
+                          <p className="dm-divider">
+                            <span className="dm-divider-day">
+                              {divider.day}
+                            </span>{" "}
+                            {divider.time}
+                          </p>
+                        )}
+                        {row.message ? (
+                          <DirectMessage
+                            message={row.message}
+                            conversationId={id}
+                            viewerId={viewerId}
+                            peerName={name}
+                            group={group}
+                            placement={placement}
+                            timeZone={timeZone}
+                            receipt={receipts.get(row.message.id)}
+                            onUpdate={update}
+                            refresh={() => void refresh()}
+                          />
+                        ) : (
+                          row.item && (
+                            <PendingMessage
+                              item={row.item}
+                              placement={placement}
+                            />
+                          )
+                        )}
                       </MessageScrollerItem>
                     );
                   })}
-                  {pending.map((item) => (
+                  {typing && (
                     <MessageScrollerItem
-                      key={item.clientId}
-                      messageId={`pending-${item.clientId}`}
-                      className="[content-visibility:visible]"
+                      messageId="typing"
+                      className="dm-run-start [content-visibility:visible]"
                     >
-                      <PendingMessage item={item} />
+                      <div className="dm-typing" aria-hidden="true">
+                        <span />
+                        <span />
+                        <span />
+                      </div>
                     </MessageScrollerItem>
-                  ))}
+                  )}
                 </MessageScrollerContent>
               </MessageScrollerViewport>
               <MessageScrollerButton aria-label="Jump to latest message" />
@@ -455,8 +481,8 @@ function ThreadContents({ id, viewerId }: { id: string; viewerId: string }) {
           <ReadMessages id={id} messages={messages} />
           <MessageComposer
             id={id}
-            name={conversationName(thread)}
-            group={thread.kind === "group"}
+            name={name}
+            group={group}
             onSend={() => {
               requestAnimationFrame(() => scrollToEnd({ behavior: "instant" }));
             }}
@@ -467,7 +493,7 @@ function ThreadContents({ id, viewerId }: { id: string; viewerId: string }) {
   );
 }
 
-export function MessageThread(props: { id: string; viewerId: string }) {
+export function MessageThread(props: ThreadProps) {
   return (
     <MessageScrollerProvider autoScroll defaultScrollPosition="end">
       <ThreadContents {...props} />
