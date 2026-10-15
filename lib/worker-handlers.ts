@@ -3,6 +3,8 @@ import { drainObjectDeletions } from "@/lib/deletion-storage";
 import { DomainError } from "@/lib/errors";
 import { startMediaProcessing, startPendingProof } from "@/lib/media-dispatch";
 import { deleteVideoOriginal, processVideoMedia } from "@/lib/media-processing";
+import { deliverMessagePush } from "@/lib/message-push";
+import { recoverMessagePushes } from "@/lib/message-push-dispatch";
 import { safeAppPath } from "@/lib/navigation";
 import { shouldPushNotification } from "@/lib/notification-policy";
 import { getNotificationPrefs } from "@/lib/notifications";
@@ -15,6 +17,10 @@ import { sendStreakReminders } from "@/lib/streaks";
 import { reconcileMissedTasks, submitProof } from "@/lib/tasks";
 
 export const handlers = {
+  "message-notification": async ({
+    deliveryId,
+  }: JobPayloads["message-notification"]) => deliverMessagePush(deliveryId),
+  "recover-message-pushes": async () => recoverMessagePushes(),
   "read-screen-time": async (data: JobPayloads["read-screen-time"]) => {
     try {
       return {

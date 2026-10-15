@@ -308,20 +308,25 @@
     scrollbar-color: var(--border) transparent;
   }
 
-  /* Anchor the app inside the safe area so document scrolling on iOS
-     cannot carry the header underneath the status bar. */
+  /* Size the shared frame to the visible screen, including keyboard/browser
+     chrome changes. Apply the viewport offset once, outside every page shell. */
   [data-slot="app-frame"] {
+    --frame-bottom-inset: env(safe-area-inset-bottom, 0px);
     position: fixed;
-    top: env(safe-area-inset-top, 0px);
+    top: calc(var(--visual-viewport-top, 0px) + env(safe-area-inset-top, 0px));
     right: env(safe-area-inset-right, 0px);
-    bottom: env(safe-area-inset-bottom, 0px);
     left: env(safe-area-inset-left, 0px);
+    height: calc(
+      var(--visual-viewport-height, 100dvh) -
+      env(safe-area-inset-top, 0px) -
+      var(--frame-bottom-inset)
+    );
   }
 
   @media (width < 48rem) {
     /* The mobile navigation owns the home-indicator inset. Reserve it once. */
     [data-slot="app-frame"]:has(.app-tabbar) {
-      bottom: 0;
+      --frame-bottom-inset: 0px;
     }
   }
 
@@ -563,6 +568,9 @@
 }
 /* App shell: full navigation on desktop, a compact rail on tablets,
    and persistent tabs with a complete page drawer on phones. */
+[data-slot="app-frame"]:has(.app-shell) {
+  overflow: hidden;
+}
 .app-shell {
   display: flex;
   height: 100%;
@@ -3621,12 +3629,7 @@ section:first-child > .mood-group-label {
   max-width: 1560px;
 }
 
-/* A dedicated, viewport-sized inbox keeps the composer in reach. */
-.app-shell[data-page="messages"] {
-  position: relative;
-  top: var(--visual-viewport-top, 0px);
-  height: var(--visual-viewport-height, 100%);
-}
+/* The shared frame owns viewport sizing; only the conversation scrolls. */
 .app-shell[data-page="messages"] .app-scroll {
   display: flex;
   overflow: hidden;
@@ -3749,8 +3752,12 @@ section:first-child > .mood-group-label {
 }
 .dm-message-content {
   width: auto;
-  max-width: min(85%, 560px);
+  max-width: min(85%, 560px, calc(100% - 40px));
   gap: 4px;
+}
+.dm-message-avatar {
+  align-self: flex-start;
+  translate: none;
 }
 .dm-message-content [data-slot="bubble"] {
   max-width: 100%;

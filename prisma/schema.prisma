@@ -159,6 +159,7 @@ model User {
   directConversationsB DirectConversation[] @relation("DirectUserB")
   directMessagesSent DirectMessage[] @relation("DirectSender")
   directMessagesReceived DirectMessage[] @relation("DirectRecipient")
+  messagePushDeliveries MessagePushDelivery[]
   directReactions DirectReaction[]
 }
 
@@ -763,6 +764,8 @@ model Notification {
 model NotificationPreference {
   userId String @id
 
+  directMessages Boolean @default(true)
+  groupMessages Boolean @default(true)
   proofsSubmitted Boolean @default(true)
   streakReminders Boolean @default(true)
   streakWarnings  Boolean @default(true)
@@ -839,11 +842,28 @@ model DirectMessage {
   sender User? @relation("DirectSender", fields: [senderId], references: [id], onDelete: SetNull)
   recipient User? @relation("DirectRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
   reactions DirectReaction[]
+  pushDeliveries MessagePushDelivery[]
   @@unique([conversationId, sequence])
   @@unique([conversationId, senderId, clientId])
   @@index([conversationId, revision])
   @@index([recipientId, readAt])
   @@index([senderId])
+}
+
+// Saved with the message so dispatch can recover after a process/queue failure.
+model MessagePushDelivery {
+  id String @id @default(cuid())
+  messageId String
+  recipientId String
+  attempts Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  message DirectMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  recipient User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  @@unique([messageId, recipientId])
+  @@index([completedAt, nextAttemptAt])
+  @@index([recipientId])
 }
 
 model DirectReaction {

@@ -47,6 +47,8 @@ export async function withNotifications<T>(
 }
 
 export const notificationPrefsSelect = {
+  directMessages: true,
+  groupMessages: true,
   proofsSubmitted: true,
   streakReminders: true,
   streakWarnings: true,

@@ -77,7 +77,12 @@ export function PushToggle({ inset = true }: { inset?: boolean }) {
         const data = await response.json();
         setState(data.subscribed ? "subscribed" : "unsubscribed");
       })
-      .catch(() => setState("unsubscribed"));
+      .catch(() => {
+        setError(
+          "Couldn't check this device's notifications. Try turning them on again.",
+        );
+        setState("unsubscribed");
+      });
   }, []);
 
   const enable = useCallback(async () => {
@@ -90,10 +95,17 @@ export function PushToggle({ inset = true }: { inset?: boolean }) {
         return;
       }
       const registration = await devicePushRegistration();
-      const { publicKey } = (await appFetch("/api/push/public-key").then((r) =>
-        r.json(),
-      )) as { publicKey?: string };
-      if (!publicKey) throw new Error("Push not configured on server.");
+      const response = await appFetch("/api/push/public-key");
+      if (response.status === 503) {
+        setError(
+          "Push notifications aren't configured on the server yet. Your inbox still gets updates.",
+        );
+        setState("unsubscribed");
+        return;
+      }
+      if (!response.ok) throw new Error("Could not load push configuration.");
+      const { publicKey } = (await response.json()) as { publicKey?: string };
+      if (!publicKey) throw new Error("Missing push public key.");
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
@@ -107,8 +119,14 @@ export function PushToggle({ inset = true }: { inset?: boolean }) {
       setState("subscribed");
     } catch (err) {
       console.warn("Enabling push failed", err);
-      setError("Couldn't turn on push. Try again from the installed app.");
-      setState("unsubscribed");
+      if (Notification.permission === "denied") {
+        setState("denied");
+      } else {
+        setError(
+          "Couldn't turn on notifications. Check your connection and try again.",
+        );
+        setState("unsubscribed");
+      }
     }
   }, []);
 
@@ -127,11 +145,16 @@ export function PushToggle({ inset = true }: { inset?: boolean }) {
 
   if (state === "install") {
     return (
-      <p className={cn("text-xs text-muted-foreground", pad)}>
-        To receive alerts on iPhone or iPad, open this site in Safari, tap
-        Share, then Add to Home Screen. Open the installed app and turn on push
-        here.
-      </p>
+      <div className={cn("flex flex-col gap-2", pad)}>
+        <p className="text-[13px] font-semibold">
+          Enable notifications on iPhone or iPad
+        </p>
+        <ol className="flex list-decimal flex-col gap-1 pl-4 text-xs text-muted-foreground">
+          <li>Open this site in Safari, tap Share, then Add to Home Screen.</li>
+          <li>Open Pickle Balls from your Home Screen.</li>
+          <li>Tap the bell, then Enable notifications and Allow.</li>
+        </ol>
+      </div>
     );
   }
   if (state === "unsupported") {
@@ -145,37 +168,45 @@ export function PushToggle({ inset = true }: { inset?: boolean }) {
   if (state === "denied") {
     return (
       <p className={cn("text-xs text-muted-foreground", pad)}>
-        Push notifications are blocked in your browser or device settings.
-        Notifications still appear in your inbox.
+        Notifications are blocked. Allow them in your browser's site settings or
+        your device's Settings &gt; Notifications &gt; Pickle Balls, then reopen
+        the app. Notifications still appear in your inbox.
       </p>
     );
   }
 
   return (
     <div className={cn("flex flex-col gap-1", pad)}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold">Push on this device</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0 flex-1 basis-40">
+          <p className="text-[13px] font-semibold">Device notifications</p>
           <p className="text-[11px] text-muted-foreground">
-            {state === "subscribed"
-              ? "Get alerts even when the app is closed."
-              : "Off. Your inbox still gets updates."}
+            {state === "loading"
+              ? "Checking notifications…"
+              : state === "subscribed"
+                ? "On, including when the app is closed."
+                : "Get alerts even when the app is closed."}
           </p>
         </div>
         <Button
           size="sm"
           variant={state === "subscribed" ? "secondary" : "default"}
           disabled={state === "loading"}
+          className="shrink-0"
           onClick={state === "subscribed" ? disable : enable}
         >
           {state === "loading"
             ? "…"
             : state === "subscribed"
               ? "Turn off"
-              : "Turn on"}
+              : "Enable notifications"}
         </Button>
       </div>
-      {error ? <p className="text-[11px] text-destructive">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-[11px] text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

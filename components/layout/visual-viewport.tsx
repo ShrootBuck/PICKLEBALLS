@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 // Mobile keyboards shrink the visible viewport without changing dvh. Keep
-// dialogs and sheets inside the area the user can actually see and touch.
+// the app frame, dialogs, and sheets inside the area the user can see and touch.
 export function VisualViewportSync() {
   useEffect(() => {
     const viewport = window.visualViewport;

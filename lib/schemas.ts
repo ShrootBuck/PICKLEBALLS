@@ -63,6 +63,8 @@ export const pushSubscriptionSchema = z.object({
 
 const reminderHour = z.number().int().min(0).max(23);
 export const notificationPreferencesSchema = z.object({
+  directMessages: z.boolean(),
+  groupMessages: z.boolean(),
   proofsSubmitted: z.boolean(),
   streakReminders: z.boolean(),
   streakWarnings: z.boolean(),

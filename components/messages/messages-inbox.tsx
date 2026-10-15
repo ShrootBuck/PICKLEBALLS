@@ -84,7 +84,11 @@ export function MessagesInbox({
       try {
         const result = await messageRequest<{
           conversations: DirectInboxItem[];
-        }>("/api/messages");
+        }>(
+          requested
+            ? `/api/messages?${new URLSearchParams({ chat: requested })}`
+            : "/api/messages",
+        );
         if (alive) {
           setInbox(result.conversations);
           setRefreshError(false);
@@ -103,7 +107,7 @@ export function MessagesInbox({
       alive = false;
       live.dispose();
     };
-  }, []);
+  }, [requested]);
   const conversations = inbox.filter(
     (item) =>
       item.kind === "group" ||

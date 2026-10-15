@@ -15,7 +15,11 @@ export async function GET(request: Request) {
         unread: await directUnreadCount(userId, circleId),
       });
     return privateMessageResponse({
-      conversations: await directInbox(userId, circleId),
+      conversations: await directInbox(
+        userId,
+        circleId,
+        new URL(request.url).searchParams.get("chat") ?? undefined,
+      ),
     });
   } catch (error) {
     return jsonError(error);

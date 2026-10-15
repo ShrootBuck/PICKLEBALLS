@@ -24,6 +24,16 @@ import type { NotificationPrefs } from "@/lib/notification-policy";
 
 const PREF_META = [
   {
+    key: "directMessages",
+    label: "Direct messages",
+    hint: "Push alerts for new DMs.",
+  },
+  {
+    key: "groupMessages",
+    label: "Group messages",
+    hint: "Push alerts for new messages in your circles' group chats.",
+  },
+  {
     key: "proofsSubmitted",
     label: "Friends’ proof photos",
     hint: "Push alerts when a friend posts proof. Photos always appear in your inbox.",
@@ -103,9 +113,9 @@ export function NotificationPreferences() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        Replies to your posts and threads you’ve commented in always appear in
-        your inbox, along with proof verdicts and streak nudges. Push alerts
-        arrive when enabled on this device.
+        Push alerts arrive when enabled on this device. Chats stay in Messages;
+        replies, proof verdicts, and streak nudges appear in your notification
+        inbox.
       </p>
       {prefs ? (
         <FieldGroup className="gap-3">

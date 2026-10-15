@@ -3,6 +3,7 @@
 import { SmilePlus } from "lucide-react";
 import { useState } from "react";
 import { MediaGallery } from "@/components/media/media-gallery";
+import { MessageSenderAvatar } from "@/components/messages/message-sender-avatar";
 import { DeleteAction } from "@/components/settings/delete-action";
 import { Attachment } from "@/components/ui/attachment";
 import { Bubble, BubbleContent, BubbleReactions } from "@/components/ui/bubble";
@@ -80,6 +81,7 @@ export function DirectMessage({
   }
   return (
     <Message align={align}>
+      <MessageSenderAvatar sender={message.sender} />
       <MessageContent className="dm-message-content">
         <MessageHeader className={cn((!group || mine) && "sr-only")}>
           {mine ? "You" : (message.sender?.name ?? "Deleted member")}

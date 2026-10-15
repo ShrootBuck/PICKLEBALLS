@@ -132,6 +132,24 @@ test("only current-circle contacts appear, with one conversation per pair under 
   ).toBe(1);
 });
 
+test("a requested DM stays accessible outside its circle without exposing anyone else's conversation", async () => {
+  const own = await directPair(a, b);
+  expect(
+    (await directInbox(a, otherCircle)).some((chat) => chat.id === own.id),
+  ).toBe(false);
+  expect(
+    (await directInbox(a, otherCircle, own.id)).some(
+      (chat) => chat.id === own.id,
+    ),
+  ).toBe(true);
+  const privatePair = await directPair(b, c);
+  expect(
+    (await directInbox(a, otherCircle, privatePair.id)).some(
+      (chat) => chat.id === privatePair.id,
+    ),
+  ).toBe(false);
+});
+
 test("concurrent sends are ordered, retries are idempotent, and reading cannot acknowledge an unseen arrival", async () => {
   const { id } = await directPair(a, b);
   const retry = input();

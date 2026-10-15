@@ -11,6 +11,7 @@ import {
   directReactionSchema,
 } from "@/lib/direct-message-types";
 import { DomainError } from "@/lib/errors";
+import { dispatchMessagePushes } from "@/lib/message-push-dispatch";
 import { getPrisma } from "@/lib/prisma";
 import { serializable } from "@/lib/transaction";
 
@@ -128,6 +129,7 @@ export async function directUnreadCount(userId: string, circleId: string) {
 export async function directInbox(
   userId: string,
   circleId: string,
+  requestedChat?: string,
 ): Promise<DirectInboxItem[]> {
   const member = await requireCircleMember(userId, circleId);
   const contacts = await directContacts(userId, circleId);
@@ -150,6 +152,17 @@ export async function directInbox(
         { circleId },
         { userAId: userId, userBId: { in: contactIds } },
         { userBId: userId, userAId: { in: contactIds } },
+        // A DM alert can arrive while a different circle's directory is open.
+        // Include only the explicitly requested private chat the viewer owns.
+        ...(requestedChat
+          ? [
+              {
+                id: requestedChat,
+                circleId: null,
+                OR: [{ userAId: userId }, { userBId: userId }],
+              },
+            ]
+          : []),
       ],
     },
     include: {
@@ -251,7 +264,7 @@ export async function sendDirectMessage(
       "Write up to 4,000 characters or attach up to six photos or videos.",
     );
   const { body, clientId, mediaIds } = parsed.data;
-  return serializable(async (tx) => {
+  const message = await serializable(async (tx) => {
     const conversation = await requireDirectConversation(tx, id, userId);
     const existing = await tx.directMessage.findUnique({
       where: {
@@ -307,8 +320,32 @@ export async function sendDirectMessage(
       },
       select: messageSelect,
     });
+    const recipients = conversation.circleId
+      ? await tx.membership.findMany({
+          where: { circleId: conversation.circleId, userId: { not: userId } },
+          select: { userId: true },
+        })
+      : [
+          {
+            userId:
+              conversation.userAId === userId
+                ? conversation.userBId
+                : conversation.userAId,
+          },
+        ];
+    await tx.messagePushDelivery.createMany({
+      data: recipients.flatMap((recipient) =>
+        recipient.userId
+          ? [{ messageId: row.id, recipientId: recipient.userId }]
+          : [],
+      ),
+    });
     return toMessage(row);
   });
+  await dispatchMessagePushes(message.id).catch(() => {
+    console.warn("Message saved; push dispatch will retry");
+  });
+  return message;
 }
 
 export async function readDirectMessages(

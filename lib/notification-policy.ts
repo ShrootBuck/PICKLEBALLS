@@ -23,6 +23,8 @@ export function notificationInboxSince(now = Date.now()) {
 }
 
 export type NotificationPrefs = {
+  directMessages: boolean;
+  groupMessages: boolean;
   proofsSubmitted: boolean;
   streakReminders: boolean;
   streakWarnings: boolean;
@@ -32,6 +34,8 @@ export type NotificationPrefs = {
 };
 
 export const defaultNotificationPrefs: NotificationPrefs = {
+  directMessages: true,
+  groupMessages: true,
   proofsSubmitted: true,
   streakReminders: true,
   streakWarnings: true,

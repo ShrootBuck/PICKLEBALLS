@@ -3,6 +3,8 @@
 import { ImagePlus } from "lucide-react";
 import { UploadStatus } from "@/components/media/upload-status";
 import { useMessages } from "@/components/messages/message-provider";
+import { MessageSenderAvatar } from "@/components/messages/message-sender-avatar";
+import { useSocial } from "@/components/social/social-provider";
 import {
   Attachment,
   AttachmentContent,
@@ -21,9 +23,11 @@ import type { OutgoingMessage } from "@/lib/message-outbox";
 
 export function PendingMessage({ item }: { item: OutgoingMessage }) {
   const { store } = useMessages();
+  const { viewer } = useSocial();
   const failed = item.state === "failed";
   return (
     <Message align="end" data-send-state={item.state}>
+      <MessageSenderAvatar sender={viewer} />
       <MessageContent className="dm-message-content">
         <Bubble variant={failed ? "outline" : "default"} align="end">
           {item.body && (

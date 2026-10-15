@@ -56,6 +56,8 @@ await register("process-media");
 await register("read-screen-time");
 await register("publish-media-proof", 5);
 await register("notification", 3);
+await register("message-notification", 3);
+await register("recover-message-pushes");
 await register("reconcile-missed-tasks");
 await register("prune-expired-data");
 await register("recover-media-posts");
@@ -70,6 +72,17 @@ await boss.work<JobPayloads["publish-media-proof"]>(
   async ([job]) => markProofFailed(job.data),
 );
 if (process.env.WORKER_SCHEDULES_ENABLED === "true") {
+  await boss.schedule(
+    "recover-message-pushes",
+    "* * * * *",
+    {},
+    {
+      tz: "UTC",
+      singletonKey: "schedule",
+      group: { id: "recover-message-pushes" },
+      missed: "once",
+    },
+  );
   await boss.schedule(
     "reconcile-missed-tasks",
     "0 * * * *",
@@ -120,6 +133,7 @@ if (process.env.WORKER_SCHEDULES_ENABLED === "true") {
     "prune-expired-data",
     "recover-media-posts",
     "streak-reminders",
+    "recover-message-pushes",
   ])
     await boss.unschedule(name);
 }

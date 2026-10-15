@@ -16,6 +16,8 @@ export type JobPayloads = {
   "process-media": { id: string; attempt: number };
   "publish-media-proof": { id: string; attempt: number };
   notification: { notificationId: string };
+  "message-notification": { deliveryId: string };
+  "recover-message-pushes": Record<string, never>;
   "reconcile-missed-tasks": Record<string, never>;
   "prune-expired-data": Record<string, never>;
   "recover-media-posts": Record<string, never>;
@@ -35,6 +37,12 @@ export const queues: Record<JobName, Omit<Queue, "name">> = {
     deadLetter: "proof-failures",
   },
   notification: { policy: "exclusive", expireInSeconds: 120 },
+  "message-notification": {
+    policy: "exclusive",
+    expireInSeconds: 120,
+    retryLimit: 0,
+  },
+  "recover-message-pushes": { policy: "exclusive", expireInSeconds: 120 },
   "reconcile-missed-tasks": { policy: "exclusive", expireInSeconds: 3600 },
   "prune-expired-data": { policy: "exclusive", expireInSeconds: 600 },
   "recover-media-posts": { policy: "exclusive", expireInSeconds: 300 },

@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1792103580778,
+    title: "Message notifications",
+    description:
+      "Get push alerts for new DMs and circle group messages, then tap an alert to open the chat. Enable device notifications from the bell or Settings, and choose DM and group alerts separately.",
+  },
+  {
     timestamp: 1792042512200,
     title: "Name your circle",
     description:
