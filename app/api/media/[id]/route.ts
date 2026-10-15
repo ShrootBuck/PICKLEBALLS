@@ -3,7 +3,7 @@ import { DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { jsonError, readJson } from "@/lib/api";
 import { DomainError } from "@/lib/errors";
 import { sanitizeImage } from "@/lib/image";
-import { authorizedMedia } from "@/lib/media-access";
+import { authorizedMedia, ownedMediaScope } from "@/lib/media-access";
 import { startMediaProcessing } from "@/lib/media-dispatch";
 import { completeMediaUpload, signMediaPart } from "@/lib/media-multipart";
 import { mediaVersion, playbackTicket } from "@/lib/media-playback";
@@ -28,8 +28,7 @@ export async function POST(request: Request, context: Context) {
     const ticket = await getPrisma().mediaUpload.findFirst({
       where: {
         id,
-        ownerId: auth.session.user.id,
-        circleId: auth.membership.circleId,
+        ...ownedMediaScope(auth.session.user.id, auth.membership.circleId),
       },
     });
     if (!ticket) throw new DomainError("Upload not found.", 404);
@@ -103,6 +102,15 @@ export async function GET(request: Request, context: Context) {
     const { id } = await context.params;
     const media = await authorizedMedia(request.headers, id);
     if (!media) return Response.json({ error: "Not found." }, { status: 404 });
+    const protectPrivateMedia = (response: Response) => {
+      // Never reuse a cached DM attachment after signing into another account.
+      if (media.directConversationId)
+        response.headers.set(
+          "cache-control",
+          "private, no-store, no-transform",
+        );
+      return response;
+    };
     if (new URL(request.url).searchParams.get("playback") === "1") {
       return Response.json(await playbackTicket(media), {
         headers: { "cache-control": "private, no-store" },
@@ -111,16 +119,22 @@ export async function GET(request: Request, context: Context) {
     if (new URL(request.url).searchParams.get("poster") === "1") {
       if (!media.posterKey)
         return Response.json({ error: "No poster." }, { status: 404 });
-      return immutableImageResponse(media.posterKey, "image/webp");
+      return protectPrivateMedia(
+        await immutableImageResponse(media.posterKey, "image/webp"),
+      );
     }
     if (media.mimeType.startsWith("image/"))
-      return await immutableImageResponse(media.objectKey, media.mimeType);
-    return await videoResponse(
-      media.objectKey,
-      media.mimeType,
-      request,
-      new URL(request.url).searchParams.get("v") ===
-        mediaVersion(media.objectKey),
+      return protectPrivateMedia(
+        await immutableImageResponse(media.objectKey, media.mimeType),
+      );
+    return protectPrivateMedia(
+      await videoResponse(
+        media.objectKey,
+        media.mimeType,
+        request,
+        new URL(request.url).searchParams.get("v") ===
+          mediaVersion(media.objectKey),
+      ),
     );
   } catch (error) {
     return jsonError(error);
@@ -137,8 +151,7 @@ export async function PATCH(request: Request, context: Context) {
     const media = await getPrisma().mediaUpload.findFirst({
       where: {
         id,
-        ownerId: auth.session.user.id,
-        circleId: auth.membership.circleId,
+        ...ownedMediaScope(auth.session.user.id, auth.membership.circleId),
       },
     });
     if (!media) throw new DomainError("Upload not found.", 404);

@@ -10,6 +10,7 @@ import {
   History,
   LayoutGrid,
   type LucideIcon,
+  MessageCircle,
   Mountain,
   Newspaper,
   Plus,
@@ -63,6 +64,7 @@ export const navIcons: Record<NavItemId, LucideIcon> = {
   goals: Target,
   streaks: Flame,
   feed: Newspaper,
+  messages: MessageCircle,
   review: CheckCheck,
   members: Users,
   "bucket-list": Mountain,
@@ -75,7 +77,7 @@ export const navIcons: Record<NavItemId, LucideIcon> = {
   superadmin: Gauge,
 };
 
-export type NavCounts = { verdicts: number; votes: number };
+export type NavCounts = { verdicts: number; votes: number; messages: number };
 type NavigationProps = {
   items: NavItem[];
   active: NavItemId | null;
@@ -89,6 +91,7 @@ const groups: { label: string; sections: NavSectionId[] }[] = [
 ];
 
 function countLabel(item: NavItem, count: number) {
+  if (item.badge === "messages") return `${count} unread messages`;
   return item.badge === "verdicts"
     ? `${count} ${count === 1 ? "proof" : "proofs"} to review`
     : `${count} bucket list ${count === 1 ? "vote" : "votes"} waiting on you`;

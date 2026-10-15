@@ -11,6 +11,7 @@ export const mediaIdsSchema = z
   .refine((ids) => new Set(ids).size === ids.length, "Duplicate attachments.");
 export const uploadTicketSchema = z
   .object({
+    directConversationId: z.string().min(1).max(100).optional(),
     mimeType: z.enum([
       "image/jpeg",
       "image/png",

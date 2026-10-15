@@ -8,8 +8,7 @@ export async function GET(request: Request) {
   const media = await getPrisma().mediaUpload.findMany({
     where: {
       id: { in: ids },
-      ownerId: auth.session.user.id,
-      circleId: auth.membership.circleId,
+      ...ownedMediaScope(auth.session.user.id, auth.membership.circleId),
     },
     select: { id: true, ready: true, progress: true, processingError: true },
   });
@@ -18,3 +17,5 @@ export async function GET(request: Request) {
     { headers: { "cache-control": "private, no-store" } },
   );
 }
+
+import { ownedMediaScope } from "@/lib/media-access";

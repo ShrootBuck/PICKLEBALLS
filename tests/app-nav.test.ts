@@ -19,6 +19,7 @@ describe("app navigation", () => {
     expect(active("/goals/abc")).toBe("goals");
     expect(active("/streaks/abc?circle=c")).toBe("streaks");
     expect(active("/feed")).toBe("feed");
+    expect(active("/messages?chat=abc")).toBe("messages");
     expect(active("/posts/proof/abc?circle=c")).toBe("feed");
     expect(active("/squad")).toBe("review");
     expect(active("/squad?view=members")).toBe("members");
@@ -38,6 +39,7 @@ describe("app navigation", () => {
   test("groups items into the four tab bar sections", () => {
     expect(navSectionOf("timeblock")).toBe("today");
     expect(navSectionOf("feed")).toBe("feed");
+    expect(navSectionOf("messages")).toBe("feed");
     expect(navSectionOf("bucket-list")).toBe("squad");
     expect(navSectionOf("settings")).toBe("you");
     expect(navSectionOf(null)).toBeNull();
@@ -58,6 +60,7 @@ describe("app navigation", () => {
     expect(pageLayout("profile")).toBe("panel");
     expect(pageLayout("today")).toBe("wide");
     expect(pageLayout("timeblock")).toBe("wide");
+    expect(pageLayout("messages")).toBe("wide");
     expect(pageLayout("settings")).toBe("wide");
     expect(pageLayout("members")).toBe("wide");
     expect(pageLayout("bucket-list")).toBe("wide");

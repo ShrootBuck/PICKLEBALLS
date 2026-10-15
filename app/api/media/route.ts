@@ -7,6 +7,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { jsonError, readJson } from "@/lib/api";
 import { queueObjectDeletion } from "@/lib/deletion-storage";
 import { deletionMembership } from "@/lib/deletions";
+import { requireDirectConversation } from "@/lib/direct-messages";
 import { DomainError } from "@/lib/errors";
 import { mediaPartBytes, uploadTicketSchema } from "@/lib/media-policy";
 import { workerAvailable } from "@/lib/queue";
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
       throw new DomainError(
         "Choose a supported photo or video within the size limit.",
       );
-    const input = parsed.data;
+    const { directConversationId, ...input } = parsed.data;
     const { client, publicClient, bucket } = r2();
     const id = `${input.mimeType.startsWith("video/") ? "v" : "i"}_${randomUUID()}`;
     const key = `staging/${id}`;
@@ -63,16 +64,25 @@ export async function POST(request: Request) {
         );
     try {
       await serializable(async (tx) => {
-        await deletionMembership(
-          tx,
-          auth.session.user.id,
-          auth.membership.circleId,
-        );
+        if (directConversationId) {
+          await requireDirectConversation(
+            tx,
+            directConversationId,
+            auth.session.user.id,
+          );
+        } else {
+          await deletionMembership(
+            tx,
+            auth.session.user.id,
+            auth.membership.circleId,
+          );
+        }
         await tx.mediaUpload.create({
           data: {
             id,
             ownerId: auth.session.user.id,
-            circleId: auth.membership.circleId,
+            circleId: directConversationId ? null : auth.membership.circleId,
+            directConversationId,
             ...input,
             objectKey: key,
             uploadId: multipart?.UploadId,

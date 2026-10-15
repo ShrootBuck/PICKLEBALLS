@@ -289,7 +289,17 @@ export async function deleteOwnAccount(
           { screenTimeSubmission: { userId } },
         ],
       });
-      await deleteMediaRows(tx, { ownerId: userId });
+      // Conversations cascade with either account, including the other sender's files.
+      await deleteMediaRows(tx, {
+        OR: [
+          { ownerId: userId },
+          {
+            directConversation: {
+              OR: [{ userAId: userId }, { userBId: userId }],
+            },
+          },
+        ],
+      });
       await tx.pendingProof.deleteMany({ where: { ownerId: userId } });
       const files = await tx.timeblockChatAttachment.findMany({
         where: { chat: { userId } },

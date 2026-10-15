@@ -7,6 +7,7 @@ import {
 import { prepareProofPhoto } from "@/lib/proof-upload";
 
 type UploadState = {
+  scope?: string;
   id: string;
   url?: string;
   partSize?: number;
@@ -113,7 +114,7 @@ async function checkMediaReady(id: string) {
 export async function uploadMedia(
   files: File[],
   onProgress?: (message: string, percent?: number) => void,
-  options?: { deferProcessing?: boolean },
+  options?: { deferProcessing?: boolean; directConversationId?: string },
 ) {
   const release = holdAppRefresh();
   const warn = (event: BeforeUnloadEvent) => {
@@ -127,6 +128,7 @@ export async function uploadMedia(
     const ids: string[] = [];
     for (const [index, source] of files.entries()) {
       let state = uploads.get(source);
+      if (state?.scope !== options?.directConversationId) state = undefined;
       if (!state) {
         onProgress?.(`Preparing ${index + 1} of ${files.length}…`);
         const file = source.type.startsWith("image/")
@@ -141,8 +143,17 @@ export async function uploadMedia(
           throw new Error(
             "Use a supported photo up to 100 MB or video up to 5 GB.",
           );
-        const ticket = await jsonRequest("/api/media", "POST", input.data);
-        state = { ...ticket, file, parts: new Set(), finalized: false };
+        const ticket = await jsonRequest("/api/media", "POST", {
+          ...input.data,
+          directConversationId: options?.directConversationId,
+        });
+        state = {
+          ...ticket,
+          scope: options?.directConversationId,
+          file,
+          parts: new Set(),
+          finalized: false,
+        };
         uploads.set(source, state as UploadState);
       }
       const current = state as UploadState;

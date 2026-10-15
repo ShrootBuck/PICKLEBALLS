@@ -1,5 +1,7 @@
 "use client";
 
+import { MessageCircle } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   type ReactNode,
@@ -21,6 +23,8 @@ import {
 } from "@/components/layout/circle-switcher";
 import { TodayPanel } from "@/components/layout/today-panel";
 import { useSocial } from "@/components/social/social-provider";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { StopwatchBar } from "@/components/work-sessions/stopwatch-bar";
 import {
   activeNavItem,
@@ -30,6 +34,7 @@ import {
   pageLayout,
   visibleNavItems,
 } from "@/lib/app-nav";
+import { useDirectUnread } from "@/lib/direct-message-client";
 import { cn } from "@/lib/utils";
 
 export function AppShell({
@@ -62,7 +67,12 @@ export function AppShell({
   const active = activeNavItem(pathname, searchParams);
   const section = navSectionOf(active);
   const layout = pageLayout(active, pathname);
-  const counts: NavCounts = { verdicts: pendingVerdicts, votes: bucketVotes };
+  const unreadMessages = useDirectUnread();
+  const counts: NavCounts = {
+    verdicts: pendingVerdicts,
+    votes: bucketVotes,
+    messages: unreadMessages,
+  };
   const activeItem = navItems.find((item) => item.id === active);
   const sectionLabel = navSections.find((item) => item.id === section)?.label;
 
@@ -188,6 +198,25 @@ export function AppShell({
               counts={counts}
               onReselect={scrollToTop}
             />
+            <Link
+              href="/messages"
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "icon" }),
+                "relative",
+              )}
+              aria-label={
+                unreadMessages
+                  ? `Messages, ${unreadMessages} unread`
+                  : "Open messages"
+              }
+            >
+              <MessageCircle />
+              {unreadMessages > 0 && (
+                <Badge className="nav-count">
+                  {unreadMessages > 99 ? "99+" : unreadMessages}
+                </Badge>
+              )}
+            </Link>
             {bell}
           </div>
         </header>

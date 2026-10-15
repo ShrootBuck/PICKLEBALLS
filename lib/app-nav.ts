@@ -6,6 +6,7 @@ export type NavItemId =
   | "goals"
   | "streaks"
   | "feed"
+  | "messages"
   | "review"
   | "members"
   | "bucket-list"
@@ -22,7 +23,7 @@ export type NavItem = {
   label: string;
   href: string;
   section: NavSectionId;
-  badge?: "verdicts" | "votes";
+  badge?: "verdicts" | "votes" | "messages";
   access?: "owner" | "superadmin";
 };
 
@@ -43,6 +44,13 @@ export const navItems: NavItem[] = [
   { id: "goals", label: "Goals", href: "/goals", section: "today" },
   { id: "streaks", label: "Streaks", href: "/streaks", section: "today" },
   { id: "feed", label: "Feed", href: "/feed", section: "feed" },
+  {
+    id: "messages",
+    label: "Messages",
+    href: "/messages",
+    section: "feed",
+    badge: "messages",
+  },
   {
     id: "review",
     label: "Review",
@@ -101,6 +109,7 @@ export function activeNavItem(
   if (under(pathname, "/timeblock")) return "timeblock";
   if (under(pathname, "/goals")) return "goals";
   if (under(pathname, "/streaks")) return "streaks";
+  if (under(pathname, "/messages")) return "messages";
   if (under(pathname, "/feed") || under(pathname, "/posts")) return "feed";
   if (under(pathname, "/squad")) {
     const view = search.get("view");
@@ -143,6 +152,7 @@ export function visibleNavItems(access: {
 const widePages = new Set<NavItemId>([
   "today",
   "timeblock",
+  "messages",
   "goals",
   "streaks",
   "members",

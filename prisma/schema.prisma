@@ -155,6 +155,11 @@ model User {
   streaks             Streak[]
   streakEvents        StreakEvent[]
   streakNudgesSent    StreakNudge[]        @relation("StreakNudgesSent")
+  directConversationsA DirectConversation[] @relation("DirectUserA")
+  directConversationsB DirectConversation[] @relation("DirectUserB")
+  directMessagesSent DirectMessage[] @relation("DirectSender")
+  directMessagesReceived DirectMessage[] @relation("DirectRecipient")
+  directReactions DirectReaction[]
 }
 
 model Session {
@@ -770,11 +775,13 @@ model NotificationPreference {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Upload tickets are private until finalized and claimed by a post.
+// Upload tickets belong to either a circle or a private conversation.
 model MediaUpload {
   id String @id
   ownerId String
-  circleId String
+  circleId String?
+  directConversationId String?
+  directConversation DirectConversation? @relation(fields: [directConversationId], references: [id], onDelete: Cascade)
   mimeType String
   sizeBytes BigInt
   objectKey String @unique
@@ -790,6 +797,59 @@ model MediaUpload {
   duration Float?
   pendingProofId String?
   @@index([ownerId, circleId])
+  @@index([directConversationId])
+}
+
+// Exactly two users, stored in canonical order so there is one chat per pair.
+model DirectConversation {
+  id String @id @default(cuid())
+  userAId String
+  userBId String
+  sequence Int @default(0)
+  revision Int @default(0)
+  createdAt DateTime @default(now())
+  lastMessageAt DateTime @default(now())
+  userA User @relation("DirectUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("DirectUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages DirectMessage[]
+  uploads MediaUpload[]
+  @@unique([userAId, userBId])
+  @@index([userAId, lastMessageAt])
+  @@index([userBId, lastMessageAt])
+}
+
+model DirectMessage {
+  id String @id @default(cuid())
+  conversationId String
+  senderId String
+  recipientId String
+  clientId String
+  sequence Int
+  revision Int
+  body String @db.VarChar(4000)
+  mediaIds String[] @default([])
+  createdAt DateTime @default(now())
+  readAt DateTime?
+  deletedAt DateTime?
+  conversation DirectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender User @relation("DirectSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient User @relation("DirectRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  reactions DirectReaction[]
+  @@unique([conversationId, sequence])
+  @@unique([conversationId, senderId, clientId])
+  @@index([conversationId, revision])
+  @@index([recipientId, readAt])
+  @@index([senderId])
+}
+
+model DirectReaction {
+  messageId String
+  userId String
+  emoji String @db.VarChar(16)
+  message DirectMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([messageId, userId])
+  @@index([userId])
 }
 
 // A private submission, published atomically only after all attachments are ready.

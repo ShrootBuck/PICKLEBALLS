@@ -3,6 +3,7 @@ import {
   CheckSquare,
   Flame,
   Image,
+  MessageCircle,
   Plus,
   Settings,
   Smartphone,
@@ -177,6 +178,14 @@ export async function MemberProfile({
             </span>
           </p>
         </div>
+        {!mine && (
+          <Link
+            href={`/messages?to=${encodeURIComponent(id)}`}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            <MessageCircle data-icon="inline-start" /> Message
+          </Link>
+        )}
         {mine && (
           <Link
             href="/settings"

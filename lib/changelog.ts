@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1792034200078,
+    title: "A chat for just the two of you",
+    description:
+      "Message anyone in your circles one on one. Share photos and videos, react with an emoji, and find unread chats in Messages. Start a conversation from someone's profile, and pick it up again from any of your circles.",
+  },
+  {
     timestamp: 1792027202549,
     title: "Streaks that fit your schedule",
     description:
