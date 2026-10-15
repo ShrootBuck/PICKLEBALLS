@@ -24,6 +24,7 @@ export type DirectPerson = {
 };
 export type DirectMessageItem = {
   id: string;
+  clientId: string;
   senderId: string | null;
   sender: DirectPerson | null;
   sequence: number;
@@ -84,4 +85,24 @@ export function mergeDirectMessages(
     if (!previous || row.revision >= previous.revision) rows.set(row.id, row);
   }
   return [...rows.values()].sort((a, b) => a.sequence - b.sequence);
+}
+
+// Keep the read boundary visible while newer outgoing messages are still unread.
+export function messageReceipts(
+  messages: DirectMessageItem[],
+  viewerId: string,
+  readThrough: number,
+  direct: boolean,
+) {
+  const receipts = new Map<string, "Sent" | "Seen">();
+  const own = messages.filter(
+    (message) => message.senderId === viewerId && !message.deletedAt,
+  );
+  const latest = own.at(-1);
+  const seen = direct
+    ? own.findLast((message) => message.sequence <= readThrough)
+    : undefined;
+  if (latest) receipts.set(latest.id, "Sent");
+  if (seen) receipts.set(seen.id, "Seen");
+  return receipts;
 }

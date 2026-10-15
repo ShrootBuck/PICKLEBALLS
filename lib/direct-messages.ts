@@ -22,6 +22,7 @@ const personSelect = {
 } as const;
 const messageSelect = {
   id: true,
+  clientId: true,
   senderId: true,
   sender: { select: personSelect },
   sequence: true,

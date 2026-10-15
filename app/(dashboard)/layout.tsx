@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { BellSlot } from "@/components/layout/bell-slot";
+import { MessageProvider } from "@/components/messages/message-provider";
 import { SocialProvider } from "@/components/social/social-provider";
 import { StreakCelebrationHost } from "@/components/streaks/streak-celebration";
 import { countBucketVotesAwaiting } from "@/lib/bucket-list-data";
@@ -52,32 +53,34 @@ export default async function DashboardLayout({
   ]);
   const { id, name, image, initials } = membership.user;
   return (
-    <SocialProvider
-      key={`${id}:${membership.circleId}`}
-      viewer={{ id, name, image, initials }}
-      circleId={membership.circleId}
-      day={day}
-      tasks={tasks.map(toSocialTask)}
-      initialActiveWorkSession={activeWorkSession}
-    >
-      <AppShell
-        circles={memberships.map(({ circle, role }) => ({
-          id: circle.id,
-          name: circle.name,
-          role,
-        }))}
-        pendingVerdicts={pendingVerdicts}
-        bucketVotes={bucketVotes}
-        superAdmin={superAdmin}
-        bell={
-          <Suspense fallback={null}>
-            <BellSlot circleId={membership.circleId} userId={id} />
-          </Suspense>
-        }
+    <MessageProvider key={id} userId={id}>
+      <SocialProvider
+        key={`${id}:${membership.circleId}`}
+        viewer={{ id, name, image, initials }}
+        circleId={membership.circleId}
+        day={day}
+        tasks={tasks.map(toSocialTask)}
+        initialActiveWorkSession={activeWorkSession}
       >
-        {children}
-      </AppShell>
-      <StreakCelebrationHost />
-    </SocialProvider>
+        <AppShell
+          circles={memberships.map(({ circle, role }) => ({
+            id: circle.id,
+            name: circle.name,
+            role,
+          }))}
+          pendingVerdicts={pendingVerdicts}
+          bucketVotes={bucketVotes}
+          superAdmin={superAdmin}
+          bell={
+            <Suspense fallback={null}>
+              <BellSlot circleId={membership.circleId} userId={id} />
+            </Suspense>
+          }
+        >
+          {children}
+        </AppShell>
+        <StreakCelebrationHost />
+      </SocialProvider>
+    </MessageProvider>
   );
 }

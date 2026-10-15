@@ -4,6 +4,7 @@ import {
   type DirectMessageItem,
   directMessageSchema,
   mergeDirectMessages,
+  messageReceipts,
 } from "@/lib/direct-message-types";
 
 test("blank messages, excessive text, duplicate files, and invalid attachment ids are rejected", () => {
@@ -30,6 +31,7 @@ test("blank messages, excessive text, duplicate files, and invalid attachment id
 test("an older fetch cannot resurrect a deleted message or undo a reaction; new messages sort by sequence", () => {
   const original: DirectMessageItem = {
     id: "a",
+    clientId: randomUUID(),
     senderId: "user",
     sender: { id: "user", name: "User", image: null, initials: "U" },
     sequence: 1,
@@ -56,5 +58,45 @@ test("an older fetch cannot resurrect a deleted message or undo a reaction; new 
   expect(mergeDirectMessages([newer], [deleted], "history")).toEqual([
     deleted,
     newer,
+  ]);
+});
+
+test("read receipts keep the last seen boundary alongside newer unread sends", () => {
+  const message = (
+    id: string,
+    sequence: number,
+    senderId = "me",
+    deletedAt: string | null = null,
+  ): DirectMessageItem => ({
+    id,
+    clientId: randomUUID(),
+    sequence,
+    senderId,
+    deletedAt,
+    sender: null,
+    revision: sequence,
+    body: id,
+    mediaIds: [],
+    reactions: [],
+    createdAt: new Date().toISOString(),
+  });
+  const messages = [
+    message("read", 1),
+    message("reply", 2, "peer"),
+    message("unread", 3),
+    message("deleted", 4, "me", "2026-10-15"),
+  ];
+  expect([...messageReceipts(messages, "me", 2, true)]).toEqual([
+    ["unread", "Sent"],
+    ["read", "Seen"],
+  ]);
+  expect([...messageReceipts(messages, "me", 4, true)]).toEqual([
+    ["unread", "Seen"],
+  ]);
+  expect([...messageReceipts(messages, "me", 0, true)]).toEqual([
+    ["unread", "Sent"],
+  ]);
+  expect([...messageReceipts(messages, "me", 4, false)]).toEqual([
+    ["unread", "Sent"],
   ]);
 });

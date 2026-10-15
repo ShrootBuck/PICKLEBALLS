@@ -3,8 +3,8 @@
 import { MessageCircle, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import type { MessageDraft } from "@/components/messages/message-composer";
+import { useEffect, useState } from "react";
+import { useMessages } from "@/components/messages/message-provider";
 import { MessageThread } from "@/components/messages/message-thread";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +47,7 @@ export function MessagesInbox({
   const requested = search.get("chat");
   const to = search.get("to");
   const [inbox, setInbox] = useState(initialInbox);
+  const { drafts, outbox } = useMessages();
   const selected = inbox.find((chat) => chat.id === requested)?.id;
   const [query, setQuery] = useState("");
   const [refreshError, setRefreshError] = useState(false);
@@ -68,7 +69,6 @@ export function MessagesInbox({
       document.removeEventListener("visibilitychange", update);
     };
   }, []);
-  const drafts = useRef(new Map<string, MessageDraft>());
   // Profile links select a conversation that is already in the directory.
   useEffect(() => {
     if (!to) return;
@@ -112,6 +112,12 @@ export function MessagesInbox({
 
   function conversation(item: DirectInboxItem) {
     const name = conversationName(item);
+    const pending = outbox.filter(
+      (message) =>
+        message.conversationId === item.id && message.state !== "sent",
+    );
+    const failed = pending.some((message) => message.state === "failed");
+    const draft = drafts[item.id];
     return (
       <Link
         key={item.id}
@@ -156,12 +162,22 @@ export function MessagesInbox({
           </div>
           <div className="flex items-center gap-2">
             <p className={cn("dm-preview", item.unread > 0 && "is-unread")}>
-              {item.lastMessage?.senderId === viewerId
-                ? "You: "
-                : item.kind === "group" && item.lastMessage?.sender
-                  ? `${item.lastMessage.sender.name.split(" ")[0]}: `
-                  : ""}
-              {messagePreview(item.lastMessage)}
+              {failed ? (
+                "Message not sent. Open to retry."
+              ) : pending.length ? (
+                `Sending: ${pending.at(-1)?.body || "Attachment"}`
+              ) : draft ? (
+                `Draft: ${draft.body || "Attachment"}`
+              ) : (
+                <>
+                  {item.lastMessage?.senderId === viewerId
+                    ? "You: "
+                    : item.kind === "group" && item.lastMessage?.sender
+                      ? `${item.lastMessage.sender.name.split(" ")[0]}: `
+                      : ""}
+                  {messagePreview(item.lastMessage)}
+                </>
+              )}
             </p>
             {item.unread > 0 && (
               <Badge aria-label={`${item.unread} unread messages`}>
@@ -216,12 +232,7 @@ export function MessagesInbox({
         </nav>
       </aside>
       {selected ? (
-        <MessageThread
-          key={selected}
-          id={selected}
-          viewerId={viewerId}
-          drafts={drafts}
-        />
+        <MessageThread key={selected} id={selected} viewerId={viewerId} />
       ) : (
         <div className="dm-idle">
           <Empty className="dm-idle-empty">

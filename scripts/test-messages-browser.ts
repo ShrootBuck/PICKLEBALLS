@@ -49,6 +49,10 @@ try {
   await page
     .getByRole("textbox", { name: "Search conversations" })
     .fill("Eddie");
+  await directory
+    .getByRole("link")
+    .filter({ hasText: "Sam" })
+    .waitFor({ state: "hidden" });
   assert.equal(await directory.getByRole("link").count(), 2);
   assert.equal(
     await page
@@ -81,7 +85,9 @@ try {
   await composer.fill(body);
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await conversation
-    .locator('[data-slot="bubble-content"]')
+    .locator(
+      '[data-message-id]:not([data-message-id^="pending-"]) [data-slot="bubble-content"]',
+    )
     .filter({ hasText: body })
     .waitFor();
   let thread = await (
@@ -170,14 +176,17 @@ try {
   const retryBody = `Retry without a double send ${randomUUID().slice(0, 8)}`;
   await composer.fill(retryBody);
   await page.getByRole("button", { name: "Send message", exact: true }).click();
-  await page.locator(".dm-composer [role=alert]").waitFor();
-  assert.equal(await composer.inputValue(), retryBody);
-  await page.getByRole("button", { name: "Send message", exact: true }).click();
-  await page.waitForFunction(
-    () =>
-      (document.querySelector(".dm-textarea") as HTMLTextAreaElement)?.value ===
-      "",
-  );
+  // Realtime recognizes the committed clientId even when the response is lost.
+  await conversation
+    .locator(
+      '[data-message-id]:not([data-message-id^="pending-"]) [data-slot="bubble-content"]',
+    )
+    .filter({ hasText: retryBody })
+    .waitFor();
+  await page
+    .getByRole("button", { name: "Retry send", exact: true })
+    .waitFor({ state: "hidden" });
+  assert.equal(await composer.inputValue(), "");
   await page.unroute(`**/api/messages/${id}`);
   thread = await (await you.request.get(`${app}/api/messages/${id}`)).json();
   assert.equal(
@@ -201,7 +210,8 @@ try {
   await page.waitForFunction(
     () =>
       document.querySelectorAll('.dm-composer [data-slot="attachment"]')
-        .length === 0,
+        .length === 0 &&
+      document.querySelectorAll("[data-send-state]").length === 0,
   );
   thread = await (await you.request.get(`${app}/api/messages/${id}`)).json();
   const imageMessage = thread.messages.findLast(
@@ -462,7 +472,8 @@ try {
   await page.waitForFunction(
     () =>
       document.querySelectorAll('.dm-composer [data-slot="attachment"]')
-        .length === 0,
+        .length === 0 &&
+      document.querySelectorAll("[data-send-state]").length === 0,
   );
   const groupThread = await (
     await you.request.get(`${app}/api/messages/${groupId}`)

@@ -2,13 +2,18 @@
 
 import { ArrowLeft, MessageCircle, RefreshCw, Users } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { RealtimeStatus } from "@/components/layout/realtime-provider";
 import { DirectMessage } from "@/components/messages/direct-message";
-import {
-  MessageComposer,
-  type MessageDrafts,
-} from "@/components/messages/message-composer";
+import { MessageComposer } from "@/components/messages/message-composer";
+import { useMessages } from "@/components/messages/message-provider";
+import { PendingMessage } from "@/components/messages/pending-message";
 import { usePeerTyping } from "@/components/messages/use-typing";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -32,12 +37,17 @@ import {
   useMessageScrollerVisibility,
 } from "@/components/ui/message-scroller";
 import { Skeleton } from "@/components/ui/skeleton";
-import { messageRequest, messagesChanged } from "@/lib/direct-message-client";
+import {
+  messageRequest,
+  messagesChanged,
+  messagesChangedEvent,
+} from "@/lib/direct-message-client";
 import {
   conversationName,
   type DirectMessageItem,
   type DirectThread,
   mergeDirectMessages,
+  messageReceipts,
 } from "@/lib/direct-message-types";
 import { cn } from "@/lib/utils";
 import { watchRealtime } from "@/lib/watch-realtime";
@@ -85,15 +95,7 @@ function ReadMessages({
   return null;
 }
 
-function ThreadContents({
-  id,
-  viewerId,
-  drafts,
-}: {
-  id: string;
-  viewerId: string;
-  drafts: MessageDrafts;
-}) {
+function ThreadContents({ id, viewerId }: { id: string; viewerId: string }) {
   const [thread, setThread] = useState<DirectThread | null>(null);
   const [error, setError] = useState("");
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -101,7 +103,59 @@ function ThreadContents({
   const live = useRef<ReturnType<typeof watchRealtime> | null>(null);
   const mounted = useRef(true);
   const typing = usePeerTyping(id, viewerId);
-  const { scrollToEnd } = useMessageScroller();
+  const { store, outbox } = useMessages();
+  const outgoing = outbox.filter((item) => item.conversationId === id);
+  const messages = mergeDirectMessages(
+    thread?.messages ?? [],
+    outgoing.flatMap((item) => (item.message ? [item.message] : [])),
+  );
+  const confirmed = new Set(
+    messages
+      .filter((item) => item.senderId === viewerId)
+      .map((item) => item.clientId),
+  );
+  const pending = outgoing.filter((item) => !confirmed.has(item.clientId));
+  const receipts = messageReceipts(
+    messages,
+    viewerId,
+    thread?.readThrough ?? 0,
+    thread?.kind === "direct",
+  );
+  useEffect(() => {
+    if (thread) store.acknowledge(id, thread.messages, viewerId);
+  }, [thread, store, viewerId, id]);
+  const { scrollToEnd, scrollToMessage } = useMessageScroller();
+  const viewport = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const historyAnchor = useRef<{ id: string; top: number } | null>(null);
+  useLayoutEffect(() => {
+    const anchor = historyAnchor.current;
+    if (!anchor || !viewport.current || !content.current || !thread) return;
+    // Let the primitive finish its prepend anchoring before correcting the
+    // date-heading offset. Otherwise its mutation observer undoes this jump.
+    const frame = requestAnimationFrame(() => {
+      const list = content.current;
+      const scrollport = viewport.current;
+      if (!list || !scrollport) return;
+      const row = list.querySelector<HTMLElement>(
+        `[data-message-id="${CSS.escape(anchor.id)}"]`,
+      );
+      const bubble = row?.querySelector<HTMLElement>('[data-slot="message"]');
+      if (!row || !bubble) return;
+      const inset =
+        bubble.getBoundingClientRect().top - row.getBoundingClientRect().top;
+      const padding =
+        Number.parseFloat(getComputedStyle(list).paddingBlockStart) || 0;
+      scrollToMessage(anchor.id, {
+        align: "start",
+        behavior: "instant",
+        scrollMargin:
+          anchor.top - scrollport.getBoundingClientRect().top - inset - padding,
+      });
+      historyAnchor.current = null;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [thread, scrollToMessage]);
   const readThread = useCallback(async () => {
     try {
       let more = true;
@@ -120,7 +174,7 @@ function ThreadContents({
                   ? { kind: result.kind, group: result.group, person: null }
                   : { kind: result.kind, person: result.person, group: null }),
                 revision: result.revision,
-                readThrough: result.readThrough,
+                readThrough: Math.max(current.readThrough, result.readThrough),
                 messages: mergeDirectMessages(
                   current.messages,
                   result.messages,
@@ -151,6 +205,7 @@ function ThreadContents({
         (event.type === "messages" &&
           (!event.conversationId || event.conversationId === id)) ||
         event.type === "refresh",
+      [messagesChangedEvent],
     );
     live.current = watcher;
     return () => {
@@ -159,14 +214,33 @@ function ThreadContents({
     };
   }, [readThread, id]);
   const refresh = () => live.current?.request();
+  function captureHistoryAnchor() {
+    const top = viewport.current?.getBoundingClientRect().top ?? 0;
+    const visible = Array.from(
+      content.current?.querySelectorAll<HTMLElement>(
+        '[data-slot="message-scroller-item"]',
+      ) ?? [],
+    ).find((row) => {
+      const bubble = row.querySelector('[data-slot="message"]');
+      return bubble && bubble.getBoundingClientRect().top >= top;
+    });
+    const bubble = visible?.querySelector('[data-slot="message"]');
+    return visible?.dataset.messageId && bubble
+      ? {
+          id: visible.dataset.messageId,
+          top: bubble.getBoundingClientRect().top,
+        }
+      : null;
+  }
   async function older() {
-    if (!thread || loadingOlder) return;
+    if (!thread || loadingOlder || !thread.messages.length) return;
     setLoadingOlder(true);
     try {
       const page = await messageRequest<DirectThread>(
         `/api/messages/${id}?before=${thread.messages[0]?.sequence}`,
       );
-      if (mounted.current)
+      if (mounted.current) {
+        historyAnchor.current = captureHistoryAnchor();
         setThread((current) =>
           current
             ? {
@@ -176,6 +250,7 @@ function ThreadContents({
               }
             : current,
         );
+      }
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -282,26 +357,28 @@ function ThreadContents({
         <>
           <div className="dm-thread-scroll">
             <MessageScroller>
+              {thread.hasMore && (
+                <div className="flex shrink-0 justify-center py-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={loadingOlder}
+                    onClick={() => void older()}
+                  >
+                    {loadingOlder ? "Loading…" : "Load older messages"}
+                  </Button>
+                </div>
+              )}
               <MessageScrollerViewport
+                ref={viewport}
                 preserveScrollOnPrepend
                 aria-label="Messages in this conversation"
               >
-                <MessageScrollerContent className="dm-message-list">
-                  {thread.hasMore && (
-                    <MessageScrollerItem messageId="older">
-                      <div className="flex justify-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={loadingOlder}
-                          onClick={() => void older()}
-                        >
-                          {loadingOlder ? "Loading…" : "Load older messages"}
-                        </Button>
-                      </div>
-                    </MessageScrollerItem>
-                  )}
-                  {!thread.messages.length && (
+                <MessageScrollerContent
+                  ref={content}
+                  className="dm-message-list"
+                >
+                  {!messages.length && !pending.length && (
                     <MessageScrollerItem messageId="intro">
                       <Empty className="dm-thread-empty">
                         <EmptyHeader>
@@ -322,7 +399,7 @@ function ThreadContents({
                       </Empty>
                     </MessageScrollerItem>
                   )}
-                  {thread.messages.map((message, index) => {
+                  {messages.map((message, index) => {
                     const date = new Date(message.createdAt).toLocaleDateString(
                       [],
                       {
@@ -332,7 +409,7 @@ function ThreadContents({
                         year: "numeric",
                       },
                     );
-                    const previous = thread.messages[index - 1];
+                    const previous = messages[index - 1];
                     const newDay =
                       !previous ||
                       new Date(previous.createdAt).toDateString() !==
@@ -341,6 +418,7 @@ function ThreadContents({
                       <MessageScrollerItem
                         key={message.id}
                         messageId={message.id}
+                        className="[content-visibility:visible]"
                       >
                         {newDay && (
                           <Marker variant="separator" className="dm-date">
@@ -353,39 +431,33 @@ function ThreadContents({
                           viewerId={viewerId}
                           peerName={conversationName(thread)}
                           group={thread.kind === "group"}
-                          receipt={
-                            message.senderId === viewerId &&
-                            !thread.messages
-                              .slice(index + 1)
-                              .some(
-                                (item) =>
-                                  item.senderId === viewerId && !item.deletedAt,
-                              )
-                              ? thread.kind === "direct" &&
-                                message.sequence <= thread.readThrough
-                                ? "Seen"
-                                : "Sent"
-                              : undefined
-                          }
+                          receipt={receipts.get(message.id)}
                           onUpdate={update}
                           refresh={() => void refresh()}
                         />
                       </MessageScrollerItem>
                     );
                   })}
+                  {pending.map((item) => (
+                    <MessageScrollerItem
+                      key={item.clientId}
+                      messageId={`pending-${item.clientId}`}
+                      className="[content-visibility:visible]"
+                    >
+                      <PendingMessage item={item} />
+                    </MessageScrollerItem>
+                  ))}
                 </MessageScrollerContent>
               </MessageScrollerViewport>
               <MessageScrollerButton aria-label="Jump to latest message" />
             </MessageScroller>
           </div>
-          <ReadMessages id={id} messages={thread.messages} />
+          <ReadMessages id={id} messages={messages} />
           <MessageComposer
             id={id}
             name={conversationName(thread)}
             group={thread.kind === "group"}
-            drafts={drafts}
-            onSent={(message) => {
-              update(message);
+            onSend={() => {
               requestAnimationFrame(() => scrollToEnd({ behavior: "instant" }));
             }}
           />
@@ -395,11 +467,7 @@ function ThreadContents({
   );
 }
 
-export function MessageThread(props: {
-  id: string;
-  viewerId: string;
-  drafts: MessageDrafts;
-}) {
+export function MessageThread(props: { id: string; viewerId: string }) {
   return (
     <MessageScrollerProvider autoScroll defaultScrollPosition="end">
       <ThreadContents {...props} />

@@ -1,17 +1,8 @@
 "use client";
 
 import { ImagePlus, Send, X } from "lucide-react";
-import {
-  type MutableRefObject,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
-import {
-  UploadStatus,
-  useUploadStatus,
-} from "@/components/media/upload-status";
+import { useEffect, useId, useRef, useState } from "react";
+import { useMessages } from "@/components/messages/message-provider";
 import { useTypingSender } from "@/components/messages/use-typing";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -26,54 +17,35 @@ import {
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { holdAppRefresh } from "@/lib/app-refresh";
-import { messageRequest, messagesChanged } from "@/lib/direct-message-client";
-import type { DirectMessageItem } from "@/lib/direct-message-types";
 import {
   maxMediaCount,
   mediaMimeType,
   uploadTicketSchema,
 } from "@/lib/media-policy";
-import { uploadMedia } from "@/lib/media-upload";
+import type { MessageDraft } from "@/lib/message-outbox";
 
-export type MessageDraft = { body: string; files: File[]; clientId: string };
-export type MessageDrafts = MutableRefObject<Map<string, MessageDraft>>;
+const emptyDraft: MessageDraft = { body: "", files: [] };
 
 export function MessageComposer({
   id,
   name,
   group,
-  drafts,
-  onSent,
+  onSend,
 }: {
   id: string;
   name: string;
   group: boolean;
-  drafts: MessageDrafts;
-  onSent: (message: DirectMessageItem) => void;
+  onSend: () => void;
 }) {
   const fieldId = useId();
   const typing = useTypingSender(id);
-  const [draft, setDraft] = useState<MessageDraft>(
-    () =>
-      drafts.current.get(id) ?? {
-        body: "",
-        files: [],
-        clientId: crypto.randomUUID(),
-      },
-  );
-  const [busy, setBusy] = useState(false);
-  const sending = useRef(false);
+  const { store, drafts, ready } = useMessages();
+  const draft = drafts[id] ?? emptyDraft;
   const [error, setError] = useState("");
   const [previews, setPreviews] = useState<string[]>([]);
-  const [status, updateStatus, percent] = useUploadStatus();
   const input = useRef<HTMLInputElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    drafts.current.set(id, draft);
-  }, [id, draft, drafts]);
   useEffect(() => {
     const urls = draft.files.map((file) => URL.createObjectURL(file));
     setPreviews(urls);
@@ -83,15 +55,11 @@ export function MessageComposer({
   }, [draft.files]);
 
   function change(next: Partial<MessageDraft>) {
-    setDraft((current) => ({
-      ...current,
-      ...next,
-      clientId: crypto.randomUUID(),
-    }));
+    store.setDraft(id, { ...draft, ...next });
     setError("");
   }
   function addFiles(files: File[]) {
-    if (sending.current || !files.length) return;
+    if (!ready || !files.length) return;
     if (draft.files.length + files.length > maxMediaCount) {
       setError("Attach up to six photos or videos at a time.");
       return;
@@ -110,88 +78,13 @@ export function MessageComposer({
     }
     change({ files: [...draft.files, ...files] });
   }
-  async function send() {
-    if (sending.current || (!draft.body.trim() && !draft.files.length)) return;
-    sending.current = true;
+  function send() {
+    if (!ready || !store.enqueue(id)) return;
     typing.current.stop();
-    setBusy(true);
     setError("");
-    const release = holdAppRefresh();
-    try {
-      const mediaIds = draft.files.length
-        ? await uploadMedia(draft.files, updateStatus, {
-            directConversationId: id,
-            deferProcessing: true,
-          })
-        : [];
-      if (mediaIds.some((mediaId) => mediaId.startsWith("v_"))) {
-        // A manual retry also restarts a failed encode while reusing the uploaded bytes.
-        for (const mediaId of mediaIds.filter((value) =>
-          value.startsWith("v_"),
-        ))
-          await messageRequest(`/api/media/${mediaId}`, "POST");
-        // Upload once and keep the send pending while the existing video worker finishes.
-        for (;;) {
-          const query = new URLSearchParams(
-            mediaIds.map((mediaId) => ["id", mediaId]),
-          );
-          const result = await messageRequest<{
-            media: {
-              ready: boolean;
-              progress: number;
-              processingError: string | null;
-            }[];
-          }>(`/api/media/status?${query}`);
-          if (result.media.length !== mediaIds.length)
-            throw new Error(
-              "An attachment is no longer available. Choose it again.",
-            );
-          const failed = result.media.find((media) => media.processingError);
-          if (failed)
-            throw new Error(
-              failed.processingError ??
-                "Video processing failed. Try sending again.",
-            );
-          if (result.media.every((media) => media.ready)) break;
-          updateStatus(
-            "Preparing your video. Your message will send when it's ready.",
-            Math.round(
-              result.media.reduce(
-                (sum, media) => sum + (media.ready ? 100 : media.progress),
-                0,
-              ) / mediaIds.length,
-            ),
-          );
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        }
-      }
-      const { message } = await messageRequest<{ message: DirectMessageItem }>(
-        `/api/messages/${id}`,
-        "POST",
-        {
-          clientId: draft.clientId,
-          body: draft.body,
-          mediaIds,
-        },
-      );
-      const empty = { body: "", files: [], clientId: crypto.randomUUID() };
-      drafts.current.set(id, empty);
-      setDraft(empty);
-      onSent(message);
-      messagesChanged();
-      textarea.current?.focus();
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Couldn't send. Your message is still here. Try again.",
-      );
-    } finally {
-      release();
-      sending.current = false;
-      setBusy(false);
-      updateStatus("");
-    }
+    // Focus synchronously while the keyboard gesture is still active on mobile.
+    textarea.current?.focus({ preventScroll: true });
+    onSend();
   }
 
   return (
@@ -222,11 +115,7 @@ export function MessageComposer({
       {draft.files.length > 0 && (
         <AttachmentGroup aria-label="Selected attachments">
           {draft.files.map((file, index) => (
-            <Attachment
-              key={`${index}-${file.name}`}
-              size="sm"
-              state={busy ? "uploading" : "idle"}
-            >
+            <Attachment key={`${index}-${file.name}`} size="sm" state="idle">
               <AttachmentMedia variant="image">
                 {file.type.startsWith("image/") && previews[index] ? (
                   // biome-ignore lint/performance/noImgElement: local attachment preview
@@ -240,7 +129,6 @@ export function MessageComposer({
               </AttachmentContent>
               <AttachmentActions>
                 <AttachmentAction
-                  disabled={busy}
                   aria-label={`Remove ${file.name}`}
                   onClick={() =>
                     change({ files: draft.files.filter((_, i) => i !== index) })
@@ -253,7 +141,6 @@ export function MessageComposer({
           ))}
         </AttachmentGroup>
       )}
-      {busy && <UploadStatus status={status} percent={percent} />}
       <Field data-invalid={Boolean(error)}>
         <FieldLabel htmlFor={fieldId} className="sr-only">
           Message {name}
@@ -263,7 +150,7 @@ export function MessageComposer({
             type="button"
             variant="ghost"
             size="icon"
-            disabled={busy || draft.files.length >= maxMediaCount}
+            disabled={!ready || draft.files.length >= maxMediaCount}
             aria-label="Attach photos or videos"
             title="Attach photos or videos"
             onClick={() => input.current?.click()}
@@ -276,7 +163,6 @@ export function MessageComposer({
             tabIndex={-1}
             type="file"
             multiple
-            disabled={busy}
             aria-label="Choose message attachments"
             accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,video/mp4,video/webm,video/quicktime,.mkv,.avi,.m4v,.mpg,.mpeg,.ts"
             onChange={(event) => {
@@ -288,10 +174,11 @@ export function MessageComposer({
             id={fieldId}
             ref={textarea}
             rows={1}
+            enterKeyHint="send"
             maxLength={4000}
             className="dm-textarea"
             value={draft.body}
-            disabled={busy}
+            disabled={!ready}
             aria-invalid={Boolean(error)}
             placeholder={`Message ${group ? name : name.split(" ")[0]}…`}
             onChange={(event) => {
@@ -304,7 +191,7 @@ export function MessageComposer({
                 event.key === "Enter" &&
                 !event.shiftKey &&
                 !event.nativeEvent.isComposing &&
-                window.matchMedia("(pointer: fine)").matches
+                event.nativeEvent.keyCode !== 229
               ) {
                 event.preventDefault();
                 void send();
@@ -314,10 +201,11 @@ export function MessageComposer({
           <Button
             type="submit"
             size="icon"
-            disabled={busy || (!draft.body.trim() && !draft.files.length)}
+            disabled={!ready || (!draft.body.trim() && !draft.files.length)}
             aria-label="Send message"
+            onPointerDown={(event) => event.preventDefault()}
           >
-            {busy ? <Spinner /> : <Send />}
+            <Send />
           </Button>
         </div>
       </Field>
@@ -330,7 +218,7 @@ export function MessageComposer({
         <span>
           {draft.body.length > 3500
             ? `${draft.body.length}/4000`
-            : "Photos & videos welcome"}
+            : "Enter to send, Shift+Enter for a new line"}
         </span>
       </div>
     </form>
