@@ -37,6 +37,7 @@ export type DirectThread = {
   id: string;
   person: DirectPerson;
   revision: number;
+  readThrough: number;
   messages: DirectMessageItem[];
   hasMore: boolean;
   moreChanges: boolean;

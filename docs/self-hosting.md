@@ -12,6 +12,71 @@ Production moved to the Ubuntu laptop on September 26, 2026. Coolify project
 | Public traffic | Cloudflare Tunnel to the laptop's Traefik proxy |
 | Administration | Coolify at `http://100.118.70.14:8000` over Tailscale |
 
+## Realtime
+
+Every signed-in, visible browser tab opens one authenticated `GET /api/realtime`
+server-sent event stream. Chat, typing, read receipts, unread badges, shared
+pages, notifications, media processing, and saved Timeblock chat updates share
+that connection. No additional service, public port, or WebSocket upgrade is
+required. Messages and mutations still use their authenticated HTTP endpoints.
+
+The web process keeps one dedicated Postgres `LISTEN pickleballs_realtime`
+connection using `DIRECT_DATABASE_URL` (falling back to `DATABASE_URL`). This
+must be a direct or session-pooled connection, never a transaction pooler.
+Both Coolify services use the same database. The `realtime_events` migration
+adds triggers, so committed web and worker writes publish automatically;
+rolled-back transactions publish nothing. Payloads contain routing identifiers,
+not message bodies or private drafts. Private events go only to their user,
+and circle delivery checks current membership. Session deletion closes revoked
+streams; expiry is also checked every minute.
+
+The stream sends heartbeats every 15 seconds, uses `Cache-Control: private,
+no-cache, no-store, no-transform` and `X-Accel-Buffering: no`, and must pass
+through Traefik and Cloudflare without buffering or caching. Do not add a
+response-buffering middleware to `/api/realtime`. Test this through the public
+hostname after deployment: the stream should deliver `ready` immediately and
+individual `ping` frames while idle. A 200 response alone does not establish
+that the proxy flushes events.
+
+Install `deploy/traefik-realtime.yml` in Coolify's server **Proxy > Dynamic
+Configurations** as `pickleballs-realtime.yml`. The file provider reloads it
+without restarting the proxy. Its exact-path router bypasses Coolify's gzip
+middleware and requests an uncompressed response from Next.js. It references
+the generated web service in the Docker provider, so rolling deployments keep
+working without pinning a container name or IP. Update that service reference
+if the Coolify web application is recreated with a different resource ID.
+
+Cloudflare Tunnel recognizes the origin's `Content-Type: text/event-stream`
+and streams it immediately. Keep the existing named tunnel route to
+`http://localhost:80`; no additional hostname, port, or WebSocket setting is
+needed. Cloudflare normally respects the stream's private/no-store headers.
+Any custom Cache Everything or Edge TTL override must exclude `/api/realtime`
+or have a later matching Bypass cache rule. The live zone has the explicit
+**Pickle Balls realtime: bypass cache** rule with cache eligibility set to
+**Bypass cache** and expression:
+
+```text
+(http.host eq "pickle-balls.com" and http.request.uri.path eq "/api/realtime")
+```
+
+Keep this rule after any future broad cache rules. See Cloudflare's
+[streaming guidance](https://developers.cloudflare.com/tunnel/troubleshooting/#cloudflare-tunnel-is-buffering-my-streaming-response-instead-of-streaming-it-live)
+and [cache behavior](https://developers.cloudflare.com/cache/concepts/default-cache-behavior/).
+
+Notifications are invalidations, not a durable event log. On connection setup,
+reconnect, or returning to a hidden tab, clients read fresh authorized snapshots.
+Chat catches up from its database revision, including reactions and deletions;
+read receipts use the latest acknowledged sequence. The client coalesces bursts,
+retains changes arriving during reads, and retries failed reads. Typing is
+ephemeral, rate limited, contains no draft text, and expires after six seconds.
+A dropped database connection closes streams so browsers reconnect and resync.
+This also handles Coolify replacing a web container during a deploy.
+
+Run `bun run test:integration` for transaction, privacy, membership, session,
+and reconnect checks. With `bun run test:fixture --video` running, use
+`bun run test:browser realtime` for multi-user browser delivery and recovery,
+and `bun run test:browser messages` for the full messaging flow.
+
 `pickle-balls.com` and `*.pickle-balls.com` route to `http://localhost:80` in the
 tunnel. HTTPS terminates at Cloudflare; the connection to cloudflared is encrypted.
 Public media uses `https://s3.pickle-balls.com` with signed URLs. Postgres and

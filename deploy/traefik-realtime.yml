@@ -1,0 +1,21 @@
+# Loaded by Coolify's Traefik file provider. Keep the Docker service reference
+# aligned with Pickle Balls Web if the Coolify application is ever recreated.
+# Referencing the generated service preserves rolling container discovery.
+http:
+  routers:
+    pickleballs-realtime-streaming:
+      entryPoints:
+        - http
+      rule: Host(`pickle-balls.com`) && Path(`/api/realtime`)
+      priority: 200
+      service: http-0-pjd7ddc7afz1fjxsu9veepnx@docker
+      middlewares:
+        - pickleballs-realtime-streaming
+  middlewares:
+    pickleballs-realtime-streaming:
+      headers:
+        customRequestHeaders:
+          Accept-Encoding: identity
+        customResponseHeaders:
+          Cache-Control: private, no-cache, no-store, no-transform
+          X-Accel-Buffering: "no"

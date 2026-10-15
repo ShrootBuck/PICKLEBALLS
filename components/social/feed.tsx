@@ -2,6 +2,7 @@
 
 import { Camera, RefreshCw } from "lucide-react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useRefreshVersion } from "@/components/layout/app-refresh-provider";
 import { PostCard } from "@/components/social/post-card";
 import { PullToRefresh } from "@/components/social/pull-to-refresh";
 import { useSocial } from "@/components/social/social-provider";
@@ -17,6 +18,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { requestAppRefresh } from "@/lib/app-refresh";
 import { reconcileFeed, refreshFeedPages } from "@/lib/feed-state";
+import { LiveRefresh } from "@/lib/live-refresh";
 import { type FeedPage, type FeedPost, postKey } from "@/lib/social-types";
 
 export function Feed({
@@ -51,6 +53,23 @@ export function Feed({
   const [error, setError] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
   const requestEpoch = useRef(0);
+  const version = useRefreshVersion();
+  const previousVersion = useRef(version);
+  const syncQueue = useRef<LiveRefresh | null>(null);
+  const sync = useEffectEvent(async () => {
+    await load("sync");
+  });
+  useEffect(() => {
+    const queue = new LiveRefresh(() => sync());
+    syncQueue.current = queue;
+    return () => queue.dispose();
+  }, []);
+  useEffect(() => {
+    if (previousVersion.current !== version) {
+      previousVersion.current = version;
+      syncQueue.current?.request();
+    }
+  }, [version]);
   useEffect(() => {
     if (postRevision > 0) {
       const cached = feeds.get(key);
@@ -76,11 +95,16 @@ export function Feed({
     [],
   );
 
-  async function load(mode: "refresh" | "older") {
-    if (inFlight.current) return;
+  async function load(mode: "refresh" | "older" | "sync") {
+    if (inFlight.current) {
+      if (mode === "sync") throw new Error("A feed read is already running.");
+      return;
+    }
     inFlight.current = true;
-    setBusy(mode);
-    setError(null);
+    if (mode !== "sync") {
+      setBusy(mode);
+      setError(null);
+    }
     const epoch = ++requestEpoch.current;
     const request = new AbortController();
     controller.current = request;
@@ -103,12 +127,16 @@ export function Feed({
         return response.json();
       }
       const fresh =
-        mode === "refresh"
+        mode !== "older"
           ? await refreshFeedPages(page, readPage)
           : await readPage(page.nextCursor ?? undefined);
-      if (requestEpoch.current !== epoch) return;
+      if (requestEpoch.current !== epoch) {
+        if (mode === "sync")
+          throw new Error("The feed changed during synchronization.");
+        return;
+      }
       setPage((current) =>
-        mode === "refresh"
+        mode !== "older"
           ? fresh
           : {
               items: [
@@ -122,7 +150,8 @@ export function Feed({
             },
       );
       if (mode === "refresh") requestAppRefresh();
-    } catch {
+    } catch (error) {
+      if (mode === "sync") throw error;
       if (requestEpoch.current === epoch)
         setError("Could not load posts. Check your connection and try again.");
     } finally {

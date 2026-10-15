@@ -238,6 +238,14 @@ try {
     .first();
   await video.waitFor({ timeout: 15_000 });
   await video.scrollIntoViewIfNeeded();
+  // Realtime can mount the video before its private playback ticket finishes.
+  // Wait for usable media, then assert playback survives a live reaction.
+  await peer.waitForFunction((messageId) => {
+    const element = document.querySelector(
+      `[data-message-id="${messageId}"] video`,
+    ) as HTMLVideoElement | null;
+    return !!element && element.readyState >= 1;
+  }, videoMessage.id);
   await video.evaluate(async (element) => {
     await (element as HTMLVideoElement).play();
   });
@@ -247,6 +255,33 @@ try {
     ) as HTMLVideoElement | null;
     return !!element && element.currentTime > 0;
   }, videoMessage.id);
+  await video.evaluate((element) => {
+    element.setAttribute("data-realtime-loads", "0");
+    element.addEventListener("loadstart", () => {
+      element.setAttribute(
+        "data-realtime-loads",
+        String(Number(element.getAttribute("data-realtime-loads")) + 1),
+      );
+    });
+  });
+  assert.equal(
+    (
+      await you.request.put(`${app}/api/messages/${id}/${videoMessage.id}`, {
+        headers: { origin: app },
+        data: { emoji: "👍" },
+      })
+    ).status(),
+    200,
+  );
+  await peer
+    .locator(`[data-message-id="${videoMessage.id}"]`)
+    .getByRole("button", { name: "👍 reaction, react", exact: true })
+    .waitFor();
+  assert.equal(
+    await video.getAttribute("data-realtime-loads"),
+    "0",
+    "A live reaction must not reload a playing video.",
+  );
 
   // Drafts survive switching chats; mobile opens one conversation at a time.
   await composer.fill("Don't lose this draft");

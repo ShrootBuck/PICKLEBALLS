@@ -33,6 +33,7 @@ export function DirectMessage({
   peerName,
   onUpdate,
   refresh,
+  receipt,
 }: {
   message: DirectMessageItem;
   conversationId: string;
@@ -40,6 +41,7 @@ export function DirectMessage({
   peerName: string;
   onUpdate: (message: DirectMessageItem) => void;
   refresh: () => void;
+  receipt?: "Sent" | "Seen";
 }) {
   const mine = message.senderId === viewerId;
   const align = mine ? "end" : "start";
@@ -127,6 +129,15 @@ export function DirectMessage({
               minute: "2-digit",
             })}
           </time>
+          {receipt && !message.deletedAt && (
+            <span
+              title={
+                receipt === "Seen" ? `Seen by ${peerName}` : "Message sent"
+              }
+            >
+              {receipt}
+            </span>
+          )}
           {!message.deletedAt && (
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger

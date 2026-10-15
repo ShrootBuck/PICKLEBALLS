@@ -3,11 +3,13 @@
 import { ArrowLeft, MessageCircle, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { RealtimeStatus } from "@/components/layout/realtime-provider";
 import { DirectMessage } from "@/components/messages/direct-message";
 import {
   MessageComposer,
   type MessageDrafts,
 } from "@/components/messages/message-composer";
+import { usePeerTyping } from "@/components/messages/use-typing";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -37,6 +39,7 @@ import {
   mergeDirectMessages,
 } from "@/lib/direct-message-types";
 import { cn } from "@/lib/utils";
+import { watchRealtime } from "@/lib/watch-realtime";
 
 function ReadMessages({
   id,
@@ -56,37 +59,26 @@ function ReadMessages({
   const acknowledged = useRef(0);
   useEffect(() => {
     let alive = true;
-    let pending = false;
     async function read() {
       if (
-        pending ||
         through <= acknowledged.current ||
         document.visibilityState !== "visible" ||
         !document.hasFocus()
       )
         return;
-      pending = true;
-      try {
-        await messageRequest(`/api/messages/${id}`, "PATCH", { through });
-        if (alive) {
-          acknowledged.current = Math.max(acknowledged.current, through);
-          messagesChanged();
-        }
-      } catch {
-        /* Retry on the next visibility change or tick. */
-      } finally {
-        pending = false;
+      await messageRequest(`/api/messages/${id}`, "PATCH", { through });
+      if (alive) {
+        acknowledged.current = Math.max(acknowledged.current, through);
+        messagesChanged();
       }
     }
-    void read();
-    const timer = setInterval(read, 5000);
-    document.addEventListener("visibilitychange", read);
-    window.addEventListener("focus", read);
+    const live = watchRealtime(
+      read,
+      (event) => event.type === "messages" && event.conversationId === id,
+    );
     return () => {
       alive = false;
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", read);
-      window.removeEventListener("focus", read);
+      live.dispose();
     };
   }, [id, through]);
   return null;
@@ -105,12 +97,11 @@ function ThreadContents({
   const [error, setError] = useState("");
   const [loadingOlder, setLoadingOlder] = useState(false);
   const revision = useRef<number | null>(null);
-  const pending = useRef(false);
+  const live = useRef<ReturnType<typeof watchRealtime> | null>(null);
   const mounted = useRef(true);
+  const typing = usePeerTyping(id, viewerId);
   const { scrollToEnd } = useMessageScroller();
-  const refresh = useCallback(async () => {
-    if (pending.current || document.visibilityState === "hidden") return;
-    pending.current = true;
+  const readThread = useCallback(async () => {
     try {
       let more = true;
       while (more && mounted.current) {
@@ -124,7 +115,9 @@ function ThreadContents({
           current
             ? {
                 ...current,
+                person: result.person,
                 revision: result.revision,
+                readThrough: result.readThrough,
                 messages: mergeDirectMessages(
                   current.messages,
                   result.messages,
@@ -144,25 +137,24 @@ function ThreadContents({
             ? cause.message
             : "Couldn't refresh messages. Retrying shortly.",
         );
-    } finally {
-      pending.current = false;
+      throw cause;
     }
   }, [id]);
   useEffect(() => {
     mounted.current = true;
-    void refresh();
-    const timer = setInterval(refresh, 4000);
-    document.addEventListener("visibilitychange", refresh);
-    window.addEventListener("focus", refresh);
-    window.addEventListener("online", refresh);
+    const watcher = watchRealtime(
+      readThread,
+      (event) =>
+        event.type === "messages" &&
+        (!event.conversationId || event.conversationId === id),
+    );
+    live.current = watcher;
     return () => {
       mounted.current = false;
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", refresh);
-      window.removeEventListener("focus", refresh);
-      window.removeEventListener("online", refresh);
+      watcher.dispose();
     };
-  }, [refresh]);
+  }, [readThread, id]);
+  const refresh = () => live.current?.request();
   async function older() {
     if (!thread || loadingOlder) return;
     setLoadingOlder(true);
@@ -226,7 +218,17 @@ function ThreadContents({
             </Avatar>
             <div className="min-w-0">
               <h2 className="truncate font-semibold">{thread.person.name}</h2>
-              <p className="text-xs text-muted-foreground">Direct message</p>
+              <output
+                className="text-xs text-muted-foreground"
+                aria-live="polite"
+              >
+                {typing
+                  ? `${thread.person.name.split(" ")[0]} is typing…`
+                  : "Direct message"}
+              </output>
+            </div>
+            <div className="ml-auto">
+              <RealtimeStatus />
             </div>
           </>
         ) : (
@@ -325,6 +327,19 @@ function ThreadContents({
                           conversationId={id}
                           viewerId={viewerId}
                           peerName={thread.person.name}
+                          receipt={
+                            message.senderId === viewerId &&
+                            !thread.messages
+                              .slice(index + 1)
+                              .some(
+                                (item) =>
+                                  item.senderId === viewerId && !item.deletedAt,
+                              )
+                              ? message.sequence <= thread.readThrough
+                                ? "Seen"
+                                : "Sent"
+                              : undefined
+                          }
                           onUpdate={update}
                           refresh={() => void refresh()}
                         />

@@ -94,6 +94,15 @@ try {
       beganReply?.();
       await new Promise((resolve) => setTimeout(resolve, 2500));
       chat = finished;
+      // This mocked AI response has no database write to fire the real trigger.
+      // Deliver its completion through the same client event as the live stream.
+      await page.evaluate(() => {
+        window.dispatchEvent(
+          new CustomEvent("pb:realtime", {
+            detail: { type: "timeblock-chat" },
+          }),
+        );
+      });
     }
     const chunks = [
       { type: "start", messageId },

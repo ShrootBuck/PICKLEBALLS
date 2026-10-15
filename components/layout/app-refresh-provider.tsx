@@ -8,11 +8,13 @@ import {
   useRef,
   useTransition,
 } from "react";
+import { RealtimeProvider } from "@/components/layout/realtime-provider";
 import {
   activeMutations,
   refreshBusyEvent,
   refreshEvent,
 } from "@/lib/app-refresh";
+import { subscribeRealtime } from "@/lib/realtime-client";
 import { RefreshScheduler } from "@/lib/refresh-scheduler";
 
 const RefreshVersion = createContext("");
@@ -29,8 +31,10 @@ export function AppRefreshProvider({
 }) {
   return (
     <RefreshVersion value={version}>
-      <RefreshDriver userId={userId} version={version} />
-      {children}
+      <RealtimeProvider userId={userId}>
+        <RefreshDriver userId={userId} version={version} />
+        {children}
+      </RealtimeProvider>
     </RefreshVersion>
   );
 }
@@ -87,6 +91,9 @@ function RefreshDriver({
         // A closed or unavailable channel must never break a saved action.
       }
     };
+    const unsubscribe = subscribeRealtime((event) => {
+      if (event.type === "refresh" || event.type === "ready") queue.request();
+    });
     updateBlocked();
     window.addEventListener(refreshEvent, changed);
     window.addEventListener(refreshBusyEvent, updateBlocked);
@@ -96,6 +103,7 @@ function RefreshDriver({
     document.addEventListener("visibilitychange", updateBlocked);
     return () => {
       queue.dispose();
+      unsubscribe();
       channel?.close();
       window.removeEventListener(refreshEvent, changed);
       window.removeEventListener(refreshBusyEvent, updateBlocked);

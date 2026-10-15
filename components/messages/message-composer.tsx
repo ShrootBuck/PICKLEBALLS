@@ -12,6 +12,7 @@ import {
   UploadStatus,
   useUploadStatus,
 } from "@/components/media/upload-status";
+import { useTypingSender } from "@/components/messages/use-typing";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Attachment,
@@ -52,6 +53,7 @@ export function MessageComposer({
   onSent: (message: DirectMessageItem) => void;
 }) {
   const fieldId = useId();
+  const typing = useTypingSender(id);
   const [draft, setDraft] = useState<MessageDraft>(
     () =>
       drafts.current.get(id) ?? {
@@ -109,6 +111,7 @@ export function MessageComposer({
   async function send() {
     if (sending.current || (!draft.body.trim() && !draft.files.length)) return;
     sending.current = true;
+    typing.current.stop();
     setBusy(true);
     setError("");
     const release = holdAppRefresh();
@@ -289,7 +292,11 @@ export function MessageComposer({
             disabled={busy}
             aria-invalid={Boolean(error)}
             placeholder={`Message ${name.split(" ")[0]}…`}
-            onChange={(event) => change({ body: event.target.value })}
+            onChange={(event) => {
+              change({ body: event.target.value });
+              typing.current.change(event.target.value);
+            }}
+            onBlur={() => typing.current.stop()}
             onKeyDown={(event) => {
               if (
                 event.key === "Enter" &&

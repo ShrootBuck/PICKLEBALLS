@@ -21,6 +21,7 @@ import {
   CircleSwitcher,
   type ShellCircle,
 } from "@/components/layout/circle-switcher";
+import { RealtimeNotice } from "@/components/layout/realtime-provider";
 import { TodayPanel } from "@/components/layout/today-panel";
 import { useSocial } from "@/components/social/social-provider";
 import { Badge } from "@/components/ui/badge";
@@ -192,6 +193,7 @@ export function AppShell({
             )}
           </p>
           <div className="ml-auto flex items-center gap-1">
+            <RealtimeNotice />
             <MobileMenu
               items={items}
               active={active}

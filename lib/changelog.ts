@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1792037352923,
+    title: "See who's typing",
+    description:
+      "Direct messages now show when the other person is typing and when they've seen your latest message. Typing clears when they stop, send, or leave the conversation.",
+  },
+  {
     timestamp: 1792034200078,
     title: "A chat for just the two of you",
     description:

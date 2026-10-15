@@ -165,8 +165,14 @@ export async function directThread(
       });
       const page = rows.slice(0, changes ? 100 : 50);
       const moreChanges = changes && rows.length > 100;
+      const lastRead = await tx.directMessage.findFirst({
+        where: { conversationId: id, senderId: userId, readAt: { not: null } },
+        orderBy: { sequence: "desc" },
+        select: { sequence: true },
+      });
       return {
         id,
+        readThrough: lastRead?.sequence ?? 0,
         person:
           conversation.userAId === userId
             ? conversation.userB

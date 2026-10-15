@@ -15,6 +15,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { requestAppRefresh } from "@/lib/app-refresh";
 import { postHref } from "@/lib/navigation";
+import { watchRealtime } from "@/lib/watch-realtime";
 
 type PendingPost = {
   id: string;
@@ -50,16 +51,16 @@ export function PendingMediaPosts({ circleId }: { circleId: string }) {
             completed.add(post.id);
             requestAppRefresh();
           }
-      } catch {
-        // Try again on navigation or an explicit media action.
+      } catch (error) {
+        if (!controller.signal.aborted) throw error;
       }
     }
-    const wake = () => void refresh();
-    void refresh();
-    window.addEventListener("pb:media-pending", wake);
+    const live = watchRealtime(refresh, (event) => event.type === "media", [
+      "pb:media-pending",
+    ]);
     return () => {
       controller.abort();
-      window.removeEventListener("pb:media-pending", wake);
+      live.dispose();
     };
   }, [pathname]);
   async function act(id: string, action: "retry" | "dismiss") {
@@ -118,7 +119,7 @@ export function PendingMediaPosts({ circleId }: { circleId: string }) {
               </Link>
             ) : (
               post.error ||
-              "Your proof will post automatically. Navigate to another page or refresh to check its status."
+              "Your proof will post automatically. Progress updates here as it processes."
             )}
             {post.error && (
               <div className="flex flex-wrap gap-2 pt-2">

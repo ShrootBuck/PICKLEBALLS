@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { watchRealtime } from "@/lib/watch-realtime";
 
 export const messagesChangedEvent = "pb:messages-changed";
 export function messagesChanged() {
@@ -15,6 +16,7 @@ export async function messageRequest<T>(
   const response = await fetch(url, {
     method,
     cache: "no-store",
+    signal: AbortSignal.timeout(20_000),
     ...(body !== undefined
       ? {
           headers: { "content-type": "application/json" },
@@ -32,32 +34,18 @@ export function useDirectUnread() {
   const [unread, setUnread] = useState(0);
   useEffect(() => {
     let alive = true;
-    let pending = false;
     async function refresh() {
-      if (pending || document.visibilityState === "hidden") return;
-      pending = true;
-      try {
-        const result = await messageRequest<{ unread: number }>(
-          "/api/messages?unread=1",
-        );
-        if (alive) setUnread(result.unread);
-      } catch {
-        /* Keep the last count while offline; retry on focus or the next tick. */
-      } finally {
-        pending = false;
-      }
+      const result = await messageRequest<{ unread: number }>(
+        "/api/messages?unread=1",
+      );
+      if (alive) setUnread(result.unread);
     }
-    void refresh();
-    const timer = setInterval(refresh, 10_000);
-    document.addEventListener("visibilitychange", refresh);
-    window.addEventListener("focus", refresh);
-    window.addEventListener(messagesChangedEvent, refresh);
+    const live = watchRealtime(refresh, (event) => event.type === "messages", [
+      messagesChangedEvent,
+    ]);
     return () => {
       alive = false;
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", refresh);
-      window.removeEventListener("focus", refresh);
-      window.removeEventListener(messagesChangedEvent, refresh);
+      live.dispose();
     };
   }, []);
   return unread;

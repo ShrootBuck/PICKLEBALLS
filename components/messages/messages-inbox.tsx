@@ -36,6 +36,7 @@ import {
   messagePreview,
 } from "@/lib/direct-message-types";
 import { cn } from "@/lib/utils";
+import { watchRealtime } from "@/lib/watch-realtime";
 
 export function MessagesInbox({
   viewerId,
@@ -93,10 +94,7 @@ export function MessagesInbox({
   }, [to, start]);
   useEffect(() => {
     let alive = true;
-    let pending = false;
     async function refresh() {
-      if (pending || document.visibilityState === "hidden") return;
-      pending = true;
       try {
         const result = await messageRequest<{
           conversations: DirectInboxItem[];
@@ -105,25 +103,17 @@ export function MessagesInbox({
           setInbox(result.conversations);
           setRefreshError(false);
         }
-      } catch {
+      } catch (cause) {
         if (alive) setRefreshError(true);
-      } finally {
-        pending = false;
+        throw cause;
       }
     }
-    void refresh();
-    const timer = setInterval(refresh, 8000);
-    window.addEventListener(messagesChangedEvent, refresh);
-    window.addEventListener("focus", refresh);
-    window.addEventListener("online", refresh);
-    document.addEventListener("visibilitychange", refresh);
+    const live = watchRealtime(refresh, (event) => event.type === "messages", [
+      messagesChangedEvent,
+    ]);
     return () => {
       alive = false;
-      clearInterval(timer);
-      window.removeEventListener(messagesChangedEvent, refresh);
-      window.removeEventListener("focus", refresh);
-      window.removeEventListener("online", refresh);
-      document.removeEventListener("visibilitychange", refresh);
+      live.dispose();
     };
   }, []);
   const filtered = inbox.filter((item) =>

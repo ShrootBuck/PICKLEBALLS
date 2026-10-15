@@ -58,6 +58,7 @@ import type { TimeblockDraftRow } from "@/lib/timeblock-draft";
 import { reportFingerprint } from "@/lib/timeblock-editor";
 import type { TimeblockRoutine } from "@/lib/timeblock-routine";
 import { cn } from "@/lib/utils";
+import { watchRealtime } from "@/lib/watch-realtime";
 
 type Props = {
   dueMonday: string;
@@ -246,45 +247,60 @@ function Conversation({
   const streaming = status === "submitted" || status === "streaming";
   const busy = streaming || remoteRunning || syncing;
 
-  const refresh = useCallback(async () => {
-    if (live.current || syncingRef.current) return;
-    syncingRef.current = true;
-    try {
-      const snapshot = await responseJson<TimeblockChatSnapshot>(
-        await fetch("/api/timeblocks/chat", { cache: "no-store" }),
-      );
+  const refresh = useCallback(
+    async (retry = false) => {
       if (live.current) return;
-      if (snapshot.id !== initial.id) {
-        onReplace(snapshot);
+      if (syncingRef.current) {
+        if (retry) throw new Error("Chat synchronization is already running.");
         return;
       }
-      revision.current = snapshot.revision;
-      setMessages(snapshot.messages);
-      setRemoteRunning(snapshot.running);
-      setNotice(snapshot.error);
-    } catch (error) {
-      setNotice(
-        error instanceof Error ? error.message : "Couldn't sync the chat.",
-      );
-    } finally {
-      syncingRef.current = false;
-    }
-  }, [initial.id, onReplace, setMessages]);
+      syncingRef.current = true;
+      try {
+        const snapshot = await responseJson<TimeblockChatSnapshot>(
+          await fetch("/api/timeblocks/chat", {
+            cache: "no-store",
+            signal: AbortSignal.timeout(20_000),
+          }),
+        );
+        if (live.current) return;
+        if (snapshot.id !== initial.id) {
+          onReplace(snapshot);
+          return;
+        }
+        revision.current = snapshot.revision;
+        setMessages(snapshot.messages);
+        setRemoteRunning(snapshot.running);
+        setNotice(snapshot.error);
+      } catch (error) {
+        setNotice(
+          error instanceof Error ? error.message : "Couldn't sync the chat.",
+        );
+        if (retry) throw error;
+      } finally {
+        syncingRef.current = false;
+      }
+    },
+    [initial.id, onReplace, setMessages],
+  );
   useEffect(() => {
     refreshRef.current = refresh;
   }, [refresh]);
   useEffect(() => {
-    const timer = setInterval(() => {
-      if (remoteRunning && !live.current) void refresh();
-    }, 2000);
-    const onFocus = () => {
-      void refresh();
-    };
-    window.addEventListener("focus", onFocus);
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener("focus", onFocus);
-    };
+    const watcher = watchRealtime(
+      () => refresh(true),
+      (event) => event.type === "timeblock-chat",
+    );
+    return () => watcher.dispose();
+  }, [refresh]);
+  useEffect(() => {
+    if (!remoteRunning) return;
+    // A crashed generator cannot publish its own lease expiry. Keep a sparse
+    // recovery check only while another device owns an unfinished AI response.
+    const recovery = setInterval(() => {
+      if (document.visibilityState === "visible" && navigator.onLine)
+        void refresh();
+    }, 30_000);
+    return () => clearInterval(recovery);
   }, [remoteRunning, refresh]);
   useEffect(() => {
     onBusyChange(busy);
