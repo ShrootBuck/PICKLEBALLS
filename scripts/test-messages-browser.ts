@@ -43,8 +43,8 @@ try {
     exact: true,
   });
   assert.deepEqual(
-    await directory.locator(".font-semibold").allTextContents(),
-    ["Everyone", "Eddie", "Jules", "Sam"],
+    (await directory.locator(".font-semibold").allTextContents()).sort(),
+    ["Eddie", "Everyone", "Jules", "Sam"],
   );
   await page
     .getByRole("textbox", { name: "Search conversations" })
@@ -401,7 +401,7 @@ try {
     (await eddie.request.get(`${app}/api/media/${mediaId}`)).status(),
     404,
   );
-  // The pinned chat is shared by the circle, including author names and live updates.
+  // The group chat is shared by the circle, including author names and live updates.
   await page.bringToFront();
   await page.getByText("Done.", { exact: true }).waitFor({ state: "hidden" });
   await page
@@ -523,7 +523,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Passed: pinned group and alphabetical directory, no creation flow, circle switching/isolation, group delivery/authors/reactions/photos, profile DM entry, private send/reply/read receipts, retry idempotency, media privacy/playback, drafts, deletion, and 1440/768/390/320px layouts.",
+    "Passed: group chat and conversation directory, no creation flow, circle switching/isolation, group delivery/authors/reactions/photos, profile DM entry, private send/reply/read receipts, retry idempotency, media privacy/playback, drafts, deletion, and 1440/768/390/320px layouts.",
   );
 } finally {
   await browser.close();

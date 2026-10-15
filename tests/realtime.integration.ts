@@ -142,7 +142,10 @@ test("private streaks and processing updates stay owner-scoped", async () => {
 });
 
 test("DMs, typing and read receipts reach exactly the two participants", async () => {
-  const conversation = (await directInbox(a, circle))[1];
+  const conversation = (await directInbox(a, circle)).find(
+    (chat) => chat.person?.id === b,
+  );
+  if (!conversation) throw new Error("Missing direct conversation");
   await Bun.sleep(100);
   clear();
   const message = await sendDirectMessage(a, conversation.id, {
@@ -195,7 +198,10 @@ test("DMs, typing and read receipts reach exactly the two participants", async (
 });
 
 test("group messages and typing reach current members, and group reads only refresh the reader", async () => {
-  const group = (await directInbox(a, circle))[0];
+  const group = (await directInbox(a, circle)).find(
+    (chat) => chat.kind === "group",
+  );
+  if (!group) throw new Error("Missing group conversation");
   await Bun.sleep(100);
   clear();
   const message = await sendDirectMessage(a, group.id, {
@@ -246,7 +252,10 @@ test("membership revocation refreshes the removed user but cuts off later circle
   );
   await Bun.sleep(100);
   clear();
-  const group = (await directInbox(a, circle))[0];
+  const group = (await directInbox(a, circle)).find(
+    (chat) => chat.kind === "group",
+  );
+  if (!group) throw new Error("Missing group conversation");
   await sendDirectMessage(a, group.id, {
     body: "After removal",
     clientId: randomUUID(),

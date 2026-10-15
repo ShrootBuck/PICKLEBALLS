@@ -59,6 +59,13 @@ async function directPair(userId: string, recipientId: string) {
   if (!chat) throw new Error("Missing direct conversation in the directory");
   return { id: chat.id };
 }
+async function groupChat(userId: string, circleId: string) {
+  const chat = (await directInbox(userId, circleId)).find(
+    (item) => item.kind === "group",
+  );
+  if (!chat) throw new Error("Missing group conversation");
+  return chat;
+}
 async function upload(
   ownerId: string,
   conversationId: string | null,
@@ -280,19 +287,38 @@ test("pagination and change catch-up preserve equal timestamps, including reacti
   ]);
 });
 
-test("the directory includes empty DMs alphabetically and one shared chat per current circle", async () => {
+test("the directory includes empty DMs and one shared chat per current circle", async () => {
   const lists = await Promise.all([
     directInbox(a, circle),
     directInbox(b, circle),
     directInbox(a, circle),
   ]);
-  expect(new Set(lists.map((list) => list[0].id)).size).toBe(1);
-  expect(lists[0][0]).toMatchObject({ kind: "group", group: { id: circle } });
-  expect(lists[0].slice(1).map((chat) => chat.person?.id)).toEqual([b, c]);
+  expect(
+    new Set(lists.map((list) => list.find((chat) => chat.kind === "group")?.id))
+      .size,
+  ).toBe(1);
+  expect(lists[0].find((chat) => chat.kind === "group")).toMatchObject({
+    kind: "group",
+    group: { id: circle },
+  });
+  expect(
+    lists[0]
+      .filter((chat) => chat.kind === "direct")
+      .map((chat) => chat.person?.id)
+      .sort(),
+  ).toEqual([b, c]);
   const elsewhere = await directInbox(a, otherCircle);
-  expect(elsewhere[0].id).not.toBe(lists[0][0].id);
-  expect(elsewhere.slice(1).map((chat) => chat.person?.id)).toEqual([stranger]);
-  expect(elsewhere[1].lastMessage).toBeNull();
+  expect(elsewhere.find((chat) => chat.kind === "group")?.id).not.toBe(
+    lists[0].find((chat) => chat.kind === "group")?.id,
+  );
+  expect(
+    elsewhere
+      .filter((chat) => chat.kind === "direct")
+      .map((chat) => chat.person?.id),
+  ).toEqual([stranger]);
+  expect(
+    elsewhere.find((chat) => chat.person?.id === stranger)?.lastMessage,
+  ).toBeNull();
   await expect(directInbox(b, otherCircle)).rejects.toThrow("not found");
   const newcomer = await prisma.user.create({
     data: { name: "Aaron", email: "dm-new@example.invalid" },
@@ -301,13 +327,29 @@ test("the directory includes empty DMs alphabetically and one shared chat per cu
     data: { userId: newcomer.id, circleId: circle },
   });
   const afterJoin = await directInbox(a, circle);
-  expect(afterJoin[1].person?.id).toBe(newcomer.id);
-  expect(afterJoin[1].lastMessage).toBeNull();
+  expect(
+    afterJoin.find((chat) => chat.person?.id === newcomer.id)?.lastMessage,
+  ).toBeNull();
   await prisma.user.delete({ where: { id: newcomer.id } });
 });
 
+test("new messages move direct and group chats to the top, ahead of empty chats", async () => {
+  const group = await groupChat(a, circle);
+  const direct = await directPair(a, b);
+  await sendDirectMessage(a, group.id, input("Group activity"));
+  expect((await directInbox(a, circle))[0].id).toBe(group.id);
+  await sendDirectMessage(b, direct.id, input("Incoming DM"));
+  expect((await directInbox(a, circle))[0].id).toBe(direct.id);
+  await sendDirectMessage(a, group.id, input("Back to the group"));
+  const reordered = await directInbox(a, circle);
+  expect(reordered[0].id).toBe(group.id);
+  expect(reordered[1].id).toBe(direct.id);
+  await readDirectMessages(b, group.id, 999999);
+  await readDirectMessages(c, group.id, 999999);
+});
+
 test("circle chat supports shared media and reactions with independent, monotonic read positions and membership gates", async () => {
-  const { id } = (await directInbox(a, circle))[0];
+  const { id } = await groupChat(a, circle);
   const photo = await upload(a, id);
   const first = await sendDirectMessage(
     a,
@@ -363,13 +405,13 @@ test("circle and account deletion clean up group files without deleting unrelate
   const fromB = await upload(b, id);
   await sendDirectMessage(a, id, input("", [fromA.id]));
   await sendDirectMessage(b, id, input("", [fromB.id]));
-  const group = (await directInbox(a, circle))[0];
+  const group = await groupChat(a, circle);
   const groupFile = await upload(a, group.id);
   await sendDirectMessage(a, group.id, input("", [groupFile.id]));
   await prisma.membership.create({
     data: { userId: b, circleId: otherCircle },
   });
-  const otherGroup = (await directInbox(a, otherCircle))[0];
+  const otherGroup = await groupChat(a, otherCircle);
   const sharedFile = await upload(stranger, otherGroup.id);
   const shared = await sendDirectMessage(
     stranger,

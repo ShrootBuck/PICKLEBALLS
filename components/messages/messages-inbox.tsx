@@ -81,10 +81,9 @@ export function MessagesInbox({
       live.dispose();
     };
   }, []);
-  const group = inbox.find((item) => item.kind === "group");
-  const people = inbox.filter(
+  const conversations = inbox.filter(
     (item) =>
-      item.kind === "direct" &&
+      item.kind === "group" ||
       item.person.name.toLowerCase().includes(query.trim().toLowerCase()),
   );
 
@@ -172,9 +171,8 @@ export function MessagesInbox({
           </output>
         )}
         <nav className="dm-conversations" aria-label="Conversations">
-          {group && conversation(group)}
-          {people.map(conversation)}
-          {!people.length && (
+          {conversations.map(conversation)}
+          {!conversations.some((item) => item.kind === "direct") && (
             <Empty className="dm-inbox-empty">
               <EmptyHeader>
                 <EmptyTitle>

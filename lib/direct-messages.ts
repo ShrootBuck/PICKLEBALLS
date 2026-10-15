@@ -186,15 +186,11 @@ export async function directInbox(
       lastMessage: row.messages[0] ? toMessage(row.messages[0]) : null,
       unread: row._count.messages,
     }))
-    .sort((a, b) => {
-      if (a.kind === "group") return -1;
-      if (b.kind === "group") return 1;
-      return (
-        a.person.name.localeCompare(b.person.name, "en", {
-          sensitivity: "base",
-        }) || a.person.id.localeCompare(b.person.id)
-      );
-    });
+    .sort(
+      (a, b) =>
+        (b.lastMessage ? Date.parse(b.lastMessage.createdAt) : 0) -
+        (a.lastMessage ? Date.parse(a.lastMessage.createdAt) : 0),
+    );
 }
 
 export async function directThread(
