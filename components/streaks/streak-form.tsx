@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { type FormEvent, useEffect, useId, useState } from "react";
+import { StreakSchedulePicker } from "@/components/streaks/streak-schedule";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +34,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { appFetch } from "@/lib/app-refresh";
 import { newStreakHash } from "@/lib/navigation";
 import {
+  EVERY_DAY,
   hundredthsToInput,
   parseMoneyInput,
   parseUnitsInput,
@@ -61,6 +63,7 @@ export function StreakForm({
   const open = controlledOpen ?? internalOpen;
   const [kind, setKind] = useState<StreakKind>(streak?.kind ?? "QUIT");
   const [title, setTitle] = useState(streak?.title ?? "");
+  const [weekdays, setWeekdays] = useState(streak?.weekdays ?? [...EVERY_DAY]);
   const [visibility, setVisibility] = useState<StreakVisibility>("CIRCLE");
   const [money, setMoney] = useState(
     hundredthsToInput(streak?.dailyCostCents ?? null),
@@ -93,6 +96,7 @@ export function StreakForm({
   function reset() {
     setKind(streak?.kind ?? "QUIT");
     setTitle(streak?.title ?? "");
+    setWeekdays(streak?.weekdays ?? [...EVERY_DAY]);
     setVisibility("CIRCLE");
     setMoney(hundredthsToInput(streak?.dailyCostCents ?? null));
     setUnits(hundredthsToInput(streak?.dailyUnits ?? null));
@@ -134,6 +138,7 @@ export function StreakForm({
     try {
       const details = {
         title,
+        weekdays,
         dailyCostCents,
         dailyUnits,
         unitLabel: label,
@@ -156,9 +161,7 @@ export function StreakForm({
       if (!response.ok)
         throw new Error(result.error ?? "Could not save your streak.");
       toast.add({
-        title: streak
-          ? "Streak updated."
-          : "Streak started. Day one begins now.",
+        title: streak ? "Streak updated." : "Streak started.",
         type: "success",
       });
       setPending(false);
@@ -196,8 +199,8 @@ export function StreakForm({
             </DialogTitle>
             {streak && (
               <DialogDescription>
-                Amount changes only apply going forward. Past days keep what
-                they were worth.
+                Schedule changes start tomorrow. Past days keep their results
+                and amounts.
               </DialogDescription>
             )}
           </DialogHeader>
@@ -282,6 +285,12 @@ export function StreakForm({
                   </FieldDescription>
                 </Field>
               )}
+              <StreakSchedulePicker
+                value={weekdays}
+                onChange={setWeekdays}
+                disabled={pending}
+                editing={Boolean(streak)}
+              />
               <div className="flex flex-col gap-3">
                 <Button
                   type="button"

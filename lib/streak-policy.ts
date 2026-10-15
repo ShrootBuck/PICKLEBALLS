@@ -7,7 +7,7 @@ export type StreakKind = "QUIT" | "BUILD";
 export type StreakVisibility = "CIRCLE" | "PRIVATE";
 export type StreakStatus = "ACTIVE" | "RETIRED";
 export type StreakEntryKind = "CLEAN" | "SLIP" | "LOG";
-export type StreakDayState = "done" | "slipped" | "missed" | "pending";
+export type StreakDayState = "done" | "slipped" | "missed" | "pending" | "off";
 export type StreakTier = "spark" | "flame" | "blaze" | "inferno";
 
 export const STREAK_MILESTONES = [7, 30, 60, 100, 180, 365] as const;
@@ -16,10 +16,66 @@ const MAX_AMOUNT = 1_000_000;
 
 type DateLike = Date | string;
 
+export const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
+export const WEEKDAYS = [1, 2, 3, 4, 5];
+export const WEEKDAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+export type StreakScheduleSource = { fromDay: DateLike; weekdays: number[] };
+export type StreakBreakSource = {
+  startDay: DateLike;
+  resumeDay: DateLike | null;
+};
+export type BreakLength = "today" | "week" | "seven-days" | "manual";
+
+export function breakResumeDay(startDay: string, length: BreakLength) {
+  if (length === "manual") return null;
+  if (length === "today") return shiftDateKey(startDay, 1);
+  if (length === "seven-days") return shiftDateKey(startDay, 7);
+  const weekday = new Date(`${startDay}T12:00:00Z`).getUTCDay();
+  return shiftDateKey(startDay, weekday === 0 ? 1 : 8 - weekday);
+}
+
+export function scheduleLabel(weekdays: readonly number[]) {
+  if (weekdays.length === 7) return "Every day";
+  if (weekdays.join() === WEEKDAYS.join()) return "Weekdays";
+  return weekdays.map((day) => WEEKDAY_NAMES[day].slice(0, 3)).join(", ");
+}
+
+export function scheduledWeekdays(streak: StreakSource, day: string) {
+  return (
+    [...(streak.schedules ?? [])]
+      .filter((schedule) => dayKeyOf(schedule.fromDay) <= day)
+      .sort((a, b) => dayKeyOf(b.fromDay).localeCompare(dayKeyOf(a.fromDay)))[0]
+      ?.weekdays ?? EVERY_DAY
+  );
+}
+
+export function isStreakOffDay(streak: StreakSource, day: string) {
+  return (
+    !scheduledWeekdays(streak, day).includes(
+      new Date(`${day}T12:00:00Z`).getUTCDay(),
+    ) ||
+    (streak.breaks ?? []).some(
+      (pause) =>
+        dayKeyOf(pause.startDay) <= day &&
+        (pause.resumeDay === null || day < dayKeyOf(pause.resumeDay)),
+    )
+  );
+}
+
 export type StreakSource = {
   kind: StreakKind;
   startedAt: DateLike;
   retiredAt: DateLike | null;
+  schedules?: readonly StreakScheduleSource[];
+  breaks?: readonly StreakBreakSource[];
 };
 
 export type StreakEntrySource = {
@@ -67,6 +123,8 @@ export type StreakSummary = {
   todayState: StreakDayState;
   yesterdayState: StreakDayState | null;
   days: StreakDay[];
+  // Elapsed wall time is misleading once a run includes off days.
+  hasOffDays: boolean;
 };
 
 type DayTotals = {
@@ -149,7 +207,9 @@ export function summarizeStreak(
     let state: StreakDayState;
     let units = 0;
     let costCents = 0;
-    if (streak.kind === "QUIT") {
+    // Recorded results always win, even if the schedule changes later.
+    if (!totals && isStreakOffDay(streak, day)) state = "off";
+    else if (streak.kind === "QUIT") {
       if (totals?.slips) state = "slipped";
       else if (totals?.clean) {
         state = "done";
@@ -174,7 +234,7 @@ export function summarizeStreak(
       allTime.units += units;
     } else if (state === "pending") {
       segment = 0;
-    } else {
+    } else if (state !== "off") {
       current = 0;
       segment = 0;
       settled = 0;
@@ -210,6 +270,7 @@ export function summarizeStreak(
     yesterdayState:
       yesterday >= startDay ? (stateOf.get(yesterday) ?? "pending") : null,
     days,
+    hasOffDays: days.some((day) => day.state === "off"),
   };
 }
 
@@ -276,11 +337,18 @@ export function streakActions(
     logDays:
       active && !quit
         ? [
-            summary.today,
-            ...(summary.yesterdayState === null ? [] : [summary.yesterday]),
+            ...(summary.todayState === "off" ? [] : [summary.today]),
+            ...(summary.yesterdayState === null ||
+            summary.yesterdayState === "off"
+              ? []
+              : [summary.yesterday]),
           ]
         : [],
-    canSlip: active && quit,
+    canSlip:
+      active &&
+      quit &&
+      (summary.todayState !== "off" ||
+        (summary.yesterdayState !== null && summary.yesterdayState !== "off")),
     needsLog:
       active &&
       (yesterdayPending || (!quit && summary.todayState === "pending")),
@@ -376,6 +444,9 @@ export type StreakView = {
   mine: boolean;
   nudged: boolean;
   summary: StreakCardSummary;
+  weekdays: number[];
+  scheduleStartsOn: string | null;
+  break: { startDay: string; resumeDay: string | null } | null;
 };
 
 export function toCardSummary(summary: StreakSummary): StreakCardSummary {
@@ -464,6 +535,13 @@ const dayKey = z
   .string()
   .refine((value) => Boolean(parseDateKey(value)), "Choose a valid day.");
 
+const weekdaysSchema = z
+  .array(z.number().int().min(0).max(6))
+  .min(1, "Choose at least one day.")
+  .max(7)
+  .refine((days) => new Set(days).size === days.length, "Choose each day once.")
+  .transform((days) => [...days].sort((a, b) => a - b));
+
 const streakDetails = z.object({
   title: z
     .string()
@@ -502,6 +580,7 @@ export const createStreakSchema = streakDetails
     circleId: id,
     kind: z.enum(["QUIT", "BUILD"]),
     visibility: z.enum(["CIRCLE", "PRIVATE"]),
+    weekdays: weekdaysSchema.default(EVERY_DAY),
   })
   .superRefine((value, context) => {
     const message = streakAmountError(value, value.kind);
@@ -509,7 +588,15 @@ export const createStreakSchema = streakDetails
   });
 
 export const streakActionSchema = z.discriminatedUnion("action", [
-  streakDetails.extend({ action: z.literal("details") }),
+  streakDetails.extend({
+    action: z.literal("details"),
+    weekdays: weekdaysSchema.optional(),
+  }),
+  z.object({
+    action: z.literal("pause"),
+    length: z.enum(["today", "week", "seven-days", "manual"]),
+  }),
+  z.object({ action: z.literal("resume") }),
   z.object({ action: z.literal("retire") }),
 ]);
 

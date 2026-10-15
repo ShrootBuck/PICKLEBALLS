@@ -395,10 +395,33 @@ model Streak {
   entries StreakEntry[]
   events  StreakEvent[]
   nudges  StreakNudge[]
+  schedules StreakSchedule[]
+  breaks    StreakBreak[]
 
   @@index([circleId, status, createdAt])
   @@index([userId, circleId, status])
   @@index([status])
+}
+
+// Schedule revisions preserve the rules that applied to past days.
+model StreakSchedule {
+  streakId String
+  fromDay  DateTime @db.Date
+  weekdays Int[]
+  streak   Streak   @relation(fields: [streakId], references: [id], onDelete: Cascade)
+
+  @@id([streakId, fromDay])
+}
+
+// resumeDay is exclusive. Null means the owner resumes manually.
+model StreakBreak {
+  id        String    @id @default(cuid())
+  streakId  String
+  startDay  DateTime  @db.Date
+  resumeDay DateTime? @db.Date
+  streak    Streak    @relation(fields: [streakId], references: [id], onDelete: Cascade)
+
+  @@index([streakId, startDay])
 }
 
 // CLEAN confirms a finished quit day, SLIP records a relapse (any number per

@@ -3,6 +3,7 @@
 import { BellRing, Lock, Trophy } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { StreakBreakButton } from "@/components/streaks/streak-break";
 import { StreakLogButton } from "@/components/streaks/streak-log";
 import {
   countLabel,
@@ -25,9 +26,10 @@ import {
   formatStreakUnits,
   milestoneProgress,
   type StreakView,
+  scheduleLabel,
   streakActions,
 } from "@/lib/streak-policy";
-import { formatCalendarDate } from "@/lib/time";
+import { formatCalendarDate, formatDayShort } from "@/lib/time";
 
 function LiveClock({ view }: { view: StreakView }) {
   const { summary } = view;
@@ -58,6 +60,12 @@ function streakStatus(view: StreakView) {
   if (view.status === "RETIRED") return null;
   const actions = streakActions(view, summary);
   const today = summary.week.at(-1);
+  if (summary.todayState === "off" && !actions.needsLog)
+    return view.break
+      ? view.break.resumeDay
+        ? `On a break. Back ${formatDayShort(view.break.resumeDay)}.`
+        : "On a break. Resume whenever you're ready."
+      : "Off today. Your streak is kept.";
   if (view.kind === "QUIT") {
     if (summary.todayState === "slipped") return "Slipped today.";
     if (actions.confirmDay)
@@ -187,7 +195,27 @@ export function StreakCard({
                 {countLabel(view.kind, count)}
               </span>
             </p>
-            {view.kind === "QUIT" && !retired && <LiveClock view={view} />}
+            {view.kind === "QUIT" &&
+              !retired &&
+              !summary.hasOffDays &&
+              view.weekdays.length === 7 &&
+              !view.break && <LiveClock view={view} />}
+            {!retired &&
+              (view.weekdays.length !== 7 ||
+                view.scheduleStartsOn ||
+                view.break) && (
+                <p className="text-xs text-muted-foreground">
+                  {scheduleLabel(view.weekdays)}
+                  {view.scheduleStartsOn
+                    ? ` from ${formatDayShort(view.scheduleStartsOn)}`
+                    : ""}
+                  {view.break
+                    ? view.break.startDay > summary.today
+                      ? ". Break starts tomorrow."
+                      : ". On a break."
+                    : ""}
+                </p>
+              )}
             {retired && view.retiredAt && (
               <p className="text-xs text-muted-foreground">
                 Retired {formatCalendarDate(view.retiredAt)}. Best run{" "}
@@ -222,12 +250,15 @@ export function StreakCard({
         {status && <p className="text-sm text-muted-foreground">{status}</p>}
       </CardContent>
       {!retired && (
-        <CardFooter className="justify-between gap-3">
+        <CardFooter className="flex-wrap justify-between gap-3">
           <span className="text-xs text-muted-foreground">
             Next milestone: {progress.next} days, {progress.remaining} to go
           </span>
           {view.mine ? (
-            <StreakLogButton streak={view} />
+            <div className="flex flex-wrap gap-2">
+              {(hero || view.break) && <StreakBreakButton view={view} />}
+              <StreakLogButton streak={view} />
+            </div>
           ) : canNudge ? (
             <StreakNudgeButton view={view} />
           ) : null}

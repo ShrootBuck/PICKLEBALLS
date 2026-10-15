@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  breakResumeDay,
   createStreakSchema,
   crossedMilestones,
   formatElapsed,
@@ -14,6 +15,7 @@ import {
   parseUnitsInput,
   type StreakEntrySource,
   slipWindow,
+  streakActionSchema,
   streakActions,
   streakEntrySchema,
   streakHistory,
@@ -337,4 +339,178 @@ test("streak validation", () => {
       note: "Long day",
     }).success,
   ).toBe(true);
+});
+
+describe("scheduled streaks and breaks", () => {
+  test("break presets resolve around week and year boundaries", () => {
+    expect(breakResumeDay("2026-10-14", "today")).toBe("2026-10-15");
+    expect(breakResumeDay("2026-10-18", "week")).toBe("2026-10-19");
+    expect(breakResumeDay("2026-10-19", "week")).toBe("2026-10-26");
+    expect(breakResumeDay("2026-12-28", "seven-days")).toBe("2027-01-04");
+    expect(breakResumeDay("2026-10-14", "manual")).toBeNull();
+  });
+
+  test("schedules require distinct real weekdays and default to every day", () => {
+    const input = {
+      circleId: "circle",
+      title: "School",
+      kind: "QUIT",
+      visibility: "CIRCLE",
+    };
+    expect(createStreakSchema.parse(input).weekdays).toEqual([
+      0, 1, 2, 3, 4, 5, 6,
+    ]);
+    for (const weekdays of [[], [1, 1], [-1], [7], [1.5]])
+      expect(createStreakSchema.safeParse({ ...input, weekdays }).success).toBe(
+        false,
+      );
+    expect(
+      createStreakSchema.parse({ ...input, weekdays: [5, 1, 3] }).weekdays,
+    ).toEqual([1, 3, 5]);
+    expect(
+      streakActionSchema.safeParse({ action: "pause", length: "forever" })
+        .success,
+    ).toBe(false);
+  });
+  const weekdays = {
+    ...build,
+    schedules: [{ fromDay: "2026-09-28", weekdays: [1, 2, 3, 4, 5] }],
+  };
+  const workweek = [
+    "2026-09-28",
+    "2026-09-29",
+    "2026-09-30",
+    "2026-10-01",
+    "2026-10-02",
+  ];
+
+  test("weekends bridge successful days without adding counts or amounts", () => {
+    const entries = [...workweek.map((day) => log(day)), log("2026-10-05")];
+    const summary = summarizeStreak(weekdays, entries, at("2026-10-05", 20));
+    expect(summary.current).toBe(6);
+    expect(summary.settled).toBe(6);
+    expect(summary.longest).toBe(6);
+    expect(summary.allTime.units).toBe(6000);
+    expect(
+      summary.days.filter((day) => day.state === "off").map((day) => day.day),
+    ).toEqual(["2026-10-03", "2026-10-04"]);
+    const sunday = summarizeStreak(
+      weekdays,
+      entries.slice(0, 5),
+      at("2026-10-04"),
+    );
+    expect(
+      streakActions({ ...weekdays, status: "ACTIVE" }, sunday),
+    ).toMatchObject({ logDays: [], needsLog: false, breaksTonight: false });
+  });
+
+  test("a quit check-in for Friday remains available on Saturday", () => {
+    const streak = { ...weekdays, kind: "QUIT" as const };
+    const summary = summarizeStreak(
+      streak,
+      workweek.slice(0, 4).map((day) => clean(day)),
+      at("2026-10-03"),
+    );
+    expect(summary.todayState).toBe("off");
+    expect(
+      streakActions({ ...streak, status: "ACTIVE" }, summary).confirmDay,
+    ).toBe("2026-10-02");
+    const confirmed = summarizeStreak(
+      streak,
+      workweek.map((day) => clean(day)),
+      at("2026-10-04"),
+    );
+    expect(confirmed.current).toBe(5);
+    expect(confirmed.run.costCents).toBe(2500);
+    expect(
+      streakActions({ ...streak, status: "ACTIVE" }, confirmed).canSlip,
+    ).toBe(false);
+  });
+
+  test("break boundaries are inclusive start and exclusive resume, even across Phoenix midnight", () => {
+    const streak = {
+      ...build,
+      breaks: [{ startDay: "2026-09-29", resumeDay: "2026-10-05" }],
+    };
+    const before = summarizeStreak(
+      streak,
+      [log("2026-09-28")],
+      new Date("2026-10-05T06:59:59Z"),
+    );
+    expect(before.todayState).toBe("off");
+    expect(before.current).toBe(1);
+    const resumed = summarizeStreak(
+      streak,
+      [log("2026-09-28"), log("2026-10-05")],
+      at("2026-10-05", 20),
+    );
+    expect(resumed.current).toBe(2);
+    expect(resumed.settled).toBe(2);
+    expect(resumed.allTime.units).toBe(2000);
+  });
+
+  test("indefinite breaks do not excuse an earlier missed day or hide an entry", () => {
+    const streak = {
+      ...quit,
+      breaks: [{ startDay: "2026-09-30", resumeDay: null }],
+    };
+    const summary = summarizeStreak(
+      streak,
+      [clean("2026-09-28")],
+      at("2026-10-10"),
+    );
+    expect(summary.current).toBe(0);
+    expect(summary.longest).toBe(1);
+    expect(summary.days.find((day) => day.day === "2026-09-29")?.state).toBe(
+      "missed",
+    );
+    const slipped = summarizeStreak(
+      streak,
+      [slip(at("2026-09-30", 10))],
+      at("2026-10-10"),
+    );
+    expect(slipped.slips).toBe(1);
+    expect(slipped.days.find((day) => day.day === "2026-09-30")?.state).toBe(
+      "slipped",
+    );
+  });
+
+  test("schedule revisions preserve old missed days and support later changes", () => {
+    const streak = {
+      ...build,
+      schedules: [
+        { fromDay: "2026-10-05", weekdays: [1, 2, 3, 4, 5] },
+        { fromDay: "2026-10-12", weekdays: [0, 6] },
+      ],
+    };
+    const summary = summarizeStreak(
+      streak,
+      workweek.map((day) => log(day)),
+      at("2026-10-13"),
+    );
+    expect(summary.days.find((day) => day.day === "2026-10-03")?.state).toBe(
+      "missed",
+    );
+    expect(summary.days.find((day) => day.day === "2026-10-10")?.state).toBe(
+      "off",
+    );
+    expect(summary.todayState).toBe("off");
+    expect(summary.current).toBe(0);
+  });
+
+  test("retirement freezes an unfinished break", () => {
+    const streak = {
+      ...build,
+      breaks: [{ startDay: "2026-09-29", resumeDay: "2026-10-05" }],
+      retiredAt: at("2026-10-01"),
+    };
+    const summary = summarizeStreak(
+      streak,
+      [log("2026-09-28")],
+      at("2026-10-20"),
+    );
+    expect(summary.current).toBe(1);
+    expect(summary.today).toBe("2026-10-01");
+    expect(summary.todayState).toBe("off");
+  });
 });

@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1792027202549,
+    title: "Streaks that fit your schedule",
+    description:
+      "Keep a streak on weekdays or choose the days that count. Take a break for a day, the rest of the week, a week, or until you resume. Off days preserve your streak without adding to its count, and timed breaks end automatically.",
+  },
+  {
     timestamp: 1791672244167,
     title: "Track your work as you do it",
     description:

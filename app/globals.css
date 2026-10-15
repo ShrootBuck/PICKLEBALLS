@@ -2974,6 +2974,16 @@ section:first-child > .mood-group-label {
   border-style: dashed;
   border-color: var(--muted-foreground);
 }
+.streak-dot[data-state="off"],
+.streak-heatmap-cell[data-state="off"] {
+  background:
+    linear-gradient(
+      transparent 40%,
+      var(--muted-foreground) 40% 60%,
+      transparent 60%
+    )
+    center / 60% 60% no-repeat var(--muted);
+}
 .streak-dot[data-state="none"] {
   opacity: 0.3;
 }

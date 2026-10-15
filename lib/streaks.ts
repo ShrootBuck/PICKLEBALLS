@@ -11,11 +11,14 @@ import {
 import { getPrisma } from "@/lib/prisma";
 import { socialAuthorSelect } from "@/lib/social-data";
 import {
+  breakResumeDay,
   createStreakSchema,
   crossedMilestones,
   isEntryDayOpen,
+  isStreakOffDay,
   type StreakSummary,
   type StreakView,
+  scheduledWeekdays,
   slipWindow,
   streakActionSchema,
   streakActions,
@@ -46,6 +49,8 @@ const entrySelect = {
 
 function streakInclude(viewerId: string, now: Date) {
   return {
+    schedules: true,
+    breaks: true,
     user: { select: socialAuthorSelect },
     entries: {
       select: entrySelect,
@@ -70,6 +75,12 @@ function toStreakView(
   viewerId: string,
   summary: StreakSummary,
 ): StreakView {
+  const latestSchedule = [...row.schedules].sort(
+    (a, b) => b.fromDay.getTime() - a.fromDay.getTime(),
+  )[0];
+  const pause = row.breaks.find(
+    (item) => item.resumeDay === null || dayKey(item.resumeDay) > summary.today,
+  );
   return {
     id: row.id,
     circleId: row.circleId,
@@ -86,6 +97,17 @@ function toStreakView(
     mine: row.userId === viewerId,
     nudged: row.nudges.length > 0,
     summary: toCardSummary(summary),
+    weekdays: latestSchedule?.weekdays ?? scheduledWeekdays(row, summary.today),
+    scheduleStartsOn:
+      latestSchedule && dayKey(latestSchedule.fromDay) > summary.today
+        ? dayKey(latestSchedule.fromDay)
+        : null,
+    break: pause
+      ? {
+          startDay: dayKey(pause.startDay),
+          resumeDay: pause.resumeDay ? dayKey(pause.resumeDay) : null,
+        }
+      : null,
   };
 }
 
@@ -112,6 +134,8 @@ async function loadOwnStreak(
   const streak = await tx.streak.findFirst({
     where: { id: streakId, circleId },
     include: {
+      schedules: true,
+      breaks: true,
       entries: {
         select: entrySelect,
         orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
@@ -144,13 +168,21 @@ export async function createStreak(
   const parsed = createStreakSchema.safeParse(input);
   if (!parsed.success)
     throw new DomainError(firstIssue(parsed, "Check the streak fields."));
-  const { circleId: requested, ...data } = parsed.data;
+  const { circleId: requested, weekdays, ...data } = parsed.data;
   if (requested !== circleId)
     throw new DomainError("Your circle changed. Refresh and try again.", 409);
   return serializable(async (tx) => {
     await requireMember(tx, userId, circleId);
     const streak = await tx.streak.create({
-      data: { ...data, userId, circleId, startedAt: now },
+      data: {
+        ...data,
+        userId,
+        circleId,
+        startedAt: now,
+        schedules: {
+          create: { fromDay: requireDateKey(phoenixDateKey(now)), weekdays },
+        },
+      },
     });
     if (streak.visibility === "CIRCLE") {
       await tx.streakEvent.create({
@@ -192,16 +224,67 @@ export async function changeStreak(
   return serializable(async (tx) => {
     await requireMember(tx, userId, circleId);
     const streak = await loadOwnStreak(tx, streakId, userId, circleId);
-    const { entries, ...current } = streak;
+    const {
+      entries,
+      schedules: _schedules,
+      breaks: _breaks,
+      ...current
+    } = streak;
     if (streak.status === "RETIRED") {
       if (action.action === "retire") return current;
       throw new DomainError("Retired streaks can’t be changed.", 409);
     }
     if (action.action === "details") {
-      const { action: _action, ...details } = action;
+      const { action: _action, weekdays, ...details } = action;
       const message = streakAmountError(details, streak.kind);
       if (message) throw new DomainError(message);
+      // Existing days retain their original rules. Multiple edits in one day
+      // replace only tomorrow's revision, including reverting an earlier edit.
+      const tomorrow = shiftDateKey(phoenixDateKey(now), 1);
+      if (
+        weekdays &&
+        weekdays.join() !== scheduledWeekdays(streak, tomorrow).join()
+      ) {
+        const fromDay = requireDateKey(tomorrow);
+        await tx.streakSchedule.upsert({
+          where: { streakId_fromDay: { streakId, fromDay } },
+          create: { streakId, fromDay, weekdays },
+          update: { weekdays },
+        });
+      }
       return tx.streak.update({ where: { id: streak.id }, data: details });
+    }
+    const today = phoenixDateKey(now);
+    const pause = streak.breaks.find(
+      (item) => item.resumeDay === null || dayKey(item.resumeDay) > today,
+    );
+    if (action.action === "pause") {
+      if (pause) return current;
+      // Never hide a result already recorded today.
+      const startDay = entries.some((entry) => dayKey(entry.day) === today)
+        ? shiftDateKey(today, 1)
+        : today;
+      const resumeDay = breakResumeDay(startDay, action.length);
+      await tx.streakBreak.create({
+        data: {
+          streakId,
+          startDay: requireDateKey(startDay),
+          resumeDay: resumeDay ? requireDateKey(resumeDay) : null,
+        },
+      });
+      return current;
+    }
+    if (action.action === "resume") {
+      if (pause) {
+        if (dayKey(pause.startDay) >= today)
+          await tx.streakBreak.delete({ where: { id: pause.id } });
+        else
+          await tx.streakBreak.update({
+            where: { id: pause.id },
+            data: { resumeDay: requireDateKey(today) },
+          });
+      }
+      return current;
     }
     const summary = summarizeStreak(streak, entries, now);
     const retired = await tx.streak.update({
@@ -277,6 +360,13 @@ export async function addStreakEntry(
     if (streak.status !== "ACTIVE")
       throw new DomainError("This streak is retired.", 409);
     const before = summarizeStreak(streak, streak.entries, now);
+    function requireScheduledDay(day: string) {
+      if (isStreakOffDay(streak, day))
+        throw new DomainError(
+          "That's an off day. It doesn't need a check-in.",
+          409,
+        );
+    }
     const note = action.note || null;
     let entries = streak.entries;
     if (action.action === "clean") {
@@ -286,6 +376,7 @@ export async function addStreakEntry(
         throw new DomainError("You can confirm a day once it’s over.", 409);
       if (action.day !== before.yesterday || action.day < before.startDay)
         throw new DomainError("That day can no longer be changed.", 409);
+      requireScheduledDay(action.day);
       const sameDay = entries.filter((item) => dayKey(item.day) === action.day);
       if (sameDay.some((item) => item.kind === "SLIP"))
         throw new DomainError("You logged a slip that day.", 409);
@@ -334,6 +425,7 @@ export async function addStreakEntry(
         ),
       );
       const day = phoenixDateKey(occurredAt);
+      requireScheduledDay(day);
       // An honest slip replaces an earlier clean confirmation for that day.
       await tx.streakEntry.deleteMany({
         where: { streakId: streak.id, kind: "CLEAN", day: requireDateKey(day) },
@@ -362,6 +454,7 @@ export async function addStreakEntry(
         action.day < before.startDay
       )
         throw new DomainError("You can log today or yesterday.", 409);
+      requireScheduledDay(action.day);
       const entry = await tx.streakEntry.create({
         data: {
           streakId: streak.id,
@@ -463,7 +556,11 @@ export async function nudgeStreak(
     await requireMember(tx, senderId, circleId);
     const streak = await tx.streak.findFirst({
       where: { id: streakId, circleId, visibility: "CIRCLE" },
-      include: { entries: { select: entrySelect } },
+      include: {
+        entries: { select: entrySelect },
+        schedules: true,
+        breaks: true,
+      },
     });
     if (!streak) throw new DomainError("Streak not found.", 404);
     if (streak.userId === senderId)
@@ -666,6 +763,8 @@ export async function sendStreakReminders(now = new Date()) {
       title: true,
       startedAt: true,
       retiredAt: true,
+      schedules: true,
+      breaks: true,
       // Today's and yesterday's states only depend on their own entries.
       entries: {
         where: { day: { gte: requireDateKey(shiftDateKey(today, -1)) } },

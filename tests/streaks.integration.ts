@@ -614,3 +614,329 @@ test("undo is limited to open days and milestones post once per run", async () =
     removeStreakEntry(streak.id, oldest.id, ownerId, circleId, at(seventh, 22)),
   ).rejects.toThrow("locked in");
 });
+
+test("scheduled days reject off-day entries, retain Friday check-ins, and bridge milestones", async () => {
+  const streak = await createStreak(
+    ownerId,
+    circleId,
+    quitInput("School days", {
+      weekdays: [1, 2, 3, 4, 5],
+      dailyCostCents: 100,
+    }),
+    at(monday),
+  );
+  for (const day of [
+    "2026-10-05",
+    "2026-10-06",
+    "2026-10-07",
+    "2026-10-08",
+    "2026-10-09",
+  ])
+    await addStreakEntry(
+      streak.id,
+      ownerId,
+      circleId,
+      { action: "clean", day },
+      at(shiftDateKey(day, 1)),
+    );
+  await expect(
+    addStreakEntry(
+      streak.id,
+      ownerId,
+      circleId,
+      { action: "clean", day: "2026-10-10" },
+      at("2026-10-11"),
+    ),
+  ).rejects.toThrow("off day");
+  await expect(
+    addStreakEntry(
+      streak.id,
+      ownerId,
+      circleId,
+      { action: "slip" },
+      at("2026-10-11"),
+    ),
+  ).rejects.toThrow("off day");
+  await expect(
+    nudgeStreak(streak.id, friendId, circleId, at("2026-10-11")),
+  ).rejects.toThrow("caught up");
+  expect(
+    (await getStreaksNeedingLog(circleId, ownerId, at("2026-10-11"))).some(
+      (view) => view.id === streak.id,
+    ),
+  ).toBe(false);
+  for (const day of ["2026-10-12", "2026-10-13"])
+    await addStreakEntry(
+      streak.id,
+      ownerId,
+      circleId,
+      { action: "clean", day },
+      at(shiftDateKey(day, 1)),
+    );
+  const detail = await getStreakDetail(
+    circleId,
+    streak.id,
+    ownerId,
+    at("2026-10-14"),
+  );
+  expect(detail?.streak.summary.current).toBe(7);
+  expect(detail?.streak.summary.allTime.costCents).toBe(700);
+  expect(detail?.history.filter((day) => day.state === "off")).toHaveLength(2);
+  expect(
+    await prisma.streakEvent.count({
+      where: { streakId: streak.id, kind: "MILESTONE", count: 7 },
+    }),
+  ).toBe(1);
+});
+
+test("schedule edits apply tomorrow without rewriting existing results or omissions", async () => {
+  const streak = await createStreak(
+    ownerId,
+    circleId,
+    quitInput("Changing schedule", { kind: "BUILD" }),
+    at("2026-10-09"),
+  );
+  await addStreakEntry(
+    streak.id,
+    ownerId,
+    circleId,
+    { action: "log", day: "2026-10-09" },
+    at("2026-10-09", 20),
+  );
+  const details = {
+    action: "details",
+    title: streak.title,
+    weekdays: [1, 2, 3, 4, 5],
+  };
+  await changeStreak(streak.id, ownerId, circleId, details, at("2026-10-11"));
+  let view = (
+    await getStreakDetail(circleId, streak.id, ownerId, at("2026-10-11"))
+  )?.streak;
+  expect(view?.scheduleStartsOn).toBe("2026-10-12");
+  expect(view?.summary.yesterdayState).toBe("pending");
+  await changeStreak(
+    streak.id,
+    ownerId,
+    circleId,
+    { ...details, weekdays: [0, 1, 2, 3, 4, 5, 6] },
+    at("2026-10-11", 12),
+  );
+  await changeStreak(
+    streak.id,
+    ownerId,
+    circleId,
+    details,
+    at("2026-10-11", 13),
+  );
+  expect(
+    await prisma.streakSchedule.count({ where: { streakId: streak.id } }),
+  ).toBe(2);
+  view = (await getStreakDetail(circleId, streak.id, ownerId, at("2026-10-18")))
+    ?.streak;
+  expect(view?.summary.todayState).toBe("off");
+  expect(view?.summary.current).toBe(0);
+  expect(view?.summary.longest).toBe(1);
+  expect(view?.summary.totalDays).toBe(1);
+});
+
+test("breaks preserve results, resume automatically, and can end early", async () => {
+  const streak = await createStreak(
+    ownerId,
+    circleId,
+    quitInput("Breakable", { kind: "BUILD" }),
+    at(monday),
+  );
+  await addStreakEntry(
+    streak.id,
+    ownerId,
+    circleId,
+    { action: "log", day: monday },
+    at(monday, 10),
+  );
+  await changeStreak(
+    streak.id,
+    ownerId,
+    circleId,
+    { action: "pause", length: "week" },
+    at(monday, 11),
+  );
+  let detail = await getStreakDetail(
+    circleId,
+    streak.id,
+    ownerId,
+    at(monday, 12),
+  );
+  expect(detail?.streak.break).toEqual({
+    startDay: "2026-10-06",
+    resumeDay: "2026-10-12",
+  });
+  expect(detail?.streak.summary.todayState).toBe("done");
+  await expect(
+    addStreakEntry(
+      streak.id,
+      ownerId,
+      circleId,
+      { action: "log", day: "2026-10-06" },
+      at("2026-10-06"),
+    ),
+  ).rejects.toThrow("off day");
+  detail = await getStreakDetail(
+    circleId,
+    streak.id,
+    ownerId,
+    at("2026-10-12"),
+  );
+  expect(detail?.streak.break).toBeNull();
+  expect(detail?.streak.summary.current).toBe(1);
+  expect(detail?.streak.summary.todayState).toBe("pending");
+  await changeStreak(
+    streak.id,
+    ownerId,
+    circleId,
+    { action: "resume" },
+    at("2026-10-08"),
+  );
+  await addStreakEntry(
+    streak.id,
+    ownerId,
+    circleId,
+    { action: "log", day: "2026-10-08" },
+    at("2026-10-08", 20),
+  );
+  detail = await getStreakDetail(
+    circleId,
+    streak.id,
+    ownerId,
+    at("2026-10-08", 21),
+  );
+  expect(detail?.streak.summary.current).toBe(2);
+  expect(detail?.history.filter((day) => day.state === "off")).toHaveLength(2);
+  await changeStreak(
+    streak.id,
+    ownerId,
+    circleId,
+    { action: "pause", length: "manual" },
+    at("2026-10-08", 22),
+  );
+  await changeStreak(
+    streak.id,
+    ownerId,
+    circleId,
+    { action: "resume" },
+    at("2026-10-08", 23),
+  );
+  expect(
+    (await getStreakDetail(circleId, streak.id, ownerId, at("2026-10-09")))
+      ?.streak.break,
+  ).toBeNull();
+});
+
+test("pause is owner-only, idempotent, cannot hide slips, and does not repair old gaps", async () => {
+  const streak = await createStreak(
+    ownerId,
+    circleId,
+    quitInput("Honest break", { visibility: "PRIVATE" }),
+    at(monday),
+  );
+  const pause = { action: "pause", length: "manual" };
+  await expect(
+    changeStreak(streak.id, friendId, circleId, pause, at(monday)),
+  ).rejects.toThrow("not found");
+  await addStreakEntry(
+    streak.id,
+    ownerId,
+    circleId,
+    { action: "slip" },
+    at("2026-10-07", 10),
+  );
+  await Promise.all([
+    changeStreak(streak.id, ownerId, circleId, pause, at("2026-10-07", 11)),
+    changeStreak(streak.id, ownerId, circleId, pause, at("2026-10-07", 11)),
+  ]);
+  expect(
+    await prisma.streakBreak.count({ where: { streakId: streak.id } }),
+  ).toBe(1);
+  const detail = await getStreakDetail(
+    circleId,
+    streak.id,
+    ownerId,
+    at("2026-10-20"),
+  );
+  expect(detail?.streak.summary.current).toBe(0);
+  expect(detail?.streak.summary.slips).toBe(1);
+  expect(detail?.history.find((day) => day.day === monday)?.state).toBe(
+    "missed",
+  );
+  expect(detail?.history.find((day) => day.day === "2026-10-07")?.state).toBe(
+    "slipped",
+  );
+  await changeStreak(
+    streak.id,
+    ownerId,
+    circleId,
+    { action: "retire" },
+    at("2026-10-20"),
+  );
+  await expect(
+    changeStreak(
+      streak.id,
+      ownerId,
+      circleId,
+      { action: "resume" },
+      at("2026-10-21"),
+    ),
+  ).rejects.toThrow("Retired");
+  await deleteStreak(streak.id, ownerId, circleId);
+  expect(
+    await prisma.streakBreak.count({ where: { streakId: streak.id } }),
+  ).toBe(0);
+  expect(
+    await prisma.streakSchedule.count({ where: { streakId: streak.id } }),
+  ).toBe(0);
+});
+
+test("paused and unscheduled days do not produce reminders", async () => {
+  const userId = "streak-off-reminders";
+  await prisma.user.create({
+    data: { id: userId, name: "Off days", email: `${userId}@example.invalid` },
+  });
+  await prisma.membership.create({ data: { userId, circleId } });
+  const streak = await createStreak(
+    userId,
+    circleId,
+    quitInput("Quiet break", { kind: "BUILD" }),
+    at(monday),
+  );
+  await changeStreak(
+    streak.id,
+    userId,
+    circleId,
+    { action: "pause", length: "manual" },
+    at(monday),
+  );
+  await createStreak(
+    userId,
+    circleId,
+    quitInput("Weekdays only", { weekdays: [1, 2, 3, 4, 5] }),
+    at("2026-10-10"),
+  );
+  await sendStreakReminders(at("2026-10-11", 23));
+  expect(
+    await prisma.notification.count({
+      where: { recipientId: userId, kind: "STREAK_REMINDER" },
+    }),
+  ).toBe(0);
+  await changeStreak(
+    streak.id,
+    userId,
+    circleId,
+    { action: "resume" },
+    at("2026-10-12"),
+  );
+  await sendStreakReminders(at("2026-10-12", 23));
+  expect(
+    await prisma.notification.count({
+      where: { recipientId: userId, kind: "STREAK_REMINDER" },
+    }),
+  ).toBe(1);
+});

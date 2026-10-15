@@ -120,7 +120,7 @@ export function StreakOwnerMenu({ view }: { view: StreakView }) {
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      {active && (
+      {active && editing && (
         <StreakForm
           circleId={view.circleId}
           streak={view}
@@ -243,12 +243,19 @@ export function StreakHistoryList({
                   ? "Slipped"
                   : day.state === "missed"
                     ? "Missed"
-                    : "Waiting"}
+                    : day.state === "off"
+                      ? "Off day"
+                      : "Waiting"}
             </Badge>
           </div>
           {day.state === "missed" && (
             <p className="text-xs text-muted-foreground">
               Nothing was logged before the window closed, so the streak reset.
+            </p>
+          )}
+          {day.state === "off" && (
+            <p className="text-xs text-muted-foreground">
+              Streak kept. Nothing added to the count.
             </p>
           )}
           {day.entries.length > 0 && (

@@ -50,6 +50,7 @@ function logButtonLabel(streak: StreakView) {
   const actions = streakActions(streak, streak.summary);
   if (streak.kind === "QUIT")
     return actions.confirmDay ? "Confirm yesterday" : "Log a slip";
+  if (streak.summary.todayState === "off") return "Log yesterday";
   return streak.summary.todayState === "done" ? "Log more" : "Log today";
 }
 
@@ -66,6 +67,8 @@ export function StreakLogButton({
   const actions = streakActions(streak, streak.summary);
   const quiet = streak.kind === "QUIT" && !actions.confirmDay;
   const label = logButtonLabel(streak);
+  if (!actions.confirmDay && !actions.canSlip && !actions.logDays.length)
+    return null;
   return (
     <>
       <Button
@@ -113,9 +116,9 @@ function StreakLogSheet({
   const [day, setDay] = useState(() =>
     !quit &&
     summary.yesterdayState === "pending" &&
-    summary.todayState === "done"
+    (summary.todayState === "done" || summary.todayState === "off")
       ? summary.yesterday
-      : summary.today,
+      : (actions.logDays[0] ?? summary.today),
   );
   const [amount, setAmount] = useState(hundredthsToInput(streak.dailyUnits));
   const [bounds] = useState(() => {
@@ -125,7 +128,9 @@ function StreakLogSheet({
       max: phoenixLocalDateTimeValue(range.max),
     };
   });
-  const [when, setWhen] = useState(bounds.max);
+  const [when, setWhen] = useState(() =>
+    summary.todayState === "off" ? `${summary.yesterday}T21:00` : bounds.max,
+  );
   const releaseRefresh = useRef<(() => void) | null>(null);
   const body = useRef<HTMLDivElement>(null);
   const loggedUnits = summary.week.find((item) => item.day === day)?.units ?? 0;

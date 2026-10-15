@@ -151,6 +151,7 @@ const stateLabels: Record<StreakDayState, string> = {
   slipped: "Slipped",
   missed: "Missed",
   pending: "Not logged yet",
+  off: "Off day",
 };
 
 export function StreakWeek({
@@ -209,7 +210,7 @@ export function StreakHeatmap({
   const cells = Array.from({ length: weeks * 7 }, (_, index) =>
     shiftDateKey(first, index),
   );
-  const counts = { done: 0, slipped: 0, missed: 0 };
+  const counts = { done: 0, slipped: 0, missed: 0, off: 0 };
   for (const day of cells) {
     const item = byDay.get(day);
     if (item && item.state !== "pending") counts[item.state] += 1;
@@ -252,7 +253,7 @@ export function StreakHeatmap({
       <div
         className="streak-heatmap"
         role="img"
-        aria-label={`Last ${weeks} weeks: ${counts.done} days ${doneLabel}, ${counts.slipped} slipped, ${counts.missed} missed.`}
+        aria-label={`Last ${weeks} weeks: ${counts.done} days ${doneLabel}, ${counts.slipped} slipped, ${counts.missed} missed, ${counts.off} off.`}
       >
         {cells.map((day) => {
           const item = byDay.get(day);
@@ -291,6 +292,7 @@ export function StreakHeatmap({
             ["slipped", "Slipped"],
             ["missed", "Missed"],
             ["pending", "Waiting for a log"],
+            ["off", "Off day"],
           ] as const
         )
           .filter(([state]) => kind === "QUIT" || state !== "slipped")
