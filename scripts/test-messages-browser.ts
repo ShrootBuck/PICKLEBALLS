@@ -29,7 +29,7 @@ try {
   await page.goto(`${app}/messages`);
   await page
     .getByRole("navigation", { name: "Conversations", exact: true })
-    .getByRole("link", { name: /^Everyone/ })
+    .getByRole("link", { name: /^After school/ })
     .waitFor();
   assert.equal(
     await page
@@ -44,7 +44,7 @@ try {
   });
   assert.deepEqual(
     (await directory.locator(".font-semibold").allTextContents()).sort(),
-    ["Eddie", "Everyone", "Jules", "Sam"],
+    ["After school", "Eddie", "Jules", "Sam"],
   );
   await page
     .getByRole("textbox", { name: "Search conversations" })
@@ -53,7 +53,7 @@ try {
   assert.equal(
     await page
       .getByRole("navigation", { name: "Conversations", exact: true })
-      .getByRole("link", { name: /^Everyone/ })
+      .getByRole("link", { name: /^After school/ })
       .count(),
     1,
   );
@@ -406,7 +406,7 @@ try {
   await page.getByText("Done.", { exact: true }).waitFor({ state: "hidden" });
   await page
     .getByRole("navigation", { name: "Conversations", exact: true })
-    .getByRole("link", { name: /^Everyone/ })
+    .getByRole("link", { name: /^After school/ })
     .click();
   await page.waitForURL(
     (url) =>
@@ -415,17 +415,17 @@ try {
   const groupId = new URL(page.url()).searchParams.get("chat");
   assert.ok(groupId);
   const groupComposer = page.getByRole("textbox", {
-    name: "Message Everyone",
+    name: "Message After school",
     exact: true,
   });
   await groupComposer.waitFor();
   await peer.goto(`${app}/messages?chat=${groupId}`);
   await outsider.goto(`${app}/messages?chat=${groupId}`);
   await peer
-    .getByRole("textbox", { name: "Message Everyone", exact: true })
+    .getByRole("textbox", { name: "Message After school", exact: true })
     .waitFor();
   await outsider
-    .getByRole("textbox", { name: "Message Everyone", exact: true })
+    .getByRole("textbox", { name: "Message After school", exact: true })
     .waitFor();
   const groupBody = `Everyone gets this ${randomUUID().slice(0, 8)}`;
   await groupComposer.fill(groupBody);
@@ -437,7 +437,7 @@ try {
       .waitFor();
   const samBody = `Sam checking in ${randomUUID().slice(0, 8)}`;
   await outsider
-    .getByRole("textbox", { name: "Message Everyone", exact: true })
+    .getByRole("textbox", { name: "Message After school", exact: true })
     .fill(samBody);
   await outsider
     .getByRole("button", { name: "Send message", exact: true })

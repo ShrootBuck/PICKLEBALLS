@@ -112,7 +112,11 @@ export function BucketItemCard({
                 <AvatarGroup>
                   {shown.map((person) => (
                     <Avatar key={person.id} size="sm">
-                      <AvatarImage src={person.image ?? undefined} alt="" />
+                      <AvatarImage
+                        userId={person.id}
+                        src={person.image ?? undefined}
+                        alt=""
+                      />
                       <AvatarFallback>{person.initials}</AvatarFallback>
                     </Avatar>
                   ))}

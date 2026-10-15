@@ -16,9 +16,11 @@ import { authClient } from "@/lib/auth-client";
 export function AccountSettings({
   userId,
   chatId,
+  showCirclesLink = true,
 }: {
   userId: string;
   chatId?: string;
+  showCirclesLink?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   async function reauthenticate() {
@@ -44,10 +46,12 @@ export function AccountSettings({
     <Card className="max-w-2xl">
       <CardHeader>
         <CardTitle>
-          <h2>Account and circles</h2>
+          <h2>{showCirclesLink ? "Account and circles" : "Your account"}</h2>
         </CardTitle>
         <CardDescription>
-          Leave circles, transfer ownership, or permanently delete your account.
+          {showCirclesLink
+            ? "Leave circles, transfer ownership, or permanently delete your account."
+            : "Sign in again or permanently delete your account."}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -56,13 +60,15 @@ export function AccountSettings({
           Sign in again if your last sign-in was more than 10 minutes ago.
         </p>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            nativeButton={false}
-            render={<Link href="/circles" />}
-          >
-            Manage circles
-          </Button>
+          {showCirclesLink && (
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link href="/circles" />}
+            >
+              Manage circles
+            </Button>
+          )}
           <Button variant="outline" disabled={busy} onClick={reauthenticate}>
             {busy ? "Opening Discord..." : "Sign in again"}
           </Button>

@@ -87,7 +87,7 @@ export default async function SuperAdminUserPage({
       </Link>
       <div className="flex min-w-0 items-center gap-4">
         <Avatar className="size-16">
-          <AvatarImage src={user.image ?? undefined} alt="" />
+          <AvatarImage userId={user.id} src={user.image ?? undefined} alt="" />
           <AvatarFallback className="text-lg">{user.initials}</AvatarFallback>
         </Avatar>
         <PageHeader

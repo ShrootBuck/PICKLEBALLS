@@ -12,7 +12,7 @@ export function PostAvatar({
 }) {
   const avatar = (
     <Avatar className="size-10">
-      <AvatarImage src={author.image ?? undefined} alt="" />
+      <AvatarImage userId={author.id} src={author.image ?? undefined} alt="" />
       <AvatarFallback>{author.initials}</AvatarFallback>
     </Avatar>
   );

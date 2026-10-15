@@ -243,8 +243,9 @@ try {
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Circle options" }).click();
   await page
-    .getByRole("button", { name: "Delete circle", exact: true })
+    .getByRole("menuitem", { name: "Delete circle", exact: true })
     .click();
   assert.equal(
     await page
@@ -257,8 +258,9 @@ try {
     .locator('[data-slot="dialog-content"]')
     .getByRole("button", { name: "Go back" })
     .click();
+  await page.getByRole("button", { name: "Circle options" }).click();
   await page
-    .getByRole("button", { name: "Transfer ownership", exact: true })
+    .getByRole("menuitem", { name: "Transfer ownership", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Make Deletion Friend owner", exact: true })
@@ -269,20 +271,24 @@ try {
     .getByRole("button", { name: "Make Deletion Friend owner", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Leave circle", exact: true })
+    .getByRole("button", { name: "Circle options", exact: true })
     .waitFor();
   await page.waitForLoadState("networkidle");
-  await page.getByRole("button", { name: "Leave circle", exact: true }).click();
+  await page.getByRole("button", { name: "Circle options" }).click();
+  await page
+    .getByRole("menuitem", { name: "Leave circle", exact: true })
+    .click();
   await page
     .locator('[data-slot="dialog-content"]')
     .getByRole("button", { name: "Leave circle", exact: true })
     .click();
-  await page.getByText("No circles yet", { exact: true }).waitFor();
+  await page.getByText("Start with your people", { exact: true }).waitFor();
   await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Account", exact: true }).click();
   await page
     .getByRole("button", { name: "Delete account", exact: true })
     .click();
-  const dialog = page.locator('[data-slot="dialog-content"]');
+  const dialog = page.locator('[data-slot="dialog-content"]').last();
   assert.equal(
     await dialog
       .getByRole("button", { name: "Delete account", exact: true })

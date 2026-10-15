@@ -42,7 +42,11 @@ export default async function GoalPage({
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3 text-sm text-muted-foreground">
         <span className="flex items-center gap-2">
           <Avatar size="sm">
-            <AvatarImage src={goal.user.image ?? undefined} alt="" />
+            <AvatarImage
+              userId={goal.user.id}
+              src={goal.user.image ?? undefined}
+              alt=""
+            />
             <AvatarFallback>{goal.user.initials}</AvatarFallback>
           </Avatar>
           {goal.user.name}

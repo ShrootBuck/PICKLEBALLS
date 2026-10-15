@@ -94,7 +94,11 @@ export default async function StreakPage({
         className="flex w-fit items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:underline"
       >
         <Avatar size="sm">
-          <AvatarImage src={view.owner.image ?? undefined} alt="" />
+          <AvatarImage
+            userId={view.owner.id}
+            src={view.owner.image ?? undefined}
+            alt=""
+          />
           <AvatarFallback>{view.owner.initials}</AvatarFallback>
         </Avatar>
         {view.mine ? "Your" : `${view.owner.name}’s`} {quit ? "quit" : "build"}{" "}

@@ -1,10 +1,12 @@
+import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AuthScreen } from "@/components/auth/auth-screen";
+import { CirclesAccount } from "@/components/circles/circles-account";
 import { CirclesManager } from "@/components/circles/circles-manager";
-import { AccountSettings } from "@/components/settings/account-settings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
 import { parseActiveCircleId } from "@/lib/circle-cookie";
 import { getPrisma } from "@/lib/prisma";
@@ -23,7 +25,19 @@ export default async function CirclesPage({
   const memberships = await prisma.membership.findMany({
     where: { userId: session.user.id },
     orderBy: { createdAt: "asc" },
-    include: { circle: true },
+    include: {
+      circle: {
+        include: {
+          memberships: {
+            orderBy: { createdAt: "asc" },
+            select: {
+              role: true,
+              user: { select: { id: true, name: true, image: true } },
+            },
+          },
+        },
+      },
+    },
   });
   const chat = await prisma.timeblockChat.findUnique({
     where: { userId: session.user.id },
@@ -33,9 +47,31 @@ export default async function CirclesPage({
   const activeIsMember = memberships.some((m) => m.circleId === activeId);
   const params = await searchParams;
   return (
-    <AuthScreen>
+    <main className="circles-page">
+      <header className="circles-topbar">
+        <Link
+          href={memberships.length ? "/" : "/circles"}
+          className="social-wordmark"
+        >
+          <span className="brand-symbol">p.</span>
+          <span className="hidden sm:inline">Pickle Balls</span>
+        </Link>
+        <div className="flex items-center gap-1 sm:gap-3">
+          {memberships.length > 0 && (
+            <Button
+              variant="ghost"
+              nativeButton={false}
+              render={<Link href="/" />}
+            >
+              <ArrowLeft data-icon="inline-start" />
+              Back to app
+            </Button>
+          )}
+          <CirclesAccount userId={session.user.id} chatId={chat?.id} />
+        </div>
+      </header>
       {params.invite === "expired" ? (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="circles-invite-alert">
           <AlertTitle>Your invite expired during sign-in</AlertTitle>
           <AlertDescription>
             You are signed in. Ask your friend for a fresh invite link to join
@@ -43,30 +79,26 @@ export default async function CirclesPage({
           </AlertDescription>
         </Alert>
       ) : null}
-      <div className="flex flex-col gap-1">
-        <h2 className="text-xl font-semibold">
-          {memberships.length === 0 ? "Start your circle." : "Pick a circle."}
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          {memberships.length === 0
-            ? "No invites needed to start your own. Name it, then invite your people."
-            : "Jump back in, or start a fresh one for a different crew."}
-        </p>
-      </div>
       <CirclesManager
         initial={memberships.map((membership) => ({
           id: membership.circle.id,
           slug: membership.circle.slug,
           name: membership.circle.name,
           role: membership.role,
+          members: membership.circle.memberships.map((member) => ({
+            ...member.user,
+            role: member.role,
+          })),
         }))}
+        viewer={{
+          id: session.user.id,
+          name: session.user.name,
+          image: session.user.image ?? null,
+        }}
         activeId={
           activeIsMember ? activeId : (memberships[0]?.circleId ?? null)
         }
       />
-      <div className="mt-4">
-        <AccountSettings userId={session.user.id} chatId={chat?.id} />
-      </div>
-    </AuthScreen>
+    </main>
   );
 }

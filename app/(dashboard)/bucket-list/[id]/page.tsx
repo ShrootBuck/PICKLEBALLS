@@ -71,7 +71,11 @@ function VoteBreakdown({
               className="flex min-w-0 items-center gap-3 px-3 py-2.5"
             >
               <Avatar size="sm">
-                <AvatarImage src={member.image ?? undefined} alt="" />
+                <AvatarImage
+                  userId={member.id}
+                  src={member.image ?? undefined}
+                  alt=""
+                />
                 <AvatarFallback>{member.initials}</AvatarFallback>
               </Avatar>
               <span className="min-w-0 flex-1 truncate text-sm">

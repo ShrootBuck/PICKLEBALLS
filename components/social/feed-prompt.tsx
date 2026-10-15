@@ -11,7 +11,11 @@ export function FeedPrompt() {
     <section aria-label="Share with your circle" className="feed-prompt">
       <div className="feed-prompt-top">
         <Avatar className="size-9">
-          <AvatarImage src={viewer.image ?? undefined} alt="" />
+          <AvatarImage
+            userId={viewer.id}
+            src={viewer.image ?? undefined}
+            alt=""
+          />
           <AvatarFallback>{viewer.initials}</AvatarFallback>
         </Avatar>
         <Button

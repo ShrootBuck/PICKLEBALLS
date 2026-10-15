@@ -23,7 +23,10 @@ export function discordAvatarUrl(value: string | null | undefined) {
     return null;
   }
 }
-export function avatarSrc(value: string | undefined) {
-  const url = discordAvatarUrl(value);
-  return url ? `/api/avatar?src=${encodeURIComponent(url)}` : value;
+export function avatarSrc(value: string | undefined, userId?: string) {
+  // A default/missing picture must still be able to turn into a custom one.
+  // Use a new URL shape so previously immutable responses cannot pin old photos.
+  return userId && (!value || discordAvatarUrl(value))
+    ? `/api/avatar?userId=${encodeURIComponent(userId)}`
+    : value;
 }

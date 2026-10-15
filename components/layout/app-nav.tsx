@@ -242,7 +242,11 @@ function AccountMenu({
         }
       >
         <Avatar className="size-9 shrink-0">
-          <AvatarImage src={viewer.image ?? undefined} alt="" />
+          <AvatarImage
+            userId={viewer.id}
+            src={viewer.image ?? undefined}
+            alt=""
+          />
           <AvatarFallback>{viewer.initials}</AvatarFallback>
         </Avatar>
         <span className="app-account-label">
@@ -396,7 +400,11 @@ export function MobileTabBar({
             <Icon className="size-[22px]" strokeWidth={activeTab ? 2.2 : 1.8} />
           ) : (
             <Avatar className="app-tab-avatar size-6">
-              <AvatarImage src={viewer.image ?? undefined} alt="" />
+              <AvatarImage
+                userId={viewer.id}
+                src={viewer.image ?? undefined}
+                alt=""
+              />
               <AvatarFallback>{viewer.initials}</AvatarFallback>
             </Avatar>
           )}

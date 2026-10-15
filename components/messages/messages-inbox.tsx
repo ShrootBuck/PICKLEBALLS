@@ -25,17 +25,22 @@ import {
   type DirectInboxItem,
   messagePreview,
 } from "@/lib/direct-message-types";
+import {
+  formatConversationTime,
+  formatMessageTimestamp,
+} from "@/lib/message-time";
+import { appTimeZone } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { watchRealtime } from "@/lib/watch-realtime";
 
 export function MessagesInbox({
   viewerId,
-  circleName,
   initialInbox,
+  initialNow,
 }: {
   viewerId: string;
-  circleName: string;
   initialInbox: DirectInboxItem[];
+  initialNow: string;
 }) {
   const router = useRouter();
   const search = useSearchParams();
@@ -45,6 +50,24 @@ export function MessagesInbox({
   const selected = inbox.find((chat) => chat.id === requested)?.id;
   const [query, setQuery] = useState("");
   const [refreshError, setRefreshError] = useState(false);
+  const [clock, setClock] = useState({
+    now: new Date(initialNow),
+    timeZone: appTimeZone,
+  });
+  useEffect(() => {
+    const update = () =>
+      setClock({
+        now: new Date(),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+    update();
+    const timer = window.setInterval(update, 60_000);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, []);
   const drafts = useRef(new Map<string, MessageDraft>());
   // Profile links select a conversation that is already in the directory.
   useEffect(() => {
@@ -98,7 +121,11 @@ export function MessagesInbox({
         aria-current={selected === item.id ? "page" : undefined}
       >
         <Avatar className="size-11">
-          <AvatarImage src={item.person?.image ?? undefined} alt="" />
+          <AvatarImage
+            userId={item.person?.id}
+            src={item.person?.image ?? undefined}
+            alt=""
+          />
           <AvatarFallback>
             {item.kind === "group" ? (
               <Users className="size-5" />
@@ -114,14 +141,15 @@ export function MessagesInbox({
               <time
                 className="dm-preview-time"
                 dateTime={item.lastMessage.createdAt}
+                title={formatMessageTimestamp(
+                  item.lastMessage.createdAt,
+                  clock.timeZone,
+                )}
               >
-                {new Date(item.lastMessage.createdAt).toLocaleDateString(
-                  "en-US",
-                  {
-                    timeZone: "America/Phoenix",
-                    month: "short",
-                    day: "numeric",
-                  },
+                {formatConversationTime(
+                  item.lastMessage.createdAt,
+                  clock.now,
+                  clock.timeZone,
                 )}
               </time>
             )}
@@ -151,7 +179,6 @@ export function MessagesInbox({
       <aside className="dm-inbox" aria-label="Conversations">
         <header className="dm-inbox-header">
           <div className="min-w-0">
-            <p className="dm-eyebrow truncate">{circleName}</p>
             <h1 className="dm-title">
               Messages<span className="text-primary">.</span>
             </h1>
@@ -204,8 +231,7 @@ export function MessagesInbox({
               </EmptyMedia>
               <EmptyTitle>Your circle, all here.</EmptyTitle>
               <EmptyDescription>
-                Pick someone on the left, or talk to the whole circle in
-                Everyone.
+                Choose a conversation, or open your circle's group chat.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>

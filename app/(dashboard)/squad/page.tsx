@@ -109,7 +109,11 @@ export default async function SquadPage({
                 className="member-card"
               >
                 <Avatar className="size-12">
-                  <AvatarImage src={member.image ?? undefined} alt="" />
+                  <AvatarImage
+                    userId={member.id}
+                    src={member.image ?? undefined}
+                    alt=""
+                  />
                   <AvatarFallback>{member.initials}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">

@@ -219,7 +219,11 @@ function ThreadContents({
         {thread ? (
           <>
             <Avatar>
-              <AvatarImage src={thread.person?.image ?? undefined} alt="" />
+              <AvatarImage
+                userId={thread.person?.id}
+                src={thread.person?.image ?? undefined}
+                alt=""
+              />
               <AvatarFallback>
                 {thread.kind === "group" ? (
                   <Users className="size-5" />
@@ -241,7 +245,7 @@ function ThreadContents({
                     ? "Someone is typing…"
                     : `${thread.person.name.split(" ")[0]} is typing…`
                   : thread.kind === "group"
-                    ? `Everyone in ${thread.group.name}`
+                    ? "Circle group chat"
                     : "Direct message"}
               </output>
             </div>

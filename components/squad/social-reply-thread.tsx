@@ -204,7 +204,11 @@ function ReplyItem({
       className="flex scroll-mt-6 gap-2.5"
     >
       <Avatar className="size-7 shrink-0">
-        <AvatarImage src={reply.author.image ?? undefined} alt="" />
+        <AvatarImage
+          userId={reply.author.id}
+          src={reply.author.image ?? undefined}
+          alt=""
+        />
         <AvatarFallback className="text-[11px]">
           {reply.author.initials}
         </AvatarFallback>

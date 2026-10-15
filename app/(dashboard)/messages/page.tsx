@@ -11,8 +11,8 @@ export default async function MessagesPage() {
     <MessagesInbox
       key={`${session.user.id}:${membership.circleId}`}
       viewerId={session.user.id}
-      circleName={membership.circle.name}
       initialInbox={inbox}
+      initialNow={new Date().toISOString()}
     />
   );
 }

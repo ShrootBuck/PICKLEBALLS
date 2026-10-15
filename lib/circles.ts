@@ -1,13 +1,18 @@
 import "server-only";
 
 import { randomBytes } from "node:crypto";
+import {
+  circleNameError,
+  circleNameSchema,
+  MAX_CIRCLE_NAME_LENGTH,
+} from "@/lib/circle-name";
 import { DomainError } from "@/lib/errors";
 import { getPrisma } from "@/lib/prisma";
 import { serializable } from "@/lib/transaction";
 import { closeWorkSessions } from "@/lib/work-sessions";
 
 export { ACTIVE_CIRCLE_COOKIE, parseActiveCircleId } from "@/lib/circle-cookie";
-export const MAX_CIRCLE_NAME_LENGTH = 40;
+export { MAX_CIRCLE_NAME_LENGTH } from "@/lib/circle-name";
 
 export function slugifyCircleName(name: string) {
   const slug = name
@@ -56,6 +61,28 @@ export async function listMyCircles(userId: string) {
     where: { userId },
     orderBy: { createdAt: "asc" },
     include: { circle: true },
+  });
+}
+
+export async function renameCircle(
+  userId: string,
+  circleId: string,
+  rawName: string,
+) {
+  const parsed = circleNameSchema.safeParse(rawName);
+  if (!parsed.success) throw new DomainError(circleNameError);
+  return serializable(async (tx) => {
+    const member = await tx.membership.findUnique({
+      where: { userId_circleId: { userId, circleId } },
+    });
+    if (!member) throw new DomainError("Circle not found.", 404);
+    if (member.role !== "OWNER")
+      throw new DomainError("Only the circle owner can change its name.", 403);
+    return tx.circle.update({
+      where: { id: circleId },
+      data: { name: parsed.data },
+      select: { id: true, name: true, slug: true },
+    });
   });
 }
 

@@ -38,7 +38,7 @@ export type ConversationDetails =
   | { kind: "direct"; person: DirectPerson; group: null }
   | { kind: "group"; person: null; group: { id: string; name: string } };
 export const conversationName = (chat: ConversationDetails) =>
-  chat.kind === "group" ? "Everyone" : chat.person.name;
+  chat.kind === "group" ? chat.group.name : chat.person.name;
 
 export type DirectThread = ConversationDetails & {
   id: string;

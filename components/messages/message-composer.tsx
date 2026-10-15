@@ -293,7 +293,7 @@ export function MessageComposer({
             value={draft.body}
             disabled={busy}
             aria-invalid={Boolean(error)}
-            placeholder={`Message ${name.split(" ")[0]}…`}
+            placeholder={`Message ${group ? name : name.split(" ")[0]}…`}
             onChange={(event) => {
               change({ body: event.target.value });
               typing.current.change(event.target.value);

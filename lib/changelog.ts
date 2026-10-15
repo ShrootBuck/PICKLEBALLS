@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1792042512200,
+    title: "Name your circle",
+    description:
+      "Circle owners can change their circle's name from Manage circles. The group chat uses the circle's name and follows along when it changes.",
+  },
+  {
     timestamp: 1792039702157,
     title: "Your whole circle, one chat",
     description:

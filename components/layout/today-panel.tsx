@@ -26,7 +26,11 @@ export function TodayPanel({ pendingVerdicts }: { pendingVerdicts: number }) {
     <aside className="app-panel" aria-label="Your day">
       <div className="flex items-center gap-3">
         <Avatar className="size-10">
-          <AvatarImage src={viewer.image ?? undefined} alt="" />
+          <AvatarImage
+            userId={viewer.id}
+            src={viewer.image ?? undefined}
+            alt=""
+          />
           <AvatarFallback>{viewer.initials}</AvatarFallback>
         </Avatar>
         <div className="min-w-0">

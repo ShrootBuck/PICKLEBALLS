@@ -124,7 +124,7 @@ export function Person({
       className="flex min-w-0 items-center gap-2.5 hover:underline"
     >
       <Avatar size={size}>
-        <AvatarImage src={user.image ?? undefined} alt="" />
+        <AvatarImage userId={user.id} src={user.image ?? undefined} alt="" />
         <AvatarFallback>{user.initials}</AvatarFallback>
       </Avatar>
       <span className="flex min-w-0 flex-col">

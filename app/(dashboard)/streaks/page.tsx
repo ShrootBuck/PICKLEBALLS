@@ -81,7 +81,11 @@ export default async function StreaksPage({
                   className="flex w-fit items-center gap-2 text-sm font-medium underline-offset-4 hover:underline"
                 >
                   <Avatar size="sm">
-                    <AvatarImage src={member.image ?? undefined} alt="" />
+                    <AvatarImage
+                      userId={member.id}
+                      src={member.image ?? undefined}
+                      alt=""
+                    />
                     <AvatarFallback>{member.initials}</AvatarFallback>
                   </Avatar>
                   {member.name}

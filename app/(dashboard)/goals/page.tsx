@@ -80,7 +80,11 @@ export default async function GoalsPage({
                 <CardHeader>
                   <div className="mb-2 flex items-center gap-2">
                     <Avatar size="sm">
-                      <AvatarImage src={goal.user.image ?? undefined} alt="" />
+                      <AvatarImage
+                        userId={goal.user.id}
+                        src={goal.user.image ?? undefined}
+                        alt=""
+                      />
                       <AvatarFallback>{goal.user.initials}</AvatarFallback>
                     </Avatar>
                     <span className="text-xs text-muted-foreground">

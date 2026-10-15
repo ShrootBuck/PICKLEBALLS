@@ -2,17 +2,17 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { jsonError, readJson } from "@/lib/api";
 import { auth } from "@/lib/auth";
+import { circleNameError, circleNameSchema } from "@/lib/circle-name";
 import {
   ACTIVE_CIRCLE_COOKIE,
   createCircle,
   listMyCircles,
-  MAX_CIRCLE_NAME_LENGTH,
 } from "@/lib/circles";
 import { limitAction } from "@/lib/rate-limit";
 import { hasSameOrigin } from "@/lib/request";
 
 const createSchema = z.object({
-  name: z.string().trim().min(1).max(MAX_CIRCLE_NAME_LENGTH),
+  name: circleNameSchema,
 });
 
 export async function GET(request: Request) {
@@ -43,10 +43,7 @@ export async function POST(request: Request) {
     await readJson(request).catch(() => null),
   );
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Give your circle a name (1–40 characters)." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: circleNameError }, { status: 400 });
   }
   try {
     await limitAction(session.user.id, "circles", 10, 3_600_000);

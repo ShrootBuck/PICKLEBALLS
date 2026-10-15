@@ -1,239 +1,346 @@
 "use client";
 
+import {
+  ArrowRight,
+  Check,
+  LockKeyhole,
+  MessageCircle,
+  Settings2,
+  Users,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { CircleLifecycle } from "@/components/circles/circle-lifecycle";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  CircleNameDialog,
+  type SavedCircle,
+} from "@/components/circles/circle-name-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import {
   Empty,
+  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { appFetch } from "@/lib/app-refresh";
+import { getInitials } from "@/lib/names";
+import { cn } from "@/lib/utils";
 
-export type CircleListItem = {
+type CircleMember = {
   id: string;
-  slug: string;
   name: string;
+  image: string | null;
   role: "OWNER" | "MEMBER";
+};
+export type CircleListItem = SavedCircle & {
+  role: "OWNER" | "MEMBER";
+  members: CircleMember[];
 };
 
 export function CirclesManager({
   initial,
   activeId,
+  viewer,
 }: {
   initial: CircleListItem[];
   activeId: string | null;
+  viewer: { id: string; name: string; image: string | null };
 }) {
   const router = useRouter();
   const [circles, setCircles] = useState(initial);
   const [current, setCurrent] = useState(activeId);
+  const [selectedId, setSelectedId] = useState(activeId);
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     setCircles(initial);
     setCurrent(activeId);
   }, [initial, activeId]);
-  const [createPending, setCreatePending] = useState(false);
-  const [switchPending, setSwitchPending] = useState<string | null>(null);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [switchError, setSwitchError] = useState<string | null>(null);
-  const busy = createPending || switchPending !== null;
+  const selected =
+    circles.find((circle) => circle.id === selectedId) ??
+    circles.find((circle) => circle.id === current) ??
+    circles[0];
 
-  async function create(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (busy) return;
-    setCreatePending(true);
-    setCreateError(null);
-    const form = event.currentTarget;
-    const data = Object.fromEntries(new FormData(form));
-    try {
-      const response = await appFetch("/api/circles", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: data.name }),
-      });
-      const body = (await response.json().catch(() => ({}))) as {
-        error?: string;
-        id?: string;
-        slug?: string;
-        name?: string;
-        role?: "OWNER" | "MEMBER";
-      };
-      if (!response.ok || !body.id) {
-        setCreateError(body.error ?? "Could not create the circle.");
-      } else {
-        setCircles((prev) => [
-          ...prev,
-          {
-            id: body.id as string,
-            slug: body.slug ?? "",
-            name: (body.name as string) ?? "Circle",
-            role: body.role ?? "OWNER",
-          },
-        ]);
-        setCurrent(body.id);
-        form.reset();
-        router.push("/");
-      }
-    } catch {
-      setCreateError(
-        "Could not reach the server. Check your connection and try again.",
-      );
-    } finally {
-      setCreatePending(false);
-    }
+  function created(circle: SavedCircle) {
+    setCircles((items) => [
+      ...items.filter((item) => item.id !== circle.id),
+      {
+        ...circle,
+        role: "OWNER",
+        members: [{ ...viewer, role: "OWNER" }],
+      },
+    ]);
+    setCurrent(circle.id);
+    setSelectedId(circle.id);
+    setError(null);
   }
-
-  async function switchTo(circleId: string) {
-    if (busy) return;
-    if (circleId === current) {
-      router.push("/");
-      return;
-    }
-    setSwitchPending(circleId);
-    setSwitchError(null);
+  function renamed(circle: SavedCircle) {
+    setCircles((items) =>
+      items.map((item) =>
+        item.id === circle.id ? { ...item, ...circle } : item,
+      ),
+    );
+  }
+  async function open(
+    circle: CircleListItem,
+    destination: "/" | "/messages" | "/admin",
+  ) {
+    if (pending) return;
+    setPending(destination);
+    setError(null);
     try {
+      // Reassert the destination's circle even if a different tab changed the cookie.
       const response = await appFetch("/api/circles/active", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ circleId }),
+        body: JSON.stringify({ circleId: circle.id }),
       });
       if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        setSwitchError(body.error ?? "Could not switch circles.");
-      } else {
-        setCurrent(circleId);
-        router.push("/");
+        const body = await response.json();
+        throw new Error(body.error ?? "Could not open this circle.");
       }
-    } catch {
-      setSwitchError(
-        "Could not reach the server. Check your connection and try again.",
+      setCurrent(circle.id);
+      router.push(destination);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not connect. Try again.",
       );
     } finally {
-      setSwitchPending(null);
+      setPending(null);
     }
   }
-
   return (
-    <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Your circles</CardTitle>
-          <CardDescription>
-            Posts are only visible to members of their circle.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          {circles.length === 0 ? (
-            <Empty className="py-7">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">🎾</EmptyMedia>
-                <EmptyTitle>No circles yet</EmptyTitle>
-                <EmptyDescription>
-                  Create a circle or ask a friend for an invite.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            circles.map((circle) => (
-              <div
-                key={circle.id}
-                className="flex min-w-0 flex-col items-stretch gap-3 rounded-xl border px-3 py-3"
-              >
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-medium">
-                    {circle.name}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {circle.role === "OWNER" ? "Owner" : "Member"}
-                    {current === circle.id ? " · current" : ""}
-                  </span>
-                </div>
-                <CircleLifecycle circle={circle} />
-                {
-                  <Button
+    <div className="circles-content">
+      <header className="circles-heading">
+        <div>
+          <h1>
+            Circles<span className="text-primary">.</span>
+          </h1>
+          <p>Switch circles, find your people, or start a new one.</p>
+        </div>
+        {circles.length > 0 && <CircleNameDialog onSaved={created} />}
+      </header>
+      {circles.length === 0 ? (
+        <Empty className="circles-empty">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Users />
+            </EmptyMedia>
+            <EmptyTitle>Start with your people</EmptyTitle>
+            <EmptyDescription>
+              Create a private circle for your friends. Make plans, share
+              progress, and talk in one place.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <CircleNameDialog onSaved={created} />
+            <p className="text-sm text-muted-foreground">
+              Already invited? Open your friend's invite link to join.
+            </p>
+          </EmptyContent>
+        </Empty>
+      ) : (
+        selected && (
+          <div className="circles-workspace">
+            <aside className="circles-directory" aria-label="Your circles">
+              <h2>
+                Your circles <span>{circles.length}</span>
+              </h2>
+              <div className="circles-list">
+                {circles.map((circle) => (
+                  <button
+                    key={circle.id}
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => switchTo(circle.id)}
-                    className="w-full sm:w-auto"
+                    className={cn(
+                      "circles-list-item",
+                      selected.id === circle.id && "is-selected",
+                    )}
+                    aria-pressed={selected.id === circle.id}
+                    aria-controls="circle-details"
+                    disabled={pending !== null}
+                    onClick={() => {
+                      setSelectedId(circle.id);
+                      setError(null);
+                    }}
                   >
-                    {switchPending === circle.id ? (
-                      <Spinner data-icon="inline-start" />
-                    ) : null}
-                    {current === circle.id ? "Open circle" : "Switch"}
-                  </Button>
-                }
+                    <span className="circles-monogram" aria-hidden="true">
+                      {getInitials(circle.name)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">
+                        {circle.name}
+                      </span>
+                      <span className="circles-list-meta">
+                        {circle.members.length}{" "}
+                        {circle.members.length === 1 ? "member" : "members"} ·{" "}
+                        {circle.role === "OWNER" ? "Owner" : "Member"}
+                      </span>
+                    </span>
+                    {current === circle.id && (
+                      <span className="circles-current" title="Current circle">
+                        <Check className="size-4" />
+                        <span className="sr-only">Current circle</span>
+                      </span>
+                    )}
+                  </button>
+                ))}
               </div>
-            ))
-          )}
-          {switchError && (
-            <Alert variant="destructive">
-              <AlertTitle>Could not switch circles</AlertTitle>
-              <AlertDescription>{switchError}</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-      <form onSubmit={create}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Start a new circle</CardTitle>
-            <CardDescription>
-              You become the owner. Invite your people from Owner tools.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FieldGroup>
-              <Field data-disabled={busy}>
-                <FieldLabel htmlFor="circle-name">Circle name</FieldLabel>
-                <Input
-                  id="circle-name"
-                  name="name"
-                  placeholder="e.g. Calc study crew"
-                  maxLength={40}
-                  required
-                  disabled={busy}
-                  autoComplete="off"
-                />
-              </Field>
-            </FieldGroup>
-          </CardContent>
-          <CardFooter className="flex-col items-stretch gap-3">
-            <Button
-              type="submit"
-              disabled={busy}
-              size="lg"
-              className="w-full sm:w-auto"
+              <p className="circles-directory-note">
+                <LockKeyhole className="size-3.5 shrink-0" />
+                Only members can see a circle's posts and group chat.
+              </p>
+            </aside>
+            <section
+              id="circle-details"
+              aria-label={`${selected.name} details`}
+              className="circles-detail"
+              key={selected.id}
             >
-              {createPending ? <Spinner data-icon="inline-start" /> : null}
-              {createPending ? "Creating circle…" : "Create circle"}
-            </Button>
-            {createError ? (
-              <Alert variant="destructive">
-                <AlertTitle>That did not work.</AlertTitle>
-                <AlertDescription>{createError}</AlertDescription>
-              </Alert>
-            ) : null}
-          </CardFooter>
-        </Card>
-      </form>
+              <div className="circles-overview">
+                <div className="flex items-start justify-between gap-4">
+                  <span
+                    className="circles-monogram circles-monogram-large"
+                    aria-hidden="true"
+                  >
+                    {getInitials(selected.name)}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {selected.role === "OWNER" && (
+                      <CircleNameDialog circle={selected} onSaved={renamed} />
+                    )}
+                    <CircleLifecycle circle={selected} viewerId={viewer.id} />
+                  </div>
+                </div>
+                <div className="flex flex-col items-start gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">
+                      <LockKeyhole /> Private circle
+                    </Badge>
+                    {current === selected.id && (
+                      <Badge variant="secondary">
+                        <Check /> Current
+                      </Badge>
+                    )}
+                  </div>
+                  <h2 className="circles-name">{selected.name}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {selected.members.length}{" "}
+                    {selected.members.length === 1 ? "member" : "members"} ·{" "}
+                    {selected.role === "OWNER"
+                      ? "You own this circle"
+                      : "You're a member"}
+                  </p>
+                </div>
+                <div className="circles-actions">
+                  <Button
+                    disabled={pending !== null}
+                    onClick={() => open(selected, "/")}
+                  >
+                    {pending === "/" ? (
+                      <Spinner data-icon="inline-start" />
+                    ) : (
+                      <ArrowRight data-icon="inline-start" />
+                    )}
+                    Open circle
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={pending !== null}
+                    onClick={() => open(selected, "/messages")}
+                  >
+                    {pending === "/messages" ? (
+                      <Spinner data-icon="inline-start" />
+                    ) : (
+                      <MessageCircle data-icon="inline-start" />
+                    )}
+                    Messages
+                  </Button>
+                </div>
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    <h3>People</h3>
+                  </CardTitle>
+                  <CardDescription>
+                    {selected.members.length === 1
+                      ? "It's just you for now. Invite a friend to get started."
+                      : "The people you share this circle with."}
+                  </CardDescription>
+                  {selected.role === "OWNER" && (
+                    <CardAction>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={pending !== null}
+                        onClick={() => open(selected, "/admin")}
+                      >
+                        {pending === "/admin" ? (
+                          <Spinner data-icon="inline-start" />
+                        ) : (
+                          <Settings2 data-icon="inline-start" />
+                        )}
+                        Invite &amp; manage
+                      </Button>
+                    </CardAction>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <ul aria-label="Circle members" className="circles-members">
+                    {selected.members.map((member) => (
+                      <li key={member.id}>
+                        <Avatar className="size-10">
+                          <AvatarImage
+                            userId={member.id}
+                            src={member.image ?? undefined}
+                            alt=""
+                          />
+                          <AvatarFallback>
+                            {getInitials(member.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="min-w-0 flex-1 break-words font-medium">
+                          {member.name}
+                          {member.id === viewer.id && (
+                            <span className="font-normal text-muted-foreground">
+                              {" "}
+                              (you)
+                            </span>
+                          )}
+                        </span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {member.role === "OWNER" ? "Owner" : "Member"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            </section>
+          </div>
+        )
+      )}
     </div>
   );
 }

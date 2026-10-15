@@ -261,7 +261,11 @@ export default async function HistoryPage({
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <Avatar className="size-10">
-                    <AvatarImage src={user.image ?? undefined} alt="" />
+                    <AvatarImage
+                      userId={user.id}
+                      src={user.image ?? undefined}
+                      alt=""
+                    />
                     <AvatarFallback>{user.initials}</AvatarFallback>
                   </Avatar>
                   <div className="flex min-w-0 flex-1 flex-col">

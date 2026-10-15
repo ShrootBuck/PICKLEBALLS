@@ -3,35 +3,23 @@ import { z } from "zod";
 import { jsonError, readJson } from "@/lib/api";
 import { auth } from "@/lib/auth";
 import { ACTIVE_CIRCLE_COOKIE, parseActiveCircleId } from "@/lib/circle-cookie";
+import { circleNameError, circleNameSchema } from "@/lib/circle-name";
+import { renameCircle } from "@/lib/circles";
 import { drainObjectDeletions } from "@/lib/deletion-storage";
 import { changeCircleLifecycle } from "@/lib/deletions";
 import { DomainError } from "@/lib/errors";
-import { getPrisma } from "@/lib/prisma";
 import { limitAction } from "@/lib/rate-limit";
 import { hasSameOrigin } from "@/lib/request";
 
 type Context = { params: Promise<{ id: string }> };
-export async function GET(request: Request, { params }: Context) {
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session)
-    return Response.json({ error: "Sign in first." }, { status: 401 });
-  const { id } = await params;
-  const member = await getPrisma().membership.findUnique({
-    where: { userId_circleId: { userId: session.user.id, circleId: id } },
-  });
-  if (member?.role !== "OWNER")
-    return Response.json({ error: "Not found." }, { status: 404 });
-  const members = await getPrisma().membership.findMany({
-    where: { circleId: id, userId: { not: session.user.id } },
-    select: { user: { select: { id: true, name: true } } },
-    orderBy: { createdAt: "asc" },
-  });
-  return Response.json({ members: members.map((m) => m.user) });
-}
 const schema = z.object({
   action: z.enum(["leave", "transfer", "delete"]),
   confirmation: z.string().optional(),
   successorId: z.string().optional(),
+});
+const renameSchema = z.object({
+  action: z.literal("rename"),
+  name: circleNameSchema,
 });
 export async function PATCH(request: Request, { params }: Context) {
   if (!hasSameOrigin(request))
@@ -41,7 +29,21 @@ export async function PATCH(request: Request, { params }: Context) {
     return Response.json({ error: "Sign in first." }, { status: 401 });
   try {
     const { id } = await params;
-    const parsed = schema.safeParse(await readJson(request));
+    const input = await readJson(request);
+    if (
+      input &&
+      typeof input === "object" &&
+      "action" in input &&
+      input.action === "rename"
+    ) {
+      const parsed = renameSchema.safeParse(input);
+      if (!parsed.success) throw new DomainError(circleNameError);
+      await limitAction(session.user.id, "circle-rename", 20, 60_000);
+      return NextResponse.json(
+        await renameCircle(session.user.id, id, parsed.data.name),
+      );
+    }
+    const parsed = schema.safeParse(input);
     if (!parsed.success) throw new DomainError("Choose a valid circle action.");
     const body = parsed.data;
     await limitAction(session.user.id, "circle-lifecycle", 20, 60_000);

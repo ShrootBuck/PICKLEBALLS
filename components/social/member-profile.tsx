@@ -164,7 +164,11 @@ export async function MemberProfile({
     <>
       <header className="profile-heading">
         <Avatar className="size-20 md:size-24">
-          <AvatarImage src={subject.user.image ?? undefined} alt="" />
+          <AvatarImage
+            userId={subject.user.id}
+            src={subject.user.image ?? undefined}
+            alt=""
+          />
           <AvatarFallback>{subject.user.initials}</AvatarFallback>
         </Avatar>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">

@@ -222,7 +222,11 @@ export default async function ScreenTimePage({
                     aria-label={`${row.name}’s profile`}
                   >
                     <Avatar className="size-11">
-                      <AvatarImage src={person?.image ?? undefined} alt="" />
+                      <AvatarImage
+                        userId={row.userId}
+                        src={person?.image ?? undefined}
+                        alt=""
+                      />
                       <AvatarFallback>
                         {person?.initials ?? "PB"}
                       </AvatarFallback>

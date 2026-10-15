@@ -29,12 +29,13 @@ function Avatar({
 function AvatarImage({
   className,
   src,
+  userId,
   ...props
-}: AvatarPrimitive.Image.Props) {
+}: AvatarPrimitive.Image.Props & { userId?: string }) {
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
-      src={typeof src === "string" ? avatarSrc(src) : src}
+      src={typeof src === "string" || !src ? avatarSrc(src, userId) : src}
       className={cn(
         "aspect-square size-full rounded-full object-cover",
         className,
