@@ -25,6 +25,7 @@ import {
   type DirectMessageItem,
   directEmojis,
 } from "@/lib/direct-message-types";
+import { cn } from "@/lib/utils";
 
 export function DirectMessage({
   message,
@@ -119,7 +120,7 @@ export function DirectMessage({
             </BubbleReactions>
           )}
         </Bubble>
-        <MessageFooter className={reactions.length ? "mt-8" : undefined}>
+        <MessageFooter className={cn("gap-2", reactions.length > 0 && "mt-8")}>
           <time
             dateTime={message.createdAt}
             title={new Date(message.createdAt).toLocaleString()}
