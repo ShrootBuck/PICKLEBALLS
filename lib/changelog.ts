@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1792039702157,
+    title: "Your whole circle, one chat",
+    description:
+      "Everyone in your current circle shares a group chat pinned at the top of Messages. Each member's DM is already listed below it, alphabetically, so you can jump straight into any conversation.",
+  },
+  {
     timestamp: 1792037352923,
     title: "See who's typing",
     description:

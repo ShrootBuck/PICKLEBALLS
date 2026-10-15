@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, MessageCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, MessageCircle, RefreshCw, Users } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RealtimeStatus } from "@/components/layout/realtime-provider";
@@ -34,6 +34,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { messageRequest, messagesChanged } from "@/lib/direct-message-client";
 import {
+  conversationName,
   type DirectMessageItem,
   type DirectThread,
   mergeDirectMessages,
@@ -115,7 +116,9 @@ function ThreadContents({
           current
             ? {
                 ...current,
-                person: result.person,
+                ...(result.kind === "group"
+                  ? { kind: result.kind, group: result.group, person: null }
+                  : { kind: result.kind, person: result.person, group: null }),
                 revision: result.revision,
                 readThrough: result.readThrough,
                 messages: mergeDirectMessages(
@@ -145,8 +148,9 @@ function ThreadContents({
     const watcher = watchRealtime(
       readThread,
       (event) =>
-        event.type === "messages" &&
-        (!event.conversationId || event.conversationId === id),
+        (event.type === "messages" &&
+          (!event.conversationId || event.conversationId === id)) ||
+        event.type === "refresh",
     );
     live.current = watcher;
     return () => {
@@ -196,7 +200,9 @@ function ThreadContents({
     <section
       className="dm-thread"
       aria-label={
-        thread ? `Conversation with ${thread.person.name}` : "Conversation"
+        thread
+          ? `Conversation with ${conversationName(thread)}`
+          : "Conversation"
       }
     >
       <header className="dm-thread-header">
@@ -213,18 +219,30 @@ function ThreadContents({
         {thread ? (
           <>
             <Avatar>
-              <AvatarImage src={thread.person.image ?? undefined} alt="" />
-              <AvatarFallback>{thread.person.initials}</AvatarFallback>
+              <AvatarImage src={thread.person?.image ?? undefined} alt="" />
+              <AvatarFallback>
+                {thread.kind === "group" ? (
+                  <Users className="size-5" />
+                ) : (
+                  thread.person.initials
+                )}
+              </AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <h2 className="truncate font-semibold">{thread.person.name}</h2>
+              <h2 className="truncate font-semibold">
+                {conversationName(thread)}
+              </h2>
               <output
                 className="text-xs text-muted-foreground"
                 aria-live="polite"
               >
                 {typing
-                  ? `${thread.person.name.split(" ")[0]} is typing…`
-                  : "Direct message"}
+                  ? thread.kind === "group"
+                    ? "Someone is typing…"
+                    : `${thread.person.name.split(" ")[0]} is typing…`
+                  : thread.kind === "group"
+                    ? `Everyone in ${thread.group.name}`
+                    : "Direct message"}
               </output>
             </div>
             <div className="ml-auto">
@@ -287,11 +305,14 @@ function ThreadContents({
                             <MessageCircle />
                           </EmptyMedia>
                           <EmptyTitle>
-                            Say hey to {thread.person.name.split(" ")[0]}
+                            {thread.kind === "group"
+                              ? "The whole circle is here"
+                              : `Say hey to ${thread.person.name.split(" ")[0]}`}
                           </EmptyTitle>
                           <EmptyDescription>
-                            A little less group chat energy. Send a message, a
-                            photo, or something worth reacting to.
+                            {thread.kind === "group"
+                              ? "Share a message, photo, or video with everyone in your circle."
+                              : "Send a message, a photo, or something worth reacting to."}
                           </EmptyDescription>
                         </EmptyHeader>
                       </Empty>
@@ -326,7 +347,8 @@ function ThreadContents({
                           message={message}
                           conversationId={id}
                           viewerId={viewerId}
-                          peerName={thread.person.name}
+                          peerName={conversationName(thread)}
+                          group={thread.kind === "group"}
                           receipt={
                             message.senderId === viewerId &&
                             !thread.messages
@@ -335,7 +357,8 @@ function ThreadContents({
                                 (item) =>
                                   item.senderId === viewerId && !item.deletedAt,
                               )
-                              ? message.sequence <= thread.readThrough
+                              ? thread.kind === "direct" &&
+                                message.sequence <= thread.readThrough
                                 ? "Seen"
                                 : "Sent"
                               : undefined
@@ -354,7 +377,8 @@ function ThreadContents({
           <ReadMessages id={id} messages={thread.messages} />
           <MessageComposer
             id={id}
-            name={thread.person.name}
+            name={conversationName(thread)}
+            group={thread.kind === "group"}
             drafts={drafts}
             onSent={(message) => {
               update(message);

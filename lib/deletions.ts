@@ -180,7 +180,9 @@ export async function deleteContent(
 
 async function circleFiles(tx: Prisma.TransactionClient, circleId: string) {
   await proofFiles(tx, { circleId });
-  await deleteMediaRows(tx, { circleId });
+  await deleteMediaRows(tx, {
+    OR: [{ circleId }, { directConversation: { circleId } }],
+  });
   await tx.pendingProof.deleteMany({ where: { circleId } });
 }
 
@@ -300,6 +302,36 @@ export async function deleteOwnAccount(
           },
         ],
       });
+      // Keep the shared conversation and other members' messages. Tombstones
+      // let connected clients remove this account's content through revisions.
+      const groupMessages = await tx.directMessage.findMany({
+        where: {
+          conversation: { circleId: { not: null } },
+          OR: [{ senderId: userId }, { reactions: { some: { userId } } }],
+        },
+        select: { id: true, conversationId: true, senderId: true },
+      });
+      for (const message of groupMessages) {
+        const conversation = await tx.directConversation.update({
+          where: { id: message.conversationId },
+          data: { revision: { increment: 1 } },
+        });
+        await tx.directReaction.deleteMany({
+          where: {
+            messageId: message.id,
+            ...(message.senderId === userId ? {} : { userId }),
+          },
+        });
+        await tx.directMessage.update({
+          where: { id: message.id },
+          data: {
+            ...(message.senderId === userId
+              ? { body: "", mediaIds: [], deletedAt: new Date() }
+              : {}),
+            revision: conversation.revision,
+          },
+        });
+      }
       await tx.pendingProof.deleteMany({ where: { ownerId: userId } });
       const files = await tx.timeblockChatAttachment.findMany({
         where: { chat: { userId } },

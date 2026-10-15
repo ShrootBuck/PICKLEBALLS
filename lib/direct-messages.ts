@@ -2,7 +2,10 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { deleteMediaRows } from "@/lib/deletion-storage";
 import {
+  type ConversationDetails,
+  type DirectInboxItem,
   type DirectMessageItem,
+  type DirectPerson,
   type DirectThread,
   directMessageSchema,
   directReactionSchema,
@@ -20,6 +23,7 @@ const personSelect = {
 const messageSelect = {
   id: true,
   senderId: true,
+  sender: { select: personSelect },
   sequence: true,
   revision: true,
   body: true,
@@ -40,8 +44,35 @@ const toMessage = (row: MessageRow): DirectMessageItem => ({
   deletedAt: row.deletedAt?.toISOString() ?? null,
 });
 export const directParticipant = (userId: string) => ({
-  OR: [{ userAId: userId }, { userBId: userId }],
+  OR: [
+    { userAId: userId },
+    { userBId: userId },
+    { circle: { memberships: { some: { userId } } } },
+  ],
 });
+
+function conversationDetails(
+  row: {
+    userAId: string | null;
+    userA: DirectPerson | null;
+    userB: DirectPerson | null;
+    circle: { id: string; name: string } | null;
+  },
+  userId: string,
+): ConversationDetails {
+  if (row.circle) return { kind: "group", person: null, group: row.circle };
+  const person = row.userAId === userId ? row.userB : row.userA;
+  if (!person) throw new DomainError("Conversation not found.", 404);
+  return { kind: "direct", person, group: null };
+}
+
+async function requireCircleMember(userId: string, circleId: string) {
+  const member = await getPrisma().membership.findUnique({
+    where: { userId_circleId: { userId, circleId } },
+  });
+  if (!member) throw new DomainError("Circle not found.", 404);
+  return member;
+}
 
 export async function requireDirectConversation(
   tx: Prisma.TransactionClient,
@@ -53,71 +84,77 @@ export async function requireDirectConversation(
     include: {
       userA: { select: personSelect },
       userB: { select: personSelect },
+      circle: { select: { id: true, name: true } },
     },
   });
   if (!conversation) throw new DomainError("Conversation not found.", 404);
   return conversation;
 }
 
-export async function directContacts(userId: string) {
+export async function directContacts(userId: string, circleId: string) {
+  await requireCircleMember(userId, circleId);
   return getPrisma().user.findMany({
     where: {
       id: { not: userId },
-      memberships: { some: { circle: { memberships: { some: { userId } } } } },
+      memberships: { some: { circleId } },
     },
     select: personSelect,
     orderBy: [{ name: "asc" }, { id: "asc" }],
   });
 }
 
-export async function startDirectConversation(
-  userId: string,
-  recipientId: string,
-) {
-  if (userId === recipientId)
-    throw new DomainError("Choose someone else to message.");
-  const [userAId, userBId] = [userId, recipientId].sort();
-  return getPrisma().$transaction(async (tx) => {
-    const existing = await tx.directConversation.findUnique({
-      where: { userAId_userBId: { userAId, userBId } },
-    });
-    if (existing) return { id: existing.id };
-    const shared = await tx.membership.findFirst({
-      where: {
-        userId: recipientId,
-        circle: { memberships: { some: { userId } } },
-      },
-      select: { circleId: true },
-    });
-    if (!shared)
-      throw new DomainError(
-        "You can start a chat with someone in your circles.",
-        403,
-      );
-    // ON CONFLICT handles simultaneous starts from either side without creating duplicates.
-    await tx.directConversation.createMany({
-      data: [{ userAId, userBId }],
-      skipDuplicates: true,
-    });
-    return tx.directConversation.findUniqueOrThrow({
-      where: { userAId_userBId: { userAId, userBId } },
-      select: { id: true },
-    });
-  });
-}
-
-export async function directUnreadCount(userId: string) {
+export async function directUnreadCount(userId: string, circleId: string) {
+  const member = await requireCircleMember(userId, circleId);
   return getPrisma().directMessage.count({
-    where: { recipientId: userId, readAt: null, deletedAt: null },
+    where: {
+      deletedAt: null,
+      OR: [
+        {
+          recipientId: userId,
+          readAt: null,
+          sender: { memberships: { some: { circleId } } },
+        },
+        {
+          conversation: { circleId },
+          senderId: { not: userId },
+          sequence: { gt: member.groupReadThrough },
+        },
+      ],
+    },
   });
 }
 
-export async function directInbox(userId: string) {
+export async function directInbox(
+  userId: string,
+  circleId: string,
+): Promise<DirectInboxItem[]> {
+  const member = await requireCircleMember(userId, circleId);
+  const contacts = await directContacts(userId, circleId);
+  // Empty conversations belong in the list too. The unique keys make opening
+  // either person's inbox concurrently safe without a separate creation flow.
+  await getPrisma().directConversation.createMany({
+    data: [
+      { circleId },
+      ...contacts.map(({ id }) => {
+        const [userAId, userBId] = [userId, id].sort();
+        return { userAId, userBId };
+      }),
+    ],
+    skipDuplicates: true,
+  });
+  const contactIds = contacts.map(({ id }) => id);
   const rows = await getPrisma().directConversation.findMany({
-    where: { ...directParticipant(userId), messages: { some: {} } },
+    where: {
+      OR: [
+        { circleId },
+        { userAId: userId, userBId: { in: contactIds } },
+        { userBId: userId, userAId: { in: contactIds } },
+      ],
+    },
     include: {
       userA: { select: personSelect },
       userB: { select: personSelect },
+      circle: { select: { id: true, name: true } },
       messages: {
         take: 1,
         orderBy: { sequence: "desc" },
@@ -126,19 +163,38 @@ export async function directInbox(userId: string) {
       _count: {
         select: {
           messages: {
-            where: { recipientId: userId, readAt: null, deletedAt: null },
+            where: {
+              deletedAt: null,
+              OR: [
+                { recipientId: userId, readAt: null },
+                {
+                  conversation: { circleId },
+                  senderId: { not: userId },
+                  sequence: { gt: member.groupReadThrough },
+                },
+              ],
+            },
           },
         },
       },
     },
-    orderBy: [{ lastMessageAt: "desc" }, { id: "desc" }],
   });
-  return rows.map((row) => ({
-    id: row.id,
-    person: row.userAId === userId ? row.userB : row.userA,
-    lastMessage: row.messages[0] ? toMessage(row.messages[0]) : null,
-    unread: row._count.messages,
-  }));
+  return rows
+    .map((row) => ({
+      ...conversationDetails(row, userId),
+      id: row.id,
+      lastMessage: row.messages[0] ? toMessage(row.messages[0]) : null,
+      unread: row._count.messages,
+    }))
+    .sort((a, b) => {
+      if (a.kind === "group") return -1;
+      if (b.kind === "group") return 1;
+      return (
+        a.person.name.localeCompare(b.person.name, "en", {
+          sensitivity: "base",
+        }) || a.person.id.localeCompare(b.person.id)
+      );
+    });
 }
 
 export async function directThread(
@@ -171,12 +227,9 @@ export async function directThread(
         select: { sequence: true },
       });
       return {
+        ...conversationDetails(conversation, userId),
         id,
         readThrough: lastRead?.sequence ?? 0,
-        person:
-          conversation.userAId === userId
-            ? conversation.userB
-            : conversation.userA,
         // One message changes per revision, so a bounded changes page cannot skip rows.
         revision: moreChanges
           ? page[page.length - 1].revision
@@ -267,7 +320,19 @@ export async function readDirectMessages(
   through: number,
 ) {
   return getPrisma().$transaction(async (tx) => {
-    await requireDirectConversation(tx, id, userId);
+    const conversation = await requireDirectConversation(tx, id, userId);
+    if (conversation.circleId) {
+      const position = Math.min(through, conversation.sequence);
+      await tx.membership.updateMany({
+        where: {
+          userId,
+          circleId: conversation.circleId,
+          groupReadThrough: { lt: position },
+        },
+        data: { groupReadThrough: position },
+      });
+      return { read: true };
+    }
     // Only acknowledge messages the client has fetched, never a concurrent arrival.
     await tx.directMessage.updateMany({
       where: {

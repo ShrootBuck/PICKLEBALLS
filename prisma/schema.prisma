@@ -246,6 +246,7 @@ model Circle {
   goals         Goal[]
   streaks       Streak[]
   streakEvents  StreakEvent[]
+  groupConversation DirectConversation?
 }
 
 model Membership {
@@ -254,6 +255,7 @@ model Membership {
   circleId  String
   role      MembershipRole @default(MEMBER)
   createdAt DateTime       @default(now())
+  groupReadThrough Int @default(0)
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
@@ -800,17 +802,19 @@ model MediaUpload {
   @@index([directConversationId])
 }
 
-// Exactly two users, stored in canonical order so there is one chat per pair.
+// Either one circle-wide chat, or two users stored in canonical order.
 model DirectConversation {
   id String @id @default(cuid())
-  userAId String
-  userBId String
+  userAId String?
+  userBId String?
+  circleId String? @unique
   sequence Int @default(0)
   revision Int @default(0)
   createdAt DateTime @default(now())
   lastMessageAt DateTime @default(now())
-  userA User @relation("DirectUserA", fields: [userAId], references: [id], onDelete: Cascade)
-  userB User @relation("DirectUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  userA User? @relation("DirectUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User? @relation("DirectUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  circle Circle? @relation(fields: [circleId], references: [id], onDelete: Cascade)
   messages DirectMessage[]
   uploads MediaUpload[]
   @@unique([userAId, userBId])
@@ -821,8 +825,8 @@ model DirectConversation {
 model DirectMessage {
   id String @id @default(cuid())
   conversationId String
-  senderId String
-  recipientId String
+  senderId String?
+  recipientId String?
   clientId String
   sequence Int
   revision Int
@@ -832,8 +836,8 @@ model DirectMessage {
   readAt DateTime?
   deletedAt DateTime?
   conversation DirectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender User @relation("DirectSender", fields: [senderId], references: [id], onDelete: Cascade)
-  recipient User @relation("DirectRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  sender User? @relation("DirectSender", fields: [senderId], references: [id], onDelete: SetNull)
+  recipient User? @relation("DirectRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
   reactions DirectReaction[]
   @@unique([conversationId, sequence])
   @@unique([conversationId, senderId, clientId])

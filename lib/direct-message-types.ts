@@ -24,7 +24,8 @@ export type DirectPerson = {
 };
 export type DirectMessageItem = {
   id: string;
-  senderId: string;
+  senderId: string | null;
+  sender: DirectPerson | null;
   sequence: number;
   revision: number;
   body: string;
@@ -33,24 +34,28 @@ export type DirectMessageItem = {
   deletedAt: string | null;
   reactions: { userId: string; emoji: string }[];
 };
-export type DirectThread = {
+export type ConversationDetails =
+  | { kind: "direct"; person: DirectPerson; group: null }
+  | { kind: "group"; person: null; group: { id: string; name: string } };
+export const conversationName = (chat: ConversationDetails) =>
+  chat.kind === "group" ? "Everyone" : chat.person.name;
+
+export type DirectThread = ConversationDetails & {
   id: string;
-  person: DirectPerson;
   revision: number;
   readThrough: number;
   messages: DirectMessageItem[];
   hasMore: boolean;
   moreChanges: boolean;
 };
-export type DirectInboxItem = {
+export type DirectInboxItem = ConversationDetails & {
   id: string;
-  person: DirectPerson;
   lastMessage: DirectMessageItem | null;
   unread: number;
 };
 
 export function messagePreview(message: DirectMessageItem | null) {
-  if (!message) return "Start the conversation";
+  if (!message) return "No messages yet";
   if (message.deletedAt) return "Message deleted";
   if (message.body) return message.body;
   return message.mediaIds.length === 1

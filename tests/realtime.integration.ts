@@ -27,12 +27,8 @@ const { getPrisma } = await import("@/lib/prisma");
 const { getRealtimeHub } = await import("@/lib/realtime-server");
 const { GET } = await import("@/app/api/realtime/route");
 const { POST: typing } = await import("@/app/api/messages/[id]/typing/route");
-const {
-  startDirectConversation,
-  sendDirectMessage,
-  directThread,
-  readDirectMessages,
-} = await import("@/lib/direct-messages");
+const { sendDirectMessage, directThread, directInbox, readDirectMessages } =
+  await import("@/lib/direct-messages");
 const db = getPrisma();
 const hub = getRealtimeHub();
 const writer = new Client({ connectionString: process.env.DATABASE_URL });
@@ -146,7 +142,7 @@ test("private streaks and processing updates stay owner-scoped", async () => {
 });
 
 test("DMs, typing and read receipts reach exactly the two participants", async () => {
-  const conversation = await startDirectConversation(a, b);
+  const conversation = (await directInbox(a, circle))[1];
   await Bun.sleep(100);
   clear();
   const message = await sendDirectMessage(a, conversation.id, {
@@ -198,6 +194,48 @@ test("DMs, typing and read receipts reach exactly the two participants", async (
   ).toBe(message.sequence);
 });
 
+test("group messages and typing reach current members, and group reads only refresh the reader", async () => {
+  const group = (await directInbox(a, circle))[0];
+  await Bun.sleep(100);
+  clear();
+  const message = await sendDirectMessage(a, group.id, {
+    body: "Circle hello",
+    clientId: randomUUID(),
+  });
+  await until(() =>
+    (events.get(b) ?? []).some(
+      (event) => event.type === "messages" && event.conversationId === group.id,
+    ),
+  );
+  expect(events.get(outsider)).toEqual([]);
+  await Bun.sleep(100);
+  clear();
+  const response = await typing(
+    new Request("http://localhost/api/messages/typing", {
+      method: "POST",
+      headers: {
+        "x-test-user": a,
+        origin: "http://localhost",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ active: true, clientId: randomUUID() }),
+    }),
+    { params: Promise.resolve({ id: group.id }) },
+  );
+  expect(response.status).toBe(200);
+  await until(() =>
+    (events.get(b) ?? []).some((event) => event.type === "typing"),
+  );
+  expect(events.get(outsider)).toEqual([]);
+  clear();
+  await readDirectMessages(b, group.id, message.sequence);
+  await until(() =>
+    (events.get(b) ?? []).some((event) => event.type === "messages"),
+  );
+  expect(events.get(a)).toEqual([]);
+  expect(events.get(outsider)).toEqual([]);
+});
+
 test("membership revocation refreshes the removed user but cuts off later circle events", async () => {
   clear();
   await db.membership.delete({
@@ -208,6 +246,11 @@ test("membership revocation refreshes the removed user but cuts off later circle
   );
   await Bun.sleep(100);
   clear();
+  const group = (await directInbox(a, circle))[0];
+  await sendDirectMessage(a, group.id, {
+    body: "After removal",
+    clientId: randomUUID(),
+  });
   await writer.query('UPDATE "Circle" SET name = $1 WHERE id = $2', [
     "After removal",
     circle,

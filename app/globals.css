@@ -3457,18 +3457,7 @@ section:first-child > .mood-group-label {
   font-weight: 650;
 }
 .dm-search {
-  position: relative;
   margin: 0 16px 20px;
-}
-.dm-search > svg {
-  position: absolute;
-  top: 50%;
-  left: 12px;
-  transform: translateY(-50%);
-  color: var(--muted-foreground);
-}
-.dm-search > input {
-  padding-left: 36px;
 }
 .dm-conversations {
   flex: 1;
@@ -3510,11 +3499,6 @@ section:first-child > .mood-group-label {
 .dm-preview.is-unread {
   color: var(--foreground);
   font-weight: 600;
-}
-.dm-inbox-note {
-  padding: 20px;
-  color: var(--muted-foreground);
-  font-size: 11px;
 }
 .dm-inbox-empty {
   padding: 28px 12px;
@@ -3598,19 +3582,6 @@ section:first-child > .mood-group-label {
   gap: 8px;
   color: var(--muted-foreground);
   font-size: 10px;
-}
-.dm-people {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 50dvh;
-  overflow-y: auto;
-}
-.dm-person {
-  height: auto;
-  justify-content: flex-start;
-  gap: 12px;
-  padding: 12px;
 }
 .dm-idle-empty,
 .dm-thread-empty {

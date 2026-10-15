@@ -28,12 +28,13 @@ try {
   // Let the initial stream's snapshot reconciliation finish before a hard
   // navigation. WebKit otherwise cancels goto when that RSC response lands.
   await page.waitForTimeout(1500);
-  const start = await you.request.post(`${app}/api/messages`, {
-    headers: { origin: app },
-    data: { recipientId: "demo-eddie" },
-  });
+  const start = await you.request.get(`${app}/api/messages`);
   assert.equal(start.status(), 200);
-  const { id } = await start.json();
+  const { conversations } = await start.json();
+  const { id } = conversations.find(
+    (chat: { person: { id: string } | null }) =>
+      chat.person?.id === "demo-eddie",
+  );
   await page.goto(`${app}/messages?chat=${id}`);
   await peer.goto(`${app}/messages?chat=${id}`);
   for (const tab of [page, peer])

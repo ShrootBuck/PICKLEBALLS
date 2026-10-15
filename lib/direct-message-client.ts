@@ -40,9 +40,11 @@ export function useDirectUnread() {
       );
       if (alive) setUnread(result.unread);
     }
-    const live = watchRealtime(refresh, (event) => event.type === "messages", [
-      messagesChangedEvent,
-    ]);
+    const live = watchRealtime(
+      refresh,
+      (event) => event.type === "messages" || event.type === "refresh",
+      [messagesChangedEvent],
+    );
     return () => {
       alive = false;
       live.dispose();

@@ -44,11 +44,13 @@ export type MessageDrafts = MutableRefObject<Map<string, MessageDraft>>;
 export function MessageComposer({
   id,
   name,
+  group,
   drafts,
   onSent,
 }: {
   id: string;
   name: string;
+  group: boolean;
   drafts: MessageDrafts;
   onSent: (message: DirectMessageItem) => void;
 }) {
@@ -320,7 +322,11 @@ export function MessageComposer({
         </div>
       </Field>
       <div className="dm-compose-hint">
-        <span>Just between you two.</span>
+        <span>
+          {group
+            ? "Visible to everyone in this circle."
+            : "Just between you two."}
+        </span>
         <span>
           {draft.body.length > 3500
             ? `${draft.body.length}/4000`

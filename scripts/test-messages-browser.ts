@@ -26,6 +26,40 @@ try {
   await page.goto("http://localhost:3318/login");
   await peer.goto("http://localhost:3318/login?user=eddie");
   await outsider.goto("http://localhost:3318/login?user=sam");
+  await page.goto(`${app}/messages`);
+  await page
+    .getByRole("navigation", { name: "Conversations", exact: true })
+    .getByRole("link", { name: /^Everyone/ })
+    .waitFor();
+  assert.equal(
+    await page
+      .getByRole("button", { name: "New message", exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(await page.locator(".dm-thread").count(), 0);
+  const directory = page.getByRole("navigation", {
+    name: "Conversations",
+    exact: true,
+  });
+  assert.deepEqual(
+    await directory.locator(".font-semibold").allTextContents(),
+    ["Everyone", "Eddie", "Jules", "Sam"],
+  );
+  await page
+    .getByRole("textbox", { name: "Search conversations" })
+    .fill("Eddie");
+  assert.equal(await directory.getByRole("link").count(), 2);
+  assert.equal(
+    await page
+      .getByRole("navigation", { name: "Conversations", exact: true })
+      .getByRole("link", { name: /^Everyone/ })
+      .count(),
+    1,
+  );
+  // WebKit cancels a hard navigation if the initial realtime reconciliation
+  // finishes at the same moment. Let the mounted inbox settle first.
+  await page.waitForTimeout(1500);
   await page.goto(`${app}/members/demo-eddie`);
   await page.getByRole("link", { name: "Message", exact: true }).click();
   await page.waitForURL(/messages\?chat=/);
@@ -95,10 +129,14 @@ try {
   await peer.bringToFront();
   const peerMessage = peer.locator(`[data-message-id="${message.id}"]`);
   await peerMessage.waitFor();
-  await peer.waitForFunction(async () => {
-    const response = await fetch("/api/messages?unread=1");
-    return (await response.json()).unread === 0;
-  });
+  await peer.waitForFunction(async (conversationId) => {
+    const response = await fetch("/api/messages");
+    return (
+      (await response.json()).conversations.find(
+        (chat: { id: string; unread: number }) => chat.id === conversationId,
+      )?.unread === 0
+    );
+  }, id);
   await peerMessage.getByRole("button", { name: "React to message" }).click();
   await peer.getByRole("button", { name: "React 🔥", exact: true }).click();
   await page
@@ -285,11 +323,14 @@ try {
 
   // Drafts survive switching chats; mobile opens one conversation at a time.
   await composer.fill("Don't lose this draft");
-  await page.getByRole("button", { name: "New message", exact: true }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Sam" }).click();
+  await page
+    .getByRole("navigation", { name: "Conversations", exact: true })
+    .getByRole("link")
+    .filter({ hasText: "Sam" })
+    .click();
   await page.getByRole("textbox", { name: "Message Sam" }).waitFor();
   await page
-    .getByRole("navigation", { name: "Direct messages", exact: true })
+    .getByRole("navigation", { name: "Conversations", exact: true })
     .getByRole("link")
     .filter({ hasText: "Eddie" })
     .click();
@@ -319,7 +360,7 @@ try {
   await page.getByRole("link", { name: "Back to messages" }).click();
   await page.getByRole("heading", { name: "Messages." }).waitFor();
   await page
-    .getByRole("navigation", { name: "Direct messages", exact: true })
+    .getByRole("navigation", { name: "Conversations", exact: true })
     .getByRole("link")
     .filter({ hasText: "Eddie" })
     .click();
@@ -360,9 +401,129 @@ try {
     (await eddie.request.get(`${app}/api/media/${mediaId}`)).status(),
     404,
   );
+  // The pinned chat is shared by the circle, including author names and live updates.
+  await page.bringToFront();
+  await page.getByText("Done.", { exact: true }).waitFor({ state: "hidden" });
+  await page
+    .getByRole("navigation", { name: "Conversations", exact: true })
+    .getByRole("link", { name: /^Everyone/ })
+    .click();
+  await page.waitForURL(
+    (url) =>
+      url.searchParams.has("chat") && url.searchParams.get("chat") !== id,
+  );
+  const groupId = new URL(page.url()).searchParams.get("chat");
+  assert.ok(groupId);
+  const groupComposer = page.getByRole("textbox", {
+    name: "Message Everyone",
+    exact: true,
+  });
+  await groupComposer.waitFor();
+  await peer.goto(`${app}/messages?chat=${groupId}`);
+  await outsider.goto(`${app}/messages?chat=${groupId}`);
+  await peer
+    .getByRole("textbox", { name: "Message Everyone", exact: true })
+    .waitFor();
+  await outsider
+    .getByRole("textbox", { name: "Message Everyone", exact: true })
+    .waitFor();
+  const groupBody = `Everyone gets this ${randomUUID().slice(0, 8)}`;
+  await groupComposer.fill(groupBody);
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  for (const tab of [peer, outsider])
+    await tab
+      .locator('[data-slot="bubble-content"]')
+      .getByText(groupBody, { exact: true })
+      .waitFor();
+  const samBody = `Sam checking in ${randomUUID().slice(0, 8)}`;
+  await outsider
+    .getByRole("textbox", { name: "Message Everyone", exact: true })
+    .fill(samBody);
+  await outsider
+    .getByRole("button", { name: "Send message", exact: true })
+    .click();
+  const samRow = page
+    .locator('[data-slot="message"]')
+    .filter({ hasText: samBody });
+  await samRow.getByText("Sam", { exact: true }).waitFor();
+  await samRow.getByRole("button", { name: "React to message" }).click();
+  await page.getByRole("button", { name: "React 🔥", exact: true }).click();
+  await peer
+    .locator('[data-slot="message"]')
+    .filter({ hasText: samBody })
+    .getByRole("button", { name: "🔥 reaction, react", exact: true })
+    .waitFor();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "circle-photo.png",
+    mimeType: "image/png",
+    buffer: photo,
+  });
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('.dm-composer [data-slot="attachment"]')
+        .length === 0,
+  );
+  const groupThread = await (
+    await you.request.get(`${app}/api/messages/${groupId}`)
+  ).json();
+  const groupPhoto = groupThread.messages.findLast(
+    (item: { mediaIds: string[] }) => item.mediaIds.length > 0,
+  );
+  assert.ok(groupPhoto);
+  assert.equal(
+    (
+      await sam.request.get(`${app}/api/media/${groupPhoto.mediaIds[0]}`)
+    ).status(),
+    200,
+  );
+  for (const width of [1440, 768, 390, 320]) {
+    await groupComposer.blur();
+    await page.setViewportSize({ width, height: width >= 768 ? 960 : 844 });
+    await page.waitForTimeout(500);
+    await groupComposer.waitFor();
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth,
+      ),
+      false,
+    );
+    await page.screenshot({ path: `/private/tmp/pb-circle-chat-${width}.png` });
+  }
+  await page.getByRole("link", { name: "Back to messages" }).click();
+  await page.getByRole("heading", { name: "Messages." }).waitFor();
+  await page.screenshot({ path: "/private/tmp/pb-circle-chat-list-320.png" });
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.screenshot({ path: "/private/tmp/pb-circle-chat-list-1440.png" });
+  // Exercise the real menu. WebKit's APIRequestContext does not replace the
+  // fixture's HttpOnly circle cookie, while an in-browser response does.
+  await page
+    .getByRole("button", { name: "Circle menu: After school", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Weekend project", exact: true })
+    .click();
+  await page.waitForURL(`${app}/`);
+  await page
+    .getByRole("link", { name: "Messages", exact: true })
+    .first()
+    .click();
+  await page.waitForURL(`${app}/messages`);
+  const otherList = await (await you.request.get(`${app}/api/messages`)).json();
+  assert.equal(otherList.conversations.length, 1);
+  assert.notEqual(otherList.conversations[0].id, groupId);
+  assert.equal(await page.locator(".dm-thread").count(), 0);
+  assert.equal(
+    (
+      await sam.request.get(
+        `${app}/api/messages/${otherList.conversations[0].id}`,
+      )
+    ).status(),
+    404,
+  );
   assert.deepEqual(errors, []);
   console.log(
-    "Passed: profile DM entry, two-user send/reply, unread indicator and acknowledgement, reaction persistence, retry idempotency, private photo upload, video playback/posters/ranges, unauthorized read/send/react/media rejection, draft switching, 1440/768/390/320px layout, and message deletion.",
+    "Passed: pinned group and alphabetical directory, no creation flow, circle switching/isolation, group delivery/authors/reactions/photos, profile DM entry, private send/reply/read receipts, retry idempotency, media privacy/playback, drafts, deletion, and 1440/768/390/320px layouts.",
   );
 } finally {
   await browser.close();

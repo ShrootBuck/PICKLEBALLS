@@ -25,7 +25,6 @@ const {
   directInbox,
   directThread,
   directUnreadCount,
-  startDirectConversation,
   sendDirectMessage,
   readDirectMessages,
   reactToDirectMessage,
@@ -53,6 +52,13 @@ const input = (body = "hello", mediaIds: string[] = []) => ({
   mediaIds,
   clientId: randomUUID(),
 });
+async function directPair(userId: string, recipientId: string) {
+  const chat = (await directInbox(userId, circle)).find(
+    (item) => item.person?.id === recipientId,
+  );
+  if (!chat) throw new Error("Missing direct conversation in the directory");
+  return { id: chat.id };
+}
 async function upload(
   ownerId: string,
   conversationId: string | null,
@@ -96,15 +102,19 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-test("only shared-circle contacts can start a chat, with exactly one conversation per pair under concurrent starts", async () => {
-  expect((await directContacts(b)).map((p) => p.id).sort()).toEqual([a, c]);
-  await expect(startDirectConversation(a, a)).rejects.toThrow("someone else");
-  await expect(startDirectConversation(b, stranger)).rejects.toThrow(
-    "in your circles",
-  );
+test("only current-circle contacts appear, with one conversation per pair under concurrent inbox loads", async () => {
+  expect((await directContacts(b, circle)).map((p) => p.id).sort()).toEqual([
+    a,
+    c,
+  ]);
+  expect(
+    (await directInbox(b, circle)).some(
+      (chat) => chat.person?.id === b || chat.person?.id === stranger,
+    ),
+  ).toBe(false);
   const conversations = await Promise.all(
     Array.from({ length: 6 }, (_, i) =>
-      startDirectConversation(i % 2 ? b : a, i % 2 ? a : b),
+      directPair(i % 2 ? b : a, i % 2 ? a : b),
     ),
   );
   expect(new Set(conversations.map((chat) => chat.id)).size).toBe(1);
@@ -116,7 +126,7 @@ test("only shared-circle contacts can start a chat, with exactly one conversatio
 });
 
 test("concurrent sends are ordered, retries are idempotent, and reading cannot acknowledge an unseen arrival", async () => {
-  const { id } = await startDirectConversation(a, b);
+  const { id } = await directPair(a, b);
   const retry = input();
   const sent = await Promise.all([
     sendDirectMessage(a, id, retry),
@@ -132,13 +142,17 @@ test("concurrent sends are ordered, retries are idempotent, and reading cannot a
   const through = page.messages.at(-1)?.sequence ?? 0;
   await sendDirectMessage(a, id, input("arrived after the page loaded"));
   await readDirectMessages(b, id, through);
-  expect(await directUnreadCount(b)).toBe(1);
-  expect((await directInbox(b))[0].unread).toBe(1);
-  expect((await directInbox(c)).length).toBe(0);
+  expect(await directUnreadCount(b, circle)).toBe(1);
+  expect(
+    (await directInbox(b, circle)).find((chat) => chat.id === id)?.unread,
+  ).toBe(1);
+  expect((await directInbox(c, circle)).map((chat) => chat.unread)).toEqual([
+    0, 0, 0,
+  ]);
 });
 
 test("another circle member cannot read, send, acknowledge, react, or delete in someone else's conversation", async () => {
-  const { id } = await startDirectConversation(a, b);
+  const { id } = await directPair(a, b);
   const message = await sendDirectMessage(a, id, input("private"));
   for (const operation of [
     () => directThread(c, id),
@@ -152,8 +166,8 @@ test("another circle member cannot read, send, acknowledge, react, or delete in 
 });
 
 test("attachment claims enforce owner, ready status and conversation scope, with atomic rollback", async () => {
-  const ab = await startDirectConversation(a, b);
-  const ac = await startDirectConversation(a, c);
+  const ab = await directPair(a, b);
+  const ac = await directPair(a, c);
   const own = await upload(a, ab.id);
   const stolen = await upload(b, ab.id);
   const unready = await upload(a, ab.id, false);
@@ -188,7 +202,7 @@ test("attachment claims enforce owner, ready status and conversation scope, with
 });
 
 test("reactions can be changed and removed, and deletion propagates while queuing private attachment cleanup", async () => {
-  const { id } = await startDirectConversation(a, b);
+  const { id } = await directPair(a, b);
   const media = await upload(a, id);
   const message = await sendDirectMessage(a, id, input("nice", [media.id]));
   let changed = await reactToDirectMessage(b, id, message.id, { emoji: "🔥" });
@@ -217,7 +231,7 @@ test("reactions can be changed and removed, and deletion propagates while queuin
 });
 
 test("pagination and change catch-up preserve equal timestamps, including reactions on an old page", async () => {
-  const { id } = await startDirectConversation(b, c);
+  const { id } = await directPair(b, c);
   const first = await sendDirectMessage(b, id, input("first"));
   // Seed a long history with real sequence/revision contracts, without 110 round trips.
   await prisma.directMessage.createMany({
@@ -266,13 +280,117 @@ test("pagination and change catch-up preserve equal timestamps, including reacti
   ]);
 });
 
-test("DMs survive circle deletion and account deletion queues both senders' files", async () => {
-  const { id } = await startDirectConversation(a, b);
+test("the directory includes empty DMs alphabetically and one shared chat per current circle", async () => {
+  const lists = await Promise.all([
+    directInbox(a, circle),
+    directInbox(b, circle),
+    directInbox(a, circle),
+  ]);
+  expect(new Set(lists.map((list) => list[0].id)).size).toBe(1);
+  expect(lists[0][0]).toMatchObject({ kind: "group", group: { id: circle } });
+  expect(lists[0].slice(1).map((chat) => chat.person?.id)).toEqual([b, c]);
+  const elsewhere = await directInbox(a, otherCircle);
+  expect(elsewhere[0].id).not.toBe(lists[0][0].id);
+  expect(elsewhere.slice(1).map((chat) => chat.person?.id)).toEqual([stranger]);
+  expect(elsewhere[1].lastMessage).toBeNull();
+  await expect(directInbox(b, otherCircle)).rejects.toThrow("not found");
+  const newcomer = await prisma.user.create({
+    data: { name: "Aaron", email: "dm-new@example.invalid" },
+  });
+  await prisma.membership.create({
+    data: { userId: newcomer.id, circleId: circle },
+  });
+  const afterJoin = await directInbox(a, circle);
+  expect(afterJoin[1].person?.id).toBe(newcomer.id);
+  expect(afterJoin[1].lastMessage).toBeNull();
+  await prisma.user.delete({ where: { id: newcomer.id } });
+});
+
+test("circle chat supports shared media and reactions with independent, monotonic read positions and membership gates", async () => {
+  const { id } = (await directInbox(a, circle))[0];
+  const photo = await upload(a, id);
+  const first = await sendDirectMessage(
+    a,
+    id,
+    input("For everyone", [photo.id]),
+  );
+  expect(first.sender?.id).toBe(a);
+  const second = await sendDirectMessage(a, id, input("Next"));
+  await sendDirectMessage(b, id, input("My own message"));
+  expect((await directInbox(b, circle))[0].unread).toBe(2);
+  expect((await directInbox(c, circle))[0].unread).toBe(3);
+  await readDirectMessages(b, id, first.sequence);
+  expect((await directInbox(b, circle))[0].unread).toBe(1);
+  expect((await directInbox(c, circle))[0].unread).toBe(3);
+  await readDirectMessages(b, id, second.sequence);
+  await readDirectMessages(b, id, first.sequence);
+  expect((await directInbox(b, circle))[0].unread).toBe(0);
+  await readDirectMessages(b, id, 999999);
+  await sendDirectMessage(a, id, input("Unseen arrival"));
+  expect((await directInbox(b, circle))[0].unread).toBe(1);
+  expect((await authorizedMedia(headers(c), photo.id))?.id).toBe(photo.id);
+  expect(
+    await authorizedMedia(headers(stranger, otherCircle), photo.id),
+  ).toBeNull();
+  for (const action of [
+    () => directThread(stranger, id),
+    () => sendDirectMessage(stranger, id, input()),
+    () => readDirectMessages(stranger, id, 999),
+    () => reactToDirectMessage(stranger, id, first.id, { emoji: "🔥" }),
+    () => deleteDirectMessage(b, id, first.id),
+  ])
+    await expect(action()).rejects.toThrow("not found");
+  await reactToDirectMessage(b, id, first.id, { emoji: "🔥" });
+  const reacted = await reactToDirectMessage(c, id, first.id, { emoji: "🔥" });
+  expect(reacted.reactions).toHaveLength(2);
+  await prisma.membership.delete({
+    where: { userId_circleId: { userId: c, circleId: circle } },
+  });
+  await expect(directThread(c, id)).rejects.toThrow("not found");
+  expect(await authorizedMedia(headers(c), photo.id)).toBeNull();
+  await prisma.membership.create({ data: { userId: c, circleId: circle } });
+  await deleteDirectMessage(a, id, first.id);
+  expect(await authorizedMedia(headers(c), photo.id)).toBeNull();
+  expect(
+    (await directThread(c, id, { sinceRevision: reacted.revision })).messages[0]
+      .deletedAt,
+  ).not.toBeNull();
+});
+
+test("circle and account deletion clean up group files without deleting unrelated conversations", async () => {
+  const { id } = await directPair(a, b);
   const fromA = await upload(a, id);
   const fromB = await upload(b, id);
   await sendDirectMessage(a, id, input("", [fromA.id]));
   await sendDirectMessage(b, id, input("", [fromB.id]));
+  const group = (await directInbox(a, circle))[0];
+  const groupFile = await upload(a, group.id);
+  await sendDirectMessage(a, group.id, input("", [groupFile.id]));
+  await prisma.membership.create({
+    data: { userId: b, circleId: otherCircle },
+  });
+  const otherGroup = (await directInbox(a, otherCircle))[0];
+  const sharedFile = await upload(stranger, otherGroup.id);
+  const shared = await sendDirectMessage(
+    stranger,
+    otherGroup.id,
+    input("Keep this", [sharedFile.id]),
+  );
+  const departing = await sendDirectMessage(
+    b,
+    otherGroup.id,
+    input("Erase this"),
+  );
+  await reactToDirectMessage(b, otherGroup.id, shared.id, { emoji: "🔥" });
   await changeCircleLifecycle(a, circle, "delete", circle);
+  expect(
+    await prisma.directConversation.findUnique({ where: { id: group.id } }),
+  ).toBeNull();
+  expect(
+    await prisma.objectDeletion.findUnique({
+      where: { key: groupFile.objectKey },
+    }),
+  ).not.toBeNull();
   expect((await directThread(a, id)).messages.length).toBeGreaterThan(0);
   expect((await authorizedMedia(headers(b), fromA.id))?.id).toBe(fromA.id);
   const session = await prisma.session.create({
@@ -284,6 +402,26 @@ test("DMs survive circle deletion and account deletion queues both senders' file
     },
   });
   await deleteOwnAccount(b, session.id, "DELETE");
+  const remaining = await directThread(a, otherGroup.id);
+  expect(
+    remaining.messages.find((message) => message.id === shared.id)?.body,
+  ).toBe("Keep this");
+  expect(
+    remaining.messages.find((message) => message.id === departing.id),
+  ).toMatchObject({ senderId: null, body: "" });
+  expect(
+    (
+      await directThread(a, otherGroup.id, {
+        sinceRevision: departing.revision,
+      })
+    ).messages.find((message) => message.id === departing.id)?.deletedAt,
+  ).not.toBeNull();
+  expect(
+    await prisma.mediaUpload.findUnique({ where: { id: sharedFile.id } }),
+  ).not.toBeNull();
+  expect(
+    remaining.messages.find((message) => message.id === shared.id)?.reactions,
+  ).toEqual([]);
   expect(
     await prisma.directConversation.findUnique({ where: { id } }),
   ).toBeNull();

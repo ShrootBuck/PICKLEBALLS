@@ -132,7 +132,7 @@ export class RealtimeHub {
         listener(envelope.event);
       return;
     }
-    if (!this.listeners.size || envelope.event.type !== "refresh") return;
+    if (!this.listeners.size) return;
     // Check current membership for every batch, never trust a connection-time
     // snapshot after someone leaves or is removed from a circle.
     const members = await getPrisma().membership.findMany({
@@ -144,7 +144,11 @@ export class RealtimeHub {
     });
     for (const { userId } of members)
       for (const listener of [...(this.listeners.get(userId) ?? [])])
-        listener({ type: "refresh", circleId: envelope.id });
+        listener(
+          envelope.event.type === "refresh"
+            ? { type: "refresh", circleId: envelope.id }
+            : envelope.event,
+        );
   }
 
   async close() {

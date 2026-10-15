@@ -29,12 +29,15 @@ export async function POST(
       (await context.params).id,
       userId,
     );
+    const target =
+      conversation.circleId ??
+      (conversation.userAId === userId
+        ? conversation.userBId
+        : conversation.userAId);
+    if (!target) throw new DomainError("Conversation not found.", 404);
     await publishRealtime({
-      scope: "user",
-      id:
-        conversation.userAId === userId
-          ? conversation.userBId
-          : conversation.userAId,
+      scope: conversation.circleId ? "circle" : "user",
+      id: target,
       event: {
         type: "typing",
         conversationId: conversation.id,

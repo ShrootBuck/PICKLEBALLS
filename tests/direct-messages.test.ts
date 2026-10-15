@@ -31,6 +31,7 @@ test("an older fetch cannot resurrect a deleted message or undo a reaction; new 
   const original: DirectMessageItem = {
     id: "a",
     senderId: "user",
+    sender: { id: "user", name: "User", image: null, initials: "U" },
     sequence: 1,
     revision: 1,
     body: "hello",

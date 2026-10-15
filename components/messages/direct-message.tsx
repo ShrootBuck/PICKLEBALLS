@@ -32,6 +32,7 @@ export function DirectMessage({
   conversationId,
   viewerId,
   peerName,
+  group,
   onUpdate,
   refresh,
   receipt,
@@ -40,6 +41,7 @@ export function DirectMessage({
   conversationId: string;
   viewerId: string;
   peerName: string;
+  group: boolean;
   onUpdate: (message: DirectMessageItem) => void;
   refresh: () => void;
   receipt?: "Sent" | "Seen";
@@ -79,8 +81,8 @@ export function DirectMessage({
   return (
     <Message align={align}>
       <MessageContent className="dm-message-content">
-        <MessageHeader className="sr-only">
-          {mine ? "You" : peerName}
+        <MessageHeader className={cn((!group || mine) && "sr-only")}>
+          {mine ? "You" : (message.sender?.name ?? "Deleted member")}
         </MessageHeader>
         <Bubble variant={mine ? "default" : "secondary"} align={align}>
           {message.mediaIds.length > 0 && (
@@ -175,7 +177,7 @@ export function DirectMessage({
                   <DeleteAction
                     label="Delete message"
                     title="Delete this message?"
-                    description="This removes the message and its attachments for both of you."
+                    description="This removes the message and its attachments for everyone in this conversation."
                     endpoint={endpoint}
                     onDeleted={() => {
                       setOpen(false);
