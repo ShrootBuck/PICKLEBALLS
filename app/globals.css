@@ -238,17 +238,39 @@
     text-size-adjust: 100%;
   }
 
-  button:not(:disabled):not([data-disabled]),
-  [role="button"]:not(:disabled):not([data-disabled]),
-  a,
-  label,
-  select,
-  summary {
+  /* Shared interactive controls inherit this; avoid cursor-default overrides. */
+  :is(
+      button,
+      a[href],
+      label,
+      select,
+      summary,
+      input[type="button"],
+      input[type="submit"],
+      input[type="reset"],
+      input[type="checkbox"],
+      input[type="radio"],
+      input[type="range"],
+      input[type="color"],
+      input[type="file"],
+      [role="button"],
+      [role="tab"],
+      [role="checkbox"],
+      [role="radio"],
+      [role="switch"],
+      [role="menuitem"],
+      [role="menuitemcheckbox"],
+      [role="menuitemradio"],
+      [role="option"],
+      [role="slider"],
+      [role="combobox"]:not(input)
+    ):not(:disabled, [aria-disabled="true"], [data-disabled]),
+  input[type="file"]:enabled::file-selector-button {
     cursor: pointer;
   }
 
-  button:disabled,
-  [role="button"]:disabled,
+  :is(button, input, select, textarea):disabled,
+  [aria-disabled="true"],
   [data-disabled] {
     cursor: not-allowed;
   }
@@ -4751,5 +4773,129 @@ section:first-child > .mood-group-label {
   .dm-actions,
   .dm-conversation {
     transition: none;
+  }
+}
+
+/* Build TV: a tiny, deliberately nonessential deployment broadcast. */
+.build-tv-trigger {
+  min-width: 36px;
+}
+.build-tv-screen {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: 14px;
+  background:
+    repeating-linear-gradient(
+      transparent 0 3px,
+      color-mix(in srgb, var(--primary) 3%, transparent) 3px 4px
+    ),
+    var(--background);
+}
+.build-tv-channel {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  font: 10px var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--muted-foreground);
+}
+.build-tv-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted-foreground);
+}
+.build-tv-led[data-on="true"] {
+  background: var(--success);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--success) 40%, transparent);
+}
+.build-tv-picture {
+  overflow: hidden;
+  height: 92px;
+  padding-top: 16px;
+  opacity: 0.35;
+}
+.build-tv-screen[data-moving="true"] .build-tv-picture {
+  opacity: 1;
+}
+.build-tv-parcels {
+  display: flex;
+  width: 576px;
+  gap: 24px;
+  padding-bottom: 8px;
+  color: var(--primary);
+}
+.build-tv-parcel {
+  display: grid;
+  flex: 0 0 48px;
+  place-items: center;
+  height: 42px;
+}
+.build-tv-parcel svg {
+  width: 40px;
+  height: 40px;
+  stroke-width: 1.25;
+}
+.build-tv-belt {
+  height: 8px;
+  border-block: 1px solid var(--border);
+  background: repeating-linear-gradient(
+    110deg,
+    var(--border) 0 2px,
+    transparent 2px 12px
+  );
+}
+.build-tv-screen[data-moving="true"] .build-tv-parcels {
+  animation: build-tv-conveyor 3s linear infinite;
+}
+.build-tv-programme {
+  padding: 8px 16px 24px;
+  text-align: center;
+}
+.build-tv-programme h2 {
+  font-size: clamp(20px, 5vw, 26px);
+  font-weight: 650;
+  letter-spacing: -0.04em;
+}
+.build-tv-programme p {
+  margin-top: 7px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  text-wrap: balance;
+}
+.build-tv-counts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--border);
+}
+.build-tv-counts > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column-reverse;
+  gap: 4px;
+  padding: 16px 8px;
+  text-align: center;
+}
+.build-tv-counts > div + div {
+  border-left: 1px solid var(--border);
+}
+.build-tv-counts dt {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.build-tv-counts dd {
+  font: 500 clamp(23px, 6vw, 36px) / 1.1 var(--font-mono);
+  letter-spacing: -0.06em;
+  font-variant-numeric: tabular-nums;
+}
+@keyframes build-tv-conveyor {
+  to {
+    transform: translateX(-72px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .build-tv-screen[data-moving="true"] .build-tv-parcels {
+    animation: none;
   }
 }

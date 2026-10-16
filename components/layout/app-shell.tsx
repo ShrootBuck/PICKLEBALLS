@@ -10,6 +10,7 @@ import {
   useMemo,
   useRef,
 } from "react";
+import { BuildTV } from "@/components/build-tv";
 import {
   AppSidebar,
   MobileMenu,
@@ -194,6 +195,7 @@ export function AppShell({
           </p>
           <div className="ml-auto flex items-center gap-1">
             <RealtimeNotice />
+            <BuildTV />
             <MobileMenu
               items={items}
               active={active}

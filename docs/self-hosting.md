@@ -238,6 +238,45 @@ local development. Never run `migrate dev` or `db push` against production.
 
 ## Verify a rolling deployment
 
+### Build TV
+
+The TV button in the app header opens a read-only spectator panel for signed-in
+circle members. It shows the production web/worker queue counts and each service's
+latest deployment result. Coolify remains the administration and logging interface.
+
+Set these **runtime-only web** variables in Coolify:
+
+- `COOLIFY_API_URL`: private Coolify API base URL, ending in `/api/v1`, reachable
+  from the web container (`http://coolify:8080/api/v1` on the shared Docker
+  network). Do not expose the dashboard through Cloudflare.
+- `COOLIFY_READ_TOKEN`: a dedicated Root Team API token with only `read` permission.
+  No `read:sensitive`, `write`, `deploy`, or `root` permission is needed.
+- `COOLIFY_WEB_APP_UUID`: `pjd7ddc7afz1fjxsu9veepnx`.
+- `COOLIFY_WORKER_APP_UUID`: `jpccsyfelscs72ncmnn98xdh`.
+
+The application UUIDs above were checked in Coolify on October 15, 2026. Update
+them if either application is recreated. Enable API access and allow the web
+container's source address if Coolify uses an API IP allowlist.
+The current read-only token expires January 13, 2027. Renew it before then and
+replace `COOLIFY_READ_TOKEN` on web. Coolify also creates preview copies when a
+variable is added; keep both build-time and runtime access disabled for the
+preview token. The production token is runtime-only.
+
+The server reads active deployments and the latest five deployments for each
+application. It filters out preview deployments and unrelated applications,
+then returns only counts, statuses, short commit IDs, and timestamps. Raw Coolify
+responses, commit messages, logs, credentials, and server metadata never reach
+the browser. Requests share a 10-second cache per web process, including failures.
+The browser polls every five seconds with the panel open and once a minute when
+closed; hidden tabs stop polling. After a failure, counts are marked as stale for
+at most two minutes, then replaced with unknown values. Missing configuration
+shows "Off air" rather than a fabricated empty queue.
+
+"Finished" reflects Coolify's deployment result, not the combined release
+verification below. No database migration or background task is required.
+
+### Release verification
+
 The production worker automatically enqueues a `verify-deployment` job at startup.
 Set `DEPLOYMENT_DISCORD_WEBHOOK` on the worker at runtime only, using the existing
 Coolify Discord destination. It waits up to 20 minutes for both public release

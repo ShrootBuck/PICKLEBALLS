@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1792116860317,
+    title: "Build TV",
+    description:
+      "Open the TV in the app header to watch Pickle Balls updates make their way through the build queue. See what's building, what's waiting, and how the latest website and worker deployments went.",
+  },
+  {
     timestamp: 1792115675491,
     title: "Streaks without daily confirmations",
     description:
