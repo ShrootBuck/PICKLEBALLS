@@ -303,6 +303,11 @@ export function BuildTV() {
                     </span>
                   )}
                 </div>
+                {service.latest?.commitMessage && (
+                  <p className="w-full min-w-0 border-t pt-2 text-sm leading-relaxed break-words [overflow-wrap:anywhere]">
+                    {service.latest.commitMessage}
+                  </p>
+                )}
               </div>
             ))}
           </section>

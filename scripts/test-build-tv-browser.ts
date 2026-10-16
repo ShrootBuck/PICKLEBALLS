@@ -32,6 +32,7 @@ let state: BuildTVResponse = {
           id: "web-1",
           status: "in_progress",
           commit: "a1b2c3d",
+          commitMessage: "Show commit messages in Build TV",
           createdAt: new Date(Date.now() - 90_000).toISOString(),
         },
       },
@@ -43,6 +44,7 @@ let state: BuildTVResponse = {
           id: "worker-1",
           status: "queued",
           commit: "a1b2c3d",
+          commitMessage: "Show commit messages in Build TV",
           createdAt: new Date(Date.now() - 60_000).toISOString(),
         },
       },
@@ -106,6 +108,23 @@ try {
     if ([1440, 390, 320].includes(width))
       await page.screenshot({ path: `${output}/queue-${width}.png` });
   }
+  assert.equal(
+    await dialog
+      .getByText("Show commit messages in Build TV", { exact: true })
+      .count(),
+    2,
+  );
+  assert(state.snapshot);
+  state.snapshot.queued = 1;
+  state.snapshot.services[0].queued = 0;
+  state.snapshot.services[1].queued = 1;
+  await dialog.getByText("Fresh code on the way.").waitFor();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: `${output}/commit-desktop.png` });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: `${output}/commit-mobile.png` });
+  state.snapshot.queued = 20_000;
+  await dialog.getByText("We may be here a while.").waitFor();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "no-preference" });
   assert.equal(
@@ -159,6 +178,7 @@ try {
             id: "failed",
             status: "failed",
             commit: "aaaaaaa",
+            commitMessage: null,
             createdAt: new Date().toISOString(),
           },
         },
@@ -170,6 +190,7 @@ try {
             id: "cancelled",
             status: "cancelled-by-user",
             commit: "aaaaaaa",
+            commitMessage: null,
             createdAt: new Date().toISOString(),
           },
         },

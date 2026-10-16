@@ -14,7 +14,8 @@ export type BuildTVConfig = {
 };
 
 // Parse only fields needed for the spectator view. Never forward Coolify objects,
-// logs, messages, server names, configuration, or upstream error bodies.
+// logs, server names, configuration, or upstream error bodies.
+// Only the commit subject is exposed, never its extended body.
 const deploymentSchema = z.object({
   application_id: z
     .union([z.string().min(1), z.number().int()])
@@ -23,6 +24,7 @@ const deploymentSchema = z.object({
   status: buildStatusSchema,
   pull_request_id: z.coerce.number().int().default(0),
   commit: z.string().nullish(),
+  commit_message: z.string().nullish(),
   created_at: z.string().refine((date) => Number.isFinite(Date.parse(date))),
 });
 const deploymentsSchema = z.array(deploymentSchema);
@@ -136,6 +138,12 @@ export function createBuildTVReader({
                   latest.commit && /^[a-f0-9]{40}$/i.test(latest.commit)
                     ? latest.commit.slice(0, 7)
                     : null,
+                commitMessage:
+                  latest.commit_message
+                    ?.trim()
+                    .split(/\r?\n/, 1)[0]
+                    ?.trim()
+                    .slice(0, 300) || null,
                 createdAt: new Date(latest.created_at).toISOString(),
               }
             : null,

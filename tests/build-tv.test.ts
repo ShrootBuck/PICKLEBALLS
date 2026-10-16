@@ -21,7 +21,7 @@ const deployment = (
   commit: "a".repeat(40),
   created_at: "2026-10-15T11:00:00Z",
   logs: "TOP_SECRET_LOGS",
-  commit_message: "PRIVATE_MESSAGE",
+  commit_message: "Show commit subjects in Build TV\n\nPRIVATE_BODY",
   server_name: "PRIVATE_SERVER",
   configuration_snapshot: { password: "TOP_SECRET" },
   ...extra,
@@ -93,7 +93,11 @@ test("counts the full production queue, ignores other apps/previews, and strips 
     key: "web",
     queued: 20_000,
     running: 0,
-    latest: { status: "failed", commit: "aaaaaaa" },
+    latest: {
+      status: "failed",
+      commit: "aaaaaaa",
+      commitMessage: "Show commit subjects in Build TV",
+    },
   });
   const json = JSON.stringify(result);
   expect(json).not.toMatch(
@@ -172,5 +176,32 @@ test("invalid configuration does not send credentials", async () => {
     });
     expect((await read()).connection).toBe("offline");
     expect(called).toBe(false);
+  }
+});
+
+test("commit subjects tolerate missing values and omit bodies with bounded length", async () => {
+  for (const [message, expected] of [
+    [undefined, null],
+    [null, null],
+    ["   ", null],
+    ["  Fix deployment status\r\n\r\nPrivate details", "Fix deployment status"],
+    ["x".repeat(500), "x".repeat(300)],
+  ] as const) {
+    const read = createBuildTVReader({
+      config,
+      fetcher: (async (input) =>
+        String(input).endsWith("/deployments")
+          ? Response.json([])
+          : Response.json({
+              deployments: [
+                deployment("latest", 12, "finished", {
+                  commit_message: message,
+                }),
+              ],
+            })) as typeof fetch,
+    });
+    expect((await read()).snapshot?.services[0].latest?.commitMessage).toBe(
+      expected,
+    );
   }
 });

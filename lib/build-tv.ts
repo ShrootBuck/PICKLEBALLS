@@ -20,6 +20,7 @@ const buildSchema = z.object({
   id: z.string(),
   status: buildStatusSchema,
   commit: z.string().nullable(),
+  commitMessage: z.string().nullable(),
   createdAt: z.string(),
 });
 
