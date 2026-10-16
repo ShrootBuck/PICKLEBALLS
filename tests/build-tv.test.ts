@@ -93,17 +93,12 @@ test("counts the full production queue, ignores other apps/previews, and strips 
     key: "web",
     queued: 20_000,
     running: 0,
-    latest: {
-      status: "failed",
-      commit: "aaaaaaa",
-      commitMessage: "Show commit subjects in Build TV",
-    },
   });
   const json = JSON.stringify(result);
   expect(json).not.toMatch(
     /SECRET|PRIVATE|private-read-token|internal|application_id|configuration|logs|commit_message/,
   );
-  expect(json.length).toBeLessThan(1000);
+  expect(result.snapshot?.services[0].builds).toHaveLength(20_001);
 });
 
 test("coalesces simultaneous viewers and caches failures as well as success", async () => {
@@ -200,8 +195,33 @@ test("commit subjects tolerate missing values and omit bodies with bounded lengt
               ],
             })) as typeof fetch,
     });
-    expect((await read()).snapshot?.services[0].latest?.commitMessage).toBe(
+    expect((await read()).snapshot?.services[0].builds[0]?.commitMessage).toBe(
       expected,
     );
   }
+});
+
+test("queue status overrides duplicate history and every active build matches the counters", async () => {
+  const f = fixture([
+    deployment("latest-12", 12, "in_progress"),
+    deployment("next", 12, "queued"),
+    deployment("next", 12, "queued"),
+    deployment("done", 13, "finished"),
+  ]);
+  const { snapshot } = await f.read();
+  if (!snapshot) throw new Error("Expected a connected snapshot");
+  const builds = snapshot.services.flatMap((service) => service.builds);
+  expect(builds.filter((build) => build.status === "in_progress")).toHaveLength(
+    snapshot.running,
+  );
+  expect(builds.filter((build) => build.status === "queued")).toHaveLength(
+    snapshot.queued,
+  );
+  expect(builds.filter((build) => build.id === "latest-12")).toHaveLength(1);
+  expect(builds.find((build) => build.id === "latest-12")?.status).toBe(
+    "in_progress",
+  );
+  expect(builds.find((build) => build.id === "next")?.commitMessage).toBe(
+    "Show commit subjects in Build TV",
+  );
 });

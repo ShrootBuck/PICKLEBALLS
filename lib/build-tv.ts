@@ -36,7 +36,7 @@ export const buildTVResponseSchema = z.object({
           key: z.enum(["web", "worker"]),
           queued: z.number().int().nonnegative(),
           running: z.number().int().nonnegative(),
-          latest: buildSchema.nullable(),
+          builds: z.array(buildSchema),
         }),
       ),
     })

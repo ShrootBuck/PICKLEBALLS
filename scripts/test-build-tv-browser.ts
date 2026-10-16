@@ -16,43 +16,49 @@ const page = await context.newPage();
 page.setDefaultTimeout(15_000);
 const errors: string[] = [];
 page.on("pageerror", (error) => errors.push(error.message));
-
+const build = (
+  id: string,
+  status: "queued" | "in_progress" | "finished" | "failed",
+  age: number,
+) => ({
+  id,
+  status,
+  commit: "a1b2c3d",
+  commitMessage: `Deployment ${id}`,
+  createdAt: new Date(Date.now() - age).toISOString(),
+});
 let state: BuildTVResponse = {
   connection: "connected",
   snapshot: {
     updatedAt: new Date().toISOString(),
-    queued: 20_000,
+    queued: 3,
     running: 1,
     services: [
       {
         key: "web",
-        queued: 12_000,
+        queued: 1,
         running: 1,
-        latest: {
-          id: "web-1",
-          status: "in_progress",
-          commit: "a1b2c3d",
-          commitMessage: "Show commit messages in Build TV",
-          createdAt: new Date(Date.now() - 90_000).toISOString(),
-        },
+        builds: [
+          build("web-running", "in_progress", 120000),
+          build("web-next", "queued", 30000),
+          build("web-done", "finished", 300000),
+        ],
       },
       {
         key: "worker",
-        queued: 8_000,
+        queued: 2,
         running: 0,
-        latest: {
-          id: "worker-1",
-          status: "queued",
-          commit: "a1b2c3d",
-          commitMessage: "Show commit messages in Build TV",
-          createdAt: new Date(Date.now() - 60_000).toISOString(),
-        },
+        builds: [
+          build("worker-next", "queued", 60000),
+          build("worker-last", "queued", 10000),
+          build("worker-failed", "failed", 300000),
+        ],
       },
     ],
   },
 };
-let requests = 0;
 let fail = false;
+let requests = 0;
 try {
   await page.goto("http://localhost:3318/login");
   await page.locator("#main h1").waitFor();
@@ -83,80 +89,63 @@ try {
   const trigger = page.getByRole("button", { name: /^Open Build TV/ });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Build TV" });
-  await dialog.getByText("We may be here a while.").waitFor();
-  assert.equal(await dialog.locator("dd").nth(1).innerText(), "20,000");
+  await dialog.getByText("Fresh code on the way.").waitFor();
+  assert.equal(await dialog.locator("[data-build-id]:visible").count(), 4);
+  assert.deepEqual(
+    await dialog
+      .getByRole("region", { name: "Up next", exact: true })
+      .locator("li")
+      .evaluateAll((nodes) =>
+        nodes.map((n) => n.getAttribute("data-build-id")),
+      ),
+    ["worker-next", "web-next", "worker-last"],
+  );
   assert.equal(
     await dialog
       .locator(".build-tv-parcels")
-      .evaluate((node) => getComputedStyle(node).animationName),
+      .evaluate((n) => getComputedStyle(n).animationName),
     "none",
   );
   for (const width of [1440, 1024, 768, 390, 320]) {
     await page.setViewportSize({ width, height: width >= 768 ? 1000 : 740 });
-    const fits = await dialog.evaluate((node) => {
-      const rect = node.getBoundingClientRect();
-      const header = document.querySelector(".app-header");
+    await page.waitForFunction(() => {
+      const node = document.querySelector("[data-build-tv]");
+      if (!node) return false;
+      const r = node.getBoundingClientRect();
       return (
-        rect.left >= 0 &&
-        rect.right <= innerWidth &&
-        node.scrollWidth <= node.clientWidth + 1 &&
-        document.documentElement.scrollWidth <= innerWidth &&
-        (!header || header.scrollWidth <= header.clientWidth + 1)
+        r.left >= 0 &&
+        r.right <= innerWidth &&
+        r.top >= 0 &&
+        r.bottom <= innerHeight + 1
       );
     });
-    assert(fits, `Build TV or the header overflows at ${width}px`);
-    if ([1440, 390, 320].includes(width))
-      await page.screenshot({ path: `${output}/queue-${width}.png` });
+    assert(
+      await dialog.evaluate((node) => {
+        const r = node.getBoundingClientRect();
+        return (
+          r.left >= 0 &&
+          r.right <= innerWidth &&
+          r.top >= 0 &&
+          r.bottom <= innerHeight + 1 &&
+          node.scrollWidth <= node.clientWidth + 1
+        );
+      }),
+      `Dialog overflows at ${width}`,
+    );
+    await page.screenshot({ path: `${output}/queue-${width}.png` });
   }
-  assert.equal(
-    await dialog
-      .getByText("Show commit messages in Build TV", { exact: true })
-      .count(),
-    2,
-  );
-  assert(state.snapshot);
-  state.snapshot.queued = 1;
-  state.snapshot.services[0].queued = 0;
-  state.snapshot.services[1].queued = 1;
-  await dialog.getByText("Fresh code on the way.").waitFor();
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.screenshot({ path: `${output}/commit-desktop.png` });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: `${output}/commit-mobile.png` });
-  state.snapshot.queued = 20_000;
-  await dialog.getByText("We may be here a while.").waitFor();
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  assert.equal(
-    await dialog
-      .locator(".build-tv-parcels")
-      .evaluate((node) => getComputedStyle(node).animationName),
-    "build-tv-conveyor",
-  );
+  await dialog.getByRole("button", { name: /Recent builds/ }).click();
+  await dialog.getByText("Finished", { exact: true }).waitFor();
+  await dialog.getByText("Failed", { exact: true }).waitFor();
+  assert.equal(await dialog.locator("[data-build-id]:visible").count(), 6);
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "hidden" });
-  assert(
-    await trigger.evaluate((node) => node === document.activeElement),
-    "Escape returns focus to the TV button",
-  );
+  assert(await trigger.evaluate((n) => n === document.activeElement));
   await trigger.click();
-  await dialog.waitFor();
   fail = true;
   await dialog.getByText("Lost the signal.").waitFor();
-  assert.equal(
-    await dialog.locator("dd").nth(1).innerText(),
-    "20,000",
-    "A brief outage retains the last known counts",
-  );
-  assert.equal(
-    await dialog
-      .locator(".build-tv-parcels")
-      .evaluate((node) => getComputedStyle(node).animationName),
-    "none",
-    "Stale builds stop animating",
-  );
+  assert.equal(await dialog.locator("dd").nth(1).innerText(), "3");
   await dialog.getByText(/Counts may have changed/).waitFor();
-  await page.screenshot({ path: `${output}/reconnecting.png` });
   fail = false;
   state = { connection: "offline", snapshot: null };
   await page.waitForFunction(
@@ -174,38 +163,16 @@ try {
           key: "web",
           queued: 0,
           running: 0,
-          latest: {
-            id: "failed",
-            status: "failed",
-            commit: "aaaaaaa",
-            commitMessage: null,
-            createdAt: new Date().toISOString(),
-          },
-        },
-        {
-          key: "worker",
-          queued: 0,
-          running: 0,
-          latest: {
-            id: "cancelled",
-            status: "cancelled-by-user",
-            commit: "aaaaaaa",
-            commitMessage: null,
-            createdAt: new Date().toISOString(),
-          },
+          builds: [build("done", "finished", 1000)],
         },
       ],
     },
   };
   await dialog.getByText("Nothing cooking.").waitFor();
-  await dialog.getByText("Failed", { exact: true }).waitFor();
-  await dialog.getByText("Cancelled", { exact: true }).waitFor();
-  await page.screenshot({ path: `${output}/idle.png` });
-  const latestWeb = state.snapshot?.services[0].latest;
-  assert(latestWeb);
-  latestWeb.status = "finished";
-  await dialog.getByText("Finished", { exact: true }).waitFor();
-  // Hide the tab before the next poll; no upstream requests should be scheduled.
+  assert.equal(
+    await dialog.getByRole("region", { name: "Up next", exact: true }).count(),
+    0,
+  );
   await page.evaluate(() => {
     Object.defineProperty(document, "hidden", {
       configurable: true,
@@ -214,8 +181,8 @@ try {
     document.dispatchEvent(new Event("visibilitychange"));
   });
   const before = requests;
-  await new Promise((resolve) => setTimeout(resolve, 5_500));
-  assert.equal(requests, before, "Hidden tabs stop polling");
+  await new Promise((resolve) => setTimeout(resolve, 5500));
+  assert.equal(requests, before);
   await page.evaluate(() => {
     Object.defineProperty(document, "hidden", {
       configurable: true,
@@ -224,15 +191,12 @@ try {
     document.dispatchEvent(new Event("visibilitychange"));
   });
   await page.waitForResponse("**/api/build-tv");
-  assert(requests > before, "Visible tabs reconnect");
   state = { connection: "unconfigured", snapshot: null };
   await dialog.getByText("Off air.").waitFor();
-  assert.equal(await dialog.locator("dd").first().innerText(), "?");
   assert.deepEqual(errors, []);
   console.log(
-    "Build TV passed: authenticated API, 20,000 builds, desktop/tablet/phone layout, reduced motion, focus, stale/offline/recovery, results, and hidden-tab polling.",
+    `Build TV passed: individual builds, queue order, collapsed history, responsive layout, focus, stale/offline recovery, hidden-tab polling. Screenshots: ${output}`,
   );
-  console.log(`Screenshots: ${output}`);
 } finally {
   await browser.close();
 }

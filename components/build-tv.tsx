@@ -1,9 +1,22 @@
 "use client";
 
-import { Check, CirclePause, LoaderCircle, Package, Tv, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  CirclePause,
+  LoaderCircle,
+  Package,
+  Tv,
+  X,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -159,6 +172,57 @@ export function BuildTV() {
   const queued = snapshot?.queued ?? 0;
   const running = snapshot?.running ?? 0;
   const busy = queued + running > 0;
+  const builds =
+    snapshot?.services.flatMap((service) =>
+      service.builds.map((build) => ({ ...build, service: service.key })),
+    ) ?? [];
+  const oldestFirst = (
+    a: (typeof builds)[number],
+    b: (typeof builds)[number],
+  ) =>
+    Date.parse(a.createdAt) - Date.parse(b.createdAt) ||
+    a.id.localeCompare(b.id);
+  const building = builds
+    .filter((build) => build.status === "in_progress")
+    .sort(oldestFirst);
+  const waiting = builds
+    .filter((build) => build.status === "queued")
+    .sort(oldestFirst);
+  const recent = builds
+    .filter((build) => !["queued", "in_progress"].includes(build.status))
+    .sort((a, b) => -oldestFirst(a, b));
+  function buildList(entries: typeof builds) {
+    return (
+      <ul className="flex flex-col gap-2">
+        {entries.map((build) => (
+          <li
+            key={`${build.service}-${build.id}`}
+            data-build-id={build.id}
+            className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border p-3"
+          >
+            <div className="flex min-w-0 flex-col gap-1">
+              <p className="text-sm font-medium">
+                {build.service === "web" ? "Website" : "Background worker"}
+              </p>
+              <p className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+                {build.commit && (
+                  <span className="font-mono">{build.commit}</span>
+                )}
+                <span>Queued {since(build.createdAt, now)} ago</span>
+              </p>
+            </div>
+            <StatusBadge status={build.status} animate={connected} />
+            {build.commitMessage && (
+              <p className="w-full min-w-0 text-sm leading-relaxed break-words [overflow-wrap:anywhere]">
+                {build.commitMessage}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
   const title = !data
     ? "Tuning in..."
     : data.connection === "unconfigured"
@@ -259,58 +323,45 @@ export function BuildTV() {
         </div>
 
         {snapshot && (
-          <section
-            className="flex flex-col gap-3"
-            aria-label="Latest deployments"
-          >
-            {snapshot.services.map((service) => (
-              <div
-                key={service.key}
-                className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border p-3"
+          <div className="flex min-w-0 flex-col gap-4">
+            {building.length > 0 && (
+              <section
+                aria-label="Building now"
+                className="flex flex-col gap-2"
               >
-                <div className="flex min-w-0 flex-col gap-1">
-                  <p className="text-sm font-medium">
-                    {service.key === "web" ? "Website" : "Background worker"}
-                  </p>
-                  <p className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
-                    {service.queued + service.running > 0 ? (
-                      <span>
-                        {number.format(service.running)} building ·{" "}
-                        {number.format(service.queued)} queued
-                      </span>
-                    ) : (
-                      <span>Queue clear</span>
-                    )}
-                    {service.latest?.commit && (
-                      <span className="font-mono">{service.latest.commit}</span>
-                    )}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  {service.latest ? (
-                    <>
-                      <StatusBadge
-                        status={service.latest.status}
-                        animate={connected}
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        Queued {since(service.latest.createdAt, now)} ago
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">
-                      No builds yet
-                    </span>
-                  )}
-                </div>
-                {service.latest?.commitMessage && (
-                  <p className="w-full min-w-0 border-t pt-2 text-sm leading-relaxed break-words [overflow-wrap:anywhere]">
-                    {service.latest.commitMessage}
-                  </p>
-                )}
-              </div>
-            ))}
-          </section>
+                <h3 className="text-sm font-medium">
+                  Building now ({number.format(building.length)})
+                </h3>
+                {buildList(building)}
+              </section>
+            )}
+            {waiting.length > 0 && (
+              <section aria-label="Up next" className="flex flex-col gap-2">
+                <h3 className="text-sm font-medium">
+                  Up next ({number.format(waiting.length)})
+                </h3>
+                {buildList(waiting)}
+              </section>
+            )}
+            {recent.length > 0 && (
+              <Collapsible>
+                <CollapsibleTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-between"
+                    />
+                  }
+                >
+                  Recent builds ({number.format(recent.length)})
+                  <ChevronDown data-icon="inline-end" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2">
+                  {buildList(recent)}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </div>
         )}
         <p className="text-center text-xs text-muted-foreground">
           {snapshot

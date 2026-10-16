@@ -120,33 +120,35 @@ export function createBuildTVReader({
               .map((build) => [build.deployment_uuid, build]),
           ).values(),
         ];
-        const latest = history
-          .filter((build) => build.pull_request_id === 0)
-          .sort(
-            (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at),
-          )[0];
+        // Queue entries win when the history and queue requests straddle a transition.
+        const builds = [
+          ...new Map(
+            [
+              ...history.filter((build) => build.pull_request_id === 0),
+              ...active,
+            ].map((build) => [build.deployment_uuid, build]),
+          ).values(),
+        ].map((build) => ({
+          id: build.deployment_uuid,
+          status: build.status,
+          commit:
+            build.commit && /^[a-f0-9]{40}$/i.test(build.commit)
+              ? build.commit.slice(0, 7)
+              : null,
+          commitMessage:
+            build.commit_message
+              ?.trim()
+              .split(/\r?\n/, 1)[0]
+              ?.trim()
+              .slice(0, 300) || null,
+          createdAt: new Date(build.created_at).toISOString(),
+        }));
         return {
           key: index === 0 ? ("web" as const) : ("worker" as const),
-          queued: active.filter((build) => build.status === "queued").length,
-          running: active.filter((build) => build.status === "in_progress")
+          queued: builds.filter((build) => build.status === "queued").length,
+          running: builds.filter((build) => build.status === "in_progress")
             .length,
-          latest: latest
-            ? {
-                id: latest.deployment_uuid,
-                status: latest.status,
-                commit:
-                  latest.commit && /^[a-f0-9]{40}$/i.test(latest.commit)
-                    ? latest.commit.slice(0, 7)
-                    : null,
-                commitMessage:
-                  latest.commit_message
-                    ?.trim()
-                    .split(/\r?\n/, 1)[0]
-                    ?.trim()
-                    .slice(0, 300) || null,
-                createdAt: new Date(latest.created_at).toISOString(),
-              }
-            : null,
+          builds,
         };
       });
       snapshot = {
