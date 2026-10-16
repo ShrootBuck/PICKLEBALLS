@@ -6,6 +6,7 @@ import {
   chartSegments,
   formatBytes,
   MONITOR_HISTORY_MS,
+  MONITOR_INTERVAL_MS,
   MONITOR_STALE_MS,
   monitorResponseSchema,
 } from "../lib/server-monitor";
@@ -38,6 +39,162 @@ function reading(tick = 0): HostReading {
     },
   };
 }
+
+const flushSampling = () =>
+  new Promise<void>((resolve) => setImmediate(resolve));
+
+function samplingClock() {
+  let time = 100_000;
+  const timers = new Map<() => void, number>();
+  return {
+    now: () => time,
+    schedule: (callback: () => void, delay: number) => {
+      timers.set(callback, time + delay);
+      return () => {
+        timers.delete(callback);
+      };
+    },
+    timerCount: () => timers.size,
+    async advance(duration: number) {
+      const end = time + duration;
+      await flushSampling();
+      for (;;) {
+        const next = [...timers].sort((a, b) => a[1] - b[1])[0];
+        if (!next || next[1] > end) break;
+        time = next[1];
+        timers.delete(next[0]);
+        next[0]();
+        await flushSampling();
+      }
+      time = end;
+    },
+  };
+}
+
+test("startup sampling fills five minutes before the first viewer and keeps collecting without viewers", async () => {
+  const clock = samplingClock();
+  let collections = 0;
+  const monitor = createMonitorReader({
+    ...clock,
+    collect: async () => reading(collections++),
+  });
+  try {
+    monitor.start();
+    monitor.start();
+    await clock.advance(MONITOR_HISTORY_MS);
+    expect(collections).toBe(61);
+    expect(clock.timerCount()).toBe(1);
+    const opened = await monitor.read();
+    expect(opened.connection).toBe("connected");
+    expect(opened.snapshot?.history).toHaveLength(61);
+    expect(opened.snapshot?.history[0].at).toBe(100_000);
+    expect(opened.snapshot?.sample.cpu.percent).toBe(25);
+    expect(opened.snapshot?.sample.network).toEqual({
+      received: 500,
+      sent: 1000,
+    });
+    await Promise.all(Array.from({ length: 20 }, () => monitor.read()));
+    expect(collections).toBe(61);
+
+    // Nobody requests the endpoint during another complete history window.
+    await clock.advance(MONITOR_HISTORY_MS + MONITOR_INTERVAL_MS);
+    const reopened = await monitor.read();
+    expect(collections).toBe(122);
+    expect(reopened.snapshot?.history).toHaveLength(61);
+    expect(reopened.snapshot?.history[0].at).toBe(
+      clock.now() - MONITOR_HISTORY_MS,
+    );
+    expect(reopened.snapshot?.history.at(-1)?.at).toBe(clock.now());
+    expect(monitorResponseSchema.safeParse(reopened).success).toBe(true);
+  } finally {
+    monitor.stop();
+  }
+  expect(clock.timerCount()).toBe(0);
+  await clock.advance(MONITOR_INTERVAL_MS * 2);
+  expect(collections).toBe(122);
+});
+
+test("background failures keep retrying, expire stale data, and recover without a viewer", async () => {
+  const clock = samplingClock();
+  let fail = false;
+  const monitor = createMonitorReader({
+    ...clock,
+    collect: async () => {
+      if (fail) throw new Error("Host unavailable");
+      return reading((clock.now() - 100_000) / MONITOR_INTERVAL_MS);
+    },
+  });
+  try {
+    monitor.start();
+    await clock.advance(MONITOR_INTERVAL_MS);
+    fail = true;
+    await clock.advance(MONITOR_INTERVAL_MS);
+    expect((await monitor.read()).connection).toBe("reconnecting");
+    await clock.advance(MONITOR_STALE_MS);
+    expect(await monitor.read()).toEqual({
+      connection: "offline",
+      snapshot: null,
+    });
+    fail = false;
+    await clock.advance(MONITOR_INTERVAL_MS * 2);
+    const recovered = await monitor.read();
+    expect(recovered.connection).toBe("connected");
+    expect(recovered.snapshot?.sample.cpu.percent).toBe(25);
+    expect(
+      chartSegments(
+        recovered.snapshot?.history ?? [],
+        "memory",
+        clock.now(),
+        100,
+      ),
+    ).toHaveLength(2);
+  } finally {
+    monitor.stop();
+  }
+});
+
+test("slow sampling and concurrent viewers share work, and stopping cancels pending rescheduling", async () => {
+  const clock = samplingClock();
+  let collections = 0;
+  let finish!: (value: HostReading) => void;
+  const monitor = createMonitorReader({
+    ...clock,
+    collect: () => {
+      collections++;
+      return new Promise<HostReading>((resolve) => {
+        finish = resolve;
+      });
+    },
+  });
+  monitor.start();
+  const viewer = monitor.read();
+  await clock.advance(MONITOR_INTERVAL_MS * 3);
+  expect(collections).toBe(1);
+  expect(clock.timerCount()).toBe(0);
+  finish(reading());
+  await viewer;
+  await flushSampling();
+  expect(clock.timerCount()).toBe(1);
+  await clock.advance(MONITOR_INTERVAL_MS);
+  expect(collections).toBe(2);
+  monitor.stop();
+  finish(reading(1));
+  await flushSampling();
+  expect(clock.timerCount()).toBe(0);
+});
+
+test("unconfigured servers do not start a sampling timer", async () => {
+  const clock = samplingClock();
+  const monitor = createMonitorReader({ ...clock, collect: null });
+  monitor.start();
+  await clock.advance(MONITOR_HISTORY_MS);
+  expect(clock.timerCount()).toBe(0);
+  expect(await monitor.read()).toEqual({
+    connection: "unconfigured",
+    snapshot: null,
+  });
+  monitor.stop();
+});
 
 test("CPU excludes double-counted guest fields, uses counter deltas, and treats first/invalid samples as unknown", () => {
   expect(reading().cpu[0].total).toBe(200);
@@ -84,7 +241,7 @@ test("viewers share one collection, failures are cached, stale samples expire, r
   let collections = 0;
   let fail = false;
   let restart = false;
-  const read = createMonitorReader({
+  const { read } = createMonitorReader({
     now: () => time,
     collect: async () => {
       collections++;
@@ -119,7 +276,7 @@ test("viewers share one collection, failures are cached, stale samples expire, r
   const rebooted = await read();
   expect(rebooted.snapshot?.history).toHaveLength(1);
   expect(rebooted.snapshot?.sample.cpu.percent).toBeNull();
-  expect(await createMonitorReader({ collect: null })()).toEqual({
+  expect(await createMonitorReader({ collect: null }).read()).toEqual({
     connection: "unconfigured",
     snapshot: null,
   });
@@ -127,7 +284,7 @@ test("viewers share one collection, failures are cached, stale samples expire, r
 
 test("history stays bounded and schema strips unapproved metadata", async () => {
   let tick = 0;
-  const read = createMonitorReader({
+  const { read } = createMonitorReader({
     now: () => 100_000 + tick * 5000,
     collect: async () => reading(tick),
   });

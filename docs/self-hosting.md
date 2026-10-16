@@ -319,11 +319,14 @@ replace these mounts with the container's own `/proc` or `/sys`: network reading
 must come from the host's network namespace. The feature stays unconfigured in
 local macOS development; it never silently substitutes the developer's machine.
 
-All viewers share one sample every five seconds per web process. Sampling runs
-only while the endpoint is requested. The last five minutes of observed samples
-are kept in memory and reset when web restarts. Charts leave gaps when sampling
-stops. A first sample or a new baseline shows "Measuring"/"Unavailable" for rates
-until the next sample. Closing the panel or hiding the tab stops browser polling.
+All viewers share one sample every five seconds per web process. Sampling starts
+with the web server and continues even when nobody has the monitor open. The last
+five minutes (at most 61 points) are kept in memory and returned on the first
+request, so opening or reopening the panel immediately shows available history.
+History resets when web restarts and fills over the next five minutes. Charts
+leave gaps when collection fails. A first sample or a new baseline shows
+"Measuring"/"Unavailable" for rates until the next sample. Closing the panel or
+hiding the tab stops browser polling, while server sampling continues.
 Read failures retain explicitly stale readings for at most 20 seconds, then show
 an offline state and retry. An authentication failure clears readings and stops
 polling until the panel is reopened.
@@ -344,6 +347,8 @@ are never returned. Requests require same-origin access and circle membership,
 and responses use `Cache-Control: private, no-store`.
 
 After release, open Server Monitor as a member and confirm readings advance.
+Leave it closed for at least five minutes, then reopen it and confirm the charts
+already contain that interval's history.
 Compare CPU/RAM/storage to a host tool; compare network to a physical NIC rather
 than a Docker bridge. A build, local browser fixture, or public health response
 does not verify these host mounts or live monitor data.

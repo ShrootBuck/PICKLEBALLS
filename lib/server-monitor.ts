@@ -87,8 +87,8 @@ export function formatUptime(seconds: number) {
       : `${minutes}m`;
 }
 
-// Each segment stops at a missing sample or a polling gap. Never draw a bridge
-// over time when nobody was watching or the host could not be reached.
+// Each segment stops at a missing sample or a collection gap. Never draw a
+// bridge over time when the host could not be reached.
 export function chartSegments(
   history: MonitorPoint[],
   key: Exclude<keyof MonitorPoint, "at">,

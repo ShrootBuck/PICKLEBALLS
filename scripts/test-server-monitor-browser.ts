@@ -129,6 +129,26 @@ try {
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Server Monitor" });
   await dialog.getByText("Live", { exact: true }).waitFor();
+  async function expectFullHistory() {
+    const charts = dialog.locator("svg[role=img]");
+    assert.equal(await charts.count(), 4);
+    for (const chart of await charts.all()) {
+      const paths = await chart
+        .locator('path[fill="none"]')
+        .evaluateAll((nodes) =>
+          nodes.map((node) => node.getAttribute("d") ?? ""),
+        );
+      assert(paths.length > 0);
+      assert(
+        paths.every(
+          (path) => path.startsWith("M0.00,") && path.includes("L600.00,"),
+        ),
+        "Initial server history should span the full five-minute chart",
+      );
+    }
+  }
+  assert.equal(requests, 1, "History should render from the first response");
+  await expectFullHistory();
   assert.equal(await dialog.locator("[data-metric]").count(), 4);
   assert.equal(await dialog.locator("svg[role=img]").count(), 4);
   assert.equal(await dialog.getByRole("meter").count(), 7);
@@ -199,11 +219,12 @@ try {
     );
   }
   const closedRequests = requests;
-  await page.clock.fastForward(15000);
+  await page.clock.fastForward(5 * 60_000);
   assert.equal(requests, closedRequests, "Closed monitor must not poll");
   await trigger.click();
   phase = "reopening";
   await dialog.getByText("Live", { exact: true }).waitFor();
+  await expectFullHistory();
   await page.evaluate(() => {
     Object.defineProperty(document, "hidden", {
       configurable: true,

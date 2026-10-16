@@ -8,18 +8,27 @@ import {
 } from "./server-monitor";
 import { deriveSample, type HostReading } from "./server-monitor-collector";
 
+function scheduleSample(callback: () => void, delay: number) {
+  const timer = setTimeout(callback, delay);
+  timer.unref();
+  return () => clearTimeout(timer);
+}
+
 export function createMonitorReader({
   collect,
   now = Date.now,
+  schedule = scheduleSample,
 }: {
   collect: (() => Promise<HostReading>) | null;
   now?: () => number;
+  schedule?: (callback: () => void, delay: number) => () => void;
 }) {
   let previous: HostReading | null = null;
   let snapshot: MonitorSnapshot | null = null;
   let pending: Promise<MonitorResponse> | null = null;
   let expires = 0;
   let connected = false;
+  let stopSampling: (() => void) | null = null;
   function result(): MonitorResponse {
     const recent =
       snapshot && now() - snapshot.sample.at <= MONITOR_STALE_MS
@@ -63,7 +72,7 @@ export function createMonitorReader({
     expires = now() + MONITOR_INTERVAL_MS;
     return result();
   }
-  return function read(): Promise<MonitorResponse> {
+  function read(): Promise<MonitorResponse> {
     if (!collect)
       return Promise.resolve({ connection: "unconfigured", snapshot: null });
     if (pending) return pending;
@@ -72,5 +81,30 @@ export function createMonitorReader({
       pending = null;
     });
     return pending;
-  };
+  }
+  function start() {
+    if (!collect || stopSampling) return;
+    let stopped = false;
+    let cancel: (() => void) | undefined;
+    stopSampling = () => {
+      stopped = true;
+      cancel?.();
+      stopSampling = null;
+    };
+    async function tick() {
+      await read();
+      if (!stopped) {
+        // Wait until this collection finishes before scheduling another. API
+        // readers share its pending work/cache and cannot multiply sampling.
+        cancel = schedule(
+          () => {
+            void tick();
+          },
+          Math.max(0, expires - now()),
+        );
+      }
+    }
+    void tick();
+  }
+  return { read, start, stop: () => stopSampling?.() };
 }
