@@ -278,8 +278,6 @@ function MonitorMetrics({ snapshot }: { snapshot: MonitorSnapshot }) {
               CPU
             </span>
           </CardTitle>
-        </CardHeader>
-        <CardContent>
           <div className="monitor-reading">
             <strong>
               {sample.cpu.percent === null
@@ -289,6 +287,8 @@ function MonitorMetrics({ snapshot }: { snapshot: MonitorSnapshot }) {
             </strong>
             <span>{sample.cpu.cores.length} logical cores</span>
           </div>
+        </CardHeader>
+        <CardContent>
           <MetricChart
             snapshot={snapshot}
             percent
@@ -326,8 +326,6 @@ function MonitorMetrics({ snapshot }: { snapshot: MonitorSnapshot }) {
               Memory
             </span>
           </CardTitle>
-        </CardHeader>
-        <CardContent>
           <div className="monitor-reading">
             <strong>
               {usagePercent(sample.memory).toFixed(0)}
@@ -335,6 +333,8 @@ function MonitorMetrics({ snapshot }: { snapshot: MonitorSnapshot }) {
             </strong>
             <span>{formatBytes(sample.memory.used)} used</span>
           </div>
+        </CardHeader>
+        <CardContent>
           <MetricChart
             snapshot={snapshot}
             percent
@@ -371,8 +371,6 @@ function MonitorMetrics({ snapshot }: { snapshot: MonitorSnapshot }) {
               Disk
             </span>
           </CardTitle>
-        </CardHeader>
-        <CardContent>
           <div className="monitor-reading">
             <strong>
               {usagePercent(sample.disk).toFixed(0)}
@@ -382,6 +380,8 @@ function MonitorMetrics({ snapshot }: { snapshot: MonitorSnapshot }) {
               {formatBytes(sample.disk.total - sample.disk.used)} free
             </span>
           </div>
+        </CardHeader>
+        <CardContent>
           <MetricChart
             snapshot={snapshot}
             series={[
@@ -423,8 +423,6 @@ function MonitorMetrics({ snapshot }: { snapshot: MonitorSnapshot }) {
               Network
             </span>
           </CardTitle>
-        </CardHeader>
-        <CardContent>
           <div className="monitor-reading">
             <strong className="monitor-rate-reading">
               {formatBytes(
@@ -436,6 +434,8 @@ function MonitorMetrics({ snapshot }: { snapshot: MonitorSnapshot }) {
             </strong>
             <span>combined traffic</span>
           </div>
+        </CardHeader>
+        <CardContent>
           <MetricChart
             snapshot={snapshot}
             series={[
@@ -492,10 +492,10 @@ export function ServerMonitor() {
         <Activity data-icon="inline-start" />
         <span className="hidden lg:inline">Server</span>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-4xl" data-server-monitor="">
+      <DialogContent className="gap-3 sm:max-w-4xl" data-server-monitor="">
         <DialogHeader>
           <DialogTitle>Server Monitor</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="sr-only">
             Live stats from the Pickle Balls server.
           </DialogDescription>
         </DialogHeader>

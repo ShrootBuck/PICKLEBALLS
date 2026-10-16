@@ -133,9 +133,19 @@ try {
   assert.equal(await dialog.locator("svg[role=img]").count(), 4);
   assert.equal(await dialog.getByRole("meter").count(), 7);
   await dialog.getByText("72°C").waitFor();
-  for (const width of [1440, 1024, 768, 390, 320]) {
-    phase = `layout ${width}`;
-    await page.setViewportSize({ width, height: width >= 768 ? 1080 : 740 });
+  for (const [width, height] of [
+    [1920, 1080],
+    [1512, 874],
+    [1440, 780],
+    [1366, 680],
+    [1280, 720],
+    [1024, 768],
+    [768, 1024],
+    [390, 740],
+    [320, 740],
+  ]) {
+    phase = `layout ${width}x${height}`;
+    await page.setViewportSize({ width, height });
     await page.waitForFunction(() => {
       const node = document.querySelector("[data-server-monitor]");
       if (!node) return false;
@@ -156,7 +166,15 @@ try {
       ),
       `Panel overflow at ${width}px`,
     );
-    await page.screenshot({ path: `${output}/${width}.png` });
+    if (width >= 1024) {
+      assert(
+        await dialog.evaluate(
+          (node) => node.scrollHeight <= node.clientHeight + 1,
+        ),
+        `Laptop monitor requires scrolling at ${width}x${height}`,
+      );
+    }
+    await page.screenshot({ path: `${output}/${width}x${height}.png` });
   }
   await page.keyboard.press("Escape");
   phase = "closed polling";
