@@ -288,19 +288,8 @@ export function DirectMessage({
                       ))}
                     </ul>
                   )}
-                  <div className="dm-menu-actions">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setOpen(false);
-                        onReply();
-                      }}
-                    >
-                      <Reply data-icon="inline-start" />
-                      Reply
-                    </Button>
-                    {mine && (
+                  {mine && (
+                    <div className="dm-menu-actions">
                       <DeleteAction
                         label="Delete message"
                         title="Delete this message?"
@@ -312,8 +301,8 @@ export function DirectMessage({
                           messagesChanged();
                         }}
                       />
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </PopoverContent>
               </Popover>
             )}
