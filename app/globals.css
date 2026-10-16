@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+
 /* Dark by default, including the first server-rendered frame and native controls. */
 :root {
   color-scheme: dark;
@@ -4993,5 +4994,259 @@ section:first-child > .mood-group-label {
 @media (prefers-reduced-motion: reduce) {
   .build-tv-screen[data-moving="true"] .build-tv-parcels {
     animation: none;
+  }
+}
+
+[data-server-monitor] {
+  --metric-secondary: var(--muted-foreground);
+}
+.monitor-status-row,
+.monitor-host,
+.monitor-vitals,
+.monitor-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.monitor-status-row,
+.monitor-footer {
+  justify-content: space-between;
+}
+.monitor-status-row {
+  flex-wrap: wrap;
+}
+.monitor-host {
+  min-width: 0;
+  flex: 1;
+}
+.monitor-host > div {
+  min-width: 0;
+}
+.monitor-host p {
+  font-weight: 600;
+}
+.monitor-host > div > span {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.monitor-host-icon {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  background: var(--card);
+}
+.monitor-host-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--chart-1);
+}
+.monitor-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 100%;
+  background: currentColor;
+}
+.monitor-vitals {
+  flex-wrap: wrap;
+  column-gap: 1.25rem;
+  row-gap: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+.monitor-vitals > span,
+.monitor-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.monitor-vitals svg,
+.monitor-label svg,
+.monitor-rates svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+.monitor-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+.monitor-panel[data-metric="cpu"] {
+  --metric-color: var(--chart-1);
+}
+.monitor-panel[data-metric="memory"] {
+  --metric-color: var(--chart-2);
+}
+.monitor-panel[data-metric="disk"] {
+  --metric-color: var(--chart-3);
+}
+.monitor-panel[data-metric="network"] {
+  --metric-color: var(--chart-5);
+}
+.monitor-label svg {
+  color: var(--metric-color);
+}
+.monitor-reading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 0.75rem;
+  row-gap: 0.25rem;
+  min-height: 2.75rem;
+}
+.monitor-reading > strong {
+  font-size: 2.25rem;
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.monitor-reading small {
+  font-size: 1.25rem;
+  margin-left: 0.15rem;
+  color: var(--muted-foreground);
+}
+.monitor-reading > span {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+.monitor-reading > .monitor-rate-reading {
+  font-size: clamp(1.35rem, 4vw, 1.875rem);
+  letter-spacing: -0.04em;
+}
+.monitor-chart {
+  position: relative;
+  margin-top: 0.75rem;
+  margin-bottom: 1rem;
+  padding-top: 1.2rem;
+}
+.monitor-chart svg {
+  display: block;
+  width: 100%;
+  height: 6.5rem;
+  overflow: visible;
+}
+.monitor-chart-scale {
+  position: absolute;
+  right: 0;
+  top: 0;
+  color: var(--muted-foreground);
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+}
+.monitor-gridline {
+  stroke: var(--border);
+  stroke-dasharray: 3 5;
+  opacity: 0.65;
+}
+.monitor-chart-axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted-foreground);
+  font-size: 0.625rem;
+  margin-top: 0.375rem;
+}
+.monitor-chart-wait {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+.monitor-cores {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+  max-height: 8rem;
+  overflow-y: auto;
+}
+.monitor-cores > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 2rem;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+}
+.monitor-cores > div > span:last-child {
+  text-align: right;
+}
+.monitor-meter {
+  height: 0.3rem;
+  border-radius: 1rem;
+  background: var(--muted);
+  overflow: hidden;
+}
+.monitor-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--metric-color);
+}
+.monitor-detail {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  column-gap: 0.75rem;
+  row-gap: 0.125rem;
+  margin: 0.65rem 0 0.4rem;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+.monitor-detail > span:first-child {
+  color: var(--muted-foreground);
+}
+.monitor-rates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.monitor-rates > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.monitor-rates span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+}
+.monitor-rates i {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--metric-color);
+}
+.monitor-rates i[data-secondary] {
+  background: var(--metric-secondary);
+}
+.monitor-rates strong {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.monitor-footnote {
+  margin-top: 0.875rem;
+  font-size: 0.625rem;
+  color: var(--muted-foreground);
+}
+.monitor-footer {
+  flex-wrap: wrap;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+@media (min-width: 640px) {
+  .monitor-panels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

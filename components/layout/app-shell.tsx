@@ -24,6 +24,7 @@ import {
 } from "@/components/layout/circle-switcher";
 import { RealtimeNotice } from "@/components/layout/realtime-provider";
 import { TodayPanel } from "@/components/layout/today-panel";
+import { ServerMonitor } from "@/components/server-monitor";
 import { useSocial } from "@/components/social/social-provider";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -196,6 +197,7 @@ export function AppShell({
           <div className="ml-auto flex items-center gap-1">
             <RealtimeNotice />
             <BuildTV />
+            <ServerMonitor />
             <MobileMenu
               items={items}
               active={active}

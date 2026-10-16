@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1792129242527,
+    title: "Watch the server work",
+    description:
+      "Open Server Monitor beside Build TV for live CPU, memory, disk, and network graphs, plus per-core activity, temperature, and uptime.",
+  },
+  {
     timestamp: 1792116860317,
     title: "Build TV",
     description:

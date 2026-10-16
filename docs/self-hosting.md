@@ -288,6 +288,66 @@ shows "Off air" rather than a fabricated empty queue.
 "Finished" reflects Coolify's deployment result, not the combined release
 verification below. No database migration or background task is required.
 
+### Server Monitor
+
+The Server button beside Build TV opens CPU, RAM, swap, disk, network, temperature,
+and uptime readings for signed-in circle members. It reads aggregate Linux host
+counters, with no Docker socket, elevated container privileges, additional agent,
+database writes, or public metrics endpoint.
+
+On the **Linux host**, create an empty directory on the filesystem whose storage
+usage should be shown (normally the root filesystem):
+
+```sh
+sudo install -d -m 0755 /var/lib/pickleballs-monitor
+```
+
+Add these **read-only bind mounts to the web application only** in Coolify's
+container configuration. Preserve its existing volumes and options:
+
+| Host source | Container destination | Access |
+| --- | --- | --- |
+| `/proc` | `/host/proc` | read-only |
+| `/sys` | `/host/sys` | read-only |
+| `/var/lib/pickleballs-monitor` | `/host/disk` | read-only |
+
+Set the **runtime-only web** variable `SERVER_MONITOR_HOST_PATH=/host`, then
+redeploy web through the normal release workflow. The empty directory makes
+filesystem capacity measurable without exposing the contents of the host disk.
+Keep the full `/sys` tree together so its relative device symlinks resolve. Do not
+replace these mounts with the container's own `/proc` or `/sys`: network readings
+must come from the host's network namespace. The feature stays unconfigured in
+local macOS development; it never silently substitutes the developer's machine.
+
+All viewers share one sample every five seconds per web process. Sampling runs
+only while the endpoint is requested. The last five minutes of observed samples
+are kept in memory and reset when web restarts. Charts leave gaps when sampling
+stops. A first sample or a new baseline shows "Measuring"/"Unavailable" for rates
+until the next sample. Closing the panel or hiding the tab stops browser polling.
+Read failures retain explicitly stale readings for at most 20 seconds, then show
+an offline state and retry. An authentication failure clears readings and stops
+polling until the panel is reopened.
+
+CPU usage excludes idle and I/O wait and does not double count guest time. RAM
+uses `MemTotal - MemAvailable` so reclaimable cache is not treated as occupied RAM.
+Disk capacity describes the filesystem containing the mounted empty directory;
+disk throughput aggregates whole physical disks, excluding partitions and virtual
+devices to avoid double counting. Network throughput aggregates physical NICs,
+excluding loopback, Docker bridges, and virtual adapters. Missing optional sensors
+or unsupported virtual hardware are shown as unavailable, never as zero. CPU
+temperature is the hottest supported CPU sensor. Frequency is the current average
+reported in `cpuinfo`, not the CPU's advertised maximum.
+
+The API returns only the validated readings used by the panel. Process lists,
+commands, hostnames, IP addresses, interface/device names, and filesystem paths
+are never returned. Requests require same-origin access and circle membership,
+and responses use `Cache-Control: private, no-store`.
+
+After release, open Server Monitor as a member and confirm readings advance.
+Compare CPU/RAM/storage to a host tool; compare network to a physical NIC rather
+than a Docker bridge. A build, local browser fixture, or public health response
+does not verify these host mounts or live monitor data.
+
 ### Release verification
 
 The production worker automatically enqueues a `verify-deployment` job at startup.
