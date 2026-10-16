@@ -1205,6 +1205,9 @@
 .today-task-list {
   padding-inline: 20px;
 }
+.today-task-list [data-slot="empty"] {
+  margin-block: 20px;
+}
 .today-card .social-task {
   border-bottom-color: var(--border);
 }
@@ -1333,6 +1336,9 @@ li:last-child > .attention-row {
   }
   .today-task-list {
     padding-inline: 16px;
+  }
+  .today-task-list [data-slot="empty"] {
+    margin-block: 16px;
   }
   .today-stats > div {
     padding: 14px 16px;
