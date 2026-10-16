@@ -74,6 +74,8 @@ export type StreakSource = {
   kind: StreakKind;
   startedAt: DateLike;
   retiredAt: DateLike | null;
+  dailyCostCents?: number | null;
+  dailyUnits?: number | null;
   schedules?: readonly StreakScheduleSource[];
   breaks?: readonly StreakBreakSource[];
 };
@@ -102,12 +104,10 @@ export type StreakSummary = {
   today: string;
   yesterday: string;
   startDay: string;
-  // Successful days in the current run. Days still inside their logging
-  // window never break it.
+  // Successful days in the current run. Today stays in progress until midnight.
   current: number;
   longest: number;
-  // The unbroken run of logged days ending at the latest one. Milestones use
-  // this, so a run bridged by an unlogged day cannot celebrate early.
+  // Successful days in the unbroken run, used for milestones.
   settled: number;
   runStartDay: string;
   // When the current run began: the start, the latest slip, or the midnight
@@ -203,7 +203,7 @@ export function summarizeStreak(
   let runStartReason: StreakSummary["runStartReason"] = "start";
   for (let day = startDay; day <= today; day = shiftDateKey(day, 1)) {
     const totals = byDay.get(day);
-    const open = day >= yesterday;
+    const open = day === today;
     let state: StreakDayState;
     let units = 0;
     let costCents = 0;
@@ -215,7 +215,11 @@ export function summarizeStreak(
         state = "done";
         units = totals.cleanUnits;
         costCents = totals.cleanCost;
-      } else state = open ? "pending" : "missed";
+      } else if (!open) {
+        state = "done";
+        units = streak.dailyUnits ?? 0;
+        costCents = streak.dailyCostCents ?? 0;
+      } else state = "pending";
     } else if (totals?.logs) {
       state = "done";
       units = totals.logUnits;
@@ -329,11 +333,8 @@ export function streakActions(
   >,
 ) {
   const active = streak.status === "ACTIVE";
-  const yesterdayPending = summary.yesterdayState === "pending";
   const quit = streak.kind === "QUIT";
   return {
-    // Quit days can only be confirmed once they are over.
-    confirmDay: active && quit && yesterdayPending ? summary.yesterday : null,
     logDays:
       active && !quit
         ? [
@@ -349,10 +350,8 @@ export function streakActions(
       quit &&
       (summary.todayState !== "off" ||
         (summary.yesterdayState !== null && summary.yesterdayState !== "off")),
-    needsLog:
-      active &&
-      (yesterdayPending || (!quit && summary.todayState === "pending")),
-    breaksTonight: active && yesterdayPending,
+    needsLog: active && !quit && summary.todayState === "pending",
+    breaksTonight: active && !quit && summary.todayState === "pending",
   };
 }
 
@@ -403,7 +402,7 @@ export function streakHistory(
       units: entry.units,
       costCents: entry.costCents,
       note: entry.note,
-      canUndo: canUndo && day >= summary.yesterday,
+      canUndo: canUndo && entry.kind !== "CLEAN" && day >= summary.yesterday,
     });
     byDay.set(day, list);
   }
@@ -601,7 +600,6 @@ export const streakActionSchema = z.discriminatedUnion("action", [
 ]);
 
 export const streakEntrySchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("clean"), day: dayKey, note: note.default("") }),
   z.object({
     action: z.literal("slip"),
     // Phoenix wall time from a datetime-local input. Omitted means now.

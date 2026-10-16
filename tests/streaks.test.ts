@@ -57,13 +57,12 @@ const log = (day: string, units: number | null = 1000) =>
   }) satisfies StreakEntrySource;
 
 describe("quit streaks", () => {
-  test("a day can only be confirmed after it ends", () => {
+  test("a clean day counts automatically after it ends", () => {
     const sameDay = summarizeStreak(quit, [], at("2026-09-28", 21));
     expect(sameDay.current).toBe(0);
     expect(sameDay.todayState).toBe("pending");
     expect(sameDay.yesterdayState).toBeNull();
     expect(streakActions({ ...quit, status: "ACTIVE" }, sameDay)).toEqual({
-      confirmDay: null,
       logDays: [],
       canSlip: true,
       needsLog: false,
@@ -71,11 +70,11 @@ describe("quit streaks", () => {
     });
 
     const nextMorning = summarizeStreak(quit, [], at("2026-09-29"));
-    expect(nextMorning.yesterdayState).toBe("pending");
+    expect(nextMorning.yesterdayState).toBe("done");
+    expect(nextMorning.current).toBe(1);
     const actions = streakActions({ ...quit, status: "ACTIVE" }, nextMorning);
-    expect(actions.confirmDay).toBe("2026-09-28");
-    expect(actions.needsLog).toBe(true);
-    expect(actions.breaksTonight).toBe(true);
+    expect(actions.needsLog).toBe(false);
+    expect(actions.breaksTonight).toBe(false);
 
     const confirmed = summarizeStreak(
       quit,
@@ -87,25 +86,30 @@ describe("quit streaks", () => {
     expect(confirmed.run).toEqual({ costCents: 500, units: 300 });
   });
 
-  test("an unconfirmed day breaks the streak once its grace day ends", () => {
-    const summary = summarizeStreak(
-      quit,
-      [clean("2026-09-28"), clean("2026-09-29")],
-      at("2026-10-02"),
-    );
+  test("unlogged quit days keep counting and accumulate default savings", () => {
+    const streak = { ...quit, dailyCostCents: 500, dailyUnits: 300 };
+    const summary = summarizeStreak(streak, [], at("2026-10-02"));
     expect(summary.days.map((day) => day.state)).toEqual([
       "done",
       "done",
-      "missed",
-      "pending",
+      "done",
+      "done",
       "pending",
     ]);
-    expect(summary.current).toBe(0);
-    expect(summary.longest).toBe(2);
-    expect(summary.runStartDay).toBe("2026-10-01");
-    expect(summary.runStartedAt).toBe("2026-10-01T07:00:00.000Z");
-    expect(summary.allTime.costCents).toBe(1000);
-    expect(summary.run.costCents).toBe(0);
+    expect(summary.current).toBe(4);
+    expect(summary.longest).toBe(4);
+    expect(summary.runStartedAt).toBe(startedAt.toISOString());
+    expect(summary.allTime).toEqual({ costCents: 2000, units: 1200 });
+    const corrected = summarizeStreak(
+      streak,
+      [slip(at("2026-10-01", 22))],
+      at("2026-10-02"),
+    );
+    expect(corrected.current).toBe(0);
+    expect(corrected.longest).toBe(3);
+    expect(corrected.allTime.costCents).toBe(1500);
+    expect(corrected.runStartedAt).toBe(at("2026-10-01", 22).toISOString());
+    expect(summarizeStreak(streak, [], at("2026-10-02")).current).toBe(4);
   });
 
   test("several slips in a day reset once and restart the clock at the latest", () => {
@@ -157,7 +161,7 @@ describe("build streaks", () => {
     expect(summary.days[0].units).toBe(2500);
   });
 
-  test("an unlogged grace day bridges the count but not milestones", () => {
+  test("an unlogged previous day breaks the run until a backdated log repairs it", () => {
     const entries = [
       "2026-09-28",
       "2026-09-29",
@@ -172,8 +176,8 @@ describe("build streaks", () => {
       [...entries, log("2026-10-05")],
       now,
     );
-    expect(bridged.yesterdayState).toBe("pending");
-    expect(bridged.current).toBe(7);
+    expect(bridged.yesterdayState).toBe("missed");
+    expect(bridged.current).toBe(1);
     expect(bridged.settled).toBe(1);
     const filled = summarizeStreak(
       build,
@@ -404,7 +408,7 @@ describe("scheduled streaks and breaks", () => {
     ).toMatchObject({ logDays: [], needsLog: false, breaksTonight: false });
   });
 
-  test("a quit check-in for Friday remains available on Saturday", () => {
+  test("a Friday slip remains available on Saturday without a check-in", () => {
     const streak = { ...weekdays, kind: "QUIT" as const };
     const summary = summarizeStreak(
       streak,
@@ -413,8 +417,8 @@ describe("scheduled streaks and breaks", () => {
     );
     expect(summary.todayState).toBe("off");
     expect(
-      streakActions({ ...streak, status: "ACTIVE" }, summary).confirmDay,
-    ).toBe("2026-10-02");
+      streakActions({ ...streak, status: "ACTIVE" }, summary).canSlip,
+    ).toBe(true);
     const confirmed = summarizeStreak(
       streak,
       workweek.map((day) => clean(day)),
@@ -449,7 +453,7 @@ describe("scheduled streaks and breaks", () => {
     expect(resumed.allTime.units).toBe(2000);
   });
 
-  test("indefinite breaks do not excuse an earlier missed day or hide an entry", () => {
+  test("indefinite breaks preserve automatic clean days and recorded slips", () => {
     const streak = {
       ...quit,
       breaks: [{ startDay: "2026-09-30", resumeDay: null }],
@@ -459,10 +463,10 @@ describe("scheduled streaks and breaks", () => {
       [clean("2026-09-28")],
       at("2026-10-10"),
     );
-    expect(summary.current).toBe(0);
-    expect(summary.longest).toBe(1);
+    expect(summary.current).toBe(2);
+    expect(summary.longest).toBe(2);
     expect(summary.days.find((day) => day.day === "2026-09-29")?.state).toBe(
-      "missed",
+      "done",
     );
     const slipped = summarizeStreak(
       streak,
@@ -513,4 +517,19 @@ describe("scheduled streaks and breaks", () => {
     expect(summary.today).toBe("2026-10-01");
     expect(summary.todayState).toBe("off");
   });
+});
+
+test("Phoenix midnight resolves yesterday immediately for both streak kinds", () => {
+  const before = new Date("2026-09-30T06:59:59.999Z");
+  const after = new Date("2026-09-30T07:00:00.000Z");
+  expect(summarizeStreak(quit, [], before).current).toBe(1);
+  expect(summarizeStreak(quit, [], after).current).toBe(2);
+  const entries = [log("2026-09-28")];
+  expect(summarizeStreak(build, entries, before).current).toBe(1);
+  const missed = summarizeStreak(build, entries, after);
+  expect(missed.current).toBe(0);
+  expect(missed.yesterdayState).toBe("missed");
+  expect(
+    summarizeStreak(build, [...entries, log("2026-09-29")], after).current,
+  ).toBe(2);
 });

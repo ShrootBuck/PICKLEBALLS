@@ -5,13 +5,9 @@ import Link from "next/link";
 import { StreakLogButton } from "@/components/streaks/streak-log";
 import { countLabel } from "@/components/streaks/streak-text";
 import { StreakEmber } from "@/components/streaks/streak-visuals";
-import { type StreakView, streakActions } from "@/lib/streak-policy";
+import type { StreakView } from "@/lib/streak-policy";
 
 function hint(view: StreakView) {
-  const actions = streakActions(view, view.summary);
-  if (view.kind === "QUIT")
-    return "Was yesterday clean? Confirm it before midnight.";
-  if (actions.breaksTonight) return "Yesterday needs a log before midnight.";
   return `${view.summary.current} ${countLabel(view.kind, view.summary.current)}. Log today.`;
 }
 

@@ -1,6 +1,8 @@
 // Run against bun run test:fixture. All writes use disposable accounts.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
+import { phoenixDateKey } from "@/lib/time";
+import { shiftDateKey } from "@/lib/timeblocks";
 import { launchFixtureBrowser } from "./browser-fixture";
 
 const browser = await launchFixtureBrowser();
@@ -65,6 +67,79 @@ async function fits() {
 }
 try {
   await page.goto("http://localhost:3318/login");
+  await page.goto(`${origin}/streaks/demo-streak-caffeine`);
+  await page.getByRole("button", { name: "Log a slip", exact: true }).waitFor();
+  assert.equal(
+    await page.getByRole("button", { name: "Confirm yesterday" }).count(),
+    0,
+  );
+  for (const width of [390, 820, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.getByRole("button", { name: "Log a slip", exact: true }).click();
+    const sheet = page.getByRole("dialog", { name: "Log a slip", exact: true });
+    await sheet.waitFor();
+    await sheet
+      .getByLabel("When did it happen?")
+      .fill(`${shiftDateKey(phoenixDateKey(), -1)}T22:00`);
+    assert.equal(await sheet.getByText("Was yesterday clean?").count(), 0);
+    assert(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+    await screenshot(`slip-${width}`);
+    if (width === 1440) {
+      const result = await saveResponse(
+        () =>
+          sheet.getByRole("button", { name: "Log slip", exact: true }).click(),
+        "POST",
+      );
+      assert.equal(result.summary.yesterdayState, "slipped");
+      assert.equal(result.summary.current, 0);
+      await sheet.waitFor({ state: "hidden" });
+      await page
+        .getByRole("button", { name: "Undo", exact: true })
+        .first()
+        .waitFor();
+      await saveResponse(
+        () =>
+          page
+            .getByRole("button", { name: "Undo", exact: true })
+            .first()
+            .click(),
+        "DELETE",
+      );
+      await page.waitForLoadState("networkidle");
+      await page.reload();
+      await page
+        .getByRole("button", { name: "Log a slip", exact: true })
+        .waitFor();
+    } else {
+      await page.keyboard.press("Escape");
+      await sheet.waitFor({ state: "hidden" });
+    }
+  }
+  await page.goto(`${origin}/streaks/demo-streak-reading`);
+  await page.getByRole("button", { name: /Log today|Log more/ }).click();
+  const logSheet = page.getByRole("dialog", {
+    name: "Read every day",
+    exact: true,
+  });
+  await logSheet
+    .getByRole("button", { name: "Yesterday", exact: true })
+    .click();
+  const logged = await saveResponse(async () => {
+    const hold = logSheet.getByRole("button", { name: /Hold: did it/ });
+    await hold.focus();
+    await page.keyboard.down("Space");
+    await page.waitForTimeout(800);
+    await page.keyboard.up("Space");
+  }, "POST");
+  assert.equal(logged.summary.yesterdayState, "done");
+  await logSheet.waitFor({ state: "hidden" });
+  // Let the saved log refresh finish before starting the next navigation.
+  await page.waitForLoadState("networkidle");
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${origin}/streaks`);
   await page.getByRole("button", { name: "New streak", exact: true }).click();
   let dialog = page.locator('[data-slot="dialog-content"]');
@@ -181,7 +256,7 @@ try {
   await screenshot("desktop-paused", true);
   assert.deepEqual(errors, []);
   console.log(
-    "Streak browser checks passed: optional setup, weekdays, custom days, persisted breaks, resume, mobile fit, and no client errors.",
+    "Streak browser checks passed: no daily confirmations, backdated slips and undo, positive logging, phone/tablet/desktop sheets, schedules, breaks, and no client errors.",
   );
   console.log(`Screenshots: ${output}`);
 } finally {

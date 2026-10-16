@@ -150,7 +150,7 @@ const stateLabels: Record<StreakDayState, string> = {
   done: "Done",
   slipped: "Slipped",
   missed: "Missed",
-  pending: "Not logged yet",
+  pending: "In progress",
   off: "Off day",
 };
 
@@ -291,7 +291,7 @@ export function StreakHeatmap({
             ["done", kind === "QUIT" ? "Clean" : "Done"],
             ["slipped", "Slipped"],
             ["missed", "Missed"],
-            ["pending", "Waiting for a log"],
+            ["pending", "In progress"],
             ["off", "Off day"],
           ] as const
         )

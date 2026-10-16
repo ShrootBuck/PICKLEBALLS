@@ -236,6 +236,31 @@ export async function changeStreak(
     }
     if (action.action === "details") {
       const { action: _action, weekdays, ...details } = action;
+      if (streak.kind === "QUIT") {
+        const summary = summarizeStreak(streak, entries, now);
+        const recorded = new Set(
+          entries
+            .filter((entry) => entry.kind === "CLEAN")
+            .map((entry) => dayKey(entry.day)),
+        );
+        const automatic = summary.days.filter(
+          (day) =>
+            day.day < summary.today &&
+            day.state !== "off" &&
+            !recorded.has(day.day),
+        );
+        if (automatic.length)
+          await tx.streakEntry.createMany({
+            data: automatic.map((day) => ({
+              streakId,
+              day: requireDateKey(day.day),
+              kind: "CLEAN" as const,
+              occurredAt: now,
+              costCents: streak.dailyCostCents,
+              units: streak.dailyUnits,
+            })),
+          });
+      }
       const message = streakAmountError(details, streak.kind);
       if (message) throw new DomainError(message);
       // Existing days retain their original rules. Multiple edits in one day
@@ -343,6 +368,66 @@ export async function deleteStreak(
   });
 }
 
+async function postMilestones(
+  tx: Prisma.TransactionClient,
+  streak: {
+    id: string;
+    userId: string;
+    circleId: string;
+    title: string;
+    visibility: string;
+  },
+  after: StreakSummary,
+  milestones: number[],
+  now: Date,
+) {
+  const { userId, circleId } = streak;
+  if (streak.visibility === "CIRCLE" && milestones.length) {
+    const keys = new Map(
+      milestones.map((count) => [
+        count,
+        `milestone:${count}:${after.runStartDay}`,
+      ]),
+    );
+    const posted = new Set(
+      (
+        await tx.streakEvent.findMany({
+          where: {
+            streakId: streak.id,
+            dedupeKey: { in: [...keys.values()] },
+          },
+          select: { dedupeKey: true },
+        })
+      ).map((event) => event.dedupeKey),
+    );
+    for (const [count, dedupeKey] of keys) {
+      if (posted.has(dedupeKey)) continue;
+      await tx.streakEvent.create({
+        data: {
+          streakId: streak.id,
+          userId,
+          circleId,
+          kind: "MILESTONE",
+          count,
+          costCents: after.run.costCents || null,
+          units: after.run.units || null,
+          dedupeKey,
+          createdAt: now,
+        },
+      });
+      await tx.activityEvent.create({
+        data: {
+          circleId,
+          actorId: userId,
+          kind: "STREAK_MILESTONE",
+          entityId: streak.id,
+          summary: `hit ${days(count)} on “${streak.title}”`,
+        },
+      });
+    }
+  }
+}
+
 export async function addStreakEntry(
   streakId: string,
   userId: string,
@@ -369,38 +454,7 @@ export async function addStreakEntry(
     }
     const note = action.note || null;
     let entries = streak.entries;
-    if (action.action === "clean") {
-      if (streak.kind !== "QUIT")
-        throw new DomainError("Build streaks are logged, not confirmed.");
-      if (action.day >= before.today)
-        throw new DomainError("You can confirm a day once it’s over.", 409);
-      if (action.day !== before.yesterday || action.day < before.startDay)
-        throw new DomainError("That day can no longer be changed.", 409);
-      requireScheduledDay(action.day);
-      const sameDay = entries.filter((item) => dayKey(item.day) === action.day);
-      if (sameDay.some((item) => item.kind === "SLIP"))
-        throw new DomainError("You logged a slip that day.", 409);
-      const existing = sameDay.find((item) => item.kind === "CLEAN");
-      if (existing)
-        return {
-          entry: existing,
-          summary: toCardSummary(before),
-          milestone: null,
-        };
-      const entry = await tx.streakEntry.create({
-        data: {
-          streakId: streak.id,
-          day: requireDateKey(action.day),
-          kind: "CLEAN",
-          occurredAt: now,
-          costCents: streak.dailyCostCents,
-          units: streak.dailyUnits,
-          note,
-        },
-        select: entrySelect,
-      });
-      entries = [...entries, entry];
-    } else if (action.action === "slip") {
+    if (action.action === "slip") {
       if (streak.kind !== "QUIT")
         throw new DomainError(
           "Build streaks can’t slip. Log the days you do it.",
@@ -426,10 +480,7 @@ export async function addStreakEntry(
       );
       const day = phoenixDateKey(occurredAt);
       requireScheduledDay(day);
-      // An honest slip replaces an earlier clean confirmation for that day.
-      await tx.streakEntry.deleteMany({
-        where: { streakId: streak.id, kind: "CLEAN", day: requireDateKey(day) },
-      });
+      // Keep saved daily amounts and notes. A slip overrides the clean result.
       const entry = await tx.streakEntry.create({
         data: {
           streakId: streak.id,
@@ -440,15 +491,12 @@ export async function addStreakEntry(
         },
         select: entrySelect,
       });
-      entries = [
-        ...entries.filter(
-          (item) => !(item.kind === "CLEAN" && dayKey(item.day) === day),
-        ),
-        entry,
-      ];
+      entries = [...entries, entry];
     } else {
       if (streak.kind !== "BUILD")
-        throw new DomainError("Quit streaks are confirmed once a day ends.");
+        throw new DomainError(
+          "Quit streaks count automatically. Log a slip instead.",
+        );
       if (
         (action.day !== before.today && action.day !== before.yesterday) ||
         action.day < before.startDay
@@ -470,50 +518,7 @@ export async function addStreakEntry(
     }
     const after = summarizeStreak(streak, entries, now);
     const milestones = crossedMilestones(before.settled, after.settled);
-    if (streak.visibility === "CIRCLE" && milestones.length) {
-      const keys = new Map(
-        milestones.map((count) => [
-          count,
-          `milestone:${count}:${after.runStartDay}`,
-        ]),
-      );
-      const posted = new Set(
-        (
-          await tx.streakEvent.findMany({
-            where: {
-              streakId: streak.id,
-              dedupeKey: { in: [...keys.values()] },
-            },
-            select: { dedupeKey: true },
-          })
-        ).map((event) => event.dedupeKey),
-      );
-      for (const [count, dedupeKey] of keys) {
-        if (posted.has(dedupeKey)) continue;
-        await tx.streakEvent.create({
-          data: {
-            streakId: streak.id,
-            userId,
-            circleId,
-            kind: "MILESTONE",
-            count,
-            costCents: after.run.costCents || null,
-            units: after.run.units || null,
-            dedupeKey,
-            createdAt: now,
-          },
-        });
-        await tx.activityEvent.create({
-          data: {
-            circleId,
-            actorId: userId,
-            kind: "STREAK_MILESTONE",
-            entityId: streak.id,
-            summary: `hit ${days(count)} on “${streak.title}”`,
-          },
-        });
-      }
-    }
+    await postMilestones(tx, streak, after, milestones, now);
     return {
       entry: entries.at(-1),
       summary: toCardSummary(after),
@@ -539,6 +544,11 @@ export async function removeStreakEntry(
     if (!isEntryDayOpen(dayKey(entry.day), now))
       throw new DomainError(
         "That day is locked in. Entries can be undone until the end of the next day.",
+        409,
+      );
+    if (entry.kind === "CLEAN")
+      throw new DomainError(
+        "Clean days count automatically. Log a slip instead.",
         409,
       );
     await tx.streakEntry.delete({ where: { id: entry.id } });
@@ -571,7 +581,7 @@ export async function nudgeStreak(
       throw new DomainError("Streak not found.", 404);
     });
     const summary = summarizeStreak(streak, streak.entries, now);
-    if (summary.yesterdayState !== "pending")
+    if (!streakActions(streak, summary).needsLog)
       throw new DomainError(
         "They’re caught up. There’s nothing to nudge about right now.",
         409,
@@ -593,10 +603,7 @@ export async function nudgeStreak(
         kind: "STREAK_NUDGE",
         entityId: streak.id,
         title: `${sender?.name ?? "A friend"} nudged you about “${streak.title}”`,
-        body:
-          streak.kind === "QUIT"
-            ? "Was yesterday clean? Confirm it before midnight to keep your streak."
-            : "Log yesterday before midnight to keep your streak.",
+        body: "Log today when you complete it.",
         data: { url: streakHref(circleId, streak.id) },
         dedupeKey: `streak-nudge:${streak.id}:${senderId}:${summary.today}`,
       },
@@ -648,7 +655,7 @@ export async function getStreakBoard(
   };
 }
 
-// Your own streaks that still need a log today or yesterday.
+// Your own positive streaks that still need a log today.
 export async function getStreaksNeedingLog(
   circleId: string,
   viewerId: string,
@@ -750,6 +757,48 @@ function listNames(items: { title: string }[]) {
 // Phoenix day, and only while something is still waiting.
 export async function sendStreakReminders(now = new Date()) {
   const prisma = getPrisma();
+  // Quit milestones advance with time, independently of logging or reminder preferences.
+  const quitStreaks = await prisma.streak.findMany({
+    where: { status: "ACTIVE", kind: "QUIT", visibility: "CIRCLE" },
+    select: { id: true, userId: true, circleId: true },
+  });
+  for (const row of quitStreaks) {
+    await serializable(async (tx) => {
+      const streak = await tx.streak.findUnique({
+        where: { id: row.id },
+        include: {
+          entries: { select: entrySelect },
+          schedules: true,
+          breaks: true,
+        },
+      });
+      if (
+        !streak ||
+        streak.status !== "ACTIVE" ||
+        streak.visibility !== "CIRCLE"
+      )
+        return;
+      if (
+        !(await tx.membership.findUnique({
+          where: {
+            userId_circleId: {
+              userId: streak.userId,
+              circleId: streak.circleId,
+            },
+          },
+        }))
+      )
+        return;
+      const summary = summarizeStreak(streak, streak.entries, now);
+      await postMilestones(
+        tx,
+        streak,
+        summary,
+        crossedMilestones(0, summary.settled),
+        now,
+      );
+    });
+  }
   const today = phoenixDateKey(now);
   const hour = phoenixHour(now);
   const rows = await prisma.streak.findMany({
@@ -799,23 +848,25 @@ export async function sendStreakReminders(now = new Date()) {
       summary: summarizeStreak(row, row.entries, now),
     }));
     const breaking = states
-      .filter((item) => item.summary.yesterdayState === "pending")
+      .filter(
+        (item) =>
+          item.row.kind === "BUILD" && item.summary.todayState === "pending",
+      )
       .map((item) => item.row);
     const messages: { slot: string; title: string; body: string }[] = [];
-    // The evening message also covers quit streaks, so the morning one stops
-    // once evening arrives, unless someone set "morning" later than evening.
+    // Remind only about today, never ask someone to confirm yesterday.
     if (
       prefs.streakReminders &&
       hour >= prefs.streakMorningHour &&
       (hour < prefs.streakEveningHour ||
         prefs.streakMorningHour >= prefs.streakEveningHour)
     ) {
-      const confirm = breaking.filter((row) => row.kind === "QUIT");
-      if (confirm.length)
+      const waiting = breaking;
+      if (waiting.length)
         messages.push({
           slot: "morning",
-          title: "Was yesterday clean?",
-          body: `${listNames(confirm)}. Confirm before midnight to keep ${confirm.length === 1 ? "it" : "them"} going.`,
+          title: "Your streaks today",
+          body: `Log ${listNames(waiting)} when you complete ${waiting.length === 1 ? "it" : "them"} today.`,
         });
     }
     if (hour >= prefs.streakEveningHour) {
@@ -837,7 +888,7 @@ export async function sendStreakReminders(now = new Date()) {
             warn.length === 1
               ? `“${warn[0].title}” breaks at midnight`
               : `${warn.length} streaks break at midnight`,
-          body: `Log yesterday for ${listNames(warn)} to keep ${warn.length === 1 ? "it" : "them"} alive.${waiting.length ? ` Still waiting today: ${listNames(waiting)}.` : ""}`,
+          body: `Log today for ${listNames(warn)} to keep ${warn.length === 1 ? "it" : "them"} alive.${waiting.length ? ` Still waiting today: ${listNames(waiting)}.` : ""}`,
         });
       else if (waiting.length)
         messages.push({
@@ -846,7 +897,7 @@ export async function sendStreakReminders(now = new Date()) {
             waiting.length === 1
               ? `“${waiting[0].title}” is waiting`
               : `${waiting.length} streaks are waiting`,
-          body: `Did you do ${waiting.length === 1 ? "it" : "them"} today? Logging takes one tap.`,
+          body: `Did you do ${waiting.length === 1 ? "it" : "them"} today? Log it to count the day.`,
         });
     }
     for (const message of messages) {

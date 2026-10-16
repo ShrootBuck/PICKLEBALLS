@@ -8,6 +8,12 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    timestamp: 1792115675491,
+    title: "Streaks without daily confirmations",
+    description:
+      "Quit streaks count each completed day automatically unless you log a slip. Positive streaks count only logged days. You can log yesterday to correct either kind of streak.",
+  },
+  {
     timestamp: 1792107311664,
     title: "Reply to messages and see who reacted",
     description:

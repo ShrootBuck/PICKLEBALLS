@@ -68,20 +68,10 @@ function streakStatus(view: StreakView) {
       : "Off today. Your streak is kept.";
   if (view.kind === "QUIT") {
     if (summary.todayState === "slipped") return "Slipped today.";
-    if (actions.confirmDay)
-      return view.mine
-        ? "Confirm yesterday."
-        : "Hasn’t confirmed yesterday yet.";
-    return view.mine
-      ? "Today counts once it’s over. Confirm it tomorrow."
-      : null;
+    return view.mine ? "Clean days count automatically. Log any slips." : null;
   }
   if (summary.todayState === "done")
     return `Done today${today?.units && view.unitLabel ? `: ${formatStreakUnits(today.units, view.unitLabel)}` : ""}.`;
-  if (summary.yesterdayState === "pending")
-    return view.mine
-      ? "Yesterday needs a log before midnight."
-      : "Hasn’t logged yesterday yet.";
   return "Not logged today yet.";
 }
 

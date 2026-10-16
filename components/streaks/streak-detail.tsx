@@ -40,7 +40,7 @@ import {
   type StreakHistoryDay,
   type StreakView,
 } from "@/lib/streak-policy";
-import { formatDayLong, formatHistoryTime, formatReplyTime } from "@/lib/time";
+import { formatDayLong, formatHistoryTime } from "@/lib/time";
 
 export function StreakOwnerMenu({ view }: { view: StreakView }) {
   const router = useRouter();
@@ -214,7 +214,7 @@ export function StreakHistoryList({
     return (
       <p className="text-sm text-muted-foreground">
         {view.kind === "QUIT"
-          ? "Your first clean day shows up here once you confirm it."
+          ? "Your first clean day shows up here once the day ends."
           : "Your logs show up here."}
       </p>
     );
@@ -250,7 +250,7 @@ export function StreakHistoryList({
           </div>
           {day.state === "missed" && (
             <p className="text-xs text-muted-foreground">
-              Nothing was logged before the window closed, so the streak reset.
+              No completion logged for this day.
             </p>
           )}
           {day.state === "off" && (
@@ -260,61 +260,63 @@ export function StreakHistoryList({
           )}
           {day.entries.length > 0 && (
             <ul className="flex flex-col gap-2">
-              {day.entries.map((entry) => {
-                const Icon =
-                  entry.kind === "SLIP"
-                    ? CircleSlash
-                    : entry.kind === "CLEAN"
-                      ? Check
-                      : Flame;
-                const amounts = [
-                  entry.costCents
-                    ? `+${formatStreakMoney(entry.costCents)}`
-                    : null,
-                  entry.units && view.unitLabel
-                    ? formatStreakUnits(entry.units, view.unitLabel)
-                    : null,
-                ].filter(Boolean);
-                return (
-                  <li key={entry.id} className="flex items-start gap-3 text-sm">
-                    <Icon
-                      className={
-                        entry.kind === "SLIP"
-                          ? "mt-0.5 size-4 shrink-0 text-destructive"
-                          : "mt-0.5 size-4 shrink-0 text-primary"
-                      }
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p>
-                        {entry.kind === "SLIP"
-                          ? `Slipped at ${formatHistoryTime(entry.at)}`
-                          : entry.kind === "CLEAN"
-                            ? "Confirmed clean"
-                            : `Logged at ${formatHistoryTime(entry.at)}`}
-                        {amounts.length ? (
-                          <span className="text-muted-foreground">
-                            {" "}
-                            · {amounts.join(", ")}
-                          </span>
-                        ) : null}
-                      </p>
-                      {entry.kind === "CLEAN" && (
-                        <p className="text-xs text-muted-foreground">
-                          Confirmed {formatReplyTime(entry.at)}
+              {day.entries
+                .filter(
+                  (entry) => entry.kind !== "CLEAN" || day.state !== "slipped",
+                )
+                .map((entry) => {
+                  const Icon =
+                    entry.kind === "SLIP"
+                      ? CircleSlash
+                      : entry.kind === "CLEAN"
+                        ? Check
+                        : Flame;
+                  const amounts = [
+                    entry.costCents
+                      ? `+${formatStreakMoney(entry.costCents)}`
+                      : null,
+                    entry.units && view.unitLabel
+                      ? formatStreakUnits(entry.units, view.unitLabel)
+                      : null,
+                  ].filter(Boolean);
+                  return (
+                    <li
+                      key={entry.id}
+                      className="flex items-start gap-3 text-sm"
+                    >
+                      <Icon
+                        className={
+                          entry.kind === "SLIP"
+                            ? "mt-0.5 size-4 shrink-0 text-destructive"
+                            : "mt-0.5 size-4 shrink-0 text-primary"
+                        }
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p>
+                          {entry.kind === "SLIP"
+                            ? `Slipped at ${formatHistoryTime(entry.at)}`
+                            : entry.kind === "CLEAN"
+                              ? "Clean day"
+                              : `Logged at ${formatHistoryTime(entry.at)}`}
+                          {amounts.length ? (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              · {amounts.join(", ")}
+                            </span>
+                          ) : null}
                         </p>
+                        {entry.note && (
+                          <p className="mt-1 whitespace-pre-wrap break-words text-muted-foreground">
+                            {entry.note}
+                          </p>
+                        )}
+                      </div>
+                      {entry.canUndo && (
+                        <UndoButton view={view} entryId={entry.id} />
                       )}
-                      {entry.note && (
-                        <p className="mt-1 whitespace-pre-wrap break-words text-muted-foreground">
-                          {entry.note}
-                        </p>
-                      )}
-                    </div>
-                    {entry.canUndo && (
-                      <UndoButton view={view} entryId={entry.id} />
-                    )}
-                  </li>
-                );
-              })}
+                    </li>
+                  );
+                })}
             </ul>
           )}
         </li>

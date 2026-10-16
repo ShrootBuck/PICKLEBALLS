@@ -41,7 +41,7 @@ const PREF_META = [
   {
     key: "streakReminders",
     label: "Streak reminders",
-    hint: "A morning check for quit streaks and an evening reminder for build streaks you haven’t logged.",
+    hint: "Reminders for positive streaks you haven’t logged today.",
   },
   {
     key: "streakWarnings",

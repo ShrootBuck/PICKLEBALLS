@@ -1,14 +1,10 @@
 "use client";
 
-import { ArrowLeft, Check, Minus, Plus } from "lucide-react";
+import { Check, Minus, Plus } from "lucide-react";
 import { type ComponentProps, useId, useRef, useState } from "react";
 import { HoldButton } from "@/components/streaks/hold-button";
 import { celebrateStreak } from "@/components/streaks/streak-celebration";
-import {
-  countLabel,
-  daysLabel,
-  totalsParts,
-} from "@/components/streaks/streak-text";
+import { countLabel, totalsParts } from "@/components/streaks/streak-text";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,16 +36,12 @@ import {
   streakActions,
 } from "@/lib/streak-policy";
 import {
-  formatDayLong,
   parsePhoenixLocalDateTime,
   phoenixLocalDateTimeValue,
-  phoenixWallToDate,
 } from "@/lib/time";
 
 function logButtonLabel(streak: StreakView) {
-  const actions = streakActions(streak, streak.summary);
-  if (streak.kind === "QUIT")
-    return actions.confirmDay ? "Confirm yesterday" : "Log a slip";
+  if (streak.kind === "QUIT") return "Log a slip";
   if (streak.summary.todayState === "off") return "Log yesterday";
   return streak.summary.todayState === "done" ? "Log more" : "Log today";
 }
@@ -65,10 +57,9 @@ export function StreakLogButton({
 }) {
   const [open, setOpen] = useState(false);
   const actions = streakActions(streak, streak.summary);
-  const quiet = streak.kind === "QUIT" && !actions.confirmDay;
+  const quiet = streak.kind === "QUIT";
   const label = logButtonLabel(streak);
-  if (!actions.confirmDay && !actions.canSlip && !actions.logDays.length)
-    return null;
+  if (!actions.canSlip && !actions.logDays.length) return null;
   return (
     <>
       <Button
@@ -92,8 +83,6 @@ export function StreakLogButton({
   );
 }
 
-type Mode = "confirm" | "slip" | "log";
-
 function StreakLogSheet({
   streak,
   onClose,
@@ -106,20 +95,11 @@ function StreakLogSheet({
   const actions = streakActions(streak, summary);
   const quit = streak.kind === "QUIT";
   const [open, setOpen] = useState(true);
-  const [mode, setMode] = useState<Mode>(
-    quit ? (actions.confirmDay ? "confirm" : "slip") : "log",
-  );
-  const [cameFromConfirm, setCameFromConfirm] = useState(false);
+  const mode = quit ? "slip" : "log";
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState("");
-  const [day, setDay] = useState(() =>
-    !quit &&
-    summary.yesterdayState === "pending" &&
-    (summary.todayState === "done" || summary.todayState === "off")
-      ? summary.yesterday
-      : (actions.logDays[0] ?? summary.today),
-  );
+  const [day, setDay] = useState(actions.logDays[0] ?? summary.today);
   const [amount, setAmount] = useState(hundredthsToInput(streak.dailyUnits));
   const [bounds] = useState(() => {
     const range = slipWindow(streak.startedAt);
@@ -163,10 +143,8 @@ function StreakLogSheet({
       toast.add({
         title:
           body.action === "slip"
-            ? "Slip logged. Your next clean day starts now."
-            : body.action === "clean"
-              ? `Yesterday counted. ${daysLabel(next.current)} clean.`
-              : `Logged. ${next.current} ${countLabel("BUILD", next.current)}.`,
+            ? "Slip logged. Your streak has been recalculated."
+            : `Logged. ${next.current} ${countLabel("BUILD", next.current)}.`,
         type: body.action === "slip" ? "info" : "success",
       });
       if (data.milestone)
@@ -189,18 +167,6 @@ function StreakLogSheet({
     } finally {
       setPending(false);
     }
-  }
-
-  function startSlip() {
-    setCameFromConfirm(true);
-    setError(null);
-    // Answering "no" about yesterday most likely means yesterday evening.
-    const evening = phoenixWallToDate(summary.yesterday, 21, 0, 0, 0);
-    const value = evening ? phoenixLocalDateTimeValue(evening) : bounds.max;
-    setWhen(
-      value < bounds.min ? bounds.min : value > bounds.max ? bounds.max : value,
-    );
-    setMode("slip");
   }
 
   const units = parseUnitsInput(amount);
@@ -240,23 +206,17 @@ function StreakLogSheet({
         >
           <SheetHeader>
             <SheetTitle>
-              {mode === "confirm"
-                ? "Was yesterday clean?"
-                : mode === "slip"
-                  ? "Log a slip"
-                  : streak.title}
+              {mode === "slip" ? "Log a slip" : streak.title}
             </SheetTitle>
             <SheetDescription>
-              {mode === "confirm" && actions.confirmDay
-                ? `${streak.title}, ${formatDayLong(actions.confirmDay)}`
-                : mode === "slip"
-                  ? "Resets your current count. History and all-time totals are kept."
-                  : loggedUnits && streak.unitLabel
-                    ? `${day === summary.today ? "Today" : "Yesterday"} so far: ${formatStreakUnits(loggedUnits, streak.unitLabel)}.`
-                    : summary.week.find((item) => item.day === day)?.state ===
-                        "done"
-                      ? `Already logged ${day === summary.today ? "today" : "yesterday"}. Log again to add more.`
-                      : "Log it any time today. Yesterday stays open until midnight."}
+              {mode === "slip"
+                ? "Your streak recalculates from the time of the slip."
+                : loggedUnits && streak.unitLabel
+                  ? `${day === summary.today ? "Today" : "Yesterday"} so far: ${formatStreakUnits(loggedUnits, streak.unitLabel)}.`
+                  : summary.week.find((item) => item.day === day)?.state ===
+                      "done"
+                    ? `Already logged ${day === summary.today ? "today" : "yesterday"}. Log again to add more.`
+                    : "Days count when you log them. You can also log yesterday."}
             </SheetDescription>
           </SheetHeader>
           <div className="flex flex-col gap-4 px-4">
@@ -279,9 +239,7 @@ function StreakLogSheet({
                   </ToggleGroupItem>
                   <ToggleGroupItem value={summary.yesterday} className="flex-1">
                     Yesterday
-                    {summary.yesterdayState === "pending"
-                      ? " (needs a log)"
-                      : ""}
+                    {summary.yesterdayState === "missed" ? " (not logged)" : ""}
                   </ToggleGroupItem>
                 </ToggleGroup>
               </Field>
@@ -344,8 +302,8 @@ function StreakLogSheet({
                     disabled={pending}
                   />
                   <FieldDescription>
-                    Phoenix time. Yesterday or today. Your count starts over,
-                    but your history and all-time totals stay.
+                    Phoenix time. Yesterday or today. Your count and totals
+                    adjust to the day of the slip.
                   </FieldDescription>
                 </Field>
               )}
@@ -385,31 +343,6 @@ function StreakLogSheet({
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            {mode === "confirm" && actions.confirmDay && (
-              <div className="flex flex-col gap-2">
-                <HoldButton
-                  className="w-full"
-                  disabled={pending}
-                  onConfirm={() =>
-                    void submit({
-                      action: "clean",
-                      day: actions.confirmDay,
-                      note,
-                    })
-                  }
-                >
-                  {pending ? (
-                    <Spinner data-icon="inline-start" />
-                  ) : (
-                    <Check data-icon="inline-start" />
-                  )}
-                  Hold: still clean
-                </HoldButton>
-                <Button variant="ghost" disabled={pending} onClick={startSlip}>
-                  No, I slipped
-                </Button>
-              </div>
-            )}
             {mode === "log" && (
               <HoldButton
                 className="w-full"
@@ -433,20 +366,6 @@ function StreakLogSheet({
             )}
             {mode === "slip" && (
               <div className="flex gap-2">
-                {cameFromConfirm && (
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    disabled={pending}
-                    onClick={() => {
-                      setMode("confirm");
-                      setError(null);
-                    }}
-                  >
-                    <ArrowLeft data-icon="inline-start" />
-                    Back
-                  </Button>
-                )}
                 <Button
                   variant="destructive"
                   size="lg"

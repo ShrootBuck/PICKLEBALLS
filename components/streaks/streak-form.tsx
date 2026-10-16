@@ -241,7 +241,7 @@ export function StreakForm({
                   </ToggleGroup>
                   <FieldDescription>
                     {kind === "QUIT"
-                      ? "Each day counts once it’s over and you confirm it was clean. Log a slip whenever it happens."
+                      ? "Each day counts automatically once it ends unless you log a slip. You can log slips for today or yesterday."
                       : "Log it any time during the day. Log more than once and the amounts add up."}
                   </FieldDescription>
                 </Field>
