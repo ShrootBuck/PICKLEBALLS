@@ -3030,11 +3030,11 @@ section:first-child > .mood-group-label {
   }
 }
 
-/* Streaks. The ember takes the theme color and warms it toward fire. */
+/* Streaks. Warm fire colors stay consistent across app themes. */
 .streak-ember {
-  --ember-outer: color-mix(in oklch, var(--primary) 58%, #ff6a3d);
-  --ember-inner: color-mix(in oklch, var(--primary) 42%, #ffc35c);
-  --ember-core: color-mix(in oklch, var(--primary) 22%, #fff4dc);
+  --ember-outer: #ff791f;
+  --ember-inner: #ffd66b;
+  --ember-core: #fffbe8;
   position: relative;
   display: grid;
   place-items: center;
@@ -3043,12 +3043,12 @@ section:first-child > .mood-group-label {
 .streak-ember::before {
   content: "";
   position: absolute;
-  inset: 8%;
-  border-radius: 50%;
+  inset: -8%;
+  pointer-events: none;
   background: radial-gradient(
-    circle at 50% 62%,
-    color-mix(in oklch, var(--ember-outer) 55%, transparent),
-    transparent 68%
+    ellipse at 50% 68%,
+    color-mix(in oklch, var(--ember-outer) 32%, transparent),
+    transparent 62%
   );
   opacity: var(--ember-glow, 0.35);
   scale: var(--ember-glow-scale, 0.8);
@@ -3074,12 +3074,6 @@ section:first-child > .mood-group-label {
   height: 100%;
   overflow: visible;
 }
-.streak-ember .flame-outer {
-  fill: var(--ember-outer);
-}
-.streak-ember .flame-inner {
-  fill: var(--ember-inner);
-}
 .streak-ember .flame-core {
   fill: var(--ember-core);
 }
@@ -3091,11 +3085,12 @@ section:first-child > .mood-group-label {
   transform-origin: 32px 58px;
 }
 .streak-ember .flame-body {
-  scale: var(--ember-scale, 0.62);
+  filter: drop-shadow(0 2px 3px #ff6a2426);
+  scale: var(--ember-scale, 0.68);
   transition: scale 900ms var(--ease-bounce);
 }
 .streak-ember[data-tier="flame"] .flame-body {
-  --ember-scale: 0.8;
+  --ember-scale: 0.88;
 }
 .streak-ember[data-tier="blaze"] .flame-body,
 .streak-ember[data-tier="inferno"] .flame-body {

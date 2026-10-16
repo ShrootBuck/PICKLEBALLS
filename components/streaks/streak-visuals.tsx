@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useId } from "react";
 import {
   formatStreakUnits,
   type StreakDayState,
@@ -10,9 +10,9 @@ import { shiftDateKey } from "@/lib/timeblocks";
 import { cn } from "@/lib/utils";
 
 const outerFlame =
-  "M32 4C34 14 46 20 46 36C46 49 39 58 32 58C25 58 18 49 18 37C18 29 22 24 25 19C25.5 25 28 28.5 30 29.5C29 20 30 11 32 4Z";
+  "M36 3C39 17 25 21 29 33C35 30 39 24 39 19C49 28 54 37 51 46C48 55 40 60 31 60C18 60 10 51 12 40C13 33 18 27 22 23C20 31 21 36 25 38C20 21 34 17 36 3Z";
 const innerFlame =
-  "M32 24C34 31 40 35 40 43C40 50 36.5 54 32 54C27.5 54 24 50 24 44C24 39 27 36 29 33C29.5 36 31 37.5 32 38C31.5 33 31.5 28 32 24Z";
+  "M36 28C37 37 28 39 29 46C33 45 36 41 37 38C43 43 44 48 41 53C39 57 35 59 31 59C24 59 19 54 20 48C20 43 23 39 25 37C24 43 25 46 27 47C25 38 33 35 36 28Z";
 const leftTongue =
   "M22 58C15.5 55.5 12 49.5 13 43.5C13.8 38.8 16.6 35.6 19 32.5C19.2 37 20.8 40.2 23 41.5C21.8 46.5 22 52.5 24.5 57.5Z";
 const rightTongue =
@@ -31,6 +31,7 @@ export function StreakEmber({
   dim?: boolean;
   className?: string;
 }) {
+  const gradientId = useId();
   const value = tier ?? streakTier(count);
   const big = value === "blaze" || value === "inferno";
   return (
@@ -42,6 +43,30 @@ export function StreakEmber({
       style={{ width: size, height: size }}
     >
       <svg viewBox="0 0 64 64" aria-hidden="true">
+        <defs>
+          <linearGradient
+            id={`${gradientId}-outer`}
+            x1="0"
+            y1="1"
+            x2="0.35"
+            y2="0"
+          >
+            <stop offset="0%" stopColor="#f04416" />
+            <stop offset="48%" stopColor="#ff781f" />
+            <stop offset="100%" stopColor="#ffcf5a" />
+          </linearGradient>
+          <linearGradient
+            id={`${gradientId}-inner`}
+            x1="0"
+            y1="1"
+            x2="0.2"
+            y2="0"
+          >
+            <stop offset="0%" stopColor="#ffae28" />
+            <stop offset="55%" stopColor="#ffe575" />
+            <stop offset="100%" stopColor="#fff8cf" />
+          </linearGradient>
+        </defs>
         <g className="flame-body">
           {big && (
             <>
@@ -49,7 +74,11 @@ export function StreakEmber({
                 className="flame-side"
                 style={{ transformOrigin: "20px 58px" }}
               >
-                <path className="flame-outer" d={leftTongue} />
+                <path
+                  className="flame-outer"
+                  fill={`url(#${gradientId}-outer)`}
+                  d={leftTongue}
+                />
               </g>
               <g
                 className="flame-side"
@@ -58,16 +87,31 @@ export function StreakEmber({
                   animationDelay: "-0.9s",
                 }}
               >
-                <path className="flame-outer" d={rightTongue} />
+                <path
+                  className="flame-outer"
+                  fill={`url(#${gradientId}-outer)`}
+                  d={rightTongue}
+                />
               </g>
             </>
           )}
           <g className="flame-flicker">
-            <path className="flame-outer" d={outerFlame} />
+            <path
+              className="flame-outer"
+              fill={`url(#${gradientId}-outer)`}
+              d={outerFlame}
+            />
           </g>
           <g className="flame-flicker-inner">
-            <path className="flame-inner" d={innerFlame} />
-            <ellipse className="flame-core" cx="32" cy="48" rx="4.5" ry="6" />
+            <path
+              className="flame-inner"
+              fill={`url(#${gradientId}-inner)`}
+              d={innerFlame}
+            />
+            <path
+              className="flame-core"
+              d="M33 43C34 48 38 49 37 53C36 56 34 58 31 58C27 58 25 55 26 52C27 49 30 48 33 43Z"
+            />
           </g>
         </g>
         {value === "inferno" && (
