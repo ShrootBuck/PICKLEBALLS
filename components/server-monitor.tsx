@@ -483,14 +483,14 @@ export function ServerMonitor() {
         render={
           <Button
             variant="ghost"
-            size="sm"
+            className="w-full justify-start"
             aria-label="Open Server Monitor"
             title="Server Monitor"
           />
         }
       >
         <Activity data-icon="inline-start" />
-        <span className="hidden lg:inline">Server</span>
+        <span>Server Monitor</span>
       </DialogTrigger>
       <DialogContent className="gap-3 sm:max-w-4xl" data-server-monitor="">
         <DialogHeader>

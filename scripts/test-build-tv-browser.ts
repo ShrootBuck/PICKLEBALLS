@@ -93,6 +93,7 @@ try {
     });
   });
   await page.reload();
+  await page.getByRole("button", { name: "Open app tools" }).click();
   const trigger = page.getByRole("button", { name: /^Open Build TV/ });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Build TV" });
@@ -157,6 +158,7 @@ try {
   await dialog.getByText("Finished", { exact: true }).waitFor();
   await dialog.getByText("Failed", { exact: true }).waitFor();
   assert.equal(await dialog.locator("[data-build-id]:visible").count(), 4);
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "hidden" });
   assert(await trigger.evaluate((n) => n === document.activeElement));

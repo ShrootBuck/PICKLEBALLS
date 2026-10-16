@@ -10,7 +10,6 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { BuildTV } from "@/components/build-tv";
 import {
   AppSidebar,
   MobileMenu,
@@ -24,7 +23,6 @@ import {
 } from "@/components/layout/circle-switcher";
 import { RealtimeNotice } from "@/components/layout/realtime-provider";
 import { TodayPanel } from "@/components/layout/today-panel";
-import { ServerMonitor } from "@/components/server-monitor";
 import { useSocial } from "@/components/social/social-provider";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -173,6 +171,12 @@ export function AppShell({
       />
       <div className="app-workspace">
         <header className="app-header">
+          <MobileMenu
+            items={items}
+            active={active}
+            counts={counts}
+            onReselect={scrollToTop}
+          />
           <div className="app-header-circle">
             <CircleSwitcher
               circles={circles}
@@ -194,16 +198,7 @@ export function AppShell({
               <span>{activeItem?.label ?? sectionLabel ?? ""}</span>
             )}
           </p>
-          <div className="ml-auto flex items-center gap-1">
-            <RealtimeNotice />
-            <BuildTV />
-            <ServerMonitor />
-            <MobileMenu
-              items={items}
-              active={active}
-              counts={counts}
-              onReselect={scrollToTop}
-            />
+          <div className="ml-auto flex shrink-0 items-center gap-1">
             <Link
               href="/messages"
               className={cn(
@@ -226,6 +221,7 @@ export function AppShell({
             {bell}
           </div>
         </header>
+        <RealtimeNotice />
         <StopwatchBar />
         <SectionTabs
           items={items.filter((item) => item.section === section)}

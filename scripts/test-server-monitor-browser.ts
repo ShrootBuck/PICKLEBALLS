@@ -79,10 +79,7 @@ function snapshot(at: number): MonitorResponse {
 }
 try {
   await page.clock.install();
-  await Promise.all([
-    page.waitForResponse("**/api/build-tv"),
-    page.goto("http://localhost:3318/login"),
-  ]);
+  await page.goto("http://localhost:3318/login");
   await page.locator("#main h1").waitFor();
   const real = await context.request.get(
     "http://localhost:3317/api/server-monitor",
@@ -125,6 +122,10 @@ try {
     });
   });
   assert.equal(requests, 0);
+  await Promise.all([
+    page.waitForResponse("**/api/build-tv"),
+    page.getByRole("button", { name: "Open app tools" }).click(),
+  ]);
   const trigger = page.getByRole("button", { name: "Open Server Monitor" });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Server Monitor" });
@@ -196,6 +197,7 @@ try {
     }
     await page.screenshot({ path: `${output}/${width}x${height}.png` });
   }
+  await page.setViewportSize({ width: 1440, height: 1080 });
   await page.keyboard.press("Escape");
   phase = "closed polling";
   await dialog.waitFor({ state: "hidden" });

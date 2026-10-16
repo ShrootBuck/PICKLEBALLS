@@ -623,6 +623,12 @@
   min-width: 0;
   flex: 1;
 }
+.app-header-circle .circle-mark {
+  display: none;
+}
+.app-header-circle .circle-switcher {
+  gap: 6px;
+}
 .app-breadcrumb {
   display: none;
 }
@@ -795,6 +801,18 @@
 }
 .app-menu-trigger {
   display: inline-flex;
+}
+.app-tools-trigger {
+  width: 100%;
+  justify-content: flex-start;
+}
+.app-menu-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+  padding: 16px 12px;
+  border-top: 1px solid var(--border);
 }
 .app-navigation-sheet[data-slot="sheet-content"] {
   width: min(380px, calc(100vw - 24px));
@@ -970,7 +988,8 @@
     scrollbar-width: thin;
   }
   .app-tabbar,
-  .section-tabs {
+  .section-tabs,
+  .app-menu-trigger {
     display: none;
   }
   .app-header {
@@ -991,6 +1010,7 @@
   .app-sidebar-create span,
   .app-sidebar .app-nav-heading,
   .app-account-label,
+  .app-tools-label,
   .app-account-chevron {
     display: none;
   }
@@ -1033,11 +1053,12 @@
     justify-content: center;
     padding: 4px;
   }
+  .app-tools-trigger {
+    justify-content: center;
+    padding-inline: 0;
+  }
 }
 @media (width >= 75rem) {
-  .app-menu-trigger {
-    display: none;
-  }
   .app-sidebar {
     width: 232px;
     padding-inline: 16px;
@@ -4874,9 +4895,6 @@ section:first-child > .mood-group-label {
 }
 
 /* Build TV: a tiny, deliberately nonessential deployment broadcast. */
-.build-tv-trigger {
-  min-width: 36px;
-}
 .build-tv-screen {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));

@@ -8,8 +8,8 @@ import {
   Flame,
   Gauge,
   History,
-  LayoutGrid,
   type LucideIcon,
+  Menu,
   MessageCircle,
   Mountain,
   Newspaper,
@@ -22,13 +22,16 @@ import {
   Target,
   UserRound,
   Users,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { type MouseEvent, type ReactNode, useState } from "react";
+import { BuildTV } from "@/components/build-tv";
 import {
   CircleSwitcher,
   type ShellCircle,
 } from "@/components/layout/circle-switcher";
+import { ServerMonitor } from "@/components/server-monitor";
 import { useSocial } from "@/components/social/social-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +45,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Sheet,
   SheetContent,
@@ -324,9 +333,36 @@ export function AppSidebar({
         <NavigationGroups {...navigation} />
       </nav>
       <div className="app-sidebar-footer">
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button
+                variant="ghost"
+                className="app-tools-trigger"
+                aria-label="Open app tools"
+              />
+            }
+          >
+            <Wrench data-icon="inline-start" />
+            <span className="app-tools-label">Tools</span>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="start" className="w-56">
+            <PopoverTitle>Tools</PopoverTitle>
+            <AppTools />
+          </PopoverContent>
+        </Popover>
         <AccountMenu items={navigation.items} active={navigation.active} />
       </div>
     </aside>
+  );
+}
+
+function AppTools() {
+  return (
+    <div className="flex flex-col gap-1">
+      <BuildTV />
+      <ServerMonitor />
+    </div>
   );
 }
 
@@ -344,7 +380,7 @@ export function MobileMenu(props: NavigationProps) {
           />
         }
       >
-        <LayoutGrid />
+        <Menu />
       </SheetTrigger>
       <SheetContent side="left" className="app-navigation-sheet">
         <SheetHeader>
@@ -360,6 +396,10 @@ export function MobileMenu(props: NavigationProps) {
             onNavigate={() => setOpen(false)}
           />
         </nav>
+        <div className="app-menu-tools">
+          <p className="app-nav-heading">Tools</p>
+          <AppTools />
+        </div>
       </SheetContent>
     </Sheet>
   );

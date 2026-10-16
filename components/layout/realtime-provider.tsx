@@ -90,7 +90,7 @@ export function RealtimeNotice() {
   const status = useRealtimeStatus();
   if (status !== "offline" && status !== "reconnecting") return null;
   return (
-    <div className="mr-2">
+    <div className="shrink-0 border-b bg-muted px-4 py-1.5">
       <RealtimeStatus />
     </div>
   );

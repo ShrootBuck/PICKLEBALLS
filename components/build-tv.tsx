@@ -243,17 +243,16 @@ export function BuildTV() {
         render={
           <Button
             variant="ghost"
-            size="sm"
-            className="build-tv-trigger"
+            className="w-full justify-start"
             aria-label={`Open Build TV${connected && busy ? `, ${number.format(queued)} queued, ${number.format(running)} updating` : ""}`}
             title="Build TV"
           />
         }
       >
         <Tv data-icon="inline-start" />
-        <span className="hidden sm:inline">Build TV</span>
+        <span>Build TV</span>
         {connected && busy && (
-          <Badge className="hidden sm:inline-flex">
+          <Badge className="ml-auto">
             {compactNumber.format(queued + running)}
           </Badge>
         )}
