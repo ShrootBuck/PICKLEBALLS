@@ -32,7 +32,7 @@ import { toast } from "@/components/ui/toast";
 import {
   messageRequest,
   messagesChanged,
-  messagesChangedEvent,
+  watchDirectThread,
 } from "@/lib/direct-message-client";
 import {
   conversationName,
@@ -199,6 +199,34 @@ function ThreadContents({ id, viewerId, now, timeZone }: ThreadProps) {
     });
     return () => cancelAnimationFrame(frame);
   }, [thread, scrollToMessage]);
+  const receiveThread = useCallback(
+    (result: DirectThread) => {
+      if (!mounted.current || result.id !== id) return;
+      // A recovery HTTP response can finish after a newer pushed snapshot.
+      if (revision.current !== null && result.revision < revision.current)
+        return;
+      revision.current = result.revision;
+      setThread((current) =>
+        current
+          ? {
+              ...current,
+              ...(result.kind === "group"
+                ? { kind: result.kind, group: result.group, person: null }
+                : { kind: result.kind, person: result.person, group: null }),
+              revision: result.revision,
+              readThrough: Math.max(current.readThrough, result.readThrough),
+              messages: mergeDirectMessages(
+                current.messages,
+                result.messages,
+                "updates",
+              ),
+            }
+          : result,
+      );
+      setError("");
+    },
+    [id],
+  );
   const readThread = useCallback(async () => {
     try {
       let more = true;
@@ -207,28 +235,8 @@ function ThreadContents({ id, viewerId, now, timeZone }: ThreadProps) {
         const result: DirectThread = await messageRequest(
           `/api/messages/${id}${initial ? "" : `?sinceRevision=${revision.current}`}`,
         );
-        if (!mounted.current) return;
-        revision.current = result.revision;
-        setThread((current) =>
-          current
-            ? {
-                ...current,
-                ...(result.kind === "group"
-                  ? { kind: result.kind, group: result.group, person: null }
-                  : { kind: result.kind, person: result.person, group: null }),
-                revision: result.revision,
-                readThrough: Math.max(current.readThrough, result.readThrough),
-                messages: mergeDirectMessages(
-                  current.messages,
-                  result.messages,
-                  "updates",
-                ),
-              }
-            : result,
-        );
-        setError("");
+        receiveThread(result);
         more = result.moreChanges;
-        if (!initial && result.messages.length) messagesChanged();
       }
     } catch (cause) {
       if (mounted.current)
@@ -239,23 +247,22 @@ function ThreadContents({ id, viewerId, now, timeZone }: ThreadProps) {
         );
       throw cause;
     }
-  }, [id]);
+  }, [id, receiveThread]);
   useEffect(() => {
     mounted.current = true;
-    const watcher = watchRealtime(
-      readThread,
-      (event) =>
-        (event.type === "messages" &&
-          (!event.conversationId || event.conversationId === id)) ||
-        event.type === "refresh",
-      [messagesChangedEvent],
-    );
+    const watcher = watchDirectThread({
+      conversationId: id,
+      revision: () => revision.current ?? undefined,
+      receive: receiveThread,
+      read: readThread,
+      error: setError,
+    });
     live.current = watcher;
     return () => {
       mounted.current = false;
       watcher.dispose();
     };
-  }, [readThread, id]);
+  }, [readThread, receiveThread, id]);
   const refresh = () => live.current?.request();
   function captureHistoryAnchor() {
     const top = viewport.current?.getBoundingClientRect().top ?? 0;

@@ -4,6 +4,11 @@ import { releaseCommit } from "./lib/release-id";
 
 const storageEndpoint =
   process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT;
+const websocketOrigin = new URL(
+  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+);
+websocketOrigin.protocol =
+  websocketOrigin.protocol === "https:" ? "wss:" : "ws:";
 const mediaOrigin =
   process.env.PB_TEST_DATABASE === "disposable-docker" &&
   process.env.PB_TEST_R2_ENDPOINT
@@ -28,6 +33,17 @@ const nextConfig: NextConfig = {
     process.env.PB_TEST_DATABASE === "disposable-docker" ? false : undefined,
   distDir: process.env.PB_TEST_BUILD === "1" ? ".next-browser" : ".next",
   reactCompiler: true,
+  serverExternalPackages: ["ws"],
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: "/api/realtime",
+          destination: `http://127.0.0.1:${process.env.PB_REALTIME_PORT || "3010"}/api/realtime`,
+        },
+      ],
+    };
+  },
   async headers() {
     return [
       {
@@ -46,7 +62,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value: `default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https://cdn.discordapp.com https://fav.farm ${mediaOrigin}; media-src 'self' blob: ${mediaOrigin}; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}; connect-src 'self' ${mediaOrigin}; worker-src 'self'`,
+            value: `default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https://cdn.discordapp.com https://fav.farm ${mediaOrigin}; media-src 'self' blob: ${mediaOrigin}; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}; connect-src 'self' ${websocketOrigin.origin} ${mediaOrigin}; worker-src 'self'`,
           },
         ],
       },

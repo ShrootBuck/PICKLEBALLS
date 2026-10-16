@@ -2,10 +2,9 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { requestAppRefresh } from "@/lib/app-refresh";
-import { dispatchRealtime } from "@/lib/realtime-client";
-import { realtimeEventSchema } from "@/lib/realtime-types";
+import { openRealtime, subscribeRealtime } from "@/lib/realtime-client";
+import type { RealtimeStatus as Status } from "@/lib/realtime-connection";
 
-type Status = "connecting" | "live" | "reconnecting" | "offline" | "paused";
 const Context = createContext<Status>("connecting");
 export const useRealtimeStatus = () => useContext(Context);
 
@@ -19,75 +18,49 @@ export function RealtimeProvider({
   const [status, setStatus] = useState<Status>("connecting");
   useEffect(() => {
     if (!userId) return;
-    let source: EventSource | null = null;
-    let lastEvent = Date.now();
-    let signedOut = false;
-    const close = () => {
-      source?.close();
-      source = null;
-    };
-    const connect = () => {
-      if (signedOut) return;
-      if (!navigator.onLine || document.visibilityState === "hidden") {
-        close();
-        setStatus(navigator.onLine ? "paused" : "offline");
-        return;
-      }
-      if (source) return;
-      setStatus("connecting");
-      lastEvent = Date.now();
-      const current = new EventSource("/api/realtime");
-      source = current;
-      current.onmessage = (message) => {
-        if (source !== current) return;
-        try {
-          const parsed = realtimeEventSchema.safeParse(
-            JSON.parse(message.data),
-          );
-          if (!parsed.success) return;
-          lastEvent = Date.now();
-          const event = parsed.data;
-          if (event.type === "signed-out") {
-            dispatchRealtime(event);
-            signedOut = true;
-            close();
+    let disposed = false;
+    let lastSessionCheck = 0;
+    const verifySession = () => {
+      if (Date.now() - lastSessionCheck < 30_000) return;
+      lastSessionCheck = Date.now();
+      // A failed HTTP upgrade cannot expose its 401 status to browser JS.
+      void fetch("/api/auth/get-session", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      })
+        .then(async (response) => {
+          if (response.ok && !(await response.json()) && !disposed)
             requestAppRefresh();
-          } else if (event.type === "reconnect") {
-            dispatchRealtime(event);
-            setStatus("reconnecting");
-            // The server closes after this event. EventSource handles retry.
-          } else {
-            if (event.type === "ready") setStatus("live");
-            if (event.type !== "ping") dispatchRealtime(event);
-          }
-        } catch {
-          /* Ignore invalid frames. */
-        }
-      };
-      current.onerror = () => {
-        if (source === current)
-          setStatus(navigator.onLine ? "reconnecting" : "offline");
-      };
+        })
+        .catch(() => {});
     };
+    const url = new URL("/api/realtime", window.location.href);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    const connection = openRealtime(url.href, setStatus, verifySession);
+    const unsubscribe = subscribeRealtime((event) => {
+      if (event.type === "signed-out") requestAppRefresh();
+    });
+    const connect = () =>
+      connection.setActive(
+        document.visibilityState !== "hidden",
+        navigator.onLine,
+      );
+    const pagehide = () => connection.setActive(false, navigator.onLine);
     connect();
-    // Detect a silent proxy/network stall, not just a clean socket close.
-    const watchdog = setInterval(() => {
-      if (source && Date.now() - lastEvent > 45_000) {
-        close();
-        connect();
-      }
-    }, 15_000);
     document.addEventListener("visibilitychange", connect);
     window.addEventListener("online", connect);
     window.addEventListener("offline", connect);
     window.addEventListener("pageshow", connect);
+    window.addEventListener("pagehide", pagehide);
     return () => {
-      close();
-      clearInterval(watchdog);
+      disposed = true;
+      connection.dispose();
+      unsubscribe();
       document.removeEventListener("visibilitychange", connect);
       window.removeEventListener("online", connect);
       window.removeEventListener("offline", connect);
       window.removeEventListener("pageshow", connect);
+      window.removeEventListener("pagehide", pagehide);
     };
   }, [userId]);
   return <Context value={status}>{children}</Context>;

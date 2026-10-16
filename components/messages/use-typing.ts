@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { subscribeRealtime } from "@/lib/realtime-client";
+import { sendRealtime, subscribeRealtime } from "@/lib/realtime-client";
 import { typingLifetimeMs } from "@/lib/realtime-types";
 
 export function useTypingSender(conversationId: string) {
@@ -11,23 +11,10 @@ export function useTypingSender(conversationId: string) {
     let active = false;
     let lastSent = 0;
     let idle: ReturnType<typeof setTimeout> | undefined;
-    let delivery = Promise.resolve();
     const publish = (value: boolean) => {
-      // Preserve start/stop ordering even on a slow connection. No draft text
-      // is sent, and the receiver expires an abandoned tab after six seconds.
-      delivery = delivery.then(async () => {
-        try {
-          await fetch(`/api/messages/${conversationId}/typing`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ active: value, clientId }),
-            keepalive: true,
-            signal: AbortSignal.timeout(5000),
-          });
-        } catch {
-          /* Typing is ephemeral; it must never block sending a message. */
-        }
-      });
+      // WebSocket frames preserve start/stop ordering. Never queue stale typing
+      // across a reconnect, and never send the private draft text.
+      sendRealtime({ type: "typing", conversationId, active: value, clientId });
     };
     const stop = () => {
       clearTimeout(idle);

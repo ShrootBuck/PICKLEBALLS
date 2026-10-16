@@ -1,6 +1,8 @@
 # Loaded by Coolify's Traefik file provider. Keep the Docker service reference
 # aligned with Pickle Balls Web if the Coolify application is ever recreated.
 # Referencing the generated service preserves rolling container discovery.
+# Traefik forwards WebSocket upgrades on this route to the normal Next port.
+# Next proxies them to its private in-process listener; no new public port.
 http:
   routers:
     pickleballs-realtime-streaming:

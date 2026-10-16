@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, expect, mock, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 import { Client } from "pg";
+import type NodeWebSocket from "ws";
+import type { RealtimeFrame } from "@/lib/realtime-protocol";
 import type { RealtimeEvent } from "@/lib/realtime-types";
 
 if (
@@ -10,6 +13,12 @@ if (
   throw new Error(
     "Run with bun run test:integration against disposable Postgres.",
   );
+// Exercise the actual Node production library, not Bun's built-in ws shim.
+const ws = createRequire(import.meta.url)(
+  "../node_modules/ws/index.js",
+) as typeof import("ws");
+const WebSocket = ws.WebSocket;
+mock.module("ws", () => ws);
 mock.module("server-only", () => ({}));
 mock.module("@/lib/auth", () => ({
   auth: {
@@ -25,7 +34,25 @@ mock.module("@/lib/auth", () => ({
 }));
 const { getPrisma } = await import("@/lib/prisma");
 const { getRealtimeHub } = await import("@/lib/realtime-server");
-const { GET } = await import("@/app/api/realtime/route");
+const { createRealtimeWebSocketServer } = await import(
+  "@/lib/realtime-websocket-server"
+);
+let server: Awaited<ReturnType<typeof createRealtimeWebSocketServer>>;
+let socketUrl: string;
+const clients: NodeWebSocket[] = [];
+async function openSocket(userId: string) {
+  const socket = new WebSocket(socketUrl, {
+    headers: {
+      origin: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3317",
+      "x-test-user": userId,
+    },
+  });
+  clients.push(socket);
+  const frames: RealtimeFrame[] = [];
+  socket.on("message", (data) => frames.push(JSON.parse(data.toString())));
+  await until(() => frames.some((frame) => frame.type === "ready"));
+  return { socket, frames };
+}
 const { POST: typing } = await import("@/app/api/messages/[id]/typing/route");
 const { sendDirectMessage, directThread, directInbox, readDirectMessages } =
   await import("@/lib/direct-messages");
@@ -61,13 +88,18 @@ beforeAll(async () => {
     data: [a, b].map((userId) => ({ userId, circleId: circle })),
   });
   await db.session.createMany({
-    data: [a, b].map((userId) => ({
+    data: [a, b, outsider].map((userId) => ({
       id: `rt-session-${userId}`,
       userId,
       token: `rt-token-${userId}`,
       expiresAt: new Date(Date.now() + 3600_000),
     })),
   });
+  server = await createRealtimeWebSocketServer(0);
+  const address = server.server.address();
+  if (!address || typeof address === "string")
+    throw new Error("Missing test port");
+  socketUrl = `ws://127.0.0.1:${address.port}/api/realtime`;
   await writer.connect();
   for (const user of [a, b, outsider]) {
     const list: RealtimeEvent[] = [];
@@ -82,6 +114,8 @@ beforeAll(async () => {
   clear();
 });
 afterAll(async () => {
+  for (const client of clients) client.terminate();
+  await server?.close();
   for (const unsubscribe of unsubscribers) unsubscribe();
   await hub.close();
   await writer.end();
@@ -271,70 +305,260 @@ test("membership revocation refreshes the removed user but cuts off later circle
   expect(events.get(outsider)).toEqual([]);
 });
 
-test("the SSE route authenticates, streams without buffering, and releases subscriptions on abort", async () => {
-  expect((await GET(new Request("http://localhost/api/realtime"))).status).toBe(
-    401,
-  );
-  const controller = new AbortController();
-  const response = await GET(
-    new Request("http://localhost/api/realtime", {
-      headers: { "x-test-user": a },
-      signal: controller.signal,
-    }),
-  );
-  expect(response.headers.get("content-type")).toContain("text/event-stream");
-  expect(response.headers.get("cache-control")).toContain("no-transform");
-  expect(response.headers.get("x-accel-buffering")).toBe("no");
-  if (!response.body) throw new Error("Missing event stream");
-  const reader = response.body.getReader();
-  let text = "";
-  while (!text.includes('"ready"'))
-    text += new TextDecoder().decode((await reader.read()).value);
-  controller.abort();
-  let done = false;
-  while (!done) done = (await reader.read()).done;
-  expect(done).toBe(true);
-});
-
-test("revoking a session immediately closes its open stream", async () => {
-  const response = await GET(
-    new Request("http://localhost/api/realtime", {
-      headers: { "x-test-user": b },
-    }),
-  );
-  if (!response.body) throw new Error("Missing event stream");
-  const reader = response.body.getReader();
-  await db.session.delete({ where: { id: `rt-session-${b}` } });
-  let text = "";
-  for (;;) {
-    const result = await reader.read();
-    if (result.done) break;
-    text += new TextDecoder().decode(result.value);
+test("WebSocket upgrades reject missing auth and cross-origin connections", async () => {
+  async function rejected(headers: Record<string, string>) {
+    return new Promise<number>((resolve, reject) => {
+      const socket = new WebSocket(socketUrl, { headers });
+      socket.on("unexpected-response", (_request, response) => {
+        response.resume();
+        socket.terminate();
+        resolve(response.statusCode ?? 0);
+      });
+      socket.on("open", () => {
+        socket.terminate();
+        reject(new Error("Unexpected upgrade"));
+      });
+      socket.on("error", () => {});
+    });
   }
-  expect(text).toContain('"signed-out"');
+  expect(
+    await rejected({
+      origin: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3317",
+    }),
+  ).toBe(401);
+  expect(
+    await rejected({ origin: "https://attacker.invalid", "x-test-user": a }),
+  ).toBe(403);
+  expect(await rejected({ "x-test-user": a })).toBe(403);
 });
 
-test("a user cannot accumulate unlimited streams and released slots can reconnect", async () => {
+test("subscribed messages and receipts are pushed, and unauthorized subscriptions reveal nothing", async () => {
+  const { socket, frames } = await openSocket(a);
+  const conversation = await db.directConversation.findFirstOrThrow({
+    where: { userAId: a, userBId: b },
+  });
+  const subscriptionId = randomUUID();
+  socket.send(
+    JSON.stringify({
+      type: "watch-thread",
+      subscriptionId,
+      conversationId: conversation.id,
+    }),
+  );
+  await until(() => frames.some((frame) => frame.type === "thread"));
+  frames.length = 0;
+  const message = await sendDirectMessage(a, conversation.id, {
+    clientId: randomUUID(),
+    body: "Pushed through WebSocket",
+  });
+  await until(() =>
+    frames.some(
+      (frame) =>
+        frame.type === "thread" &&
+        frame.thread.messages.some((row) => row.id === message.id),
+    ),
+  );
+  const peer = await openSocket(b);
+  const requestId = randomUUID();
+  peer.socket.send(
+    JSON.stringify({
+      type: "read",
+      requestId,
+      conversationId: conversation.id,
+      through: message.sequence,
+    }),
+  );
+  await until(() =>
+    peer.frames.some(
+      (frame) => frame.type === "result" && frame.requestId === requestId,
+    ),
+  );
+  await until(() =>
+    frames.some(
+      (frame) =>
+        frame.type === "thread" &&
+        frame.thread.readThrough === message.sequence,
+    ),
+  );
+  const stranger = await openSocket(outsider);
+  stranger.socket.send(
+    JSON.stringify({
+      type: "watch-thread",
+      subscriptionId,
+      conversationId: conversation.id,
+    }),
+  );
+  await until(() =>
+    stranger.frames.some(
+      (frame) => frame.type === "error" && frame.status === 404,
+    ),
+  );
+  expect(stranger.frames.some((frame) => frame.type === "thread")).toBe(false);
+  socket.send(JSON.stringify({ type: "unwatch-thread", subscriptionId }));
+  await Bun.sleep(100);
+  frames.length = 0;
+  await sendDirectMessage(a, conversation.id, {
+    clientId: randomUUID(),
+    body: "After unsubscribe",
+  });
+  await Bun.sleep(200);
+  expect(frames.some((frame) => frame.type === "thread")).toBe(false);
+  socket.terminate();
+  peer.socket.terminate();
+  stranger.socket.terminate();
+});
+
+test("typing uses ordered socket frames and still enforces conversation access", async () => {
+  const { socket } = await openSocket(a);
+  const peer = await openSocket(b);
+  const conversation = await db.directConversation.findFirstOrThrow({
+    where: { userAId: a, userBId: b },
+  });
+  const clientId = randomUUID();
+  for (const active of [true, false])
+    socket.send(
+      JSON.stringify({
+        type: "typing",
+        conversationId: conversation.id,
+        clientId,
+        active,
+      }),
+    );
+  await until(
+    () =>
+      peer.frames.filter(
+        (frame) => frame.type === "typing" && frame.clientId === clientId,
+      ).length === 2,
+  );
+  expect(
+    peer.frames
+      .filter((frame) => frame.type === "typing")
+      .map((frame) => frame.type === "typing" && frame.active),
+  ).toEqual([true, false]);
+  const stranger = await openSocket(outsider);
+  stranger.socket.send(
+    JSON.stringify({
+      type: "typing",
+      conversationId: conversation.id,
+      clientId: randomUUID(),
+      active: true,
+    }),
+  );
+  await until(() =>
+    stranger.frames.some(
+      (frame) => frame.type === "error" && frame.status === 404,
+    ),
+  );
+  socket.terminate();
+  peer.socket.terminate();
+  stranger.socket.terminate();
+});
+
+test("resubscribing drains more than one page of missed message revisions", async () => {
+  const conversation = await db.directConversation.findFirstOrThrow({
+    where: { userAId: a, userBId: b },
+  });
+  const sent = new Set<string>();
+  for (let index = 0; index < 105; index++) {
+    const message = await sendDirectMessage(a, conversation.id, {
+      clientId: randomUUID(),
+      body: `Missed update ${index}`,
+    });
+    sent.add(message.id);
+  }
+  const { socket, frames } = await openSocket(a);
+  socket.send(
+    JSON.stringify({
+      type: "watch-thread",
+      subscriptionId: randomUUID(),
+      conversationId: conversation.id,
+      sinceRevision: conversation.revision,
+    }),
+  );
+  const received = () =>
+    frames.flatMap((frame) =>
+      frame.type === "thread" ? frame.thread.messages : [],
+    );
+  await until(() =>
+    [...sent].every((id) => received().some((message) => message.id === id)),
+  );
+  const pages = frames.filter((frame) => frame.type === "thread");
+  expect(pages).toHaveLength(2);
+  expect(pages[0].thread.moreChanges).toBe(true);
+  expect(pages[1].thread.moreChanges).toBe(false);
+  expect(new Set(received().map((message) => message.id)).size).toBe(105);
+  socket.terminate();
+}, 15_000);
+
+test("removing circle membership stops an already subscribed group thread", async () => {
+  await db.membership.create({ data: { userId: b, circleId: circle } });
+  const group = (await directInbox(a, circle)).find(
+    (chat) => chat.kind === "group",
+  );
+  if (!group) throw new Error("Missing group conversation");
+  const { socket, frames } = await openSocket(b);
+  socket.send(
+    JSON.stringify({
+      type: "watch-thread",
+      subscriptionId: randomUUID(),
+      conversationId: group.id,
+    }),
+  );
+  await until(() => frames.some((frame) => frame.type === "thread"));
+  await db.membership.delete({
+    where: { userId_circleId: { userId: b, circleId: circle } },
+  });
+  await until(() =>
+    frames.some((frame) => frame.type === "error" && frame.status === 404),
+  );
+  frames.length = 0;
+  await sendDirectMessage(a, group.id, {
+    clientId: randomUUID(),
+    body: "Private after removal",
+  });
+  await Bun.sleep(200);
+  expect(frames.some((frame) => frame.type === "thread")).toBe(false);
+  socket.terminate();
+});
+
+test("revoking a session immediately closes its open socket", async () => {
+  const { socket, frames } = await openSocket(b);
+  await db.session.delete({ where: { id: `rt-session-${b}` } });
+  await until(() => frames.some((frame) => frame.type === "signed-out"));
+  await until(() => socket.readyState === WebSocket.CLOSED);
+});
+
+test("oversized or invalid commands close the socket instead of allocating unbounded work", async () => {
+  for (const value of ['{"type":"arbitrary-command"}', "x".repeat(5000)]) {
+    const { socket } = await openSocket(a);
+    socket.send(value);
+    await until(() => socket.readyState === WebSocket.CLOSED);
+  }
+});
+
+test("a user cannot accumulate unlimited connections and released slots can reconnect", async () => {
   const slots: (() => void)[] = [];
   try {
     // One subscription for this user is already held by the test observer.
     for (let index = 0; index < 11; index++)
       slots.push(hub.subscribe(a, () => {}));
-    const request = () =>
-      new Request("http://localhost/api/realtime", {
-        headers: { "x-test-user": a },
-      });
-    expect((await GET(request())).status).toBe(429);
+    const socket = new WebSocket(socketUrl, {
+      headers: {
+        origin: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3317",
+        "x-test-user": a,
+      },
+    });
+    clients.push(socket);
+    await until(() => socket.readyState === WebSocket.CLOSED);
     slots.pop()?.();
-    const response = await GET(request());
-    expect(response.status).toBe(200);
-    await response.body?.cancel();
+    const allowed = await openSocket(a);
+    allowed.socket.terminate();
   } finally {
     for (const unsubscribe of slots) unsubscribe();
   }
 });
 
-test("a database listener disconnect closes streams and a new subscription gets a fresh ready signal", async () => {
+test("a database listener disconnect closes sockets and a new subscription gets a fresh ready signal", async () => {
   clear();
   await writer.query(
     "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name = 'pickleballs-realtime' AND datname = current_database()",

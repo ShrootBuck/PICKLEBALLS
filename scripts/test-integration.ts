@@ -87,6 +87,7 @@ try {
     NODE_ENV: "development" as const,
     PB_TEST_DATABASE: "disposable-docker",
     PB_TEST_BUILD: "1",
+    PB_REALTIME_PORT: "3319",
     WATCHPACK_POLLING: "true",
     DATABASE_URL: databaseUrl,
     DIRECT_DATABASE_URL: databaseUrl,

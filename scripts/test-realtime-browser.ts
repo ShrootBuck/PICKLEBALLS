@@ -21,13 +21,36 @@ try {
   const page = await you.newPage();
   const peer = await eddie.newPage();
   const errors: string[] = [];
+  const sentFrames: { type: string }[] = [];
+  const receivedFrames: { type: string }[] = [];
+  const transportRequests: string[] = [];
+  for (const tab of [page, peer]) {
+    tab.on("websocket", (socket) => {
+      if (!socket.url().endsWith("/api/realtime")) return;
+      socket.on("framesent", ({ payload }) =>
+        sentFrames.push(JSON.parse(String(payload))),
+      );
+      socket.on("framereceived", ({ payload }) =>
+        receivedFrames.push(JSON.parse(String(payload))),
+      );
+    });
+    tab.on("request", (request) => {
+      if (
+        request.resourceType() === "eventsource" ||
+        new URL(request.url()).pathname.endsWith("/typing")
+      )
+        transportRequests.push(request.url());
+    });
+  }
   for (const tab of [page, peer])
     tab.on("pageerror", (error) => errors.push(error.message));
-  await page.goto("http://localhost:3318/login");
-  await peer.goto("http://localhost:3318/login?user=eddie");
-  // Let the initial stream's snapshot reconciliation finish before a hard
-  // navigation. WebKit otherwise cancels goto when that RSC response lands.
-  await page.waitForTimeout(1500);
+  // Seed the browser-context cookies directly, then open the page under test.
+  // Navigating away from the login landing page during its initial RSC refresh
+  // creates unrelated WebKit development-overlay errors.
+  await you.request.get("http://localhost:3318/login", { maxRedirects: 0 });
+  await eddie.request.get("http://localhost:3318/login?user=eddie", {
+    maxRedirects: 0,
+  });
   const start = await you.request.get(`${app}/api/messages`);
   assert.equal(start.status(), 200);
   const { conversations } = await start.json();
@@ -39,14 +62,19 @@ try {
   await peer.goto(`${app}/messages?chat=${id}`);
   for (const tab of [page, peer])
     await tab.locator('[data-realtime-status="live"]').waitFor();
+  for (const tab of [page, peer]) await tab.waitForLoadState("networkidle");
+  const threadReads: string[] = [];
+  const trackThreadRead = (request: import("playwright").Request) => {
+    if (
+      request.method() === "GET" &&
+      new URL(request.url()).pathname === `/api/messages/${id}`
+    )
+      threadReads.push(request.url());
+  };
+  for (const tab of [page, peer]) tab.on("request", trackThreadRead);
   const composer = page.getByRole("textbox", { name: "Message Eddie" });
   const peerComposer = peer.getByRole("textbox", { name: /^Message / });
   await peerComposer.fill("Keep this unfinished draft");
-  // Warm the dev route before measuring transport latency.
-  await you.request.post(`${app}/api/messages/${id}/typing`, {
-    headers: { origin: app },
-    data: { active: false, clientId: randomUUID() },
-  });
   await page.bringToFront();
   let since = Date.now();
   await composer.fill("Typing a private message");
@@ -89,6 +117,12 @@ try {
     .getByRole("button", { name: "🔥 reaction, react", exact: true })
     .waitFor({ timeout: 3000 });
   timings.reaction = Date.now() - since;
+  for (const tab of [page, peer]) tab.off("request", trackThreadRead);
+  assert.deepEqual(
+    threadReads,
+    [],
+    "Live message changes should push deltas without HTTP thread reads",
+  );
 
   // There should be no healthy-path message polling, even past the old 10s interval.
   await page.waitForTimeout(2000);
@@ -175,6 +209,7 @@ try {
 
   // Feed delivery and worker-originated notifications use the same connection.
   await peer.setViewportSize({ width: 1440, height: 960 });
+  await peer.waitForLoadState("networkidle");
   await peer.goto(`${app}/feed`);
   await peer.getByRole("region", { name: "Circle timeline" }).waitFor();
   const note = `A live check-in ${randomUUID().slice(0, 8)}`;
@@ -203,8 +238,21 @@ try {
     .getByText(notification, { exact: true })
     .waitFor({ timeout: 5000 });
   assert.deepEqual(errors, []);
+  assert.deepEqual(transportRequests, [], "No SSE or HTTP typing traffic");
+  assert.ok(
+    sentFrames.some((frame) => frame.type === "typing"),
+    "Typing uses WebSocket frames",
+  );
+  assert.ok(
+    sentFrames.some((frame) => frame.type === "read"),
+    "Receipts use WebSocket frames",
+  );
+  assert.ok(
+    receivedFrames.some((frame) => frame.type === "thread"),
+    "Message deltas are pushed over WebSocket",
+  );
   console.log(
-    `Realtime browser checks passed: typing/start/stop, delivery, receipts, reactions, zero idle polling, offline recovery, listener reconnect, deletion, draft preservation, 320/390/768/1440px, feed and worker notifications. Latency (ms): ${JSON.stringify(timings)}`,
+    `WebSocket browser checks passed: typing/start/stop, delivery, receipts, reactions, zero idle polling, offline recovery, listener reconnect, deletion, draft preservation, 320/390/768/1440px, feed and worker notifications. Latency (ms): ${JSON.stringify(timings)}`,
   );
 } finally {
   await db.end();

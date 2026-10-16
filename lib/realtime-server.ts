@@ -12,7 +12,7 @@ import {
 
 type Listener = (event: RealtimeEvent) => void;
 
-// One dedicated LISTEN connection per web process, shared by all open streams.
+// One dedicated LISTEN connection per web process, shared by all open sockets.
 // Publishers (including the worker) use transactional Postgres notifications.
 export class RealtimeHub {
   private listeners = new Map<string, Set<Listener>>();
@@ -61,7 +61,7 @@ export class RealtimeHub {
       clearInterval(this.heartbeat);
       this.flushTimer = undefined;
       this.pending.clear();
-      // Reopening the HTTP stream rechecks auth and refreshes snapshots. NOTIFY
+      // Reopening the socket rechecks auth and refreshes snapshots. NOTIFY
       // is deliberately not an event log; missed changes are read from the DB.
       this.broadcast({ type: "reconnect" });
       void client.end().catch(() => {});
