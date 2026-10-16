@@ -3030,11 +3030,19 @@ section:first-child > .mood-group-label {
   }
 }
 
-/* Streaks. Warm fire colors stay consistent across app themes. */
+/* Streaks. Each tier restyles the shared gradient variables, so the fire
+   shifts from campfire orange to violet inferno without new markup. */
 .streak-ember {
-  --ember-outer: #ff791f;
-  --ember-inner: #ffd66b;
+  --ember-outer-0: #d92d04;
+  --ember-outer-1: #f04416;
+  --ember-outer-2: #ff781f;
+  --ember-outer-3: #ffcf5a;
+  --ember-inner-0: #ffae28;
+  --ember-inner-1: #ffe575;
+  --ember-inner-2: #fff8cf;
   --ember-core: #fffbe8;
+  --ember-flicker: 2.6s;
+  --ember-flicker-inner: 1.8s;
   position: relative;
   display: grid;
   place-items: center;
@@ -3047,7 +3055,7 @@ section:first-child > .mood-group-label {
   pointer-events: none;
   background: radial-gradient(
     ellipse at 50% 68%,
-    color-mix(in oklch, var(--ember-outer) 32%, transparent),
+    color-mix(in oklch, var(--ember-outer-1) 32%, transparent),
     transparent 62%
   );
   opacity: var(--ember-glow, 0.35);
@@ -3057,16 +3065,37 @@ section:first-child > .mood-group-label {
     scale 900ms var(--ease-spring);
 }
 .streak-ember[data-tier="flame"] {
-  --ember-glow: 0.5;
+  --ember-glow: 0.55;
   --ember-glow-scale: 0.95;
 }
 .streak-ember[data-tier="blaze"] {
-  --ember-glow: 0.7;
-  --ember-glow-scale: 1.1;
+  --ember-outer-0: #ad1b02;
+  --ember-outer-1: #f2380a;
+  --ember-outer-2: #ff8b1f;
+  --ember-outer-3: #ffd95a;
+  --ember-inner-0: #ffb428;
+  --ember-inner-1: #ffef75;
+  --ember-glow: 0.75;
+  --ember-glow-scale: 1.15;
+  --ember-flicker: 2.1s;
+  --ember-flicker-inner: 1.5s;
 }
 .streak-ember[data-tier="inferno"] {
-  --ember-glow: 0.95;
-  --ember-glow-scale: 1.3;
+  --ember-outer-0: #3d0a94;
+  --ember-outer-1: #7b1fd6;
+  --ember-outer-2: #f2380a;
+  --ember-outer-3: #ffd95a;
+  --ember-inner-0: #ff9e28;
+  --ember-inner-1: #ffef75;
+  --ember-inner-2: #ffffff;
+  --ember-core: #ffffff;
+  --ember-glow: 1;
+  --ember-glow-scale: 1.35;
+  --ember-flicker: 1.6s;
+  --ember-flicker-inner: 1.2s;
+}
+.streak-ember[data-tier="inferno"]::before {
+  animation: ember-glow-pulse 2.2s ease-in-out infinite;
 }
 .streak-ember svg {
   position: relative;
@@ -3077,45 +3106,70 @@ section:first-child > .mood-group-label {
 .streak-ember .flame-core {
   fill: var(--ember-core);
 }
+.streak-ember .flame-hot-core {
+  fill: #ffffff;
+  opacity: 0.9;
+}
+.streak-ember .ember-coal-base {
+  fill: #33150b;
+}
+.streak-ember .ember-coal-crack {
+  fill: none;
+  stroke: #ff8b1f;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  opacity: 0.8;
+}
 .streak-ember .flame-body,
 .streak-ember .flame-flicker,
 .streak-ember .flame-flicker-inner,
-.streak-ember .flame-side {
+.streak-ember .flame-side,
+.streak-ember .ember-orbit {
   transform-box: view-box;
   transform-origin: 32px 58px;
 }
 .streak-ember .flame-body {
   filter: drop-shadow(0 2px 3px #ff6a2426);
-  scale: var(--ember-scale, 0.68);
+  scale: var(--ember-scale, 0.62);
   transition: scale 900ms var(--ease-bounce);
 }
 .streak-ember[data-tier="flame"] .flame-body {
-  --ember-scale: 0.88;
+  --ember-scale: 0.82;
 }
 .streak-ember[data-tier="blaze"] .flame-body,
 .streak-ember[data-tier="inferno"] .flame-body {
-  --ember-scale: 0.94;
+  --ember-scale: 0.96;
 }
 .streak-ember .flame-flicker {
-  animation: ember-flicker 2.6s ease-in-out infinite;
+  animation: ember-flicker var(--ember-flicker) ease-in-out infinite;
 }
 .streak-ember .flame-flicker-inner {
-  animation: ember-flicker 1.8s ease-in-out infinite reverse;
+  animation: ember-flicker var(--ember-flicker-inner) ease-in-out infinite
+    reverse;
 }
 .streak-ember .flame-side {
-  animation: ember-flicker 2.1s ease-in-out infinite;
-  opacity: 0.85;
+  animation: ember-flicker 1.9s ease-in-out infinite;
+  opacity: 0.9;
+}
+.streak-ember[data-tier="inferno"] .flame-flicker,
+.streak-ember[data-tier="inferno"] .flame-flicker-inner,
+.streak-ember[data-tier="inferno"] .flame-side {
+  animation-name: ember-flicker-wild;
 }
 .streak-ember .ember-spark {
-  fill: var(--ember-inner);
+  fill: var(--ember-inner-1);
   animation: ember-rise 2.4s ease-out infinite;
   opacity: 0;
 }
-.streak-ember .ember-spark:nth-of-type(2) {
-  animation-delay: 0.8s;
+.streak-ember[data-tier="inferno"] .ember-spark {
+  fill: var(--ember-inner-2);
 }
-.streak-ember .ember-spark:nth-of-type(3) {
-  animation-delay: 1.6s;
+.streak-ember .ember-orbit {
+  animation: ember-orbit-spin 2.6s linear infinite;
+}
+.streak-ember .ember-orbit-dot {
+  fill: var(--ember-inner-2);
+  animation: ember-orbit-fade 1.3s ease-in-out infinite alternate;
 }
 .streak-ember[data-dim] {
   filter: grayscale(0.85);
@@ -3136,10 +3190,53 @@ section:first-child > .mood-group-label {
     transform: scale(0.99, 1.03) skewX(0.6deg);
   }
 }
+@keyframes ember-flicker-wild {
+  0%,
+  100% {
+    transform: scale(1, 1) skewX(0deg);
+  }
+  18% {
+    transform: scale(0.94, 1.09) skewX(2.6deg);
+  }
+  43% {
+    transform: scale(1.06, 0.94) skewX(-2.2deg);
+  }
+  66% {
+    transform: scale(0.97, 1.06) skewX(1.4deg);
+  }
+  84% {
+    transform: scale(1.03, 0.98) skewX(-0.9deg);
+  }
+}
+@keyframes ember-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.75;
+    scale: 1.15;
+  }
+  50% {
+    opacity: 1;
+    scale: 1.5;
+  }
+}
+@keyframes ember-orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ember-orbit-fade {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
 @keyframes ember-rise {
   0% {
     opacity: 0;
     translate: 0 0;
+    scale: 1;
   }
   20% {
     opacity: 1;
@@ -3147,6 +3244,7 @@ section:first-child > .mood-group-label {
   100% {
     opacity: 0;
     translate: var(--drift, 0) -28px;
+    scale: 0.3;
   }
 }
 
@@ -3380,6 +3478,9 @@ section:first-child > .mood-group-label {
   .streak-ember .flame-flicker-inner,
   .streak-ember .flame-side,
   .streak-ember .ember-spark,
+  .streak-ember .ember-orbit,
+  .streak-ember .ember-orbit-dot,
+  .streak-ember::before,
   .streak-celebration-body,
   .streak-confetti span {
     animation: none;

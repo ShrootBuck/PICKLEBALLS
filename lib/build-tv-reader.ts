@@ -133,7 +133,7 @@ export function createBuildTVReader({
           status: build.status,
           commit:
             build.commit && /^[a-f0-9]{40}$/i.test(build.commit)
-              ? build.commit.slice(0, 7)
+              ? build.commit.toLowerCase()
               : null,
           commitMessage:
             build.commit_message

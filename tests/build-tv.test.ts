@@ -1,4 +1,9 @@
 import { expect, test } from "bun:test";
+import {
+  type BuildSnapshot,
+  type BuildStatus,
+  buildTVUpdates,
+} from "../lib/build-tv";
 import { createBuildTVReader } from "../lib/build-tv-reader";
 
 const config = {
@@ -8,6 +13,82 @@ const config = {
   workerUuid: "worker-app",
 };
 const start = Date.parse("2026-10-15T12:00:00Z");
+
+test("pairs services into one update throughout the rollout", () => {
+  const services = (statuses: BuildStatus[]): BuildSnapshot["services"] =>
+    statuses.map((status, index) => ({
+      key: index === 0 ? "web" : "worker",
+      queued: 0,
+      running: 0,
+      builds: [
+        {
+          id: `build-${index}`,
+          commit: "a".repeat(40),
+          commitMessage: index === 0 ? "A new update" : null,
+          createdAt: new Date(start).toISOString(),
+          status,
+        },
+      ],
+    }));
+  for (const [web, worker, expected] of [
+    ["queued", "queued", "queued"],
+    ["in_progress", "queued", "in_progress"],
+    ["finished", "queued", "in_progress"],
+    ["finished", "in_progress", "in_progress"],
+    ["finished", "finished", "finished"],
+    ["finished", "failed", "failed"],
+    ["finished", "cancelled-by-user", "cancelled-by-user"],
+  ] as const) {
+    const updates = buildTVUpdates(services([web, worker]));
+    expect(updates).toHaveLength(1);
+    expect(updates[0]).toMatchObject({
+      status: expected,
+      commitMessage: "A new update",
+    });
+  }
+});
+
+test("retries replace old failures, unknown commits stay separate, and full hashes distinguish updates", () => {
+  const build = (
+    id: string,
+    status: BuildStatus,
+    commit: string | null,
+    age = 0,
+  ) => ({
+    id,
+    status,
+    commit,
+    commitMessage: null,
+    createdAt: new Date(start + age).toISOString(),
+  });
+  const updates = buildTVUpdates([
+    {
+      key: "web",
+      queued: 0,
+      running: 0,
+      builds: [
+        build("retry", "finished", "a".repeat(40), 1000),
+        build("old", "failed", "a".repeat(40)),
+        build("other", "finished", `${"a".repeat(7)}${"b".repeat(33)}`),
+        build("unknown", "queued", null),
+      ],
+    },
+    {
+      key: "worker",
+      queued: 0,
+      running: 0,
+      builds: [
+        build("done", "finished", "a".repeat(40)),
+        build("unknown", "queued", null),
+      ],
+    },
+  ]);
+  expect(updates).toHaveLength(4);
+  expect(
+    updates.find((update) => update.commit === "a".repeat(40))?.status,
+  ).toBe("finished");
+  expect(updates.filter((update) => update.commit === null)).toHaveLength(2);
+});
 const deployment = (
   id: string,
   app: number,
@@ -99,6 +180,7 @@ test("counts the full production queue, ignores other apps/previews, and strips 
     /SECRET|PRIVATE|private-read-token|internal|application_id|configuration|logs|commit_message/,
   );
   expect(result.snapshot?.services[0].builds).toHaveLength(20_001);
+  expect(result.snapshot?.services[0].builds[0].commit).toBe("a".repeat(40));
 });
 
 test("coalesces simultaneous viewers and caches failures as well as success", async () => {

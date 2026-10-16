@@ -14,9 +14,70 @@ const outerFlame =
 const innerFlame =
   "M36 28C37 37 28 39 29 46C33 45 36 41 37 38C43 43 44 48 41 53C39 57 35 59 31 59C24 59 19 54 20 48C20 43 23 39 25 37C24 43 25 46 27 47C25 38 33 35 36 28Z";
 const leftTongue =
-  "M22 58C15.5 55.5 12 49.5 13 43.5C13.8 38.8 16.6 35.6 19 32.5C19.2 37 20.8 40.2 23 41.5C21.8 46.5 22 52.5 24.5 57.5Z";
+  "M20 58C11.5 54.5 7.5 46.5 9.5 38.5C10.8 33.2 14.8 30 17.5 26C18.4 31.5 20.8 35.5 23.5 37C21.5 43 21.8 51 25.5 57Z";
 const rightTongue =
-  "M42 58C48.5 55.5 52 49.5 51 43.5C50.2 38.8 47.4 35.6 45 32.5C44.8 37 43.2 40.2 41 41.5C42.2 46.5 42 52.5 39.5 57.5Z";
+  "M44 58C52.5 54.5 56.5 46.5 54.5 38.5C53.2 33.2 49.2 30 46.5 26C45.6 31.5 43.2 35.5 40.5 37C42.5 43 42.2 51 38.5 57Z";
+const coreShape =
+  "M33 43C34 48 38 49 37 53C36 56 34 58 31 58C27 58 25 55 26 52C27 49 30 48 33 43Z";
+const hotCoreShape =
+  "M33.5 48C34.5 51.5 37 52.5 36 55.5C35.2 57.8 33.4 59 31.2 59C28.4 59 26.5 57 27.4 54.5C28.2 52.3 31 51.5 33.5 48Z";
+const coalBase =
+  "M15 58.4C20.5 55.8 26.4 54.9 32 55.1C37.6 54.9 43.5 55.8 49 58.4C44 61.7 37.8 63 32 62.8C26.2 63 20 61.7 15 58.4Z";
+const coalCrack =
+  "M26 59.2C28.5 57.9 30.6 57.6 32.2 58.4C33.6 59.1 35.6 59 38 57.9";
+
+// Flame gradients rest on CSS variables so each tier can shift the whole fire
+// from campfire orange to violet inferno without new markup.
+const gradientStops: Record<
+  "outer" | "inner",
+  { offset: string; varName: string }[]
+> = {
+  outer: [
+    { offset: "0%", varName: "--ember-outer-0" },
+    { offset: "45%", varName: "--ember-outer-1" },
+    { offset: "78%", varName: "--ember-outer-2" },
+    { offset: "100%", varName: "--ember-outer-3" },
+  ],
+  inner: [
+    { offset: "0%", varName: "--ember-inner-0" },
+    { offset: "55%", varName: "--ember-inner-1" },
+    { offset: "100%", varName: "--ember-inner-2" },
+  ],
+};
+
+function Spark({
+  x,
+  y,
+  r,
+  delay,
+  duration,
+  drift,
+  className,
+}: {
+  x: number;
+  y: number;
+  r: number;
+  delay: number;
+  duration: number;
+  drift: number;
+  className: string;
+}) {
+  return (
+    <circle
+      className={className}
+      cx={x}
+      cy={y}
+      r={r}
+      style={
+        {
+          "--drift": `${drift}px`,
+          animationDelay: `${delay}s`,
+          animationDuration: `${duration}s`,
+        } as CSSProperties
+      }
+    />
+  );
+}
 
 export function StreakEmber({
   count = 0,
@@ -33,7 +94,8 @@ export function StreakEmber({
 }) {
   const gradientId = useId();
   const value = tier ?? streakTier(count);
-  const big = value === "blaze" || value === "inferno";
+  const tongues = value === "blaze" || value === "inferno";
+  const sparks = value !== "spark";
   return (
     <span
       aria-hidden="true"
@@ -44,54 +106,43 @@ export function StreakEmber({
     >
       <svg viewBox="0 0 64 64" aria-hidden="true">
         <defs>
-          <linearGradient
-            id={`${gradientId}-outer`}
-            x1="0"
-            y1="1"
-            x2="0.35"
-            y2="0"
-          >
-            <stop offset="0%" stopColor="#f04416" />
-            <stop offset="48%" stopColor="#ff781f" />
-            <stop offset="100%" stopColor="#ffcf5a" />
-          </linearGradient>
-          <linearGradient
-            id={`${gradientId}-inner`}
-            x1="0"
-            y1="1"
-            x2="0.2"
-            y2="0"
-          >
-            <stop offset="0%" stopColor="#ffae28" />
-            <stop offset="55%" stopColor="#ffe575" />
-            <stop offset="100%" stopColor="#fff8cf" />
-          </linearGradient>
+          {(["outer", "inner"] as const).map((name) => (
+            <linearGradient
+              key={name}
+              id={`${gradientId}-${name}`}
+              x1="0"
+              y1="1"
+              x2="0.35"
+              y2="0"
+            >
+              {gradientStops[name].map((stop) => (
+                <stop
+                  key={stop.offset}
+                  offset={stop.offset}
+                  style={{ stopColor: `var(${stop.varName})` }}
+                />
+              ))}
+            </linearGradient>
+          ))}
         </defs>
         <g className="flame-body">
-          {big && (
+          {tongues && <path className="ember-coal-base" d={coalBase} />}
+          {tongues && (
             <>
               <g
                 className="flame-side"
                 style={{ transformOrigin: "20px 58px" }}
               >
-                <path
-                  className="flame-outer"
-                  fill={`url(#${gradientId}-outer)`}
-                  d={leftTongue}
-                />
+                <path fill={`url(#${gradientId}-outer)`} d={leftTongue} />
               </g>
               <g
                 className="flame-side"
                 style={{
                   transformOrigin: "44px 58px",
-                  animationDelay: "-0.9s",
+                  animationDelay: "-0.7s",
                 }}
               >
-                <path
-                  className="flame-outer"
-                  fill={`url(#${gradientId}-outer)`}
-                  d={rightTongue}
-                />
+                <path fill={`url(#${gradientId}-outer)`} d={rightTongue} />
               </g>
             </>
           )}
@@ -108,36 +159,146 @@ export function StreakEmber({
               fill={`url(#${gradientId}-inner)`}
               d={innerFlame}
             />
-            <path
-              className="flame-core"
-              d="M33 43C34 48 38 49 37 53C36 56 34 58 31 58C27 58 25 55 26 52C27 49 30 48 33 43Z"
-            />
+            <path className="flame-core" d={coreShape} />
+            {value === "inferno" && (
+              <path className="flame-hot-core" d={hotCoreShape} />
+            )}
+            {tongues && <path className="ember-coal-crack" d={coalCrack} />}
           </g>
         </g>
-        {value === "inferno" && (
-          <>
-            <circle
-              className="ember-spark"
-              cx="24"
-              cy="22"
-              r="1.6"
-              style={{ "--drift": "-5px" } as CSSProperties}
-            />
-            <circle
-              className="ember-spark"
-              cx="38"
-              cy="16"
-              r="1.3"
-              style={{ "--drift": "4px" } as CSSProperties}
-            />
-            <circle
-              className="ember-spark"
-              cx="31"
-              cy="10"
-              r="1.1"
-              style={{ "--drift": "-2px" } as CSSProperties}
-            />
-          </>
+        {sparks && (
+          <g className="ember-sparks">
+            {value === "flame" && (
+              <>
+                <Spark
+                  className="ember-spark"
+                  x={30}
+                  y={26}
+                  r={1.1}
+                  delay={0}
+                  duration={3.2}
+                  drift={-3}
+                />
+                <Spark
+                  className="ember-spark"
+                  x={36}
+                  y={22}
+                  r={0.9}
+                  delay={1.7}
+                  duration={3.6}
+                  drift={3}
+                />
+              </>
+            )}
+            {value === "blaze" && (
+              <>
+                <Spark
+                  className="ember-spark"
+                  x={22}
+                  y={30}
+                  r={1.5}
+                  delay={0}
+                  duration={2.4}
+                  drift={-6}
+                />
+                <Spark
+                  className="ember-spark"
+                  x={42}
+                  y={28}
+                  r={1.3}
+                  delay={0.7}
+                  duration={2.8}
+                  drift={5}
+                />
+                <Spark
+                  className="ember-spark"
+                  x={32}
+                  y={18}
+                  r={1.2}
+                  delay={1.4}
+                  duration={2.2}
+                  drift={-2}
+                />
+                <Spark
+                  className="ember-spark"
+                  x={26}
+                  y={14}
+                  r={0.9}
+                  delay={2}
+                  duration={3}
+                  drift={4}
+                />
+              </>
+            )}
+            {value === "inferno" && (
+              <>
+                <g className="ember-orbit">
+                  <circle className="ember-orbit-dot" cx="52" cy="34" r="1.6" />
+                  <circle
+                    className="ember-orbit-dot"
+                    cx="12"
+                    cy="34"
+                    r="1.3"
+                    style={{ animationDelay: "-1.1s" }}
+                  />
+                </g>
+                <Spark
+                  className="ember-spark"
+                  x={18}
+                  y={32}
+                  r={1.8}
+                  delay={0}
+                  duration={1.8}
+                  drift={-8}
+                />
+                <Spark
+                  className="ember-spark"
+                  x={46}
+                  y={30}
+                  r={1.5}
+                  delay={0.4}
+                  duration={2.1}
+                  drift={7}
+                />
+                <Spark
+                  className="ember-spark"
+                  x={32}
+                  y={20}
+                  r={1.4}
+                  delay={0.9}
+                  duration={1.6}
+                  drift={-3}
+                />
+                <Spark
+                  className="ember-spark"
+                  x={24}
+                  y={12}
+                  r={1.1}
+                  delay={1.3}
+                  duration={2.4}
+                  drift={5}
+                />
+                <Spark
+                  className="ember-spark"
+                  x={40}
+                  y={10}
+                  r={1}
+                  delay={1.7}
+                  duration={2}
+                  drift={-5}
+                />
+                <Spark
+                  className="ember-spark"
+                  x={32}
+                  y={6}
+                  r={0.9}
+                  delay={2.2}
+                  duration={2.6}
+                  drift={2}
+                />
+              </>
+            )}
+          </g>
         )}
       </svg>
     </span>

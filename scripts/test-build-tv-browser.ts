@@ -1,5 +1,6 @@
 // Run against bun run test:fixture. All deployment data below is simulated.
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import type { BuildTVResponse } from "../lib/build-tv";
 import { launchFixtureBrowser } from "./browser-fixture";
@@ -23,8 +24,12 @@ const build = (
 ) => ({
   id,
   status,
-  commit: "a1b2c3d",
-  commitMessage: `Deployment ${id}`,
+  commit: createHash("sha1")
+    .update(id.replace(/^(web|worker)-/, ""))
+    .digest("hex"),
+  commitMessage: id.endsWith("running")
+    ? "Refine streak ember visuals with warm flame gradients"
+    : `Update ${id.replace(/^(web|worker)-/, "")}`,
   createdAt: new Date(Date.now() - age).toISOString(),
 });
 let state: BuildTVResponse = {
@@ -42,6 +47,7 @@ let state: BuildTVResponse = {
           build("web-running", "in_progress", 120000),
           build("web-next", "queued", 30000),
           build("web-done", "finished", 300000),
+          build("web-failed", "finished", 400000),
         ],
       },
       {
@@ -49,9 +55,10 @@ let state: BuildTVResponse = {
         queued: 2,
         running: 0,
         builds: [
-          build("worker-next", "queued", 60000),
-          build("worker-last", "queued", 10000),
-          build("worker-failed", "failed", 300000),
+          build("worker-running", "queued", 120000),
+          build("worker-next", "queued", 30000),
+          build("worker-done", "finished", 300000),
+          build("worker-failed", "failed", 400000),
         ],
       },
     ],
@@ -90,7 +97,7 @@ try {
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Build TV" });
   await dialog.getByText("Fresh code on the way.").waitFor();
-  assert.equal(await dialog.locator("[data-build-id]:visible").count(), 4);
+  assert.equal(await dialog.locator("[data-build-id]:visible").count(), 2);
   assert.deepEqual(
     await dialog
       .getByRole("region", { name: "Up next", exact: true })
@@ -98,7 +105,19 @@ try {
       .evaluateAll((nodes) =>
         nodes.map((n) => n.getAttribute("data-build-id")),
       ),
-    ["worker-next", "web-next", "worker-last"],
+    [createHash("sha1").update("next").digest("hex")],
+  );
+  assert.deepEqual(await dialog.locator("dd").allTextContents(), ["1", "1"]);
+  assert.equal(
+    await dialog.getByText("Background worker", { exact: true }).count(),
+    0,
+  );
+  assert.equal(await dialog.getByText("Website", { exact: true }).count(), 0);
+  assert.equal(
+    await dialog
+      .getByText("Refine streak ember visuals with warm flame gradients")
+      .count(),
+    1,
   );
   assert.equal(
     await dialog
@@ -134,17 +153,17 @@ try {
     );
     await page.screenshot({ path: `${output}/queue-${width}.png` });
   }
-  await dialog.getByRole("button", { name: /Recent builds/ }).click();
+  await dialog.getByRole("button", { name: /Recent updates/ }).click();
   await dialog.getByText("Finished", { exact: true }).waitFor();
   await dialog.getByText("Failed", { exact: true }).waitFor();
-  assert.equal(await dialog.locator("[data-build-id]:visible").count(), 6);
+  assert.equal(await dialog.locator("[data-build-id]:visible").count(), 4);
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "hidden" });
   assert(await trigger.evaluate((n) => n === document.activeElement));
   await trigger.click();
   fail = true;
   await dialog.getByText("Lost the signal.").waitFor();
-  assert.equal(await dialog.locator("dd").nth(1).innerText(), "3");
+  assert.equal(await dialog.locator("dd").nth(1).innerText(), "1");
   await dialog.getByText(/Counts may have changed/).waitFor();
   fail = false;
   state = { connection: "offline", snapshot: null };
@@ -195,8 +214,13 @@ try {
   await dialog.getByText("Off air.").waitFor();
   assert.deepEqual(errors, []);
   console.log(
-    `Build TV passed: individual builds, queue order, collapsed history, responsive layout, focus, stale/offline recovery, hidden-tab polling. Screenshots: ${output}`,
+    `Build TV passed: grouped updates and counts, queue order, collapsed history, responsive layout, focus, stale/offline recovery, hidden-tab polling. Screenshots: ${output}`,
   );
+} catch (error) {
+  console.error("Build TV failure", { requests, errors, url: page.url() });
+  console.error(await page.locator("body").innerText());
+  await page.screenshot({ path: `${output}/failure.png` });
+  throw error;
 } finally {
   await browser.close();
 }

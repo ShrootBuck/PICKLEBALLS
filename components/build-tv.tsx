@@ -33,6 +33,7 @@ import {
   buildStatusLabels,
   buildTVHeadline,
   buildTVResponseSchema,
+  buildTVUpdates,
 } from "@/lib/build-tv";
 
 const number = new Intl.NumberFormat("en-US");
@@ -169,13 +170,7 @@ export function BuildTV() {
       ? data.snapshot
       : null;
   const connected = data?.connection === "connected" && Boolean(snapshot);
-  const queued = snapshot?.queued ?? 0;
-  const running = snapshot?.running ?? 0;
-  const busy = queued + running > 0;
-  const builds =
-    snapshot?.services.flatMap((service) =>
-      service.builds.map((build) => ({ ...build, service: service.key })),
-    ) ?? [];
+  const builds = buildTVUpdates(snapshot?.services ?? []);
   const oldestFirst = (
     a: (typeof builds)[number],
     b: (typeof builds)[number],
@@ -191,32 +186,30 @@ export function BuildTV() {
   const recent = builds
     .filter((build) => !["queued", "in_progress"].includes(build.status))
     .sort((a, b) => -oldestFirst(a, b));
+  const queued = waiting.length;
+  const running = building.length;
+  const busy = queued + running > 0;
   function buildList(entries: typeof builds) {
     return (
       <ul className="flex flex-col gap-2">
         {entries.map((build) => (
           <li
-            key={`${build.service}-${build.id}`}
+            key={build.id}
             data-build-id={build.id}
             className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border p-3"
           >
-            <div className="flex min-w-0 flex-col gap-1">
-              <p className="text-sm font-medium">
-                {build.service === "web" ? "Website" : "Background worker"}
+            <div className="flex min-w-0 flex-1 basis-48 flex-col gap-1">
+              <p className="text-sm font-medium leading-relaxed break-words [overflow-wrap:anywhere]">
+                {build.commitMessage ?? "Fresh update"}
               </p>
               <p className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
                 {build.commit && (
-                  <span className="font-mono">{build.commit}</span>
+                  <span className="font-mono">{build.commit.slice(0, 7)}</span>
                 )}
                 <span>Queued {since(build.createdAt, now)} ago</span>
               </p>
             </div>
             <StatusBadge status={build.status} animate={connected} />
-            {build.commitMessage && (
-              <p className="w-full min-w-0 text-sm leading-relaxed break-words [overflow-wrap:anywhere]">
-                {build.commitMessage}
-              </p>
-            )}
           </li>
         ))}
       </ul>
@@ -252,7 +245,7 @@ export function BuildTV() {
             variant="ghost"
             size="sm"
             className="build-tv-trigger"
-            aria-label={`Open Build TV${connected && busy ? `, ${number.format(queued)} queued, ${number.format(running)} building` : ""}`}
+            aria-label={`Open Build TV${connected && busy ? `, ${number.format(queued)} queued, ${number.format(running)} updating` : ""}`}
             title="Build TV"
           />
         }
@@ -269,7 +262,7 @@ export function BuildTV() {
         <DialogHeader>
           <DialogTitle>Build TV</DialogTitle>
           <DialogDescription>
-            Pickle Balls deployments. A spectator sport.
+            Pickle Balls updates. A spectator sport.
           </DialogDescription>
         </DialogHeader>
 
@@ -298,7 +291,7 @@ export function BuildTV() {
           {!data ? (
             <section
               className="grid grid-cols-2 gap-3 p-4"
-              aria-label="Loading deployment counts"
+              aria-label="Loading update counts"
             >
               <Skeleton className="h-16" />
               <Skeleton className="h-16" />
@@ -307,11 +300,11 @@ export function BuildTV() {
             <dl
               className="build-tv-counts"
               aria-label={
-                connected ? "Deployment counts" : "Last known deployment counts"
+                connected ? "Update counts" : "Last known update counts"
               }
             >
               <div>
-                <dt>Building</dt>
+                <dt>Updating</dt>
                 <dd>{snapshot ? number.format(running) : "?"}</dd>
               </div>
               <div>
@@ -326,11 +319,11 @@ export function BuildTV() {
           <div className="flex min-w-0 flex-col gap-4">
             {building.length > 0 && (
               <section
-                aria-label="Building now"
+                aria-label="Updating now"
                 className="flex flex-col gap-2"
               >
                 <h3 className="text-sm font-medium">
-                  Building now ({number.format(building.length)})
+                  Updating now ({number.format(building.length)})
                 </h3>
                 {buildList(building)}
               </section>
@@ -353,7 +346,7 @@ export function BuildTV() {
                     />
                   }
                 >
-                  Recent builds ({number.format(recent.length)})
+                  Recent updates ({number.format(recent.length)})
                   <ChevronDown data-icon="inline-end" />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-2">
