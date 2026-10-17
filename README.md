@@ -1,11 +1,14 @@
 # Pickle Balls
 
-Pickle Balls is a private social accountability app. Home shows friends’ daily
-progress, proof, and check-ins. Each check-in has its own likes and discussion.
-Profiles collect posts and daily tasks; Squad collects proof that needs a verdict.
-Half the circle, rounded down, must approve proof to verify a task, and one
-challenge reopens it. Phoenix-day deadlines, screen-time rankings,
-and weekly timeblock PDFs keep the work grounded.
+Pickle Balls is a productivity app for student groups. Private, invite-only
+circles bring daily tasks, goals and milestones, habit streaks, timeblocks,
+and group chat into one place. Classmates and friends can share progress,
+compare weekly screen time, and organize plans on a shared bucket list.
+
+Task proof and peer review help members keep each other accountable. Half the
+circle, rounded down, must approve proof to verify a task, and one challenge
+reopens it. Tasks use Phoenix-day deadlines, and timeblocks can be exported as
+weekly PDFs.
 
 ## Stack
 

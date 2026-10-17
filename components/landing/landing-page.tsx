@@ -30,23 +30,23 @@ export function LandingPage() {
       <section className="grid items-center gap-14 py-4 sm:py-12 lg:grid-cols-2 lg:gap-20">
         <div className="flex flex-col items-start gap-6">
           <Badge variant="outline">
-            <Users /> Private social accountability
+            <Users /> Productivity for student groups
           </Badge>
           <h1 className="text-5xl font-semibold leading-[1.04] tracking-[-0.055em] text-balance sm:text-7xl">
-            Show up.
+            Plan your day.
             <br />
-            Show your work.
+            Make progress together.
           </h1>
           <p className="max-w-md text-lg leading-relaxed text-muted-foreground">
-            The group chat energy. The receipts to back it up. Make plans, post
-            your progress, and keep each other honest.
+            Tasks, goals, habits, and group chat in one place. Organize your
+            schoolwork and everyday plans with a private circle of friends.
           </p>
           <Button
             size="lg"
             nativeButton={false}
             render={<Link href="/sign-up" />}
           >
-            Find your follow-through
+            Get started
             <ArrowRight />
           </Button>
           <p className="text-xs text-muted-foreground">
@@ -65,17 +65,17 @@ export function LandingPage() {
           </div>
           <div className="flex gap-5 py-5">
             {[
-              ["YO", "You", "2/3"],
-              ["ED", "Eddie", "3/3"],
-              ["SA", "Sam", "1/2"],
-            ].map(([initials, name, count]) => (
+              ["YO", "You", "2 tasks today"],
+              ["ED", "Eddie", "3 verified"],
+              ["SA", "Sam", "7-day streak"],
+            ].map(([initials, name, progress]) => (
               <div key={name} className="flex flex-col items-center gap-1.5">
                 <Avatar className="size-12 ring-2 ring-primary/60 ring-offset-4 ring-offset-background">
                   <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
                 <span className="mt-1 text-xs">{name}</span>
                 <span className="text-[10px] text-muted-foreground">
-                  {count} verified
+                  {progress}
                 </span>
               </div>
             ))}
@@ -97,12 +97,12 @@ export function LandingPage() {
           </div>
           <div className="landing-receipt">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Camera className="size-4" /> THE RECEIPTS
+              <Camera className="size-4" /> TASK PROGRESS
             </div>
             <p className="mt-5 text-2xl font-medium tracking-tight">
-              One less thing
+              Physics problem set
               <br />
-              on tomorrow’s list.
+              12 questions finished.
             </p>
             <div className="mt-6 flex flex-col gap-3" aria-hidden="true">
               <div className="h-px w-full bg-border" />
@@ -121,16 +121,20 @@ export function LandingPage() {
       </section>
       <ol className="grid gap-8 border-t py-8 sm:grid-cols-3">
         {[
-          ["01", "Commit to something.", "A clear task. A real finish line."],
+          [
+            "01",
+            "Plan your work.",
+            "Set daily tasks, break goals into milestones, and track your time.",
+          ],
           [
             "02",
-            "Post the proof.",
-            "Photos, videos, and check-ins from your day.",
+            "Build better habits.",
+            "Track streaks and compare weekly screen time with your circle.",
           ],
           [
             "03",
-            "Keep each other going.",
-            "A friend verifies the work. Everyone sees the progress.",
+            "Stay connected.",
+            "Chat, share progress, and make plans beyond school.",
           ],
         ].map(([n, title, body]) => (
           <li key={n}>
@@ -141,7 +145,7 @@ export function LandingPage() {
         ))}
       </ol>
       <footer className="pb-5 text-xs text-muted-foreground">
-        Your circle is invite-only. Your progress stays with your people.
+        Invite-only circles for classmates and friends.
       </footer>
     </main>
   );

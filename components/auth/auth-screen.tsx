@@ -12,22 +12,22 @@ export function AuthScreen({ children }: { children: ReactNode }) {
         </Link>
         <div className="flex max-w-lg flex-col gap-5">
           <Badge variant="outline" className="w-fit">
-            <Users /> Your people. Your progress.
+            <Users /> Productivity for student groups
           </Badge>
           <h1 className="text-4xl font-semibold leading-[1.06] tracking-[-0.05em] text-balance sm:text-6xl">
-            Show up.
+            Plan your day.
             <br />
-            Show your work.
+            Make progress together.
           </h1>
           <p className="max-w-sm text-base leading-relaxed text-muted-foreground">
-            A private place to make plans, post the receipts, and keep your
-            friends moving.
+            Organize your tasks, build habits, and work toward your goals
+            alongside classmates and friends.
           </p>
           <div className="hidden flex-col gap-4 pt-5 lg:flex">
             {[
-              "Make a promise for today.",
-              "Share proof within 24 hours.",
-              "Get a verdict from your circle.",
+              "Keep tasks, goals, and timeblocks in one place.",
+              "Track habits and weekly screen time.",
+              "Chat, share progress, and make plans together.",
             ].map((text) => (
               <p key={text} className="flex items-center gap-3 text-sm">
                 <Check className="size-4 text-primary" />
@@ -42,7 +42,7 @@ export function AuthScreen({ children }: { children: ReactNode }) {
           rel="noreferrer"
           className="hidden w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground lg:flex"
         >
-          Built for small circles. Open source.
+          Built for student groups. Open source.
           <ArrowUpRight className="size-3" />
         </Link>
       </section>

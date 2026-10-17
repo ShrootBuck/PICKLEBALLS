@@ -14,8 +14,9 @@ export default async function SignUpPage() {
         <div className="flex flex-col gap-1">
           <h2 className="text-xl font-semibold">Start your circle.</h2>
           <p className="text-sm text-muted-foreground">
-            Sign in with Discord, name your circle, invite your people. Got an
-            invite link instead? Open it; you will join that circle.
+            Sign in with Discord, then create a private group for your
+            classmates or friends. Already have an invite? Open that link to
+            join their circle.
           </p>
         </div>
         <DiscordButton />

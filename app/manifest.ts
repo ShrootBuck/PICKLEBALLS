@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Pickle Balls",
     short_name: "Pickleballs",
     description:
-      "Schoolwork promises. Photo receipts. Friends who call the bluff.",
+      "Productivity for student groups. Plan tasks, build habits, track goals, and stay connected in a private circle of classmates and friends.",
     start_url: "/",
     scope: "/",
     display: "standalone",

@@ -132,7 +132,7 @@ export function CirclesManager({
           <h1>
             Circles<span className="text-primary">.</span>
           </h1>
-          <p>Switch circles, find your people, or start a new one.</p>
+          <p>Open a group or start a circle for your classmates and friends.</p>
         </div>
         {circles.length > 0 && <CircleNameDialog onSaved={created} />}
       </header>
@@ -142,10 +142,10 @@ export function CirclesManager({
             <EmptyMedia variant="icon">
               <Users />
             </EmptyMedia>
-            <EmptyTitle>Start with your people</EmptyTitle>
+            <EmptyTitle>Create your group's space</EmptyTitle>
             <EmptyDescription>
-              Create a private circle for your friends. Make plans, share
-              progress, and talk in one place.
+              A circle is your private group for tasks, goals, habits, and chat.
+              Create one for your classmates or friends.
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>

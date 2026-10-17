@@ -18,7 +18,7 @@ export default async function SignInPage({
     <AuthScreen>
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold">Get back to work.</h2>
+          <h2 className="text-xl font-semibold">Sign in to Pickle Balls</h2>
           <p className="text-sm text-muted-foreground">
             New here? Just continue; you can start your own circle after.
             Joining a friend? Open their invite link instead.
@@ -49,7 +49,7 @@ export default async function SignInPage({
             href="/sign-up"
             className="font-medium underline-offset-4 hover:underline"
           >
-            Sign up and launch your circle
+            Sign up and start a circle
           </Link>
         </p>
       </div>
