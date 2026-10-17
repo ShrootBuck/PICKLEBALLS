@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock3, Pencil, Play, Square } from "lucide-react";
+import { ArrowRightLeft, Clock3, Pencil, Play, Square } from "lucide-react";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -181,6 +181,7 @@ export function TaskStopwatch({
   const [editing, setEditing] = useState<WorkSessionView | null>(null);
   const summary = summarizeWorkSessions(sessions);
   const running = active?.taskId === task.id ? active : null;
+  const switching = active && !running ? active : null;
   const available = !historical && canTrackTask(task);
   return (
     <>
@@ -189,22 +190,32 @@ export function TaskStopwatch({
           <Button
             size="sm"
             variant={running ? "default" : "outline"}
-            disabled={pending || (!!active && !running)}
+            disabled={pending}
             title={
-              active && !running
-                ? `Stop ${active.title} before starting this task.`
+              switching
+                ? `Save time on ${switching.title} and start ${task.title}.`
                 : undefined
             }
-            onClick={() => void (running ? stop(running.id) : start(task.id))}
+            onClick={() =>
+              void (running ? stop(running.id) : start(task.id, switching?.id))
+            }
           >
             {pending ? (
               <Spinner data-icon="inline-start" />
             ) : running ? (
               <Square data-icon="inline-start" />
+            ) : switching ? (
+              <ArrowRightLeft data-icon="inline-start" />
             ) : (
               <Play data-icon="inline-start" />
             )}
-            {running ? "Stop" : summary.count ? "Resume" : "Start"}
+            {running
+              ? "Stop timer"
+              : switching
+                ? "Switch timer"
+                : summary.count
+                  ? "Resume timer"
+                  : "Start timer"}
           </Button>
         )}
         <Button
@@ -219,7 +230,7 @@ export function TaskStopwatch({
           ) : summary.count ? (
             formatStopwatch(summary.milliseconds)
           ) : (
-            "Sessions"
+            "Recorded time"
           )}
         </Button>
       </div>

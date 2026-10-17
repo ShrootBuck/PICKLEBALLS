@@ -70,6 +70,7 @@ const startSchema = z.object({
   id: z.uuid(),
   taskId: z.string().min(1).max(100),
   circleId: z.string().min(1).max(100),
+  switchFrom: z.uuid().optional(),
 });
 
 export async function startWorkSession(
@@ -103,13 +104,19 @@ export async function startWorkSession(
         where: { runningUserId: userId },
         include,
       });
+      if (data.switchFrom && active?.id !== data.switchFrom)
+        throw new DomainError(
+          "Your running timer changed. Try again with the current timer.",
+          409,
+        );
       if (active) {
         if (active.commitmentId === data.taskId && active.circleId === circleId)
           return toWorkSession(active);
-        throw new DomainError(
-          `Stop your current stopwatch before starting another task.`,
-          409,
-        );
+        if (!data.switchFrom)
+          throw new DomainError(
+            "Stop your current stopwatch before starting another task.",
+            409,
+          );
       }
       const task = await tx.commitment.findFirst({
         where: { id: data.taskId, userId, circleId },
@@ -140,6 +147,16 @@ export async function startWorkSession(
         )
       )
         throw new DomainError("This task is no longer open for work.", 409);
+      // Validate the destination before closing anything. Both writes share
+      // one transaction and one boundary, including on serialization retries.
+      const startedAt = active
+        ? new Date(Math.max(now.getTime(), active.startedAt.getTime() + 1))
+        : now;
+      if (active)
+        await tx.workSession.update({
+          where: { id: active.id },
+          data: { endedAt: startedAt, runningUserId: null },
+        });
       return toWorkSession(
         await tx.workSession.create({
           data: {
@@ -148,7 +165,7 @@ export async function startWorkSession(
             circleId,
             commitmentId: data.taskId,
             runningUserId: userId,
-            startedAt: now,
+            startedAt,
           },
           include,
         }),

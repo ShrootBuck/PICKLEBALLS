@@ -25,7 +25,7 @@ type StopwatchContext = {
   pending: boolean;
   revision: number;
   clockOffset: number;
-  start: (taskId: string) => Promise<void>;
+  start: (taskId: string, switchFrom?: string) => Promise<boolean>;
   stop: (id: string) => Promise<boolean>;
   changed: () => void;
 };
@@ -46,7 +46,11 @@ export function StopwatchProvider({
   const [clockOffset, setClockOffset] = useState(0);
   const busy = useRef(false);
   const sequence = useRef(0);
-  const startRequest = useRef<{ taskId: string; id: string } | null>(null);
+  const startRequest = useRef<{
+    taskId: string;
+    id: string;
+    switchFrom?: string;
+  } | null>(null);
   const mounted = useRef(true);
 
   const refresh = useCallback(async () => {
@@ -149,14 +153,25 @@ export function StopwatchProvider({
     }
   }
 
-  async function start(taskId: string) {
-    if (!startRequest.current || startRequest.current.taskId !== taskId)
-      startRequest.current = { taskId, id: crypto.randomUUID() };
+  async function start(taskId: string, switchFrom?: string) {
+    if (
+      !startRequest.current ||
+      startRequest.current.taskId !== taskId ||
+      startRequest.current.switchFrom !== switchFrom
+    )
+      startRequest.current = { taskId, id: crypto.randomUUID(), switchFrom };
     const saved = await mutate("/api/work-sessions", "POST", {
       ...startRequest.current,
       circleId,
     });
     if (saved) startRequest.current = null;
+    if (saved && switchFrom && !saved.endedAt)
+      toast.add({
+        title: "Timer switched",
+        description: "Previous session saved to Timeblock.",
+        type: "success",
+      });
+    return !!saved;
   }
 
   async function stop(id: string) {

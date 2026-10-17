@@ -222,6 +222,158 @@ test("ownership, membership and closed tasks are enforced for every operation", 
   );
 });
 
+test("switching records a shared boundary, resumes with a new interval and safely retries", async () => {
+  const f = await fixture();
+  const other = await newTask(f.member, f.circleId);
+  const first = await start(f);
+  const request = {
+    id: randomUUID(),
+    taskId: other.id,
+    circleId: f.circleId,
+    switchFrom: first.id,
+  };
+  const second = await startWorkSession(
+    f.member,
+    f.circleId,
+    request,
+    minute(25),
+  );
+  const previous = (await listWorkSessions(f.member, f.circleId, f.task.id))[0];
+  expect(previous.endedAt).toBe(second.startedAt);
+  expect(second.startedAt).toBe(minute(25).toISOString());
+  expect(
+    await startWorkSession(f.member, f.circleId, request, minute(30)),
+  ).toEqual(second);
+  const resumed = await startWorkSession(
+    f.member,
+    f.circleId,
+    {
+      id: randomUUID(),
+      taskId: f.task.id,
+      circleId: f.circleId,
+      switchFrom: second.id,
+    },
+    minute(40),
+  );
+  expect(resumed.id).not.toBe(first.id);
+  expect(
+    (await listWorkSessions(f.member, f.circleId, other.id))[0].endedAt,
+  ).toBe(resumed.startedAt);
+  expect(await listWorkSessions(f.member, f.circleId, f.task.id)).toHaveLength(
+    2,
+  );
+  // A late retry of the earlier switch must not stop the resumed timer.
+  expect(
+    (await startWorkSession(f.member, f.circleId, request, minute(45))).endedAt,
+  ).toBe(resumed.startedAt);
+  expect((await getActiveWorkSession(f.member))?.id).toBe(resumed.id);
+});
+
+test("invalid switch destinations and stale session IDs preserve the running timer", async () => {
+  const f = await fixture();
+  const active = await start(f);
+  const closed = await newTask(f.member, f.circleId);
+  await db.commitment.update({
+    where: { id: closed.id },
+    data: { status: "CANCELLED" },
+  });
+  const foreign = await newTask(f.owner, f.circleId);
+  for (const taskId of [closed.id, foreign.id, "missing-task"]) {
+    await expect(
+      startWorkSession(
+        f.member,
+        f.circleId,
+        {
+          id: randomUUID(),
+          taskId,
+          circleId: f.circleId,
+          switchFrom: active.id,
+        },
+        minute(25),
+      ),
+    ).rejects.toThrow();
+    expect((await getActiveWorkSession(f.member))?.id).toBe(active.id);
+  }
+  const other = await newTask(f.member, f.circleId);
+  const stale = {
+    id: randomUUID(),
+    taskId: other.id,
+    circleId: f.circleId,
+    switchFrom: randomUUID(),
+  };
+  await expect(
+    startWorkSession(f.member, f.circleId, stale, minute(25)),
+  ).rejects.toThrow("timer changed");
+  expect((await getActiveWorkSession(f.member))?.id).toBe(active.id);
+  await stopWorkSession(f.member, active.id, minute(30));
+  await expect(
+    startWorkSession(
+      f.member,
+      f.circleId,
+      { ...stale, switchFrom: active.id },
+      minute(35),
+    ),
+  ).rejects.toThrow("timer changed");
+  expect(await getActiveWorkSession(f.member)).toBeNull();
+});
+
+test("competing switches permit one winner, including across circles", async () => {
+  const f = await fixture();
+  const first = await start(f);
+  const local = await newTask(f.member, f.circleId);
+  const otherCircle = await db.circle.create({
+    data: { name: "Other work", slug: randomUUID() },
+  });
+  circles.push(otherCircle.id);
+  await db.membership.create({
+    data: { userId: f.member, circleId: otherCircle.id },
+  });
+  const remote = await newTask(f.member, otherCircle.id);
+  const outcomes = await Promise.allSettled(
+    [local, remote].map((task) =>
+      startWorkSession(
+        f.member,
+        task.circleId,
+        {
+          id: randomUUID(),
+          taskId: task.id,
+          circleId: task.circleId,
+          switchFrom: first.id,
+        },
+        minute(25),
+      ),
+    ),
+  );
+  expect(
+    outcomes.filter((outcome) => outcome.status === "fulfilled"),
+  ).toHaveLength(1);
+  expect(await db.workSession.count({ where: { userId: f.member } })).toBe(2);
+  expect(
+    await db.workSession.count({ where: { runningUserId: f.member } }),
+  ).toBe(1);
+  const active = await getActiveWorkSession(f.member);
+  if (!active)
+    throw new Error("The winning switch must leave a running timer.");
+  expect(
+    (await listWorkSessions(f.member, f.circleId, f.task.id))[0].endedAt,
+  ).toBe(active.startedAt);
+  // Deterministically exercise crossing circles after either race winner.
+  const next = active.circleId === f.circleId ? remote : local;
+  const switched = await startWorkSession(
+    f.member,
+    next.circleId,
+    {
+      id: randomUUID(),
+      taskId: next.id,
+      circleId: next.circleId,
+      switchFrom: active.id,
+    },
+    minute(30),
+  );
+  expect(switched.circleId).toBe(next.circleId);
+  expect((await getActiveWorkSession(f.member))?.id).toBe(switched.id);
+});
+
 test("corrections reject stale writes, overlaps, invalid times and edits to running sessions", async () => {
   const f = await fixture();
   const first = await start(f);

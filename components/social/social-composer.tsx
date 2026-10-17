@@ -27,6 +27,7 @@ import {
 import { MoodCheckInSheet } from "@/components/social/mood-check-in";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Empty,
   EmptyHeader,
@@ -35,6 +36,7 @@ import {
 } from "@/components/ui/empty";
 import {
   Field,
+  FieldContent,
   FieldDescription,
   FieldGroup,
   FieldLabel,
@@ -174,6 +176,9 @@ function ComposerForm({
   const mode = request.mode;
   const task = request.task ?? null;
   const stopwatch = useStopwatch();
+  const [startTimer, setStartTimer] = useState(false);
+  const startTimerOnSave =
+    mode === "task" && !task && startTimer && !stopwatch.active;
   const recorded = useTaskWorkSessions(mode === "proof" ? task : null);
   const tracked = summarizeWorkSessions(recorded.sessions);
   const isTracking = mode === "proof" && task?.id === stopwatch.active?.taskId;
@@ -329,16 +334,25 @@ function ComposerForm({
         router.push("/");
         return;
       }
+      const timerStarted = startTimerOnSave
+        ? await stopwatch.start(data.task.id)
+        : false;
       submitted.current = true;
       onDiscardDraft();
       onClose();
       toast.add({
         title:
           mode === "task"
-            ? "Task saved."
+            ? timerStarted
+              ? "Task saved. Timer started."
+              : "Task saved."
             : mode === "proof"
               ? "Proof posted. Your friends can review it."
               : "Check-in posted.",
+        description:
+          startTimerOnSave && !timerStarted
+            ? "The timer did not start. Use Start timer on your task to retry."
+            : undefined,
         type: "success",
       });
       router.push(
@@ -444,6 +458,32 @@ function ComposerForm({
                 autoFocus
               />
             </Field>
+            {!task && (
+              <Field
+                orientation="horizontal"
+                data-disabled={
+                  pending || stopwatch.pending || !!stopwatch.active
+                }
+              >
+                <Checkbox
+                  id="social-task-start-timer"
+                  checked={startTimer && !stopwatch.active}
+                  onCheckedChange={setStartTimer}
+                  disabled={pending || stopwatch.pending || !!stopwatch.active}
+                  aria-describedby="social-task-timer-description"
+                />
+                <FieldContent>
+                  <FieldLabel htmlFor="social-task-start-timer">
+                    Start timer now
+                  </FieldLabel>
+                  <FieldDescription id="social-task-timer-description">
+                    {stopwatch.active
+                      ? `A timer is already running for "${stopwatch.active.title}". Save this task, then use Switch timer to work on it.`
+                      : "Track time while you work. Stop for breaks, and your time saves to Timeblock. You can also start from the task later."}
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
+            )}
             {!task && (
               <GoalPicker
                 circleId={circleId}
@@ -672,6 +712,7 @@ function ComposerForm({
               type="submit"
               disabled={
                 pending ||
+                (startTimerOnSave && stopwatch.pending) ||
                 (mode === "proof" &&
                   (recorded.loading || !!recorded.error || isTracking))
               }
@@ -680,7 +721,9 @@ function ComposerForm({
               {mode === "task"
                 ? pending
                   ? "Saving task…"
-                  : "Save task"
+                  : startTimerOnSave
+                    ? "Save & start timer"
+                    : "Save task"
                 : mode === "proof"
                   ? pending
                     ? "Posting proof…"

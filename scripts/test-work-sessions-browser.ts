@@ -23,6 +23,7 @@ const browser = await launchFixtureBrowser();
 const page = await browser.newPage({
   viewport: { width: 1440, height: 1000 },
   serviceWorkers: "block",
+  reducedMotion: "reduce",
 });
 page.setDefaultTimeout(30000);
 const errors: string[] = [];
@@ -52,23 +53,77 @@ const readDraft = () =>
 let taskId = "";
 
 try {
+  const hydrated = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/work-sessions") &&
+      response.request().method() === "GET",
+  );
   await page.goto("http://localhost:3318/login");
+  await hydrated;
   const title = `Physics stopwatch ${crypto.randomUUID().slice(0, 6)}`;
-  const created = await api(page, "/api/commitments", "POST", {
-    title,
-    circleId: "demo-circle",
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  const composer = page.locator('[data-slot="sheet-content"]');
+  await composer.getByLabel("What will you do?", { exact: true }).fill(title);
+  const timerOption = composer.getByRole("checkbox", {
+    name: "Start timer now",
   });
-  assert.equal(created.status, 201);
-  taskId = created.data.task.id;
-  const other = await api(page, "/api/commitments", "POST", {
-    title: "Second stopwatch task",
-    circleId: "demo-circle",
-  });
-  assert.equal(other.status, 201);
-  await page.goto(origin);
+  assert.equal(await timerOption.isChecked(), false);
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.waitForFunction(() =>
+      document
+        .getAnimations()
+        .every((animation) => animation.playState !== "running"),
+    );
+    assert(await timerOption.isVisible());
+    assert(
+      await composer.evaluate((node) => node.scrollWidth <= node.clientWidth),
+    );
+    await page.screenshot({
+      path: `/private/tmp/pb-timer-create-${width}.png`,
+    });
+  }
+  await timerOption.check();
+  const creation = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/commitments") &&
+      response.request().method() === "POST",
+  );
+  await composer
+    .getByRole("button", { name: "Save & start timer", exact: true })
+    .click();
+  const created = await creation;
+  assert.equal(created.status(), 201);
+  taskId = (await created.json()).task.id;
+  await composer.waitFor({ state: "hidden" });
   const task = () => page.locator(`#task-${taskId}`);
-  await task().getByRole("button", { name: "Start", exact: true }).click();
   await bar().waitFor();
+
+  // An active timer must not prevent saving another task normally.
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  await composer
+    .getByLabel("What will you do?", { exact: true })
+    .fill("Second stopwatch task");
+  assert(await timerOption.isDisabled());
+  assert.equal(await timerOption.isChecked(), false);
+  await composer
+    .getByText(`A timer is already running for "${title}".`, { exact: false })
+    .waitFor();
+  const otherCreation = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/commitments") &&
+      response.request().method() === "POST",
+  );
+  await composer
+    .getByRole("button", { name: "Save task", exact: true })
+    .click();
+  const otherResponse = await otherCreation;
+  assert.equal(otherResponse.status(), 201);
+  const other = { data: await otherResponse.json() };
+  await composer.waitFor({ state: "hidden" });
+  console.log(
+    "Task creation exposes an opt-in timer at phone, tablet and desktop widths; an active timer allows normal task creation.",
+  );
   assert.equal(
     (await api(page, "/api/work-sessions")).data.active.taskId,
     taskId,
@@ -76,8 +131,8 @@ try {
   assert(
     await page
       .locator(`#task-${other.data.task.id}`)
-      .getByRole("button", { name: "Start", exact: true })
-      .isDisabled(),
+      .getByRole("button", { name: "Switch timer", exact: true })
+      .isEnabled(),
   );
   await page.reload();
   await bar().waitFor();
@@ -124,7 +179,63 @@ try {
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await bar().waitFor({ state: "hidden" });
   await page.goto(origin);
-  await task().getByRole("button", { name: "Resume", exact: true }).click();
+
+  // A failed timer request must leave the task saved, with a retry on its card.
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  const retryTitle = `Physics stopwatch retry ${crypto.randomUUID().slice(0, 6)}`;
+  await composer
+    .getByLabel("What will you do?", { exact: true })
+    .fill(retryTitle);
+  assert.equal(await timerOption.isChecked(), false);
+  await timerOption.check();
+  await page.route("**/api/work-sessions", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Timer temporarily unavailable." }),
+    });
+  });
+  const retryCreation = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/commitments") &&
+      response.request().method() === "POST",
+  );
+  await composer
+    .getByRole("button", { name: "Save & start timer", exact: true })
+    .click();
+  const retryResponse = await retryCreation;
+  assert.equal(retryResponse.status(), 201);
+  const retryTaskId = (await retryResponse.json()).task.id;
+  await composer.waitFor({ state: "hidden" });
+  await page
+    .getByText(
+      "The timer did not start. Use Start timer on your task to retry.",
+      { exact: true },
+    )
+    .waitFor();
+  assert.equal((await api(page, "/api/work-sessions")).data.active, null);
+  await page.unroute("**/api/work-sessions");
+  const retryTask = page.locator(`#task-${retryTaskId}`);
+  await retryTask
+    .getByRole("button", { name: "Start timer", exact: true })
+    .click();
+  await bar().waitFor();
+  await retryTask
+    .getByRole("button", { name: "Stop timer", exact: true })
+    .click();
+  await bar().waitFor({ state: "hidden" });
+  assert.equal(
+    await page.getByRole("heading", { name: retryTitle, exact: true }).count(),
+    1,
+  );
+  console.log(
+    "Failed timer start preserves the saved task and supports retry from its card.",
+  );
+
+  await task()
+    .getByRole("button", { name: "Resume timer", exact: true })
+    .click();
   await bar().waitFor();
   await page.waitForTimeout(1200);
   await bar().getByRole("button", { name: "Stop", exact: true }).click();
@@ -275,7 +386,7 @@ try {
   await phone.goto(origin);
   await phone
     .locator(`#task-${other.data.task.id}`)
-    .getByRole("button", { name: "Start", exact: true })
+    .getByRole("button", { name: "Start timer", exact: true })
     .click();
   await phoneBar.waitFor();
   await phone.setViewportSize({ width: 320, height: 740 });
