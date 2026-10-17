@@ -8,6 +8,7 @@ import {
   List,
   Plus,
   Redo2,
+  RotateCcw,
   Trash2,
   Undo2,
 } from "lucide-react";
@@ -79,6 +80,10 @@ import {
 import { shiftDateKey } from "@/lib/timeblocks";
 
 export type TimeblockBuilderRow = TimeblockDraftRow;
+
+function isManualBlock(row: TimeblockDraftRow) {
+  return row.id.startsWith("manual-") && row.status === null && !row.sessionId;
+}
 
 function BlockEditor({
   row,
@@ -429,6 +434,20 @@ export function TimeblockBuilder({
   function redo() {
     navigateHistory("future");
   }
+  function resetTimeblock() {
+    if (!ready || busy || pending || routineDirtyRef.current) return;
+    commit(
+      rowsRef.current
+        .filter((row) => !isManualBlock(row))
+        .map((row) => ({ ...row, included: true })),
+    );
+    toast.add({
+      title: "Timeblock reset",
+      description:
+        "Manual blocks cleared and all other blocks shown for this week. Use Undo to restore your draft.",
+      type: "success",
+    });
+  }
   function openEditor(row: TimeblockDraftRow) {
     if (isRoutineBlock(row.id)) {
       setRoutineFocus({
@@ -568,7 +587,7 @@ export function TimeblockBuilder({
                   {formatDayShort(weekEnd)}
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -614,6 +633,22 @@ export function TimeblockBuilder({
                   onClick={redo}
                 >
                   <Redo2 />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title="Delete all manual blocks and unhide all other blocks for this week. You can undo this."
+                  disabled={
+                    !ready ||
+                    busy ||
+                    pending ||
+                    routineDirty ||
+                    !rows.some((row) => isManualBlock(row) || !row.included)
+                  }
+                  onClick={resetTimeblock}
+                >
+                  <RotateCcw data-icon="inline-start" />
+                  Reset timeblock
                 </Button>
                 <Button
                   variant="outline"
