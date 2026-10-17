@@ -56,3 +56,17 @@ test("a transient read failure retries without needing another event", async () 
   expect(reads).toBe(2);
   queue.dispose();
 });
+
+test("a reconnect or new change bypasses an old failed read's backoff", async () => {
+  let reads = 0;
+  const queue = new LiveRefresh(async () => {
+    if (++reads === 1) throw new Error("temporary network failure");
+  });
+  queue.request();
+  await Bun.sleep(70);
+  expect(reads).toBe(1);
+  queue.request();
+  await Bun.sleep(70);
+  expect(reads).toBe(2);
+  queue.dispose();
+});

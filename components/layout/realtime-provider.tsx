@@ -2,7 +2,11 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { requestAppRefresh } from "@/lib/app-refresh";
-import { openRealtime, subscribeRealtime } from "@/lib/realtime-client";
+import {
+  openRealtime,
+  realtimeCatchUpEvent,
+  subscribeRealtime,
+} from "@/lib/realtime-client";
 import type { RealtimeStatus as Status } from "@/lib/realtime-connection";
 
 const Context = createContext<Status>("connecting");
@@ -16,6 +20,17 @@ export function RealtimeProvider({
   children: React.ReactNode;
 }) {
   const [status, setStatus] = useState<Status>("connecting");
+  useEffect(() => {
+    if (!userId || (status !== "connecting" && status !== "reconnecting"))
+      return;
+    // A proxy can block WebSockets while ordinary requests still work. Keep
+    // data usable in that case without polling on a healthy connection.
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "hidden" && navigator.onLine)
+        window.dispatchEvent(new Event(realtimeCatchUpEvent));
+    }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [status, userId]);
   useEffect(() => {
     if (!userId) return;
     let disposed = false;

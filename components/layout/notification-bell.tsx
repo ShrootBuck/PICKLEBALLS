@@ -23,10 +23,11 @@ import {
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast";
-import { appFetch } from "@/lib/app-refresh";
+import { appFetch, refreshEvent } from "@/lib/app-refresh";
 import { safeAppPath, squadHref } from "@/lib/navigation";
 import { formatReplyTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { watchRealtime } from "@/lib/watch-realtime";
 
 export type InboxNotification = {
   id: string;
@@ -60,29 +61,51 @@ export function NotificationBell({
   useEffect(() => {
     setInbox(initialInbox);
     setUnread(initialUnreadCount);
+    setError(null);
     requestVersion.current += 1;
   }, [initialInbox, initialUnreadCount]);
   useEffect(() => {
     if (!open) return;
     const controller = new AbortController();
     setError(null);
-    const version = ++requestVersion.current;
-    appFetch("/api/notifications", { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Could not load notifications.");
-        const data = await response.json();
-        if (!controller.signal.aborted && version === requestVersion.current) {
-          setInbox(data.notifications);
-          setUnread(data.unreadCount);
+    const live = watchRealtime(
+      async () => {
+        const version = ++requestVersion.current;
+        try {
+          const response = await appFetch("/api/notifications", {
+            cache: "no-store",
+            signal: AbortSignal.any([
+              controller.signal,
+              AbortSignal.timeout(20_000),
+            ]),
+          });
+          if (!response.ok) throw new Error("Could not load notifications.");
+          const data = await response.json();
+          if (
+            !controller.signal.aborted &&
+            version === requestVersion.current
+          ) {
+            setInbox(data.notifications);
+            setUnread(data.unreadCount);
+            setError(null);
+          }
+        } catch (error) {
+          if (
+            !controller.signal.aborted &&
+            version === requestVersion.current
+          ) {
+            setError("Could not update notifications. Retrying automatically.");
+            throw error;
+          }
         }
-      })
-      .catch(() => {
-        if (!controller.signal.aborted)
-          setError(
-            "Could not refresh notifications. Close and reopen to retry.",
-          );
-      });
-    return () => controller.abort();
+      },
+      (event) => event.type === "refresh",
+      [refreshEvent],
+    );
+    return () => {
+      controller.abort();
+      live.dispose();
+    };
   }, [open]);
 
   async function markRead(id?: string) {
@@ -91,7 +114,7 @@ export function NotificationBell({
     else setMarkingAll(true);
     requestVersion.current += 1;
     try {
-      const response = await fetch(
+      const response = await appFetch(
         id ? `/api/notifications/${id}` : "/api/notifications/mark-all-read",
         {
           method: id ? "PATCH" : "POST",

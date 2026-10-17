@@ -91,9 +91,11 @@ export function SocialProvider({
   children: ReactNode;
 }) {
   const [composer, setComposer] = useState<ComposerRequest | null>(null);
+  const [composerDay, setComposerDay] = useState(day);
   const [postRevision, setPostRevision] = useState(0);
   const drafts = useRef(new Map<string, ComposerDraft>());
-  const draftKey = `${day}:${composer?.mode}:${composer?.task?.id ?? composer?.goal?.id ?? "new"}`;
+  // Midnight updates the dashboard without remounting an unfinished form.
+  const draftKey = `${composerDay}:${composer?.mode}:${composer?.task?.id ?? composer?.goal?.id ?? "new"}`;
   const feeds = useRef(
     new Map<string, FeedPage & { serverSignature: string }>(),
   );
@@ -152,7 +154,10 @@ export function SocialProvider({
         scrolls: scrolls.current,
         patchPost,
         removePost,
-        openComposer: (request = { mode: "choose" }) => setComposer(request),
+        openComposer: (request = { mode: "choose" }) => {
+          setComposerDay(day);
+          setComposer(request);
+        },
       }}
     >
       <StopwatchProvider initialActive={initialActiveWorkSession}>

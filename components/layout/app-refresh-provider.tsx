@@ -1,24 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useTransition,
-} from "react";
+import { useEffect, useRef, useTransition } from "react";
 import { RealtimeProvider } from "@/components/layout/realtime-provider";
 import {
   activeMutations,
   refreshBusyEvent,
   refreshEvent,
 } from "@/lib/app-refresh";
-import { subscribeRealtime } from "@/lib/realtime-client";
+import { realtimeCatchUpEvent, subscribeRealtime } from "@/lib/realtime-client";
 import { RefreshScheduler } from "@/lib/refresh-scheduler";
-
-const RefreshVersion = createContext("");
-export const useRefreshVersion = () => useContext(RefreshVersion);
+import { phoenixDateKey, phoenixDayDueAt } from "@/lib/time";
 
 export function AppRefreshProvider({
   children,
@@ -30,12 +22,10 @@ export function AppRefreshProvider({
   version: string;
 }) {
   return (
-    <RefreshVersion value={version}>
-      <RealtimeProvider userId={userId}>
-        <RefreshDriver userId={userId} version={version} />
-        {children}
-      </RealtimeProvider>
-    </RefreshVersion>
+    <RealtimeProvider userId={userId}>
+      <RefreshDriver userId={userId} version={version} />
+      {children}
+    </RealtimeProvider>
   );
 }
 
@@ -72,6 +62,25 @@ function RefreshDriver({
           activeMutations() > 0,
       );
     };
+    let dayTimer: ReturnType<typeof setTimeout>;
+    const scheduleDayChange = () => {
+      clearTimeout(dayTimer);
+      const now = new Date();
+      const end = phoenixDayDueAt(phoenixDateKey(now));
+      if (!end) return;
+      dayTimer = setTimeout(
+        () => {
+          queue.request();
+          scheduleDayChange();
+        },
+        Math.max(1000, end.getTime() - now.getTime() + 1),
+      );
+    };
+    const catchUp = () => {
+      updateBlocked();
+      queue.request();
+      if (userId) scheduleDayChange();
+    };
     let channel: BroadcastChannel | undefined;
     try {
       channel = new BroadcastChannel("pb:data-changed:v1");
@@ -95,22 +104,28 @@ function RefreshDriver({
       if (event.type === "refresh" || event.type === "ready") queue.request();
     });
     updateBlocked();
+    if (userId) scheduleDayChange();
     window.addEventListener(refreshEvent, changed);
     window.addEventListener(refreshBusyEvent, updateBlocked);
-    window.addEventListener("online", updateBlocked);
+    window.addEventListener(realtimeCatchUpEvent, catchUp);
+    window.addEventListener("focus", catchUp);
+    window.addEventListener("online", catchUp);
     window.addEventListener("offline", updateBlocked);
-    window.addEventListener("pageshow", updateBlocked);
-    document.addEventListener("visibilitychange", updateBlocked);
+    window.addEventListener("pageshow", catchUp);
+    document.addEventListener("visibilitychange", catchUp);
     return () => {
+      clearTimeout(dayTimer);
       queue.dispose();
       unsubscribe();
       channel?.close();
       window.removeEventListener(refreshEvent, changed);
       window.removeEventListener(refreshBusyEvent, updateBlocked);
-      window.removeEventListener("online", updateBlocked);
+      window.removeEventListener(realtimeCatchUpEvent, catchUp);
+      window.removeEventListener("focus", catchUp);
+      window.removeEventListener("online", catchUp);
       window.removeEventListener("offline", updateBlocked);
-      window.removeEventListener("pageshow", updateBlocked);
-      document.removeEventListener("visibilitychange", updateBlocked);
+      window.removeEventListener("pageshow", catchUp);
+      document.removeEventListener("visibilitychange", catchUp);
       scheduler.current = null;
     };
   }, [router, userId]);

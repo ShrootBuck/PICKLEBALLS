@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { useRefreshVersion } from "@/components/layout/app-refresh-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -19,8 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { appFetch } from "@/lib/app-refresh";
+import { appFetch, refreshEvent } from "@/lib/app-refresh";
 import type { NotificationPrefs } from "@/lib/notification-policy";
+import { watchRealtime } from "@/lib/watch-realtime";
 
 const PREF_META = [
   {
@@ -62,29 +62,47 @@ const hourItems = Array.from({ length: 24 }, (_, hour) => ({
 
 export function NotificationPreferences() {
   const id = useId();
-  const version = useRefreshVersion();
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt and version request fresh server preferences
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt retries a failed read
   useEffect(() => {
     if (saving) return;
     const controller = new AbortController();
     setError(null);
-    appFetch("/api/notifications/preferences", { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Could not load preferences.");
-        const data = await response.json();
-        if (!controller.signal.aborted) setPrefs(data.preferences);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted)
-          setError("Could not load your preferences.");
-      });
-    return () => controller.abort();
-  }, [attempt, version, saving]);
+    const live = watchRealtime(
+      async () => {
+        try {
+          const response = await appFetch("/api/notifications/preferences", {
+            cache: "no-store",
+            signal: AbortSignal.any([
+              controller.signal,
+              AbortSignal.timeout(20_000),
+            ]),
+          });
+          if (!response.ok) throw new Error("Could not load preferences.");
+          const data = await response.json();
+          if (!controller.signal.aborted) {
+            setPrefs(data.preferences);
+            setError(null);
+          }
+        } catch (error) {
+          if (!controller.signal.aborted) {
+            setError("Could not load your preferences.");
+            throw error;
+          }
+        }
+      },
+      (event) => event.type === "refresh",
+      [refreshEvent],
+    );
+    return () => {
+      controller.abort();
+      live.dispose();
+    };
+  }, [attempt, saving]);
 
   async function save<K extends keyof NotificationPrefs>(
     key: K,

@@ -37,10 +37,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
-import { appFetch } from "@/lib/app-refresh";
+import { appFetch, refreshEvent } from "@/lib/app-refresh";
 import { memberHref, postHref } from "@/lib/navigation";
 import { screenTimeWeekLabel } from "@/lib/screen-time";
 import type { InteractivePost } from "@/lib/social-types";
+import { watchRealtime } from "@/lib/watch-realtime";
 
 function likeTarget(post: InteractivePost) {
   return post.kind === "proof"
@@ -285,19 +286,36 @@ function PostComments({
     const controller = new AbortController();
     setError(false);
     const query = new URLSearchParams({ targetType, targetId: post.id });
-    void fetch(`/api/replies?${query}`, {
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Comments failed");
-        const data = await response.json();
-        if (!controller.signal.aborted) setDiscussion(data);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setError(true);
-      });
-    return () => controller.abort();
+    const live = watchRealtime(
+      async () => {
+        try {
+          const response = await fetch(`/api/replies?${query}`, {
+            cache: "no-store",
+            signal: AbortSignal.any([
+              controller.signal,
+              AbortSignal.timeout(20_000),
+            ]),
+          });
+          if (!response.ok) throw new Error("Comments failed");
+          const data = await response.json();
+          if (!controller.signal.aborted) {
+            setDiscussion(data);
+            setError(false);
+          }
+        } catch (error) {
+          if (!controller.signal.aborted) {
+            setError(true);
+            throw error;
+          }
+        }
+      },
+      (event) => event.type === "refresh",
+      [refreshEvent],
+    );
+    return () => {
+      controller.abort();
+      live.dispose();
+    };
   }, [open, attempt, post.id, targetType]);
   return (
     <Dialog

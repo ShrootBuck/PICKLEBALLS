@@ -84,6 +84,9 @@ export const acknowledgeRealtimeRead = (
 ) => connection?.acknowledgeRead(conversationId, through, signal) ?? null;
 
 const eventName = "pb:realtime";
+// HTTP reconciliation while the socket is unavailable. This never claims that
+// the connection is live and also wakes readers of specialized event types.
+export const realtimeCatchUpEvent = "pb:realtime-catch-up";
 export function dispatchRealtime(event: RealtimeEvent) {
   window.dispatchEvent(new CustomEvent(eventName, { detail: event }));
 }

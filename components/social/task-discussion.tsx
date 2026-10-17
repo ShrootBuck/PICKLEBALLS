@@ -1,7 +1,6 @@
 "use client";
 import { MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useRefreshVersion } from "@/components/layout/app-refresh-provider";
 import { useSocial } from "@/components/social/social-provider";
 import {
   SocialReplyThread,
@@ -9,6 +8,8 @@ import {
 } from "@/components/squad/social-reply-thread";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { refreshEvent } from "@/lib/app-refresh";
+import { watchRealtime } from "@/lib/watch-realtime";
 
 export function TaskDiscussion({
   taskId,
@@ -24,26 +25,45 @@ export function TaskDiscussion({
   const [replies, setReplies] = useState<ThreadReply[] | null>(null);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const version = useRefreshVersion();
   // biome-ignore lint/correctness/useExhaustiveDependencies: Refreshes and retries reload this discussion.
   useEffect(() => {
     if (!open) return;
     const controller = new AbortController();
     setError(false);
-    fetch(
-      `/api/replies?${new URLSearchParams({ targetType: "COMMITMENT", targetId: taskId })}`,
-      { signal: controller.signal },
-    )
-      .then(async (response) => {
-        if (!response.ok) throw new Error();
-        const data = await response.json();
-        if (!controller.signal.aborted) setReplies(data.replies);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setError(true);
-      });
-    return () => controller.abort();
-  }, [taskId, open, version, attempt]);
+    const live = watchRealtime(
+      async () => {
+        try {
+          const response = await fetch(
+            `/api/replies?${new URLSearchParams({ targetType: "COMMITMENT", targetId: taskId })}`,
+            {
+              cache: "no-store",
+              signal: AbortSignal.any([
+                controller.signal,
+                AbortSignal.timeout(20_000),
+              ]),
+            },
+          );
+          if (!response.ok) throw new Error();
+          const data = await response.json();
+          if (!controller.signal.aborted) {
+            setReplies(data.replies);
+            setError(false);
+          }
+        } catch (error) {
+          if (!controller.signal.aborted) {
+            setError(true);
+            throw error;
+          }
+        }
+      },
+      (event) => event.type === "refresh",
+      [refreshEvent],
+    );
+    return () => {
+      controller.abort();
+      live.dispose();
+    };
+  }, [taskId, open, attempt]);
   return (
     <div className="mt-2">
       <Button
@@ -66,7 +86,8 @@ export function TaskDiscussion({
             >
               Could not load discussion. Retry
             </Button>
-          ) : replies ? (
+          ) : null}
+          {replies ? (
             <SocialReplyThread
               targetType="COMMITMENT"
               targetId={taskId}
@@ -78,9 +99,9 @@ export function TaskDiscussion({
               composerVisible
               scrollOnExpand={false}
             />
-          ) : (
+          ) : !error ? (
             <Spinner />
-          )}
+          ) : null}
         </div>
       )}
     </div>

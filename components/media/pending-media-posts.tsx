@@ -38,9 +38,12 @@ export function PendingMediaPosts({ circleId }: { circleId: string }) {
       try {
         const response = await fetch("/api/media/pending", {
           cache: "no-store",
-          signal: controller.signal,
+          signal: AbortSignal.any([
+            controller.signal,
+            AbortSignal.timeout(20_000),
+          ]),
         });
-        if (!response.ok) return;
+        if (!response.ok) throw new Error("Could not load processing posts.");
         const { pending } = (await response.json()) as {
           pending: PendingPost[];
         };

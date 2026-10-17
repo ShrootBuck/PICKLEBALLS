@@ -5,6 +5,7 @@ import type { DirectThread } from "@/lib/direct-message-types";
 import { LiveRefresh } from "@/lib/live-refresh";
 import {
   acknowledgeRealtimeRead,
+  realtimeCatchUpEvent,
   realtimeIsLive,
   subscribeRealtime,
   subscribeRealtimeThread,
@@ -106,6 +107,8 @@ export function watchDirectThread(options: {
   });
   window.addEventListener("focus", request);
   window.addEventListener("online", request);
+  window.addEventListener("pageshow", request);
+  window.addEventListener(realtimeCatchUpEvent, request);
   window.addEventListener(messagesChangedEvent, localChange);
   document.addEventListener("visibilitychange", request);
   fallback.request();
@@ -117,6 +120,8 @@ export function watchDirectThread(options: {
       unsubscribe();
       window.removeEventListener("focus", request);
       window.removeEventListener("online", request);
+      window.removeEventListener("pageshow", request);
+      window.removeEventListener(realtimeCatchUpEvent, request);
       window.removeEventListener(messagesChangedEvent, localChange);
       document.removeEventListener("visibilitychange", request);
     },

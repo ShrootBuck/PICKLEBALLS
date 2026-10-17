@@ -9,11 +9,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { useRefreshVersion } from "@/components/layout/app-refresh-provider";
 import { useSocial } from "@/components/social/social-provider";
 import { toast } from "@/components/ui/toast";
-import { appFetch } from "@/lib/app-refresh";
+import { appFetch, refreshEvent } from "@/lib/app-refresh";
+import { LiveRefresh } from "@/lib/live-refresh";
 import type { SocialTask } from "@/lib/social-types";
+import { watchRealtime } from "@/lib/watch-realtime";
 import {
   elapsedMilliseconds,
   formatStopwatch,
@@ -39,7 +40,6 @@ export function StopwatchProvider({
   children: ReactNode;
 }) {
   const { circleId, viewer } = useSocial();
-  const version = useRefreshVersion();
   const [active, setActive] = useState(initialActive);
   const [pending, setPending] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -52,23 +52,23 @@ export function StopwatchProvider({
     switchFrom?: string;
   } | null>(null);
   const mounted = useRef(true);
+  const live = useRef<ReturnType<typeof watchRealtime> | null>(null);
 
   const refresh = useCallback(async () => {
     if (busy.current || document.visibilityState === "hidden") return;
     const request = ++sequence.current;
     const began = Date.now();
-    try {
-      const response = await fetch("/api/work-sessions", { cache: "no-store" });
-      if (!response.ok) return;
-      const data = await response.json();
-      if (!mounted.current || request !== sequence.current || busy.current)
-        return;
-      setActive(data.active);
-      setClockOffset(Date.parse(data.serverNow) - (began + Date.now()) / 2);
-      setRevision((value) => value + 1);
-    } catch {
-      // A temporary disconnect does not stop a saved stopwatch.
-    }
+    const response = await fetch("/api/work-sessions", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!response.ok) throw new Error("Could not update the stopwatch.");
+    const data = await response.json();
+    if (!mounted.current || request !== sequence.current || busy.current)
+      return;
+    setActive(data.active);
+    setClockOffset(Date.parse(data.serverNow) - (began + Date.now()) / 2);
+    setRevision((value) => value + 1);
   }, []);
 
   const changed = useCallback(() => {
@@ -82,32 +82,27 @@ export function StopwatchProvider({
 
   useEffect(() => {
     mounted.current = true;
+    const watcher = watchRealtime(
+      refresh,
+      (event) => event.type === "refresh",
+      [refreshEvent],
+    );
+    live.current = watcher;
     const update = () => {
-      void refresh();
+      watcher.request();
     };
     const storage = (event: StorageEvent) => {
       if (event.key === `pb:stopwatch:${viewer.id}`) update();
     };
-    window.addEventListener("focus", update);
-    window.addEventListener("pageshow", update);
-    window.addEventListener("online", update);
     window.addEventListener("storage", storage);
-    document.addEventListener("visibilitychange", update);
     return () => {
       mounted.current = false;
       sequence.current++;
-      window.removeEventListener("focus", update);
-      window.removeEventListener("pageshow", update);
-      window.removeEventListener("online", update);
+      watcher.dispose();
+      live.current = null;
       window.removeEventListener("storage", storage);
-      document.removeEventListener("visibilitychange", update);
     };
   }, [refresh, viewer.id]);
-
-  useEffect(() => {
-    void version;
-    void refresh();
-  }, [version, refresh]);
 
   async function mutate(url: string, method: string, body: unknown) {
     if (busy.current) return null;
@@ -148,7 +143,7 @@ export function StopwatchProvider({
       busy.current = false;
       if (mounted.current) {
         setPending(false);
-        void refresh();
+        live.current?.request();
       }
     }
   }
@@ -250,29 +245,46 @@ export function useTaskWorkSessions(task: SocialTask | null) {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    void (async () => {
-      try {
-        const response = await fetch(
-          `/api/work-sessions?${new URLSearchParams({ taskId })}`,
-          { cache: "no-store", signal: controller.signal },
-        );
-        const data = await response.json();
-        if (!response.ok)
-          throw new Error(data.error ?? "Could not load recorded time.");
-        if (!controller.signal.aborted)
-          setLoaded({ taskId, sessions: data.sessions });
-      } catch (reason) {
-        if (!controller.signal.aborted)
-          setError(
-            reason instanceof Error
-              ? reason.message
-              : "Could not load recorded time.",
+    const queue = new LiveRefresh(
+      async () => {
+        try {
+          const response = await fetch(
+            `/api/work-sessions?${new URLSearchParams({ taskId })}`,
+            {
+              cache: "no-store",
+              signal: AbortSignal.any([
+                controller.signal,
+                AbortSignal.timeout(20_000),
+              ]),
+            },
           );
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    })();
-    return () => controller.abort();
+          const data = await response.json();
+          if (!response.ok)
+            throw new Error(data.error ?? "Could not load recorded time.");
+          if (!controller.signal.aborted) {
+            setLoaded({ taskId, sessions: data.sessions });
+            setError(null);
+          }
+        } catch (reason) {
+          if (!controller.signal.aborted) {
+            setError(
+              reason instanceof Error
+                ? reason.message
+                : "Could not load recorded time.",
+            );
+            throw reason;
+          }
+        } finally {
+          if (!controller.signal.aborted) setLoading(false);
+        }
+      },
+      () => document.visibilityState !== "hidden" && navigator.onLine,
+    );
+    queue.request();
+    return () => {
+      controller.abort();
+      queue.dispose();
+    };
   }, [taskId, revision]);
   return {
     sessions:

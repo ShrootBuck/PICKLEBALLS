@@ -1,10 +1,8 @@
 "use client";
 
-import { Camera, RefreshCw } from "lucide-react";
+import { Camera } from "lucide-react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { useRefreshVersion } from "@/components/layout/app-refresh-provider";
 import { PostCard } from "@/components/social/post-card";
-import { PullToRefresh } from "@/components/social/pull-to-refresh";
 import { useSocial } from "@/components/social/social-provider";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,10 +14,10 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
-import { requestAppRefresh } from "@/lib/app-refresh";
+import { refreshEvent } from "@/lib/app-refresh";
 import { reconcileFeed, refreshFeedPages } from "@/lib/feed-state";
-import { LiveRefresh } from "@/lib/live-refresh";
 import { type FeedPage, type FeedPost, postKey } from "@/lib/social-types";
+import { watchRealtime } from "@/lib/watch-realtime";
 
 export function Feed({
   initial,
@@ -48,28 +46,24 @@ export function Feed({
         : reconcileFeed(cached, initial)
       : initial;
   });
-  const [busy, setBusy] = useState<"refresh" | "older" | null>(null);
+  const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<"older" | "sync" | null>(null);
   const controller = useRef<AbortController | null>(null);
   const requestEpoch = useRef(0);
-  const version = useRefreshVersion();
-  const previousVersion = useRef(version);
-  const syncQueue = useRef<LiveRefresh | null>(null);
+  const syncQueue = useRef<ReturnType<typeof watchRealtime> | null>(null);
   const sync = useEffectEvent(async () => {
     await load("sync");
   });
   useEffect(() => {
-    const queue = new LiveRefresh(() => sync());
+    const queue = watchRealtime(
+      () => sync(),
+      (event) => event.type === "refresh",
+      [refreshEvent],
+    );
     syncQueue.current = queue;
     return () => queue.dispose();
   }, []);
-  useEffect(() => {
-    if (previousVersion.current !== version) {
-      previousVersion.current = version;
-      syncQueue.current?.request();
-    }
-  }, [version]);
   useEffect(() => {
     if (postRevision > 0) {
       const cached = feeds.get(key);
@@ -95,14 +89,14 @@ export function Feed({
     [],
   );
 
-  async function load(mode: "refresh" | "older" | "sync") {
+  async function load(mode: "older" | "sync") {
     if (inFlight.current) {
       if (mode === "sync") throw new Error("A feed read is already running.");
       return;
     }
     inFlight.current = true;
     if (mode !== "sync") {
-      setBusy(mode);
+      setBusy(true);
       setError(null);
     }
     const epoch = ++requestEpoch.current;
@@ -149,13 +143,12 @@ export function Feed({
               nextCursor: fresh.nextCursor,
             },
       );
-      if (mode === "refresh") requestAppRefresh();
+      setError(null);
     } catch (error) {
+      if (requestEpoch.current === epoch) setError(mode);
       if (mode === "sync") throw error;
-      if (requestEpoch.current === epoch)
-        setError("Could not load posts. Check your connection and try again.");
     } finally {
-      setBusy(null);
+      setBusy(false);
       inFlight.current = false;
     }
   }
@@ -178,110 +171,113 @@ export function Feed({
   }, [page.nextCursor, error, busy]);
 
   return (
-    <PullToRefresh
-      disabled={busy !== null}
-      onRefresh={() => void load("refresh")}
+    <section
+      className="feed-stream"
+      aria-label={
+        reviewOnly
+          ? "Proofs needing your verdict"
+          : memberId
+            ? "Member posts"
+            : "Circle timeline"
+      }
     >
-      <section
-        className="feed-stream"
-        aria-label={
-          reviewOnly
-            ? "Proofs needing your verdict"
+      <div className="feed-toolbar">
+        <h2 className="text-xs font-medium text-muted-foreground">
+          {reviewOnly
+            ? "Waiting for your verdict"
             : memberId
-              ? "Member posts"
-              : "Circle timeline"
-        }
-      >
-        <div className="feed-toolbar">
-          <h2 className="text-xs font-medium text-muted-foreground">
-            {reviewOnly
-              ? "Waiting for your verdict"
-              : memberId
-                ? "Posts"
-                : "Latest from your circle"}
-          </h2>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="-mr-2 text-muted-foreground"
-            aria-label="Refresh posts"
-            title="Refresh"
-            disabled={busy !== null}
-            onClick={() => load("refresh")}
-          >
-            {busy === "refresh" ? <Spinner /> : <RefreshCw />}
-          </Button>
-        </div>
-        {error && (
-          <Alert variant="destructive" className="my-4">
-            <AlertTitle>Feed unavailable</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-        {page.items.length ? (
-          page.items.map((post) => (
-            <PostCard
-              key={postKey(post)}
-              post={post}
-              onChange={(patch) =>
-                setPage((current) => ({
-                  ...current,
-                  items:
-                    reviewOnly &&
-                    "canReview" in patch &&
-                    patch.canReview === false
-                      ? current.items.filter(
-                          (item) => postKey(item) !== postKey(post),
-                        )
-                      : current.items.map((item) =>
-                          postKey(item) === postKey(post)
-                            ? ({ ...item, ...patch } as FeedPost)
-                            : item,
-                        ),
-                }))
+              ? "Posts"
+              : "Latest from your circle"}
+        </h2>
+      </div>
+      {error && (
+        <Alert variant="destructive" className="my-4">
+          <AlertTitle>
+            {error === "sync"
+              ? "Updates interrupted"
+              : "Could not load older posts"}
+          </AlertTitle>
+          <AlertDescription>
+            {error === "sync"
+              ? "Trying to reconnect automatically."
+              : "Check your connection and try again."}
+            <Button
+              variant="link"
+              disabled={busy}
+              onClick={() =>
+                error === "older"
+                  ? void load("older")
+                  : syncQueue.current?.request()
               }
-            />
-          ))
-        ) : (
-          <Empty className="py-12">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Camera />
-              </EmptyMedia>
-              <EmptyTitle>
-                {reviewOnly ? "No proof to review" : "No posts yet"}
-              </EmptyTitle>
-              <EmptyDescription>
-                {reviewOnly
-                  ? "Check the feed for other posts."
-                  : memberId
-                    ? "Their proof and check-ins will appear here."
-                    : "Post some proof or check in."}
-              </EmptyDescription>
-            </EmptyHeader>
-            {!memberId && !reviewOnly && (
-              <Button onClick={() => openComposer()}>Create a post</Button>
-            )}
-          </Empty>
-        )}
-        <div ref={sentinel} aria-hidden="true" />
-        {page.nextCursor ? (
-          <Button
-            variant="outline"
-            className="my-6 self-center"
-            disabled={busy !== null}
-            onClick={() => load("older")}
-          >
-            {busy === "older" && <Spinner data-icon="inline-start" />}Load older
-          </Button>
-        ) : (
-          page.items.length > 0 && (
-            <p className="py-8 text-center text-xs text-muted-foreground">
-              That’s everything for now.
-            </p>
-          )
-        )}
-      </section>
-    </PullToRefresh>
+            >
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      {page.items.length ? (
+        page.items.map((post) => (
+          <PostCard
+            key={postKey(post)}
+            post={post}
+            onChange={(patch) =>
+              setPage((current) => ({
+                ...current,
+                items:
+                  reviewOnly &&
+                  "canReview" in patch &&
+                  patch.canReview === false
+                    ? current.items.filter(
+                        (item) => postKey(item) !== postKey(post),
+                      )
+                    : current.items.map((item) =>
+                        postKey(item) === postKey(post)
+                          ? ({ ...item, ...patch } as FeedPost)
+                          : item,
+                      ),
+              }))
+            }
+          />
+        ))
+      ) : (
+        <Empty className="py-12">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Camera />
+            </EmptyMedia>
+            <EmptyTitle>
+              {reviewOnly ? "No proof to review" : "No posts yet"}
+            </EmptyTitle>
+            <EmptyDescription>
+              {reviewOnly
+                ? "Check the feed for other posts."
+                : memberId
+                  ? "Their proof and check-ins will appear here."
+                  : "Post some proof or check in."}
+            </EmptyDescription>
+          </EmptyHeader>
+          {!memberId && !reviewOnly && (
+            <Button onClick={() => openComposer()}>Create a post</Button>
+          )}
+        </Empty>
+      )}
+      <div ref={sentinel} aria-hidden="true" />
+      {page.nextCursor ? (
+        <Button
+          variant="outline"
+          className="my-6 self-center"
+          disabled={busy}
+          onClick={() => load("older")}
+        >
+          {busy && <Spinner data-icon="inline-start" />}Load older
+        </Button>
+      ) : (
+        page.items.length > 0 && (
+          <p className="py-8 text-center text-xs text-muted-foreground">
+            That’s everything for now.
+          </p>
+        )
+      )}
+    </section>
   );
 }

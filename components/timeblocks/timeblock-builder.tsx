@@ -51,6 +51,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
+import { appFetch } from "@/lib/app-refresh";
 import { formatDayShort, parsePhoenixLocalDateTime } from "@/lib/time";
 import { blockDuration } from "@/lib/timeblock-calendar";
 import {
@@ -246,6 +247,7 @@ export function TimeblockBuilder({
   const rowsRef = useRef(initialRows);
   const [routine, setRoutine] = useState(initialRoutine);
   const routineRef = useRef(initialRoutine);
+  const routineSignature = useRef(JSON.stringify(initialRoutine));
   const [routineSaveStatus, setRoutineSaveStatus] = useState<
     "saved" | "saving" | "error"
   >("saved");
@@ -263,7 +265,7 @@ export function TimeblockBuilder({
     // Serialize writes so an older request cannot overwrite a later edit/undo.
     saveQueue.current = saveQueue.current.then(async () => {
       try {
-        const response = await fetch("/api/timeblocks/routine", {
+        const response = await appFetch("/api/timeblocks/routine", {
           method: "PUT",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(next),
@@ -275,6 +277,18 @@ export function TimeblockBuilder({
       }
     });
   }, []);
+  useEffect(() => {
+    const signature = JSON.stringify(initialRoutine);
+    if (
+      routineDirty ||
+      routineSaveStatus !== "saved" ||
+      signature === routineSignature.current
+    )
+      return;
+    routineSignature.current = signature;
+    routineRef.current = initialRoutine;
+    setRoutine(initialRoutine);
+  }, [initialRoutine, routineDirty, routineSaveStatus]);
   const history = useRef<TimeblockHistory>({ past: [], future: [] });
   const restored = useRef(false);
   const [ready, setReady] = useState(false);

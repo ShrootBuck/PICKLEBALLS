@@ -15,6 +15,13 @@ export class LiveRefresh {
   request = () => {
     if (this.disposed) return;
     this.dirty = true;
+    // A new change or a returning connection should not sit behind an old
+    // failure's backoff. Timer-driven retries still back off on their own.
+    if (this.retries) {
+      clearTimeout(this.timer);
+      this.timer = undefined;
+      this.retries = 0;
+    }
     this.schedule(40);
   };
 

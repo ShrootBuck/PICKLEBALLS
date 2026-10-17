@@ -10,6 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { refreshEvent } from "@/lib/app-refresh";
+import { watchRealtime } from "@/lib/watch-realtime";
 
 export function GoalPicker({
   circleId,
@@ -36,20 +38,39 @@ export function GoalPicker({
     const controller = new AbortController();
     setLoading(true);
     setFailed(false);
-    fetch("/api/goals", { signal: controller.signal })
-      .then(async (response) => {
-        const result = await response.json();
-        if (!response.ok || result.circleId !== circleId)
-          throw new Error("Goals unavailable");
-        setGoals(result.goals);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setFailed(true);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
+    const live = watchRealtime(
+      async () => {
+        try {
+          const response = await fetch("/api/goals", {
+            cache: "no-store",
+            signal: AbortSignal.any([
+              controller.signal,
+              AbortSignal.timeout(20_000),
+            ]),
+          });
+          const result = await response.json();
+          if (!response.ok || result.circleId !== circleId)
+            throw new Error("Goals unavailable");
+          if (!controller.signal.aborted) {
+            setGoals(result.goals);
+            setFailed(false);
+          }
+        } catch (error) {
+          if (!controller.signal.aborted) {
+            setFailed(true);
+            throw error;
+          }
+        } finally {
+          if (!controller.signal.aborted) setLoading(false);
+        }
+      },
+      (event) => event.type === "refresh",
+      [refreshEvent],
+    );
+    return () => {
+      controller.abort();
+      live.dispose();
+    };
   }, [circleId, attempt]);
   const items = [
     { value: "", label: "No goal" },

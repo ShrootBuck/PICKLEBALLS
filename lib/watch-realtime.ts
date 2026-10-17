@@ -1,7 +1,7 @@
 "use client";
 
 import { LiveRefresh } from "@/lib/live-refresh";
-import { subscribeRealtime } from "@/lib/realtime-client";
+import { realtimeCatchUpEvent, subscribeRealtime } from "@/lib/realtime-client";
 import type { RealtimeEvent } from "@/lib/realtime-types";
 
 export function watchRealtime(
@@ -16,7 +16,13 @@ export function watchRealtime(
   const unsubscribe = subscribeRealtime((event) => {
     if (event.type === "ready" || accepts(event)) queue.request();
   });
-  const events = ["focus", "online", ...localEvents];
+  const events = [
+    "focus",
+    "online",
+    "pageshow",
+    realtimeCatchUpEvent,
+    ...localEvents,
+  ];
   for (const event of events) window.addEventListener(event, queue.request);
   document.addEventListener("visibilitychange", queue.request);
   queue.request();
