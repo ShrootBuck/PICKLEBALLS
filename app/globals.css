@@ -3402,30 +3402,6 @@ section:first-child > .mood-group-label {
   background: color-mix(in oklch, var(--muted) 40%, transparent);
 }
 
-.hold-button {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  touch-action: none;
-  -webkit-touch-callout: none;
-  user-select: none;
-}
-.hold-button::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: color-mix(in oklch, var(--primary-foreground) 24%, transparent);
-  transform-origin: left center;
-  transform: scaleX(var(--hold, 0));
-}
-.hold-button[data-holding] {
-  scale: 0.98;
-}
-.hold-button[data-done] svg {
-  animation: pop-in 0.5s var(--ease-bounce);
-}
-
 .streak-celebration {
   position: fixed;
   inset: 0;

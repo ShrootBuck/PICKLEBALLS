@@ -2,7 +2,6 @@
 
 import { Check, Minus, Plus } from "lucide-react";
 import { type ComponentProps, useId, useRef, useState } from "react";
-import { HoldButton } from "@/components/streaks/hold-button";
 import { celebrateStreak } from "@/components/streaks/streak-celebration";
 import { countLabel, totalsParts } from "@/components/streaks/streak-text";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -344,10 +343,13 @@ function StreakLogSheet({
               </Alert>
             )}
             {mode === "log" && (
-              <HoldButton
+              <Button
+                type="button"
+                size="lg"
                 className="w-full"
+                data-initial-focus
                 disabled={pending || units === undefined}
-                onConfirm={() =>
+                onClick={() =>
                   void submit({
                     action: "log",
                     day,
@@ -361,8 +363,8 @@ function StreakLogSheet({
                 ) : (
                   <Check data-icon="inline-start" />
                 )}
-                Hold: did it
-              </HoldButton>
+                Did it
+              </Button>
             )}
             {mode === "slip" && (
               <div className="flex gap-2">
@@ -380,11 +382,6 @@ function StreakLogSheet({
                   Log slip
                 </Button>
               </div>
-            )}
-            {mode !== "slip" && (
-              <p className="text-center text-xs text-muted-foreground">
-                Press and hold to confirm.
-              </p>
             )}
           </div>
         </div>

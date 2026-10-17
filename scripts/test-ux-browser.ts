@@ -137,7 +137,7 @@ try {
     headers: { Origin: origin },
     data: {
       circleId: "demo-circle",
-      title: `Hold cancellation ${Date.now()}`,
+      title: `Click logging ${Date.now()}`,
       kind: "BUILD",
       visibility: "PRIVATE",
     },
@@ -165,60 +165,35 @@ try {
       await sheet.waitFor({ state: "hidden" });
     }
     await page.getByRole("button", { name: "Log today", exact: true }).click();
-    const hold = page.getByRole("button", {
-      name: "Hold: did it",
+    const button = page.getByRole("button", {
+      name: "Did it",
       exact: true,
     });
-    await hold.waitFor();
-    return hold;
+    await button.waitFor();
+    return button;
   }
-  await check("Tabbing away cancels a held streak confirmation", async () => {
-    const hold = await openLog();
-    const before = submissions;
-    await hold.focus();
-    await page.keyboard.down("Space");
-    assert.equal(await hold.getAttribute("data-holding"), "true");
-    await page.keyboard.press("Tab");
-    // Wait past the deliberate 650ms hold threshold.
-    await page.waitForTimeout(900);
-    await page.keyboard.up("Space");
-    assert.equal(submissions, before, "Moving focus must not log a streak");
+  await check("A click submits once and can retry after failure", async () => {
+    const button = await openLog();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const before = submissions;
+      await button.click();
+      await page
+        .getByText("Test save failed. Try again.", { exact: true })
+        .waitFor();
+      assert.equal(submissions, before + 1);
+    }
   });
-  await check("Dragging off cancels a held streak confirmation", async () => {
-    const hold = await openLog();
-    const before = submissions;
-    // Hover waits for the sheet's opening transition to settle before pressing.
-    await hold.hover();
-    const box = await hold.boundingBox();
-    assert(box);
-    await page.mouse.down();
-    await page.waitForFunction(
-      () => document.querySelector('.hold-button[data-holding="true"]'),
-      undefined,
-      { timeout: 500 },
-    );
-    await page.mouse.move(box.x + box.width / 2, box.y - 15);
-    await page.waitForTimeout(900);
-    await page.mouse.up();
-    assert.equal(submissions, before, "Dragging off must not log a streak");
+  await check("Enter and Space activate streak logging", async () => {
+    const button = await openLog();
+    for (const key of ["Enter", "Space"]) {
+      const before = submissions;
+      await button.press(key);
+      await page
+        .getByText("Test save failed. Try again.", { exact: true })
+        .waitFor();
+      assert.equal(submissions, before + 1);
+    }
   });
-  await check(
-    "A deliberate hold submits once and can retry after failure",
-    async () => {
-      const hold = await openLog();
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const before = submissions;
-        await hold.focus();
-        await page.keyboard.down("Space");
-        await page.waitForTimeout(900);
-        await page.keyboard.up("Space");
-        await page
-          .getByText("Test save failed. Try again.", { exact: true })
-          .waitFor();
-        assert.equal(submissions, before + 1);
-      }
-    },
-  );
 
   assert.deepEqual(errors, [], "Unexpected browser errors");
   assert.deepEqual(failures, [], "UX regressions");

@@ -129,11 +129,7 @@ try {
     .getByRole("button", { name: "Yesterday", exact: true })
     .click();
   const logged = await saveResponse(async () => {
-    const hold = logSheet.getByRole("button", { name: /Hold: did it/ });
-    await hold.focus();
-    await page.keyboard.down("Space");
-    await page.waitForTimeout(800);
-    await page.keyboard.up("Space");
+    await logSheet.getByRole("button", { name: "Did it", exact: true }).click();
   }, "POST");
   assert.equal(logged.summary.yesterdayState, "done");
   await logSheet.waitFor({ state: "hidden" });
